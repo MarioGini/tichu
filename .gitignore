@@ -1,6 +1,15 @@
 
-# Created by https://www.gitignore.io/api/windows,flutter,visualstudiocode
-# Edit at https://www.gitignore.io/?templates=windows,flutter,visualstudiocode
+# Created by https://www.gitignore.io/api/windows,flutter,firebase,visualstudiocode
+# Edit at https://www.gitignore.io/?templates=windows,flutter,firebase,visualstudiocode
+
+### Firebase ###
+.idea
+**/node_modules/*
+**/.firebaserc
+
+### Firebase Patch ###
+.runtimeconfig.json
+.firebase/
 
 ### Flutter ###
 # Flutter/Dart/Pub related
@@ -92,4 +101,4 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# End of https://www.gitignore.io/api/windows,flutter,visualstudiocode
+# End of https://www.gitignore.io/api/windows,flutter,firebase,visualstudiocode

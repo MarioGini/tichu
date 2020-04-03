@@ -4,12 +4,6 @@
 .dart_tool/
 .packages
 build/
-# If you're building an application, you may want to check-in your pubspec.lock
-pubspec.lock
-
-# Directory created by dartdoc
-# If you don't generate documentation locally you can remove this line.
-doc/api/
 
 # Avoid committing generated Javascript files:
 *.dart.js
@@ -19,3 +13,22 @@ doc/api/
 *.js_
 *.js.deps
 *.js.map
+
+# VS code ignores
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Flutter ignores
+.DS_Store
+.atom/
+.idea
+.packages
+.pub/
+build/
+ios/.generated/
+packages
+.flutter-plugins

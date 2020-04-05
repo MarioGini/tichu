@@ -1,2 +1,2 @@
 # tichu
-Multiplayer Tichu car game based on Flutter
+Multiplayer Tichu card game based on Flutter

@@ -1,14 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-final dummySnapshot = [
-  {"name": "Filip", "votes": 15},
-  {"name": "Abraham", "votes": 14},
-  {"name": "Richard", "votes": 11},
-  {"name": "Ike", "votes": 10},
-  {"name": "Justin", "votes": 1},
-];
-
 class GetCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -47,7 +39,9 @@ class GetCards extends StatelessWidget {
         child: ListTile(
           title: Text(record.name),
           trailing: Text(record.votes.toString()),
-          onTap: () => print(record),
+          onTap: () {
+            record.reference.updateData({'votes': FieldValue.increment(1)});
+          },
         ),
       ),
     );

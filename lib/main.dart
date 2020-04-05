@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'routes/routeA.dart';
+import 'screens/routeB.dart';
+import 'data/user.dart';
 
 void main() => runApp(MyApp());
 
@@ -8,11 +9,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      routes: {'routeA': (context) => RouteA()},
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      title: 'Tichu',
       home: MyHomePage(),
     );
   }
@@ -24,13 +21,13 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  String _username = "";
+  User user = User("");
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Routing & Navigation"),
+        title: Text("Welcome Screen"),
       ),
       body: Center(
         child: Column(
@@ -46,16 +43,16 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 onSubmitted: (String str) {
                   setState(() {
-                    _username = str;
+                    user.userName = str;
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => RouteA()),
+                      MaterialPageRoute(
+                          builder: (context) => RouteB(user: user)),
                     );
                   });
                 },
               ),
             ),
-            Text(_username),
           ],
         ),
       ),

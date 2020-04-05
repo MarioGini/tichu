@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "275103363928",
+    "firebase_url": "https://tichu-a373a.firebaseio.com",
+    "project_id": "tichu-a373a",
+    "storage_bucket": "tichu-a373a.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:275103363928:android:0e6f3628b9a84581972b2d",
+        "android_client_info": {
+          "package_name": "com.example.tichu"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "275103363928-1q8ee9a3ikbltr3uga838ff2ftflbndd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIJlakXmpE19Cl8atSxSppdfDDxo7P_7o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "275103363928-1q8ee9a3ikbltr3uga838ff2ftflbndd.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

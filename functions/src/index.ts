@@ -1,5 +1,7 @@
 import * as functions from 'firebase-functions';
+import * as admin from 'firebase-admin';
 
+admin.initializeApp();
 
 export const countNameChanges = functions.firestore
     .document('users/{userId}')
@@ -8,9 +10,9 @@ export const countNameChanges = functions.firestore
         const data = change.after.data();
         const previousData = change.before.data();
 
-        if (data.isReady == previousData.isReady) return null;
+        if (data.isReady === previousData.isReady) return null;
 
-        var newCards = { cards: Math.floor(Math.random() * 20) + 1 };
+        const newCards = { cards: Math.floor(Math.random() * 20) + 1 };
 
         // Then return a promise of a set operation to update the count
         return change.after.ref.collection('cards').add(newCards);

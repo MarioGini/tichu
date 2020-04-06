@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tichu/screens/welcome.dart';
+import 'package:tichu/screens/login.dart';
 
 void main() => runApp(MyApp());
 
@@ -9,7 +9,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Tichu',
-      home: MyHomePage(),
+      home: LoginPage(),
     );
   }
 }

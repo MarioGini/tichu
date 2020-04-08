@@ -8,19 +8,31 @@
             "name": "Flutter: Release",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "release"
+            "flutterMode": "release",
+            "args": [
+                "--web-port",
+                "8080"
+            ]
         },
         {
             "name": "Flutter Profile",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "profile"
+            "flutterMode": "profile",
+            "args": [
+                "--web-port",
+                "8080"
+            ]
         },
         {
             "name": "Flutter Debug",
             "request": "launch",
             "type": "dart",
-            "flutterMode": "debug"
+            "flutterMode": "debug",
+            "args": [
+                "--web-port",
+                "8080"
+            ]
         }
     ]
 }

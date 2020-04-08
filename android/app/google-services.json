@@ -15,8 +15,12 @@
       },
       "oauth_client": [
         {
-          "client_id": "275103363928-1q8ee9a3ikbltr3uga838ff2ftflbndd.apps.googleusercontent.com",
-          "client_type": 3
+          "client_id": "275103363928-kvcjao9odg2j61f90lmq02pgm11isum6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.tichu",
+            "certificate_hash": "f455444e91d5dbc22eb0158fe31194a89445efa6"
+          }
         }
       ],
       "api_key": [
@@ -28,7 +32,7 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "275103363928-1q8ee9a3ikbltr3uga838ff2ftflbndd.apps.googleusercontent.com",
+              "client_id": "275103363928-01p4gfdoolb9coo4j010bau2c9pv87ir.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

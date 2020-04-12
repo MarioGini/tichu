@@ -56,6 +56,26 @@
     firebase.analytics();
   </script>
 
+  <script>
+    window.fbAsyncInit = function () {
+      FB.init({
+        appId: '801604493697551', // Replace "000000000000" with your Facebook App ID here.
+        xfbml: true,
+        version: 'v6.0' // Check current Facebook SDK version
+      });
+      FB.AppEvents.logPageView();
+    };
+  </script>
+  <script>
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) { return; }
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/en_US/sdk.js";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+  </script>
+
   <script src="https://apis.google.com/js/platform.js" async defer></script>
 
   <script src="main.dart.js" type="application/javascript"></script>

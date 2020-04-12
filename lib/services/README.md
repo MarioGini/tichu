@@ -1,1 +1,0 @@
-Contains services for firebase requests and stuff like that.

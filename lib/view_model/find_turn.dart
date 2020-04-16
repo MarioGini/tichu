@@ -76,11 +76,15 @@ TichuTurn checkForQuartett(List<Card> cards) {
   if (isSpecialCard(cards)) {
     return null;
   }
+
+  return null;
 }
 
 // converts enum into double value.
 // TODO overload for cases with phoenix and other card.
-double getValueOfCard(Card card) {}
+double getValueOfCard(Card card) {
+  return 0.0;
+}
 
 // Special cards are dragon, mah jong, dog.
 bool isSpecialCard(List<Card> cards) {

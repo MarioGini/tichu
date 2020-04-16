@@ -1,0 +1,23 @@
+version: 2
+jobs:
+  build:    
+    docker:
+      - image: cirrusci/flutter
+
+    branches:
+      only: develop
+
+    steps:
+      - checkout
+
+      - run:
+          name: Run Flutter doctor
+          command: flutter doctor
+
+      - run:
+          name: Run the application tests
+          command: flutter test
+
+      - run:
+          name: Build the Android version
+          command: flutter build apk

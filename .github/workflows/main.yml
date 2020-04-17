@@ -17,7 +17,8 @@ jobs:
       with:
         channel: 'beta' 
     - run: flutter pub get
-    - run: flutter build
+    - run: flutter build apk
+    - run: flutter build web
     # Analyze our Dart code
     - run: flutter analyze
     # Run our tests

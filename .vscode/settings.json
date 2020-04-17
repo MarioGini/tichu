@@ -1,5 +1,4 @@
 {
-    "editor.formatOnSave": true,
-    "editor.formatOnPaste": true,
-    "workbench.editor.enablePreview": false
+    "coverage-gutters.showLineCoverage": true,
+    "coverage-gutters.showGutterCoverage": false,
 }

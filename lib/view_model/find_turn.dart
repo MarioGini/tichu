@@ -1,27 +1,28 @@
 import 'package:tichu/view_model/tichu_data.dart';
 
 // Returns null for invalid turns.
-TichuTurn getTurn(List<Card> turn) {
-  // Sort the cards accordingly. All special cards are at the end.
+TichuTurn getTurn(CardSelection selection) {
+  // Sort the cards accordingly.
+  selection.cards.sort(compareCards);
 
   // Handle singles and derivatives.
-  if (turn.length == 1) {
-    checkSingle(turn[0]);
+  if (selection.cards.length == 1) {
+    checkSingle(selection.cards[0]);
   }
 
   // Two cards can only be a PAIR.
-  else if (turn.length == 2) {
-    return checkForPair(turn);
+  else if (selection.cards.length == 2) {
+    return checkForPair(selection.cards);
   }
 
   // Three cards can only be a TRIPLET.
-  else if (turn.length == 3) {
-    return checkForTriplet(turn);
+  else if (selection.cards.length == 3) {
+    return checkForTriplet(selection.cards);
   }
 
   // Four cards can be a quartett bomb or PAIR_STRAIGHT.
-  else if (turn.length == 4) {
-    return checkForQuartett(turn);
+  else if (selection.cards.length == 4) {
+    return checkForQuartett(selection.cards);
   }
 
   // Five cards can be full house or straight.
@@ -32,19 +33,22 @@ TichuTurn getTurn(List<Card> turn) {
 // Utility functions to determine turn type
 
 TichuTurn checkSingle(Card card) {
+  if (!isSpecialCard([card])) {
+    return TichuTurn(TurnType.SINGLE, card.index.toDouble(), [card]);
+  }
+
   switch (card) {
     case Card.MAH_JONG:
       // TODO in that case, handle the wish value.
-      TichuTurn currentTurn = TichuTurn(TurnType.SINGLE, 1);
-      currentTurn.wishValue = 3;
+      TichuTurn currentTurn = TichuTurn(TurnType.SINGLE, 1, [card]);
       return currentTurn;
       break;
     case Card.PHOENIX:
       // TODO obtain previous card value.
-      return TichuTurn(TurnType.SINGLE, 4.5);
+      return TichuTurn(TurnType.SINGLE, 4.5, [card]);
       break;
     case Card.DRAGON:
-      return TichuTurn(TurnType.DRAGON, 0);
+      return TichuTurn(TurnType.DRAGON, 0, [card]);
       break;
     default:
       break;
@@ -58,7 +62,7 @@ TichuTurn checkForPair(List<Card> cards) {
   }
   // is sorted, so only second card can be phoenix.
   else if (cards[0] == cards[1] || cards[1] == Card.PHOENIX) {
-    return TichuTurn(TurnType.PAIR, 2);
+    return TichuTurn(TurnType.PAIR, 2, cards);
   } else {
     return null;
   }
@@ -86,7 +90,7 @@ double getValueOfCard(Card card) {
   return 0.0;
 }
 
-// Special cards are dragon, mah jong, dog.
+// Special cards are dragon, mah jong, dog, phoenix.
 bool isSpecialCard(List<Card> cards) {
   bool atLeastOneSpecialCard = false;
 
@@ -101,7 +105,11 @@ bool isSpecialCard(List<Card> cards) {
       case Card.DOG:
         atLeastOneSpecialCard = true;
         break;
+      case Card.PHOENIX:
+        atLeastOneSpecialCard = true;
+        break;
       default:
+        break;
     }
   });
 

@@ -1,6 +1,7 @@
-/// Definition of data structs for tichu logic.
-
+/// Definition of data structs for tichu logic. Important that all non special
+/// cards have index corresponding to their actual value.
 enum Card {
+  MAH_JONG,
   TWO,
   THREE,
   FOUR,
@@ -15,9 +16,8 @@ enum Card {
   KING,
   ACE,
   DRAGON,
-  DOG,
-  MAH_JONG,
-  PHOENIX
+  PHOENIX,
+  DOG
 }
 
 // Method is essential to sort enums.
@@ -54,10 +54,28 @@ enum TurnType {
   BOMB, // Either four of a kind or a straight bomb
 }
 
+// This is the input to the tichu game logic as obtained from UI.
+class CardSelection {
+  final List<Card> cards;
+  final Card wish; // can be null. If not null, cards contain mah jong.
+  final int phoenixValue;
+
+  CardSelection(this.cards, this.wish, this.phoenixValue);
+}
+
+// Describes a turn action.
 class TichuTurn {
   final TurnType type;
   final double value;
-  int wishValue; // set to 0 when no wish is present.
+  final List<Card> cards;
 
-  TichuTurn(this.type, this.value);
+  TichuTurn(this.type, this.value, this.cards);
+}
+
+// Contains all information about the deck state.
+class DeckState {
+  final TichuTurn turn;
+  final Card wish;
+
+  DeckState(this.turn, this.wish);
 }

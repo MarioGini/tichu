@@ -8,9 +8,22 @@ void main() {
     setUp(() {
       sampleCard = Card.FOUR;
     });
-    test('getTurnSingle', () {
-      getTurn([sampleCard]);
-      expect(sampleCard, Card.FOUR);
+    test('getTurnSingle', () {});
+  });
+
+// Tests for function isSpecialCard.
+  group('isSpecialCard', () {
+    test('two', () {
+      expect(isSpecialCard([Card.TWO]), false);
+    });
+    test('dog', () {
+      expect(isSpecialCard([Card.DOG]), true);
+    });
+    test('dragon', () {
+      expect(isSpecialCard([Card.DRAGON]), true);
+    });
+    test('mah jong', () {
+      expect(isSpecialCard([Card.MAH_JONG]), true);
     });
   });
 }

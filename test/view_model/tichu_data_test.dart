@@ -6,7 +6,7 @@ void main() {
     List<Card> testCards = [Card.DOG, Card.TEN, Card.EIGHT, Card.PHOENIX];
     testCards.sort(compareCards);
 
-    List<Card> expectedOrder = [Card.EIGHT, Card.TEN, Card.DOG, Card.PHOENIX];
+    List<Card> expectedOrder = [Card.EIGHT, Card.TEN, Card.PHOENIX, Card.DOG];
     expect(testCards, expectedOrder);
   });
 

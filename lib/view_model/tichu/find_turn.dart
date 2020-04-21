@@ -1,4 +1,4 @@
-import 'package:tichu/view_model/tichu_data.dart';
+import 'package:tichu/view_model/tichu/tichu_data.dart';
 
 // Returns null for invalid turns.
 TichuTurn getTurn(CardSelection selection) {

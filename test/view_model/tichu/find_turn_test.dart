@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
-import 'package:tichu/view_model/find_turn.dart';
-import 'package:tichu/view_model/tichu_data.dart';
+import 'package:tichu/view_model/tichu/find_turn.dart';
+import 'package:tichu/view_model/tichu/tichu_data.dart';
 
 void main() {
   group('singles', () {
@@ -8,7 +8,9 @@ void main() {
     setUp(() {
       sampleCard = Card.FOUR;
     });
-    test('getTurnSingle', () {});
+    test('getTurnSingle', () {
+      expect(sampleCard == Card.FOUR, true);
+    });
   });
 
 // Tests for function isSpecialCard.

@@ -1,6 +1,6 @@
-import 'package:tichu/view_model/find_turn.dart';
-import 'package:tichu/view_model/tichu_data.dart';
-import 'package:tichu/view_model/wish_logic.dart';
+import 'package:tichu/view_model/tichu/find_turn.dart';
+import 'package:tichu/view_model/tichu/tichu_data.dart';
+import 'package:tichu/view_model/tichu/wish_logic.dart';
 
 // This is the main function. Deck can be null. selection cannot be empty
 DeckState handleTurn(

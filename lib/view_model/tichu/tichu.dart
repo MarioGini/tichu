@@ -4,7 +4,7 @@ import 'package:tichu/view_model/tichu/wish_logic.dart';
 
 // This is the main function. Deck can be null. selection cannot be empty
 DeckState handleTurn(
-    DeckState deck, CardSelection selection, List<Card> allCards) {
+    DeckState deck, CardSelection selection, Map<Card, int> allCards) {
   // TODO single phoenix needs information of deck to determine value.
   TichuTurn currentTurn = getTurn(selection);
 

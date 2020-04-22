@@ -3,26 +3,25 @@ import 'package:tichu/view_model/tichu/tichu_data.dart';
 // Returns null for invalid turns.
 TichuTurn getTurn(CardSelection selection) {
   // Sort the cards accordingly.
-  selection.cards.sort(compareCards);
 
   // Handle singles and derivatives.
   if (selection.cards.length == 1) {
-    checkSingle(selection.cards[0]);
+    //checkSingle(selection.cards[0]);
   }
 
   // Two cards can only be a PAIR.
   else if (selection.cards.length == 2) {
-    return checkForPair(selection.cards);
+    //return checkForPair(selection.cards);
   }
 
   // Three cards can only be a TRIPLET.
   else if (selection.cards.length == 3) {
-    return checkForTriplet(selection.cards);
+    //return checkForTriplet(selection.cards);
   }
 
   // Four cards can be a quartett bomb or PAIR_STRAIGHT.
   else if (selection.cards.length == 4) {
-    return checkForQuartett(selection.cards);
+    //return checkForQuartett(selection.cards);
   }
 
   // Five cards can be full house or straight.
@@ -34,21 +33,21 @@ TichuTurn getTurn(CardSelection selection) {
 
 TichuTurn checkSingle(Card card) {
   if (!isSpecialCard([card])) {
-    return TichuTurn(TurnType.SINGLE, card.index.toDouble(), [card]);
+    return TichuTurn(TurnType.SINGLE, card.index.toDouble(), {card: 1});
   }
 
   switch (card) {
     case Card.MAH_JONG:
       // TODO in that case, handle the wish value.
-      TichuTurn currentTurn = TichuTurn(TurnType.SINGLE, 1, [card]);
+      TichuTurn currentTurn = TichuTurn(TurnType.SINGLE, 1, {card: 1});
       return currentTurn;
       break;
     case Card.PHOENIX:
       // TODO obtain previous card value.
-      return TichuTurn(TurnType.SINGLE, 4.5, [card]);
+      return TichuTurn(TurnType.SINGLE, 4.5, {card: 1});
       break;
     case Card.DRAGON:
-      return TichuTurn(TurnType.DRAGON, 0, [card]);
+      return TichuTurn(TurnType.DRAGON, 0, {card: 1});
       break;
     default:
       break;
@@ -62,7 +61,7 @@ TichuTurn checkForPair(List<Card> cards) {
   }
   // is sorted, so only second card can be phoenix.
   else if (cards[0] == cards[1] || cards[1] == Card.PHOENIX) {
-    return TichuTurn(TurnType.PAIR, 2, cards);
+    //return TichuTurn(TurnType.PAIR, 2, cards);
   } else {
     return null;
   }

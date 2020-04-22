@@ -56,7 +56,7 @@ enum TurnType {
 
 // This is the input to the tichu game logic as obtained from UI.
 class CardSelection {
-  final List<Card> cards;
+  final Map<Card, int> cards;
   final Card wish; // can be null. If not null, cards contain mah jong.
   final int phoenixValue;
 
@@ -67,7 +67,7 @@ class CardSelection {
 class TichuTurn {
   final TurnType type;
   final double value;
-  final List<Card> cards;
+  final Map<Card, int> cards;
 
   TichuTurn(this.type, this.value, this.cards);
 }

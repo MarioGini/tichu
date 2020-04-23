@@ -6,7 +6,7 @@ void main() {
   group('computeNextWish', () {
     test('noPreviousWishTest', () {
       CardSelection selection = CardSelection({Card.NINE: 1}, null, 0);
-      expect(computeNextWish(null, selection), true);
+      expect(computeNextWish(null, selection), null);
     });
   });
 

@@ -20,14 +20,14 @@ enum Card {
   DOG
 }
 
-// Method is essential to sort enums.
+// Method is essential to sort enums. This sorts in descending order.
 int compareCards(Card a, Card b) {
   if (a.index == b.index) {
     return 0;
   } else if (a.index > b.index) {
-    return 1;
-  } else {
     return -1;
+  } else {
+    return 1;
   }
 }
 

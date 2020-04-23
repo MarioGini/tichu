@@ -91,10 +91,40 @@ bool canPlayWishOnTriplet(DeckState deck, Map<Card, int> cards) {
 }
 
 bool canPlayWishOnFullHouse(DeckState deck, Map<Card, int> cards) {
-  // Wish needs to be pair/triplet.
-  // Need to find a triplet that is higher than deck value.
-  // Given that, need to find another pair.
-  return true;
+  List<Card> quartets = getQuartets(cards);
+  List<Card> triplets = getTriplets(cards);
+  List<Card> pairs = getPairs(cards);
+
+  bool wishInMultiple = cards[deck.wish] >= 2;
+
+  if (cards.containsKey(Card.PHOENIX)) {
+    // First case: Pair is formed using phoenix.
+
+    // Second case: Triplet is formed using phoenix.
+    List<Card> pairs = getPairs(cards);
+    if (pairs.first.index > deck.turn.value && pairs.length >= 2) {
+      return true;
+    } else {
+      return false;
+    }
+  } else if (wishInMultiple) {
+    if (triplets.first.index <= deck.turn.value) {
+      // When triplet is too low, we will not have a full house.
+      return false;
+    } else if (triplets.length >= 2) {
+      // With at least two triplets, we can form a full house.
+      return true;
+    } else if (pairs.length >= 1) {
+      // With at least one triplet and one pair, we can form a full house.
+      return true;
+    } else {
+      // We have a triplet but no pair, so no full house.
+      return false;
+    }
+  } else {
+    // We do not have a phoenix and the wish is not in a multiple set.
+    return false;
+  }
 }
 
 bool findTurnOnStraight(DeckState deck, Map<Card, int> cards) {

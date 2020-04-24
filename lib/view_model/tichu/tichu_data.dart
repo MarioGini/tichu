@@ -36,19 +36,10 @@ enum Color { BLACK, GREEN, RED, BLUE }
 enum TurnType {
   SINGLE,
   PAIR,
-  PAIR_STRAIGHT,
+  PAIR_STRAIGHT, // Length of straight to be determined from number of cards.
   TRIPLET,
   FULL_HOUSE,
-  STRAIGHT_OF_5,
-  STRAIGHT_OF_6,
-  STRAIGHT_OF_7,
-  STRAIGHT_OF_8,
-  STRAIGHT_OF_9,
-  STRAIGHT_OF_10,
-  STRAIGHT_OF_11,
-  STRAIGHT_OF_12,
-  STRAIGHT_OF_13,
-  STRAIGHT_OF_14,
+  STRAIGHT, // Length of straight to be determined from number of cards.
   DRAGON,
   DOG,
   BOMB, // Either four of a kind or a straight bomb
@@ -66,10 +57,58 @@ class CardSelection {
 // Describes a turn action.
 class TichuTurn {
   final TurnType type;
-  final double value;
   final Map<Card, int> cards;
+  final double value;
 
-  TichuTurn(this.type, this.value, this.cards);
+// NOTE: The user is responsible that the type and cards do match together.
+  TichuTurn(this.type, this.cards) : value = getValue(type, cards);
+
+// The phoenix single turn is special because its value is not determined by the
+// cards of the turn.
+  TichuTurn.singlePhoenix(this.value)
+      : type = TurnType.SINGLE,
+        cards = {Card.PHOENIX: 1};
+
+  static double getValue(TurnType type, Map<Card, int> cards) {
+    switch (type) {
+      case TurnType.SINGLE:
+      case TurnType.DRAGON:
+      case TurnType.PAIR:
+      case TurnType.PAIR_STRAIGHT:
+      case TurnType.STRAIGHT:
+      case TurnType.TRIPLET:
+      case TurnType.DOG:
+        {
+          List<Card> keys = cards.keys;
+          keys.sort(compareCards);
+          return cards.keys.first.index.toDouble();
+        }
+      case TurnType.BOMB:
+        {
+          double value;
+          if (cards.length == 1) {
+            // This means we have a quartet bomb.
+            value = cards.keys.first.index.toDouble();
+          } else {
+            // This means we have a straight bomb.
+            List<Card> keys = cards.keys;
+            keys.sort(compareCards);
+            value = 20 + cards.keys.first.index.toDouble();
+          }
+          return value;
+        }
+      case TurnType.FULL_HOUSE:
+        {
+          // Value of the full house is defined by value of triplet.
+          return cards.keys
+              .firstWhere((element) => cards[element] == 3)
+              .index
+              .toDouble();
+        }
+      default:
+        return 0.0;
+    }
+  }
 }
 
 // Contains all information about the deck state.

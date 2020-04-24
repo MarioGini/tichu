@@ -48,7 +48,7 @@ bool canPlayWish(DeckState deck, Map<Card, int> cards) {
     case TurnType.FULL_HOUSE:
       return canPlayWishOnFullHouse(deck, cards);
       break;
-    case TurnType.STRAIGHT_OF_5:
+    case TurnType.STRAIGHT:
       return findTurnOnStraight(deck, cards);
       break;
 
@@ -98,28 +98,28 @@ bool canPlayWishOnFullHouse(DeckState deck, Map<Card, int> cards) {
   bool wishInMultiple = cards[deck.wish] >= 2;
 
   if (cards.containsKey(Card.PHOENIX)) {
-    // First case: Pair is formed using phoenix.
+    // When we also have the phoenix, we either need two pairs or a triplet.
 
-    // Second case: Triplet is formed using phoenix.
-    List<Card> pairs = getPairs(cards);
-    if (pairs.first.index > deck.turn.value && pairs.length >= 2) {
+    // We have a full house when we have a triplet that is higher as the deck
+    // triplet, a phoenix and at least one other card to form the pair.
+    if (triplets.length >= 1 &&
+        triplets.first.index > deck.turn.value &&
+        cards.length >= 3) {
       return true;
     } else {
-      return false;
+      // Check whether we can use two pairs and the phoenix.
+      return pairs.length >= 2 && pairs.first.index > deck.turn.value;
     }
-  } else if (wishInMultiple) {
+  } else if (wishInMultiple && triplets.length >= 1 && pairs.length >= 1) {
     if (triplets.first.index <= deck.turn.value) {
       // When triplet is too low, we will not have a full house.
       return false;
     } else if (triplets.length >= 2) {
       // With at least two triplets, we can form a full house.
       return true;
-    } else if (pairs.length >= 1) {
-      // With at least one triplet and one pair, we can form a full house.
-      return true;
     } else {
-      // We have a triplet but no pair, so no full house.
-      return false;
+      // With only one triplet, we need at least one pair.
+      return pairs.length >= 1;
     }
   } else {
     // We do not have a phoenix and the wish is not in a multiple set.

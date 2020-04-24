@@ -19,9 +19,9 @@ TichuTurn getTurn(CardSelection selection) {
     //return checkForTriplet(selection.cards);
   }
 
-  // Four cards can be a quartett bomb or PAIR_STRAIGHT.
+  // Four cards can be a quartet bomb or PAIR_STRAIGHT.
   else if (selection.cards.length == 4) {
-    //return checkForQuartett(selection.cards);
+    //return checkForQuartet(selection.cards);
   }
 
   // Five cards can be full house or straight.
@@ -33,21 +33,21 @@ TichuTurn getTurn(CardSelection selection) {
 
 TichuTurn checkSingle(Card card) {
   if (!isSpecialCard([card])) {
-    return TichuTurn(TurnType.SINGLE, card.index.toDouble(), {card: 1});
+    return TichuTurn(TurnType.SINGLE, {card: 1});
   }
 
   switch (card) {
     case Card.MAH_JONG:
       // TODO in that case, handle the wish value.
-      TichuTurn currentTurn = TichuTurn(TurnType.SINGLE, 1, {card: 1});
+      TichuTurn currentTurn = TichuTurn(TurnType.SINGLE, {card: 1});
       return currentTurn;
       break;
     case Card.PHOENIX:
       // TODO obtain previous card value.
-      return TichuTurn(TurnType.SINGLE, 4.5, {card: 1});
+      return TichuTurn(TurnType.SINGLE, {card: 1});
       break;
     case Card.DRAGON:
-      return TichuTurn(TurnType.DRAGON, 0, {card: 1});
+      return TichuTurn(TurnType.DRAGON, {card: 1});
       break;
     default:
       break;
@@ -65,6 +65,8 @@ TichuTurn checkForPair(List<Card> cards) {
   } else {
     return null;
   }
+
+  return null;
 }
 
 TichuTurn checkForTriplet(List<Card> cards) {

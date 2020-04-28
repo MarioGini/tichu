@@ -5,56 +5,56 @@ void main() {
   group('CardEnum', () {
     // Tests to assert that the card enumeration is correctly ordered.
     test('mahJong', () {
-      expect(Card.MAH_JONG.index, 1);
+      expect(Card.MAH_JONG.index, 0);
     });
     test('twoTest', () {
-      expect(Card.TWO.index, 2);
+      expect(Card.TWO.index, 1);
     });
     test('threeTest', () {
-      expect(Card.THREE.index, 3);
+      expect(Card.THREE.index, 2);
     });
     test('fourTest', () {
-      expect(Card.FOUR.index, 4);
+      expect(Card.FOUR.index, 3);
     });
     test('fiveTest', () {
-      expect(Card.FIVE.index, 5);
+      expect(Card.FIVE.index, 4);
     });
     test('sixTest', () {
-      expect(Card.SIX.index, 6);
+      expect(Card.SIX.index, 5);
     });
     test('sevenTest', () {
-      expect(Card.SEVEN.index, 7);
+      expect(Card.SEVEN.index, 6);
     });
     test('eightTest', () {
-      expect(Card.EIGHT.index, 8);
+      expect(Card.EIGHT.index, 7);
     });
     test('nineTest', () {
-      expect(Card.NINE.index, 9);
+      expect(Card.NINE.index, 8);
     });
     test('tenTest', () {
-      expect(Card.TEN.index, 10);
+      expect(Card.TEN.index, 9);
     });
     test('jackTest', () {
-      expect(Card.JACK.index, 11);
+      expect(Card.JACK.index, 10);
     });
     test('queenTest', () {
-      expect(Card.QUEEN.index, 12);
+      expect(Card.QUEEN.index, 11);
     });
     test('kingTest', () {
-      expect(Card.KING.index, 13);
+      expect(Card.KING.index, 12);
     });
     test('aceTest', () {
-      expect(Card.ACE.index, 14);
+      expect(Card.ACE.index, 13);
     });
     test('dragonTest', () {
-      expect(Card.DRAGON.index, 15);
+      expect(Card.DRAGON.index, 14);
     });
   });
   test('Sorting test', () {
     List<Card> testCards = [Card.DOG, Card.TEN, Card.EIGHT, Card.PHOENIX];
     testCards.sort(compareCards);
 
-    List<Card> expectedOrder = [Card.EIGHT, Card.TEN, Card.PHOENIX, Card.DOG];
+    List<Card> expectedOrder = [Card.DOG, Card.PHOENIX, Card.TEN, Card.EIGHT];
     expect(testCards, expectedOrder);
   });
 

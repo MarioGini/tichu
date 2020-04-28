@@ -2,15 +2,31 @@ import 'package:tichu/view_model/tichu/card_utils.dart';
 import 'package:tichu/view_model/tichu/tichu.dart';
 import 'package:tichu/view_model/tichu/tichu_data.dart';
 
+// Simple state machine that computes next wish based on previous wish and
+// whether the wish has been satisfied or not.
+CardFace computeNextWish(
+    CardFace previousWish, TichuTurn currentTurn, CardFace inputWish) {
+  if (inputWish != null) {
+    return inputWish;
+  }
+  if (currentTurn.cards.where((element) => element.face == previousWish) !=
+      null) {
+    return null;
+  } else {
+    return previousWish;
+  }
+}
+
 /// Returns true when the wish rules are being followed, false else.
-bool obeyMahJong(DeckState deck, TichuTurn turn, Map<Card, int> cards) {
-  // We automatically bey in three cases:
+bool obeyMahJong(DeckState deck, TichuTurn turn, List<Card> cards) {
+  // We automatically obey in three cases:
   // - There is no wish.
   // - We cannot fulfill the wish.
   // - We fulfill the wish.
   if (deck.wish == null ||
-      !cards.containsKey(deck.wish) ||
-      turn.cards.containsKey(deck.wish) && validTurn(deck.turn, turn)) {
+      cards.where((element) => element.face == deck.wish) == null ||
+      (turn.cards.where((element) => element.face == deck.wish) != null &&
+          validTurn(deck.turn, turn))) {
     return true;
   } else {
     // Player has wish card but it is not selected. Check if it is playable.
@@ -18,54 +34,47 @@ bool obeyMahJong(DeckState deck, TichuTurn turn, Map<Card, int> cards) {
   }
 }
 
-// Simple state machine that computes next wish based on previous wish and
-// whether the wish has been satisfied or not.
-Card computeNextWish(Card previousWish, CardSelection selection) {
-  if (selection.wish != null) {
-    return selection.wish;
-  }
-  if (selection.cards.containsKey(previousWish)) {
-    return null;
-  } else {
-    return previousWish;
-  }
-}
-
 // All functions below assume that cards contain the wish card.
-bool canPlayWish(DeckState deck, Map<Card, int> cards) {
+bool canPlayWish(DeckState deck, List<Card> cards) {
   switch (deck.turn.type) {
     case TurnType.SINGLE:
       return canPlayWishOnSingle(deck, cards);
     case TurnType.PAIR:
       return canPlayWishOnPair(deck, cards);
-      break;
-    case TurnType.TRIPLET:
-      return canPlayWishOnTriplet(deck, cards);
-      break;
     case TurnType.PAIR_STRAIGHT:
       return findTurnOnPairStraight(deck, cards);
-      break;
+    case TurnType.TRIPLET:
+      return canPlayWishOnTriplet(deck, cards);
     case TurnType.FULL_HOUSE:
       return canPlayWishOnFullHouse(deck, cards);
-      break;
     case TurnType.STRAIGHT:
       return findTurnOnStraight(deck, cards);
+    case TurnType.DOG:
+      return true;
+    case TurnType.BOMB:
+      // TODO check whether we have a higher bomb with the wish
       break;
-
     default:
-      break;
+      // DRAGON is not part of the switch statement because it can only be
+      // bombed.
+      return false;
   }
 
   return false;
 }
 
-bool canPlayWishOnSingle(DeckState deck, Map<Card, int> cards) {
-  return canPlayCard(deck.wish, deck.turn.value);
+bool canPlayWishOnSingle(DeckState deck, List<Card> cards) {
+  return validTurn(
+      deck.turn,
+      TichuTurn(TurnType.SINGLE,
+          [cards.firstWhere((element) => element.face == deck.wish)]));
 }
 
-bool canPlayWishOnPair(DeckState deck, Map<Card, int> cards) {
+bool canPlayWishOnPair(DeckState deck, List<Card> cards) {
+  Card phoenix = Card(CardFace.PHOENIX, Color.SPECIAL);
+
   if (canPlayCard(deck.wish, deck.turn.value)) {
-    if (cards[deck.wish] >= 2 || cards.containsKey(Card.PHOENIX)) {
+    if (cards[deck.wish] >= 2 || cards.containsKey(phoenix)) {
       return true;
     } else {
       return false;
@@ -74,11 +83,11 @@ bool canPlayWishOnPair(DeckState deck, Map<Card, int> cards) {
   return false;
 }
 
-bool findTurnOnPairStraight(DeckState deck, Map<Card, int> cards) {
+bool findTurnOnPairStraight(DeckState deck, List<Card> cards) {
   return true;
 }
 
-bool canPlayWishOnTriplet(DeckState deck, Map<Card, int> cards) {
+bool canPlayWishOnTriplet(DeckState deck, List<Card> cards) {
   if (canPlayCard(deck.wish, deck.turn.value)) {
     if (cards[deck.wish] >= 3 ||
         (cards[deck.wish] >= 2 && cards.containsKey(Card.PHOENIX))) {
@@ -90,12 +99,9 @@ bool canPlayWishOnTriplet(DeckState deck, Map<Card, int> cards) {
   return false;
 }
 
-bool canPlayWishOnFullHouse(DeckState deck, Map<Card, int> cards) {
-  List<Card> quartets = getQuartets(cards);
+bool canPlayWishOnFullHouse(DeckState deck, List<Card> cards) {
   List<Card> triplets = getTriplets(cards);
   List<Card> pairs = getPairs(cards);
-
-  bool wishInMultiple = cards[deck.wish] >= 2;
 
   if (cards.containsKey(Card.PHOENIX)) {
     // When we also have the phoenix, we either need two pairs or a triplet.
@@ -110,23 +116,18 @@ bool canPlayWishOnFullHouse(DeckState deck, Map<Card, int> cards) {
       // Check whether we can use two pairs and the phoenix.
       return pairs.length >= 2 && pairs.first.index > deck.turn.value;
     }
-  } else if (wishInMultiple && triplets.length >= 1 && pairs.length >= 1) {
-    if (triplets.first.index <= deck.turn.value) {
-      // When triplet is too low, we will not have a full house.
-      return false;
-    } else if (triplets.length >= 2) {
-      // With at least two triplets, we can form a full house.
-      return true;
-    } else {
-      // With only one triplet, we need at least one pair.
-      return pairs.length >= 1;
-    }
+  } else if (cards[deck.wish] == 2) {
+    // The wish is in a pair, we need a triplet.
+  } else if (cards[deck.wish] == 3) {
+    // The wish is in a triplet, we need a pair.
+  } else if (cards[deck.wish] == 4) {
+    return true;
   } else {
     // We do not have a phoenix and the wish is not in a multiple set.
     return false;
   }
 }
 
-bool findTurnOnStraight(DeckState deck, Map<Card, int> cards) {
+bool findTurnOnStraight(DeckState deck, List<Card> cards) {
   return true;
 }

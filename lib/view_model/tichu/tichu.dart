@@ -2,29 +2,49 @@ import 'package:tichu/view_model/tichu/find_turn.dart';
 import 'package:tichu/view_model/tichu/tichu_data.dart';
 import 'package:tichu/view_model/tichu/wish_logic.dart';
 
-// This is the main function. Deck can be null. selection cannot be empty
-DeckState handleTurn(
-    DeckState deck, CardSelection selection, Map<Card, int> allCards) {
-  // TODO single phoenix needs information of deck to determine value.
-  TichuTurn currentTurn = getTurn(selection);
+class TurnHandler {
+  List<Card> cards;
+  DeckState currentDeck; // This should be stored on Firebase.
 
-  // Selected cards must form a valid turn.
-  if (currentTurn == null) {
-    return null;
+  // This is to be called each time the deck is updated.
+  void updateDeck(DeckState newDeck) {
+    currentDeck = newDeck;
   }
 
-  // When mah jong is not obeyed, turn is invalid.
-  if (!obeyMahJong(deck, currentTurn, allCards)) {
-    return null;
+  // This is the main function. Deck can be null. selection cannot be empty
+  void handleTurn(List<Card> cards, double phoenixValue, CardFace inputWish) {
+    // Check if phoenix present and if yes, set its value.
+    if (cards.where((element) => element.face == CardFace.PHOENIX) != null) {
+      cards.sort(compareCards);
+      cards.removeLast();
+      if (cards.length >= 2) {
+        cards.add(Card.phoenix(phoenixValue));
+      } else if (currentDeck.turn.type == TurnType.SINGLE ||
+          currentDeck.turn.type == TurnType.EMPTY) {
+        cards.add(Card.phoenix(currentDeck.turn.value + 0.5));
+      }
+    }
+
+    TichuTurn currentTurn = getTurn(cards);
+
+    // Selected cards must form a valid turn.
+    if (currentTurn == null) {
+      return null;
+    }
+
+    // When mah jong is not obeyed, turn is invalid.
+    if (!obeyMahJong(currentDeck, currentTurn, cards)) {
+      return null;
+    }
+
+    if (!validTurn(currentDeck.turn, currentTurn)) {
+      return null;
+    }
+
+    // The wish is either fulfilled or propagated to next deck state.
+    currentDeck = DeckState(
+        currentTurn, computeNextWish(currentDeck.wish, currentTurn, inputWish));
   }
-
-  // The wish is either fullfilled or propagated to next deck state.
-
-  if (!validTurn(deck.turn, currentTurn)) {
-    return null;
-  }
-
-  return DeckState(currentTurn, computeNextWish(deck.wish, selection));
 }
 
 bool validTurn(TichuTurn deck, TichuTurn turn) {

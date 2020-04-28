@@ -4,28 +4,29 @@ import 'package:tichu/view_model/tichu/tichu_data.dart';
 
 void main() {
   group('singles', () {
-    Card sampleCard;
+    CardFace sampleCard;
     setUp(() {
-      sampleCard = Card.FOUR;
+      sampleCard = CardFace.FOUR;
     });
     test('getTurnSingle', () {
-      expect(sampleCard == Card.FOUR, true);
+      expect(sampleCard == CardFace.FOUR, true);
     });
   });
 
-// Tests for function isSpecialCard.
-  group('isSpecialCard', () {
+// Tests for function containsSpecialCard.
+  group('containsSpecialCard', () {
     test('two', () {
-      expect(isSpecialCard([Card.TWO]), false);
+      expect(containsSpecialCard([Card(CardFace.FIVE, Color.BLACK)]), false);
     });
     test('dog', () {
-      expect(isSpecialCard([Card.DOG]), true);
+      expect(containsSpecialCard([Card(CardFace.DOG, Color.SPECIAL)]), true);
     });
     test('dragon', () {
-      expect(isSpecialCard([Card.DRAGON]), true);
+      expect(containsSpecialCard([Card(CardFace.DRAGON, Color.SPECIAL)]), true);
     });
     test('mah jong', () {
-      expect(isSpecialCard([Card.MAH_JONG]), true);
+      expect(
+          containsSpecialCard([Card(CardFace.MAH_JONG, Color.SPECIAL)]), true);
     });
   });
 }

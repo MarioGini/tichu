@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Definition of data structs for tichu logic.
 
 enum CardFace {
@@ -79,6 +81,19 @@ class Card {
         return 0.0;
     }
   }
+
+  @override
+  bool operator ==(other) {
+    return other is Card &&
+        this.color == other.color &&
+        this.face == other.face &&
+        this.value == other.value;
+  }
+
+  @override
+  int get hashCode {
+    return face.index + 5 * color.index + value.toInt() * 17;
+  }
 }
 
 // Cards are sorted based on their value. This sorts in descending order.
@@ -111,7 +126,7 @@ class TichuTurn {
   final List<Card> cards;
   final double value;
 
-// NOTE: The user is responsible that the type and cards do match together.
+  // NOTE: The user is responsible that the type and cards do match together.
   TichuTurn(TurnType type, List<Card> cards)
       : type = type,
         cards = cards,
@@ -139,7 +154,7 @@ class TichuTurn {
           } else {
             // This means we have a straight bomb.
             cards.sort(compareCards);
-            value = 20 + cards.first.value;
+            value = 20 + cards.first.value; // 20 is a magic value
           }
           return value;
         }
@@ -157,6 +172,19 @@ class TichuTurn {
       default:
         return 0.0;
     }
+  }
+
+  @override
+  bool operator ==(other) {
+    return other is TichuTurn &&
+        this.value == other.value &&
+        this.type == other.type &&
+        listEquals(this.cards, other.cards);
+  }
+
+  @override
+  int get hashCode {
+    return this.type.index + this.value.toInt() * 10;
   }
 }
 

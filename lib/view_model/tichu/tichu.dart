@@ -49,12 +49,13 @@ class TurnHandler {
 
 bool validTurn(TichuTurn deck, TichuTurn turn) {
   // When deck is empty, any turn is valid.
-  if (deck == null) {
+  if (deck.type == TurnType.EMPTY) {
     return true;
   }
 
   // Standard case: play something higher.
-  if (deck.type == turn.type && turn.value > deck.value) {
+  if (deck.type == turn.type) {
+    // TODO handle straights, they must then have the same length.
     return true;
   }
 

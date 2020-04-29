@@ -1,33 +1,32 @@
+import 'package:tichu/view_model/tichu/card_utils.dart';
 import 'package:tichu/view_model/tichu/tichu_data.dart';
 
-// Returns null for invalid turns.
+// Returns null for invalid turns. The phoenix has already a dedicated value.
 TichuTurn getTurn(List<Card> cards) {
-  // Sort the cards accordingly.
+  TichuTurn detectedTurn;
 
-  // When a single card is selected, we pass down current turn because phoenix
-  // needs the info to determine its value.
+  cards.sort(compareCards);
+
   if (cards.length == 1) {
-    checkSingle(cards[0]);
+    // Single card is of type single, dragon or dog.
+    detectedTurn = checkSingle(cards[0]);
+  } else if (cards.length == 2) {
+    // Two cards can only be a pair.
+    detectedTurn = checkForPair(cards);
+  } else if (cards.length == 3) {
+    // Three cards can only be a triplet.
+    detectedTurn = checkForTriplet(cards);
+  } else if (cards.length == 4) {
+    // Four cards can be a quartet bomb or pair straight.
+    detectedTurn = checkForQuartet(cards);
+  } else if (cards.length == 5) {
+    // Check for full house.
+    detectedTurn = checkFives(cards);
+  } else {
+    detectedTurn = checkBigTurns(cards);
   }
 
-  // Two cards can only be a PAIR.
-  else if (cards.length == 2) {
-    //return checkForPair(selection.cards);
-  }
-
-  // Three cards can only be a TRIPLET.
-  else if (cards.length == 3) {
-    //return checkForTriplet(selection.cards);
-  }
-
-  // Four cards can be a quartet bomb or PAIR_STRAIGHT.
-  else if (cards.length == 4) {
-    //return checkForQuartet(selection.cards);
-  }
-
-  // Five cards can be full house or straight.
-
-  return null;
+  return detectedTurn;
 }
 
 // Utility functions to determine turn type
@@ -44,6 +43,7 @@ TichuTurn checkSingle(Card card) {
   return TichuTurn(TurnType.SINGLE, [card]);
 }
 
+// Input must be a list of length 2.
 TichuTurn checkForPair(List<Card> cards) {
   TichuTurn possibleTurn;
 
@@ -54,18 +54,66 @@ TichuTurn checkForPair(List<Card> cards) {
   return possibleTurn;
 }
 
+// Input must be a list of length 3.
 TichuTurn checkForTriplet(List<Card> cards) {
   TichuTurn possibleTurn;
 
-  if ((cards[0].value == cards[1].value) &&
-      (cards[1].value == cards[2].value)) {
+  if (cards[0].value == cards[1].value && cards[1].value == cards[2].value) {
     possibleTurn = TichuTurn(TurnType.TRIPLET, cards);
   }
 
   return possibleTurn;
 }
 
-// Phoenix does not count here.
-TichuTurn checkForQuartett(List<Card> cards) {
-  return null;
+// Input must be a list of length 4 and sorted.
+TichuTurn checkForQuartet(List<Card> cards) {
+  TichuTurn possibleTurn;
+
+  if (cards.where((element) => element.face == CardFace.PHOENIX).length == 0 &&
+      cards[0].value == cards[1].value &&
+      cards[1].value == cards[2].value &&
+      cards[2].value == cards[3].value) {
+    // When all four cards have the same value and no phoenix is involved, we
+    // have a quartet bomb.
+    possibleTurn = TichuTurn(TurnType.BOMB, cards);
+  } else if (cards[0].value == cards[1].value &&
+      cards[2].value == cards[3].value &&
+      cards[0].value == cards[2].value + 1.0) {
+    // When we have two pairs, we have a pair straight.
+    possibleTurn = TichuTurn(TurnType.PAIR_STRAIGHT, cards);
+  }
+  return possibleTurn;
+}
+
+// List must have length 5 and be sorted
+TichuTurn checkFives(List<Card> cards) {
+  TichuTurn possibleTurn;
+
+  // Look for a full house
+  if (cards.length == 5) {
+    possibleTurn = TichuTurn(TurnType.FULL_HOUSE, cards);
+  } else if (areOrdered(cards)) {
+    // TODO could also be straight bomb.
+    possibleTurn = TichuTurn(TurnType.STRAIGHT, cards);
+  }
+
+  return possibleTurn;
+}
+
+// For selections with six or more cards.
+TichuTurn checkBigTurns(List<Card> cards) {
+  TichuTurn possibleTurn;
+
+  if (areOrdered(cards)) {
+    if (uniformColor(cards)) {
+      possibleTurn = TichuTurn(TurnType.BOMB, cards);
+    } else {
+      possibleTurn = TichuTurn(TurnType.STRAIGHT, cards);
+    }
+  } else if (cards.length % 2 == 0) {
+    // TODO need further criteria.
+    possibleTurn = TichuTurn(TurnType.PAIR_STRAIGHT, cards);
+  }
+
+  return possibleTurn;
 }

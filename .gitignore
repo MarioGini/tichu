@@ -103,3 +103,4 @@ $RECYCLE.BIN/
 
 # End of https://www.gitignore.io/api/windows,flutter,firebase,visualstudiocode
 lib/generated_plugin_registrant.dart
+coverage/lcov.info

@@ -23,6 +23,16 @@ void main() {
       expect(occurrences(CardFace.TWO, cards), 0);
     });
   });
+  group('getHighestStraight', () {
+    test('simpleSixStraight', () {
+      List<Card> cards = [
+        Card(CardFace.TWO, Color.RED),
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.FOUR, Color.RED)
+      ];
+      TichuTurn expectedTurn = TichuTurn(TurnType.STRAIGHT, cards);
+    });
+  });
   group('uniformColor', () {
     test('uniformColorTest', () {
       List<Card> cards = [

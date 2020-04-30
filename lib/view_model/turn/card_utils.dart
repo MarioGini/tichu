@@ -14,6 +14,8 @@ int occurrences(CardFace face, List<Card> cards) {
 TichuTurn getHighestStraight(List<Card> cards) {
   TichuTurn highestStraight;
 
+  // Remove cards with duplicate face from list.
+
   if (cards.length >= 5) {
     cards.sort(compareCards);
 
@@ -24,6 +26,16 @@ TichuTurn getHighestStraight(List<Card> cards) {
       // Annoying case, find straight including phoenix.
     } else {
       // Easier case, find straight without phoenix.
+      List<Card> possibleStraight = [cards[0]];
+      int i = 0;
+      while (i < cards.length - 2 && cards[i].value == cards[i + 1].value + 1) {
+        possibleStraight.add(cards[i + 1]);
+        ++i;
+      }
+
+      // We found a possibility, now we do the same, but with a subrange
+      // starting at i+1.
+      cards.removeRange(0, i + 1);
     }
   }
 

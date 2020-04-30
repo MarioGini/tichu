@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import 'package:tichu/view_model/tichu/tichu_data.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
 
 void main() {
   test('Sorting test', () {

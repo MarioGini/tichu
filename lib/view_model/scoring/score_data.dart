@@ -1,4 +1,4 @@
-import 'package:tichu/view_model/tichu/tichu_data.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
 
 // Core data structure for scoring.
 final Map<CardFace, int> cardPoints = {

@@ -1,6 +1,6 @@
-import 'package:tichu/view_model/tichu/find_turn.dart';
-import 'package:tichu/view_model/tichu/tichu_data.dart';
-import 'package:tichu/view_model/tichu/wish_logic.dart';
+import 'package:tichu/view_model/turn/find_turn.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'package:tichu/view_model/turn/wish_logic.dart';
 
 class TurnHandler {
   List<Card> cards;
@@ -14,7 +14,7 @@ class TurnHandler {
   // This is the main function. Deck can be null. selection cannot be empty
   void handleTurn(List<Card> cards, double phoenixValue, CardFace inputWish) {
     // Check if phoenix present and if yes, set its value.
-    if (cards.where((element) => element.face == CardFace.PHOENIX) != null) {
+    if (cards.any((element) => element.face == CardFace.PHOENIX)) {
       cards.sort(compareCards);
       cards.removeLast();
       if (cards.length >= 2) {
@@ -48,8 +48,8 @@ class TurnHandler {
 }
 
 bool validTurn(TichuTurn deck, TichuTurn turn) {
-  // When deck is empty, any turn is valid.
-  if (deck.type == TurnType.EMPTY) {
+  // We can play any turn on an empty deck or dog.
+  if (deck.type == TurnType.EMPTY || deck.type == TurnType.DOG) {
     return true;
   }
 

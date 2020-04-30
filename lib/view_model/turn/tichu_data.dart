@@ -1,7 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-/// Definition of data structs for tichu logic.
-
 enum CardFace {
   MAH_JONG,
   TWO,
@@ -148,7 +146,7 @@ class TichuTurn {
       case TurnType.BOMB:
         {
           double value;
-          if (cards.length == 1) {
+          if (cards.length == 4) {
             // This means we have a quartet bomb.
             value = cards.first.value;
           } else {
@@ -176,6 +174,9 @@ class TichuTurn {
 
   @override
   bool operator ==(other) {
+    this.cards.sort(compareCards);
+    if (other is TichuTurn) other.cards.sort(compareCards);
+
     return other is TichuTurn &&
         this.value == other.value &&
         this.type == other.type &&
@@ -192,6 +193,7 @@ class TichuTurn {
 class DeckState {
   final TichuTurn turn;
   final CardFace wish;
+  // TODO needs a stack field that includes all played cards.
 
   DeckState(this.turn, this.wish);
 }

@@ -10,36 +10,125 @@ int occurrences(CardFace face, List<Card> cards) {
   return occurrences;
 }
 
-// Returns highest straight combination in the card list.
-TichuTurn getHighestStraight(List<Card> cards) {
-  TichuTurn highestStraight;
+// Removes cards with duplicate face from list.
+List<Card> removeDuplicates(List<Card> cards) {
+  List<Card> removedDuplicates = List<Card>.from(cards);
 
-  // Remove cards with duplicate face from list.
+  removedDuplicates.sort(compareCards);
+  int k = 0;
+  while (removedDuplicates[k + 1] != removedDuplicates.last) {
+    if (removedDuplicates[k].value == removedDuplicates[k + 1].value) {
+      removedDuplicates.removeAt(k + 1);
+    }
+    ++k;
+  }
 
-  if (cards.length >= 5) {
-    cards.sort(compareCards);
+  return removedDuplicates;
+}
 
-    // Dragon and dog cannot be part of straights.
-    cards.removeWhere((element) =>
-        element.face == CardFace.DRAGON || element.face == CardFace.DOG);
-    if (cards.any((element) => element.face == CardFace.PHOENIX)) {
-      // Annoying case, find straight including phoenix.
+List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
+  List<TichuTurn> pairStraights = [];
+
+  cards.removeWhere((element) =>
+      element.face == CardFace.DRAGON || element.face == CardFace.DOG);
+
+  if (cards.length < 4 || desiredLength % 2 != 0) return pairStraights;
+
+  cards.sort(compareCards);
+
+  Map<CardFace, int> occurrenceCount = {};
+  cards.forEach((element) {
+    if (occurrenceCount.containsKey(element.face)) {
+      ++occurrenceCount[element.face];
     } else {
-      // Easier case, find straight without phoenix.
-      List<Card> possibleStraight = [cards[0]];
-      int i = 0;
-      while (i < cards.length - 2 && cards[i].value == cards[i + 1].value + 1) {
-        possibleStraight.add(cards[i + 1]);
-        ++i;
-      }
+      occurrenceCount[element.face] = 1;
+    }
+  });
+  cards.removeWhere((element) {
+    bool tooMany;
+    tooMany = occurrenceCount[element.face] > 2;
+    if (tooMany) {
+      --occurrenceCount[element.face];
+    }
+    return tooMany;
+  });
 
-      // We found a possibility, now we do the same, but with a subrange
-      // starting at i+1.
-      cards.removeRange(0, i + 1);
+  if (cards.any((element) => element.face == CardFace.PHOENIX)) {
+  } else {
+    List<Card> pairedCards = List<Card>.from(cards);
+    pairedCards.removeWhere((element) => occurrenceCount[element.face] < 2);
+    int i = 0;
+    int j = 2;
+    while (j < pairedCards.length - 2) {
+      if (pairedCards[j].value + 1 != pairedCards[j - 2].value) {
+        i = j;
+        j += 2;
+      }
     }
   }
 
-  return highestStraight;
+  return pairStraights;
+}
+
+// Returns all possible straights in the list. Straight bombs are not converted
+// to bombs.
+List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
+  List<TichuTurn> straights = [];
+
+  // To find straights, we remove duplicates, dragon and dog.
+  cards.removeWhere((element) =>
+      element.face == CardFace.DRAGON || element.face == CardFace.DOG);
+  cards = removeDuplicates(cards);
+
+  // No logic required when less then five cards remain.
+  if (cards.length < 5) return straights;
+
+  if (cards.any((element) => element.face == CardFace.PHOENIX)) {
+    // Annoying case, find straight including phoenix.
+    // TODO phoenix will require the desired length.
+  } else {
+    // i is index of straight beginning, j is index of straight ending.
+    int i = 0;
+    int j = 1;
+    while (j < cards.length) {
+      if (cards[j].value + 1 != cards[j - 1].value) {
+        if (j - i >= 4) {
+          straights.add(TichuTurn(TurnType.STRAIGHT, cards.sublist(i, j)));
+        }
+        i = j;
+      }
+      ++j;
+    }
+    // Add straight that includes end card.
+    if (cards.length - i >= 5) {
+      straights.add(TichuTurn(TurnType.STRAIGHT, cards.sublist(i)));
+    }
+  }
+
+  List<TichuTurn> allStraights = [];
+  straights.forEach((element) {
+    allStraights.addAll(getStraightPermutations(element.cards));
+  });
+
+  allStraights.removeWhere((element) => element.cards.length != desiredLength);
+
+  return allStraights;
+}
+
+// The input must be a valid straight.
+List<TichuTurn> getStraightPermutations(List<Card> cards) {
+  List<TichuTurn> straightPermutations = [TichuTurn(TurnType.STRAIGHT, cards)];
+
+  int currentPermutationLength = cards.length - 1;
+
+  while (currentPermutationLength >= 5) {
+    for (int i = 0; i + currentPermutationLength <= cards.length; ++i) {
+      List<Card> subSet = cards.sublist(i, i + currentPermutationLength);
+      straightPermutations.add(TichuTurn(TurnType.STRAIGHT, subSet));
+    }
+    --currentPermutationLength;
+  }
+  return straightPermutations;
 }
 
 // Returns true when all cards in the list have the same color.

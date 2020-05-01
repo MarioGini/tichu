@@ -44,13 +44,13 @@ bool canPlayWish(DeckState deck, List<Card> cards) {
     case TurnType.PAIR:
       return canPlayWishOnPair(deck, cards);
     case TurnType.PAIR_STRAIGHT:
-    // return findTurnOnPairStraight(deck, cards);
+      return canPlayWishOnPairStraight(deck, cards);
     case TurnType.TRIPLET:
       return canPlayWishOnTriplet(deck, cards);
     case TurnType.FULL_HOUSE:
     //return canPlayWishOnFullHouse(deck, cards);
     case TurnType.STRAIGHT:
-    //return findTurnOnStraight(deck, cards);
+      return canPlayWishOnStraight(deck, cards);
     case TurnType.DOG:
       return true;
     case TurnType.DRAGON:
@@ -71,7 +71,11 @@ bool playableBomb(DeckState deck, List<Card> cards) {
       havePlayableBomb = Card(deck.wish, null).value > deck.turn.value;
     }
   } else {
-    // Check for a straight bomb.
+    // Look for a straight bomb.
+    List<TichuTurn> possibleStraightBombs = getStraights(cards, 5);
+    havePlayableBomb = possibleStraightBombs.any((element) =>
+        uniformColor(element.cards) &&
+        element.cards.any((element) => element.face == deck.wish));
   }
 
   return havePlayableBomb;
@@ -88,6 +92,10 @@ bool canPlayWishOnPair(DeckState deck, List<Card> cards) {
   return Card(deck.wish, null).value > deck.turn.value &&
       (cards.any((element) => element.face == CardFace.PHOENIX) ||
           occurrences(deck.wish, cards) >= 2);
+}
+
+bool canPlayWishOnPairStraight(DeckState deck, List<Card> cards) {
+  return false;
 }
 
 bool canPlayWishOnTriplet(DeckState deck, List<Card> cards) {
@@ -118,4 +126,14 @@ bool canPlayWishOnFullHouse(DeckState deck, List<Card> cards) {
   }
 
   return false;
+}
+
+bool canPlayWishOnStraight(DeckState deck, List<Card> cards) {
+  List<TichuTurn> possibleStraights =
+      getStraights(cards, deck.turn.cards.length);
+
+  possibleStraights.retainWhere(
+      (element) => element.cards.any((element) => element.face == deck.wish));
+
+  return possibleStraights.any((element) => element.value > deck.turn.value);
 }

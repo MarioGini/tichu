@@ -55,8 +55,11 @@ bool validTurn(TichuTurn deck, TichuTurn turn) {
 
   // Standard case: play something higher.
   if (deck.type == turn.type) {
-    // TODO handle straights, they must then have the same length.
-    return true;
+    if (deck.type == TurnType.STRAIGHT || deck.type == TurnType.PAIR_STRAIGHT) {
+      return deck.cards.length == turn.cards.length && turn.value > deck.value;
+    } else {
+      return turn.value > deck.value;
+    }
   }
 
   // Handle bombs

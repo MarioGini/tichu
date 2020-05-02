@@ -193,7 +193,7 @@ class TichuTurn {
 class DeckState {
   final TichuTurn turn;
   final CardFace wish;
-  // TODO needs a stack field that includes all played cards.
+  List<Card> cardStack; // Contains all cards played before the current turn.
 
   DeckState(this.turn, this.wish);
 }

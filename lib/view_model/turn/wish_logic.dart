@@ -1,4 +1,5 @@
-import 'package:tichu/view_model/turn/card_utils.dart';
+import 'package:tichu/view_model/turn/utils/card_utils.dart';
+import 'package:tichu/view_model/turn/utils/straight_utils.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
 // Simple state machine that computes next wish based on previous wish and

@@ -1,4 +1,6 @@
-import 'package:tichu/view_model/turn/card_utils.dart';
+import 'package:tichu/view_model/turn/utils/card_utils.dart';
+import 'package:tichu/view_model/turn/utils/straight_utils.dart';
+import 'package:tichu/view_model/turn/utils/pair_straight_utils.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
 // Returns null for invalid turns. The phoenix has already a dedicated value.

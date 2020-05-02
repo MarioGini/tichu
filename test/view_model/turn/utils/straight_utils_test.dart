@@ -83,6 +83,51 @@ void main() {
       expect(turns[0].value, Card.getValue(CardFace.EIGHT));
       expect(turns[1].value, Card.getValue(CardFace.SEVEN));
     });
+    test('phoenixComplexTest', () {
+      final List<Card> phoenixStraight = [
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.FOUR, Color.RED),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.SIX, Color.RED),
+        Card(CardFace.SEVEN, Color.RED),
+        Card(CardFace.NINE, Color.RED),
+        Card(CardFace.TEN, Color.GREEN),
+        Card(CardFace.JACK, Color.GREEN),
+        Card(CardFace.QUEEN, Color.GREEN),
+        Card(CardFace.KING, Color.GREEN),
+      ];
+
+      final int desiredLength = 5;
+      List<TichuTurn> turns = getStraights(phoenixStraight, desiredLength);
+
+      expect(turns.length, 2);
+      expect(turns.every((turn) => isStraight(turn.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns[0].value, Card.getValue(CardFace.EIGHT));
+      expect(turns[1].value, Card.getValue(CardFace.SEVEN));
+    });
+    test('phoenixComplex2Test', () {
+      final List<Card> phoenixStraight = [
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.FOUR, Color.RED),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.SIX, Color.RED),
+        Card(CardFace.SEVEN, Color.RED),
+        Card(CardFace.TEN, Color.GREEN),
+        Card(CardFace.JACK, Color.GREEN),
+        Card(CardFace.QUEEN, Color.GREEN),
+        Card(CardFace.KING, Color.GREEN),
+      ];
+
+      final int desiredLength = 5;
+      List<TichuTurn> turns = getStraights(phoenixStraight, desiredLength);
+
+      expect(turns.length, 2);
+      expect(turns.every((turn) => isStraight(turn.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns[0].value, Card.getValue(CardFace.EIGHT));
+      expect(turns[1].value, Card.getValue(CardFace.SEVEN));
+    });
   });
   group('getStraightPermutations', () {
     final List<Card> sevenStraight = [

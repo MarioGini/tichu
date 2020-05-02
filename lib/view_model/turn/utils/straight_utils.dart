@@ -16,6 +16,33 @@ List<Card> removeDuplicates(List<Card> cards) {
   return removedDuplicates;
 }
 
+class ConnectedCards {
+  int beginIdx;
+  int endIdx;
+
+  ConnectedCards(this.beginIdx, this.endIdx);
+}
+
+void findConnectedCards(List<Card> cards) {
+  cards.sort(compareCards);
+  List<ConnectedCards> connected = [];
+  int beginIdx = 0;
+  int endIdx = 0;
+
+  for (int i = 1; i < cards.length; ++i) {
+    if (cards[i].value + 1 == cards[i - 1].value) {
+      ++endIdx;
+    } else {
+      connected.add(ConnectedCards(beginIdx, endIdx));
+      beginIdx = ++endIdx;
+    }
+  }
+
+  if (endIdx == cards.length) {
+    connected.add(ConnectedCards(beginIdx, endIdx - 1));
+  }
+}
+
 // Returns all possible straights in the list. Straight bombs are not converted
 // to bombs.
 List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
@@ -41,7 +68,7 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
           Card phoenix = Card.phoenix(cards[j - 1].value - 1);
           cards.insert(j, phoenix);
         } else {
-          if (j - i >= 4) {
+          if (j - i >= 5) {
             straights.add(TichuTurn(TurnType.STRAIGHT, cards.sublist(i, j)));
           }
           phoenixUsed = false;
@@ -55,18 +82,13 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
     // We don't need to handle the end card case because phoenix card with value
     // -1 is there.
 
-    // Pad phoenix to non-phoenix straights at lower and upper end.
-    List<TichuTurn> paddedStraights = [];
-    straights.forEach((turn) {
-      paddedStraights.addAll(paddedPhoenixStraights(turn.cards));
-    });
   } else {
     // i is index of straight beginning, j is index of straight ending.
     int i = 0;
     int j = 1;
     while (j < cards.length) {
       if (cards[j].value + 1 != cards[j - 1].value) {
-        if (j - i >= 4) {
+        if (j - i >= 5) {
           straights.add(TichuTurn(TurnType.STRAIGHT, cards.sublist(i, j)));
         }
         i = j;
@@ -79,12 +101,26 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
     }
   }
 
+  // Remove straights that have phoenix at the end, unless they have length 5.
+
+  // Pad phoenix to non-phoenix straights at upper end.
+  List<TichuTurn> newAllStraights = [];
+  if (cards.any((element) => element.face == CardFace.PHOENIX)) {
+    straights.forEach((element) {
+      newAllStraights.addAll(paddedPhoenixStraights(element.cards));
+    });
+  }
+
   List<TichuTurn> allStraights = [];
-  straights.forEach((element) {
+  newAllStraights.forEach((element) {
     allStraights.addAll(getStraightPermutations(element.cards));
   });
 
   allStraights.retainWhere((element) => element.cards.length == desiredLength);
+
+  Set<double> values = {};
+  allStraights =
+      allStraights.where((element) => values.add(element.value)).toList();
 
   return allStraights;
 }
@@ -114,17 +150,11 @@ List<TichuTurn> paddedPhoenixStraights(List<Card> cards) {
 
   cards.sort(compareCards);
 
-  // Can only apply padding when the straight does not start at mah jong or end
-  // at ace.
+  // It only makes sense to pad the phoenix on top of straight.
   if (cards.first.value < Card.getValue(CardFace.ACE)) {
     List<Card> upperPadding = List<Card>.from(cards);
     upperPadding.insert(0, Card.phoenix(cards.first.value + 1));
     turns.add(TichuTurn(TurnType.STRAIGHT, upperPadding));
-  }
-  if (cards.last.value > Card.getValue(CardFace.MAH_JONG)) {
-    List<Card> lowerPadding = List<Card>.from(cards);
-    lowerPadding.insert(cards.length, Card.phoenix(cards.last.value - 1));
-    turns.add(TichuTurn(TurnType.STRAIGHT, lowerPadding));
   }
   return turns;
 }

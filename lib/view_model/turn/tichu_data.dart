@@ -131,6 +131,8 @@ class TichuTurn {
         value = getValue(type, cards);
 
   static double getValue(TurnType type, List<Card> cards) {
+    cards.sort(compareCards);
+
     switch (type) {
       case TurnType.SINGLE:
       case TurnType.DRAGON:
@@ -140,7 +142,6 @@ class TichuTurn {
       case TurnType.TRIPLET:
       case TurnType.DOG:
         {
-          cards.sort(compareCards);
           return cards.first.value;
         }
       case TurnType.BOMB:
@@ -151,7 +152,6 @@ class TichuTurn {
             value = cards.first.value;
           } else {
             // This means we have a straight bomb.
-            cards.sort(compareCards);
             value = 20 + cards.first.value; // 20 is a magic value
           }
           return value;

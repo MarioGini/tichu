@@ -64,4 +64,27 @@ void main() {
       expect(isFullHouse(cards), true);
     });
   });
+  group('findConnected', () {
+    test('simple', () {
+      final List<Card> cards = [
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.FOUR, Color.RED),
+        Card(CardFace.FIVE, Color.RED),
+        Card(CardFace.SEVEN, Color.RED),
+        Card(CardFace.EIGHT, Color.RED),
+        Card(CardFace.KING, Color.RED),
+      ];
+
+      List<ConnectedCards> expected = [
+        ConnectedCards(0, 0),
+        ConnectedCards(1, 2),
+        ConnectedCards(3, 5)
+      ];
+      List<ConnectedCards> connectedCards = findConnectedCards(cards);
+
+      expect(connectedCards.first.beginIdx, 0);
+      expect(connectedCards.last.endIdx, cards.indexOf(cards.last));
+      expect(connectedCards, expected);
+    });
+  });
 }

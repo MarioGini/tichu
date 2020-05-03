@@ -90,7 +90,6 @@ void main() {
         Card(CardFace.PHOENIX, Color.SPECIAL),
         Card(CardFace.SIX, Color.RED),
         Card(CardFace.SEVEN, Color.RED),
-        Card(CardFace.NINE, Color.RED),
         Card(CardFace.TEN, Color.GREEN),
         Card(CardFace.JACK, Color.GREEN),
         Card(CardFace.QUEEN, Color.GREEN),
@@ -103,7 +102,7 @@ void main() {
       expect(turns.length, 2);
       expect(turns.every((turn) => isStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, Card.getValue(CardFace.EIGHT));
+      expect(turns[0].value, Card.getValue(CardFace.ACE));
       expect(turns[1].value, Card.getValue(CardFace.SEVEN));
     });
     test('phoenixComplex2Test', () {
@@ -182,14 +181,12 @@ void main() {
       ];
 
       List<TichuTurn> turns = paddedPhoenixStraights(cards);
-      expect(turns.length, 3);
+      expect(turns.length, 2);
       expect(turns.every((turn) => isStraight(turn.cards)), true);
       expect(turns[0].value, Card.getValue(CardFace.KING));
       expect(turns[0].cards.length, 5);
       expect(turns[1].value, Card.getValue(CardFace.ACE));
       expect(turns[1].cards.length, 6);
-      expect(turns[2].value, Card.getValue(CardFace.KING));
-      expect(turns[2].cards.length, 6);
     });
   });
   group('isStraight', () {

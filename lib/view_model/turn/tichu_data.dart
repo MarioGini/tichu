@@ -70,11 +70,11 @@ class Card {
       case CardFace.ACE:
         return 14.0;
       case CardFace.DRAGON:
-        return 15.0;
+        return 25.0;
       case CardFace.PHOENIX:
-        return -1.0;
+        return -10.0;
       case CardFace.DOG:
-        return 0.0;
+        return -2.0;
       default:
         return 0.0;
     }
@@ -186,6 +186,16 @@ class TichuTurn {
   @override
   int get hashCode {
     return this.type.index + this.value.toInt() * 10;
+  }
+}
+
+int compareTurns(TichuTurn a, TichuTurn b) {
+  if (a.value == b.value) {
+    return 0;
+  } else if (a.value > b.value) {
+    return -1;
+  } else {
+    return 1;
   }
 }
 

@@ -40,31 +40,37 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
     }
   });
 
-  List<TichuTurn> newAllStraights = [];
+  List<TichuTurn> newAllStraights = List<TichuTurn>.from(straights);
 
   if (cards.any((element) => element.face == CardFace.PHOENIX)) {
+    List<TichuTurn> phoenixStraights = [];
+    // Add segments of four consecutive cards as straights by adding phoenix as
+    // highest card, unless highest cards is ace.
     connected.forEach((element) {
       if (element.endIdx - element.beginIdx == 3 &&
           cards[element.beginIdx].value != Card.getValue(CardFace.ACE)) {
         List<Card> phoenixCards =
             cards.sublist(element.beginIdx, element.endIdx + 1);
         phoenixCards.add(Card.phoenix(cards[element.beginIdx].value + 1));
-        straights.add(TichuTurn(TurnType.STRAIGHT, phoenixCards));
+        phoenixStraights.add(TichuTurn(TurnType.STRAIGHT, phoenixCards));
       }
     });
 
+    // Add phoenix as middle card in two consecutive segments.
     for (int i = 1; i < connected.length; ++i) {
       if (cards[connected[i].beginIdx].value + 2 ==
           cards[connected[i - 1].endIdx].value) {
         List<Card> phoenixCards =
             cards.sublist(connected[i - 1].beginIdx, connected[i].endIdx + 1);
         phoenixCards.add(Card.phoenix(cards[connected[i].beginIdx].value + 1));
-        straights.add(TichuTurn(TurnType.STRAIGHT, phoenixCards));
+        phoenixStraights.add(TichuTurn(TurnType.STRAIGHT, phoenixCards));
       }
     }
 
+    // TODO add phoenix as lowest cards for straights that end at ace.
+
     // Pad phoenix to non-phoenix straights at upper end.
-    straights.forEach((element) {
+    phoenixStraights.forEach((element) {
       newAllStraights.addAll(paddedPhoenixStraights(element.cards));
     });
   }
@@ -77,9 +83,9 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
 
   allStraights.retainWhere((element) => element.cards.length == desiredLength);
 
-// When having combinations of "pure" straights and phoenix straights, the
-// permutation logic will result in duplicated straights which are removed below
-// to assure unique elements in the list.
+  // When having combinations of "pure" straights and phoenix straights, the
+  // permutation logic will result in duplicated straights which are removed
+  // below to assure unique elements in the list.
   Set<double> values = {};
   allStraights =
       allStraights.where((element) => values.add(element.value)).toList();

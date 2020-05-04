@@ -124,9 +124,11 @@ void main() {
       expect(turns.length, 2);
       expect(turns.every((turn) => isStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, Card.getValue(CardFace.EIGHT));
+      expect(turns[0].value, Card.getValue(CardFace.ACE));
       expect(turns[1].value, Card.getValue(CardFace.SEVEN));
     });
+
+    // TODO test with 4 straight from ace.
   });
   group('getStraightPermutations', () {
     final List<Card> sevenStraight = [

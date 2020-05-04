@@ -1,4 +1,5 @@
 import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'package:tichu/view_model/turn/utils/card_utils.dart';
 
 List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
   List<TichuTurn> pairStraights = [];
@@ -18,8 +19,7 @@ List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
       occurrenceCount[element.face] = 1;
     }
   });
-  // Remove cards that are present more than twice such that the pair straight
-  // algorithm works.
+  // Remove cards that are present more than twice.
   cards.removeWhere((element) {
     bool tooMany;
     tooMany = occurrenceCount[element.face] > 2;
@@ -29,31 +29,71 @@ List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
     return tooMany;
   });
 
-  if (cards.any((element) => element.face == CardFace.PHOENIX)) {
-    // Phoenix logic.
+  // Keep only one card per pair and then look for connectedness.
+  List<Card> pairCards =
+      cards.where((element) => occurrenceCount[element.face] == 2).toList();
 
-  } else {
-    // We look for chains of paired cards. The potentially long chains will then
-    // be divided in all possible pair straight combinations in a second step
-    // below.
-    List<Card> pairedCards = List<Card>.from(cards);
-    pairedCards.removeWhere((element) => occurrenceCount[element.face] < 2);
-    int i = 0;
-    int j = 2;
-    while (j < pairedCards.length - 1) {
-      if (pairedCards[j].value + 1 != pairedCards[j - 2].value) {
-        if (j - i > 2) {
-          pairStraights.add(
-              TichuTurn(TurnType.PAIR_STRAIGHT, pairedCards.sublist(i, j)));
-        }
-        i = j;
-      }
-      j += 2;
+  List<Card> uniqueCards = [];
+  pairCards.forEach((element) {
+    if (pairCards.indexOf(element) % 2 == 0) {
+      uniqueCards.add(element);
     }
-    // Add pair straights that include end card.
-    if (pairedCards.length - i >= 4) {
-      pairStraights
-          .add(TichuTurn(TurnType.PAIR_STRAIGHT, pairedCards.sublist(i)));
+  });
+
+  List<ConnectedCards> connected = findConnectedCards(uniqueCards);
+
+  // Iterate through connects, add cards to turns from paired list
+  // accordingly.
+  connected.forEach((element) {
+    if (element.endIdx - element.beginIdx >= 1) {
+      pairStraights.add(TichuTurn(TurnType.PAIR_STRAIGHT,
+          pairCards.sublist(2 * element.beginIdx, 2 * (element.endIdx + 1))));
+    }
+  });
+
+  if (cards.any((element) => element.face == CardFace.PHOENIX)) {
+    // Check for pair straight fusions.
+    for (int i = 0; i < connected.length - 1; ++i) {
+      double gapValue = uniqueCards[connected[i].endIdx].value - 1.0;
+      if (gapValue == uniqueCards[connected[i + 1].beginIdx].value + 1.0) {
+        Card phoenix = Card.phoenix(gapValue);
+        List<Card> phoenixCards = [
+          phoenix,
+          cards.where((element) => element.value == gapValue).single
+        ];
+        phoenixCards.addAll(pairCards.sublist(
+            2 * connected[i].beginIdx, 2 * (connected[i + 1].endIdx + 1)));
+        pairStraights.add(TichuTurn(TurnType.PAIR_STRAIGHT, phoenixCards));
+      }
+    }
+    for (int i = 0; i < connected.length; ++i) {
+      // Add upper padding when possible
+      double desValue = uniqueCards[connected[i].beginIdx].value + 1.0;
+      if (cards.where((element) => element.value == desValue).length != 0) {
+        Card phoenix = Card.phoenix(desValue);
+        List<Card> phoenixCards = [
+          phoenix,
+          cards.where((element) => element.value == desValue).single
+        ];
+        phoenixCards.addAll(pairCards.sublist(
+            2 * connected[i].beginIdx, 2 * (connected[i].endIdx + 1)));
+
+        pairStraights.add(TichuTurn(TurnType.PAIR_STRAIGHT, phoenixCards));
+      }
+      // Add lower padding when possible
+      double desLowerValue = uniqueCards[connected[i].endIdx].value - 1.0;
+      if (cards.where((element) => element.value == desLowerValue).length !=
+          0) {
+        Card phoenix = Card.phoenix(desLowerValue);
+        List<Card> phoenixCards = [
+          phoenix,
+          cards.where((element) => element.value == desLowerValue).single
+        ];
+        phoenixCards.addAll(pairCards.sublist(
+            2 * connected[i].beginIdx, 2 * (connected[i].endIdx + 1)));
+
+        pairStraights.add(TichuTurn(TurnType.PAIR_STRAIGHT, phoenixCards));
+      }
     }
   }
 
@@ -66,6 +106,11 @@ List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
   // Filter the desired lengths.
   allPairStraights
       .retainWhere((element) => element.cards.length == desiredLength);
+
+  // Remove duplicate elements.
+  Set<double> values = {};
+  allPairStraights =
+      allPairStraights.where((element) => values.add(element.value)).toList();
 
   return allPairStraights;
 }

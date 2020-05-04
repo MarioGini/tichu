@@ -16,13 +16,13 @@ void main() {
         Card(CardFace.SEVEN, Color.RED),
         Card(CardFace.EIGHT, Color.RED),
       ];
-
+      int desiredLength = 4;
       List<TichuTurn> turns = getPairStraights(cards, 4);
 
       expect(turns.length, 1);
       expect(turns.every((element) => isPairStraight(element.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, 4);
-      expect(turns[0].cards.length, 4);
     });
     test('twoSeparatedPairStraightsTest', () {
       List<Card> cards = [
@@ -50,6 +50,72 @@ void main() {
       expect(turns[0].value, 9);
       expect(turns[1].value, 8);
       expect(turns[2].value, 4);
+    });
+    test('phoenixFusionTest', () {
+      List<Card> cards = [
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.THREE, Color.RED),
+        Card(CardFace.FOUR, Color.BLACK),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.FIVE, Color.RED),
+        Card(CardFace.FIVE, Color.BLACK)
+      ];
+      int desiredLength = 4;
+      List<TichuTurn> turns = getPairStraights(cards, desiredLength);
+
+      expect(turns.length, 2);
+      expect(turns.every((turn) => isPairStraight(turn.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns[0].value, 5);
+      expect(turns[1].value, 4);
+    });
+    test('phoenixPaddingTest', () {
+      List<Card> cards = [
+        Card(CardFace.TWO, Color.BLACK),
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.THREE, Color.RED),
+        Card(CardFace.FOUR, Color.BLACK),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.SIX, Color.RED)
+      ];
+      int desiredLength = 4;
+      List<TichuTurn> turns = getPairStraights(cards, desiredLength);
+
+      expect(turns.length, 2);
+      expect(turns.every((turn) => isPairStraight(turn.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns[0].value, 4);
+      expect(turns[1].value, 3);
+    });
+    test('phoenixComplexTest', () {
+      List<Card> cards = [
+        Card(CardFace.MAH_JONG, Color.SPECIAL),
+        Card(CardFace.TWO, Color.BLACK),
+        Card(CardFace.TWO, Color.GREEN),
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.THREE, Color.RED),
+        Card(CardFace.THREE, Color.BLACK),
+        Card(CardFace.FOUR, Color.RED),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.FIVE, Color.RED),
+        Card(CardFace.FIVE, Color.GREEN),
+        Card(CardFace.SIX, Color.RED),
+        Card(CardFace.SIX, Color.BLACK),
+        Card(CardFace.SEVEN, Color.RED),
+        Card(CardFace.NINE, Color.BLACK)
+      ];
+      int desiredLength = 6;
+      List<TichuTurn> turns = getPairStraights(cards, desiredLength);
+      turns.sort(compareTurns);
+
+      expect(turns.length, 5);
+      expect(turns.every((turn) => isPairStraight(turn.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns[0].value, 7);
+      expect(turns[1].value, 6);
+      expect(turns[2].value, 5);
+      expect(turns[3].value, 4);
+      expect(turns[4].value, 3);
     });
   });
   group('getPairStraightPermutations', () {

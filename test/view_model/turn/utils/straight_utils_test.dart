@@ -64,7 +64,7 @@ void main() {
       expect(straightTurns[0].value, 8);
       expect(straightTurns[1].value, 7);
     });
-    test('phoenixStraightTest', () {
+    test('phoenixAsGapTest', () {
       final List<Card> phoenixStraight = [
         Card(CardFace.THREE, Color.GREEN),
         Card(CardFace.FOUR, Color.RED),
@@ -83,7 +83,9 @@ void main() {
       expect(turns[0].value, Card.getValue(CardFace.EIGHT));
       expect(turns[1].value, Card.getValue(CardFace.SEVEN));
     });
-    test('phoenixComplexTest', () {
+    test('phoenixAsGapAndPromotingTest', () {
+      // The cards combine a segment of length four that is promoted to
+      // straight.
       final List<Card> phoenixStraight = [
         Card(CardFace.THREE, Color.GREEN),
         Card(CardFace.FOUR, Color.RED),
@@ -105,30 +107,23 @@ void main() {
       expect(turns[0].value, Card.getValue(CardFace.ACE));
       expect(turns[1].value, Card.getValue(CardFace.SEVEN));
     });
-    test('phoenixComplex2Test', () {
+    test('phoenixAsLowerGapTest', () {
       final List<Card> phoenixStraight = [
-        Card(CardFace.THREE, Color.GREEN),
-        Card(CardFace.FOUR, Color.RED),
         Card(CardFace.PHOENIX, Color.SPECIAL),
-        Card(CardFace.SIX, Color.RED),
-        Card(CardFace.SEVEN, Color.RED),
-        Card(CardFace.TEN, Color.GREEN),
         Card(CardFace.JACK, Color.GREEN),
         Card(CardFace.QUEEN, Color.GREEN),
         Card(CardFace.KING, Color.GREEN),
+        Card(CardFace.ACE, Color.RED)
       ];
 
       final int desiredLength = 5;
       List<TichuTurn> turns = getStraights(phoenixStraight, desiredLength);
 
-      expect(turns.length, 2);
+      expect(turns.length, 1);
       expect(turns.every((turn) => isStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.ACE));
-      expect(turns[1].value, Card.getValue(CardFace.SEVEN));
     });
-
-    // TODO test with 4 straight from ace.
   });
   group('getStraightPermutations', () {
     final List<Card> sevenStraight = [
@@ -159,38 +154,6 @@ void main() {
       expect(turns[5].value, 6);
     });
   });
-  group('paddedPhoenix', () {
-    test('noPaddingTest', () {
-      List<Card> cards = [
-        Card(CardFace.KING, Color.RED),
-        Card(CardFace.QUEEN, Color.RED),
-        Card(CardFace.JACK, Color.RED),
-        Card.phoenix(Card.getValue(CardFace.TEN)),
-        Card(CardFace.NINE, Color.BLACK)
-      ];
-
-      List<TichuTurn> turns = paddedPhoenixStraights(cards);
-      expect(turns.length, 1);
-      expect(turns[0].value, Card.getValue(CardFace.KING));
-    });
-    test('twoSidesPaddingTest', () {
-      List<Card> cards = [
-        Card(CardFace.KING, Color.RED),
-        Card(CardFace.QUEEN, Color.RED),
-        Card(CardFace.JACK, Color.RED),
-        Card(CardFace.TEN, Color.GREEN),
-        Card(CardFace.NINE, Color.BLACK)
-      ];
-
-      List<TichuTurn> turns = paddedPhoenixStraights(cards);
-      expect(turns.length, 2);
-      expect(turns.every((turn) => isStraight(turn.cards)), true);
-      expect(turns[0].value, Card.getValue(CardFace.KING));
-      expect(turns[0].cards.length, 5);
-      expect(turns[1].value, Card.getValue(CardFace.ACE));
-      expect(turns[1].cards.length, 6);
-    });
-  });
   group('isStraight', () {
     test('fiveStraightTest', () {
       List<Card> cards = [
@@ -207,7 +170,7 @@ void main() {
       List<Card> cards = [
         Card(CardFace.FIVE, Color.BLACK),
         Card(CardFace.SIX, Color.BLACK),
-        Card.phoenix(7),
+        Card.phoenix(Card.getValue(CardFace.SEVEN)),
         Card(CardFace.FOUR, Color.GREEN),
         Card(CardFace.THREE, Color.BLUE),
         Card(CardFace.TWO, Color.BLUE)

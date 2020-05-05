@@ -31,8 +31,9 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
   // No logic required when less then five cards remain.
   if (cards.length < 5) return straights;
 
+// Look for consecutive cards and add segments that have length of at least
+// five.
   List<ConnectedCards> connected = findConnectedCards(cards);
-
   connected.forEach((element) {
     if (element.endIdx - element.beginIdx >= 4) {
       straights.add(TichuTurn(TurnType.STRAIGHT,
@@ -40,23 +41,25 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
     }
   });
 
-  List<TichuTurn> newAllStraights = List<TichuTurn>.from(straights);
-
   if (cards.any((element) => element.face == CardFace.PHOENIX)) {
     List<TichuTurn> phoenixStraights = [];
-    // Add segments of four consecutive cards as straights by adding phoenix as
-    // highest card, unless highest cards is ace.
+    // Phoenix is added to all segments that have length of at least four. When
+    // highest card is not an ace, phoenix is added as first card, else as last
+    // card.
     connected.forEach((element) {
-      if (element.endIdx - element.beginIdx == 3 &&
-          cards[element.beginIdx].value != Card.getValue(CardFace.ACE)) {
+      if (element.endIdx - element.beginIdx >= 3) {
         List<Card> phoenixCards =
             cards.sublist(element.beginIdx, element.endIdx + 1);
-        phoenixCards.add(Card.phoenix(cards[element.beginIdx].value + 1));
+        if (cards[element.beginIdx].value != Card.getValue(CardFace.ACE)) {
+          phoenixCards.add(Card.phoenix(cards[element.beginIdx].value + 1));
+        } else {
+          phoenixCards.add(Card.phoenix(cards[element.endIdx].value - 1));
+        }
         phoenixStraights.add(TichuTurn(TurnType.STRAIGHT, phoenixCards));
       }
     });
 
-    // Add phoenix as middle card in two consecutive segments.
+    // Look for single card gaps in segments add add phoenix there as well.
     for (int i = 1; i < connected.length; ++i) {
       if (cards[connected[i].beginIdx].value + 2 ==
           cards[connected[i - 1].endIdx].value) {
@@ -67,20 +70,14 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
       }
     }
 
-    // TODO add phoenix as lowest cards for straights that end at ace.
-
-    // Pad phoenix to non-phoenix straights at upper end.
-    phoenixStraights.forEach((element) {
-      newAllStraights.addAll(paddedPhoenixStraights(element.cards));
-    });
+    straights.addAll(phoenixStraights);
   }
 
-  // Add permutations.
+  // Add permutations and filter to desired straight length.
   List<TichuTurn> allStraights = [];
-  newAllStraights.forEach((element) {
+  straights.forEach((element) {
     allStraights.addAll(getStraightPermutations(element.cards));
   });
-
   allStraights.retainWhere((element) => element.cards.length == desiredLength);
 
   // When having combinations of "pure" straights and phoenix straights, the
@@ -93,7 +90,8 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
   return allStraights;
 }
 
-// The input must be a valid straight.
+// Adds straight permutations which are all possible shorter straight
+// combinations that are possible within a longer straight.
 List<TichuTurn> getStraightPermutations(List<Card> cards) {
   assert(isStraight(cards));
   List<TichuTurn> straightPermutations = [TichuTurn(TurnType.STRAIGHT, cards)];
@@ -107,24 +105,6 @@ List<TichuTurn> getStraightPermutations(List<Card> cards) {
     --currentPermutationLength;
   }
   return straightPermutations;
-}
-
-List<TichuTurn> paddedPhoenixStraights(List<Card> cards) {
-  assert(isStraight(cards));
-  List<TichuTurn> turns = [TichuTurn(TurnType.STRAIGHT, cards)];
-
-  // When phoenix is already contained, we cannot apply padding.
-  if (cards.any((card) => card.face == CardFace.PHOENIX)) return turns;
-
-  cards.sort(compareCards);
-
-  // It only makes sense to pad the phoenix on top of straight.
-  if (cards.first.value < Card.getValue(CardFace.ACE)) {
-    List<Card> upperPadding = List<Card>.from(cards);
-    upperPadding.insert(0, Card.phoenix(cards.first.value + 1));
-    turns.add(TichuTurn(TurnType.STRAIGHT, upperPadding));
-  }
-  return turns;
 }
 
 // Returns true when the cards form a valid straight.
@@ -141,7 +121,7 @@ bool isStraight(List<Card> cards) {
     cards.sort(compareCards);
     int i = 0;
 
-    while (i <= cards.length - 2) {
+    while (i < cards.length - 1) {
       if (cards[i].value != cards[i + 1].value + 1) {
         isStraight = false;
         break;

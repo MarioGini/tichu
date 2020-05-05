@@ -1,5 +1,7 @@
+import 'package:tichu/view_model/turn/utils/bomb_utils.dart';
 import 'package:tichu/view_model/turn/utils/card_utils.dart';
 import 'package:tichu/view_model/turn/utils/straight_utils.dart';
+import 'package:tichu/view_model/turn/utils/pair_straight_utils.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
 // Simple state machine that computes next wish based on previous wish and
@@ -17,7 +19,7 @@ CardFace computeNextWish(
 }
 
 /// Returns true when the wish rules are being followed, false else.
-bool obeyMahJong(DeckState deck, TichuTurn turn, List<Card> cards) {
+bool mahJong(DeckState deck, TichuTurn turn, List<Card> cards) {
   // We automatically obey in three cases:
   // - There is no wish.
   // - We cannot fulfill the wish.
@@ -25,10 +27,10 @@ bool obeyMahJong(DeckState deck, TichuTurn turn, List<Card> cards) {
   if (deck.wish == null ||
       cards.every((element) => element.face != deck.wish) ||
       turn.cards.any((element) => element.face == deck.wish)) {
-    return true;
+    return false;
   } else {
     // Player has wish card but it is not selected. Check if it is playable.
-    return !canPlayWish(deck, cards);
+    return canPlayWish(deck, cards);
   }
 }
 
@@ -64,22 +66,14 @@ bool canPlayWish(DeckState deck, List<Card> cards) {
 
 // Returns true when cards contain playable bomb including the wish card.
 bool playableBomb(DeckState deck, List<Card> cards) {
-  bool havePlayableBomb = false;
-  if (occurrences(deck.wish, cards) == 4) {
-    if (deck.turn.type != TurnType.BOMB) {
-      havePlayableBomb = true;
-    } else {
-      havePlayableBomb = Card(deck.wish, null).value > deck.turn.value;
-    }
-  } else {
-    // Look for a straight bomb.
-    List<TichuTurn> possibleStraightBombs = getStraights(cards, 5);
-    havePlayableBomb = possibleStraightBombs.any((element) =>
-        uniformColor(element.cards) &&
-        element.cards.any((element) => element.face == deck.wish));
-  }
+  List<TichuTurn> wishBombs = getBombs(cards)
+      .where((bomb) => bomb.cards.any((card) => card.face == deck.wish))
+      .toList();
+  wishBombs.sort(compareTurns);
 
-  return havePlayableBomb;
+  return wishBombs.length != 0 &&
+      (deck.turn.type != TurnType.BOMB ||
+          wishBombs.first.value > deck.turn.value);
 }
 
 bool canPlayWishOnSingle(DeckState deck, List<Card> cards) {
@@ -96,14 +90,29 @@ bool canPlayWishOnPair(DeckState deck, List<Card> cards) {
 }
 
 bool canPlayWishOnPairStraight(DeckState deck, List<Card> cards) {
-  return false;
+  List<TichuTurn> possibleTurns =
+      getPairStraights(cards, deck.turn.cards.length);
+
+  possibleTurns.retainWhere(
+      (element) => element.cards.any((element) => element.face == deck.wish));
+
+  return possibleTurns.any((element) => element.value > deck.turn.value);
 }
 
 bool canPlayWishOnTriplet(DeckState deck, List<Card> cards) {
   return Card(deck.wish, null).value > deck.turn.value &&
-          occurrences(deck.wish, cards) >= 3 ||
+          occurrences(deck.wish, cards) == 3 ||
       (cards.any((element) => element.face == CardFace.PHOENIX) &&
-          occurrences(deck.wish, cards) >= 2);
+          occurrences(deck.wish, cards) == 2);
+}
+
+bool canPlayWishOnStraight(DeckState deck, List<Card> cards) {
+  List<TichuTurn> possibleTurns = getStraights(cards, deck.turn.cards.length);
+
+  possibleTurns.retainWhere(
+      (element) => element.cards.any((element) => element.face == deck.wish));
+
+  return possibleTurns.any((element) => element.value > deck.turn.value);
 }
 
 bool canPlayWishOnFullHouse(DeckState deck, List<Card> cards) {
@@ -127,14 +136,4 @@ bool canPlayWishOnFullHouse(DeckState deck, List<Card> cards) {
   }
 
   return false;
-}
-
-bool canPlayWishOnStraight(DeckState deck, List<Card> cards) {
-  List<TichuTurn> possibleStraights =
-      getStraights(cards, deck.turn.cards.length);
-
-  possibleStraights.retainWhere(
-      (element) => element.cards.any((element) => element.face == deck.wish));
-
-  return possibleStraights.any((element) => element.value > deck.turn.value);
 }

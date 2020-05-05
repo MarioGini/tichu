@@ -6,6 +6,34 @@ void main() {
   group('computeNextWish', () {
     test('noPreviousWishTest', () {});
   });
+  group('playableBomb', () {
+    final List<Card> cards = [
+      Card(CardFace.EIGHT, Color.BLACK),
+      Card(CardFace.EIGHT, Color.GREEN),
+      Card(CardFace.EIGHT, Color.RED),
+      Card(CardFace.EIGHT, Color.BLUE)
+    ];
+    test('playableBombOnSingleTest', () {
+      CardFace wish = CardFace.EIGHT;
+      TichuTurn turn =
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.FOUR, Color.BLUE)]);
+      DeckState deck = DeckState(turn, wish);
+
+      expect(playableBomb(deck, cards), true);
+    });
+    test('playableBombOnSingleTest', () {
+      CardFace wish = CardFace.EIGHT;
+      TichuTurn turn = TichuTurn(TurnType.BOMB, [
+        Card(CardFace.NINE, Color.BLACK),
+        Card(CardFace.NINE, Color.GREEN),
+        Card(CardFace.NINE, Color.RED),
+        Card(CardFace.NINE, Color.BLUE)
+      ]);
+      DeckState deck = DeckState(turn, wish);
+
+      expect(playableBomb(deck, cards), false);
+    });
+  });
   group('canPlayWishOnSingle', () {
     List<Card> cards;
     TichuTurn turn;

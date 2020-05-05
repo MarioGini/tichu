@@ -17,7 +17,7 @@ class TurnHandler {
     if (cards.any((element) => element.face == CardFace.PHOENIX)) {
       cards.sort(compareCards);
       cards.removeLast();
-      if (cards.length >= 2) {
+      if (cards.length > 1) {
         cards.add(Card.phoenix(phoenixValue));
       } else if (currentDeck.turn.type == TurnType.SINGLE ||
           currentDeck.turn.type == TurnType.EMPTY) {
@@ -29,11 +29,11 @@ class TurnHandler {
 
     // Selected cards must form a valid turn.
     if (currentTurn == null) {
-      return null;
+      return null; // TODO inform user
     }
 
     // When mah jong is not obeyed, turn is invalid.
-    if (!obeyMahJong(currentDeck, currentTurn, cards)) {
+    if (mahJong(currentDeck, currentTurn, cards)) {
       return null;
     }
 

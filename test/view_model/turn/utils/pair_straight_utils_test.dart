@@ -22,7 +22,7 @@ void main() {
       expect(turns.length, 1);
       expect(turns.every((element) => isPairStraight(element.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, 4);
+      expect(turns[0].value, Card.getValue(CardFace.FOUR));
     });
     test('twoSeparatedPairStraightsTest', () {
       List<Card> cards = [
@@ -47,9 +47,9 @@ void main() {
       expect(turns.length, 3);
       expect(turns.every((turn) => isPairStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, 9);
-      expect(turns[1].value, 8);
-      expect(turns[2].value, 4);
+      expect(turns[0].value, Card.getValue(CardFace.NINE));
+      expect(turns[1].value, Card.getValue(CardFace.EIGHT));
+      expect(turns[2].value, Card.getValue(CardFace.FOUR));
     });
     test('phoenixFusionTest', () {
       List<Card> cards = [
@@ -66,8 +66,8 @@ void main() {
       expect(turns.length, 2);
       expect(turns.every((turn) => isPairStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, 5);
-      expect(turns[1].value, 4);
+      expect(turns[0].value, Card.getValue(CardFace.FIVE));
+      expect(turns[1].value, Card.getValue(CardFace.FOUR));
     });
     test('phoenixPaddingTest', () {
       List<Card> cards = [
@@ -84,8 +84,8 @@ void main() {
       expect(turns.length, 2);
       expect(turns.every((turn) => isPairStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, 4);
-      expect(turns[1].value, 3);
+      expect(turns[0].value, Card.getValue(CardFace.FOUR));
+      expect(turns[1].value, Card.getValue(CardFace.THREE));
     });
     test('phoenixComplexTest', () {
       List<Card> cards = [
@@ -111,11 +111,11 @@ void main() {
       expect(turns.length, 5);
       expect(turns.every((turn) => isPairStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, 7);
-      expect(turns[1].value, 6);
-      expect(turns[2].value, 5);
-      expect(turns[3].value, 4);
-      expect(turns[4].value, 3);
+      expect(turns[0].value, Card.getValue(CardFace.SEVEN));
+      expect(turns[1].value, Card.getValue(CardFace.SIX));
+      expect(turns[2].value, Card.getValue(CardFace.FIVE));
+      expect(turns[3].value, Card.getValue(CardFace.FOUR));
+      expect(turns[4].value, Card.getValue(CardFace.THREE));
     });
   });
   group('getPairStraightPermutations', () {
@@ -166,7 +166,7 @@ void main() {
         Card(CardFace.SEVEN, Color.RED),
         Card(CardFace.SIX, Color.BLUE),
         Card(CardFace.SIX, Color.GREEN),
-        Card.phoenix(7)
+        Card.phoenix(Card.getValue(CardFace.SEVEN))
       ];
 
       expect(isPairStraight(cards), true);
@@ -178,7 +178,7 @@ void main() {
         Card(CardFace.SEVEN, Color.RED),
         Card(CardFace.SIX, Color.BLUE),
         Card(CardFace.SIX, Color.GREEN),
-        Card.phoenix(7),
+        Card.phoenix(Card.getValue(CardFace.SEVEN)),
         Card(CardFace.EIGHT, Color.BLACK)
       ];
 
@@ -191,7 +191,7 @@ void main() {
         Card(CardFace.SEVEN, Color.RED),
         Card(CardFace.SIX, Color.BLUE),
         Card(CardFace.SIX, Color.GREEN),
-        Card.phoenix(7),
+        Card.phoenix(Card.getValue(CardFace.SEVEN)),
         Card(CardFace.DOG, Color.SPECIAL)
       ];
 

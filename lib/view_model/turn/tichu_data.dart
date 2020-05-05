@@ -140,7 +140,6 @@ class TichuTurn {
       case TurnType.PAIR_STRAIGHT:
       case TurnType.STRAIGHT:
       case TurnType.TRIPLET:
-      case TurnType.DOG:
         {
           return cards.first.value;
         }
@@ -162,9 +161,10 @@ class TichuTurn {
           return 0.0;
         }
       case TurnType.EMPTY:
+      case TurnType.DOG:
         {
-          // empty has a value of 1.0 because a phoenix played on it has a value
-          // of 1.5.
+          // empty and dog have a value of 1.0 because a phoenix played on it
+          // has a value of 1.5.
           return 1.0;
         }
       default:

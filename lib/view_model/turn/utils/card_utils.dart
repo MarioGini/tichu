@@ -10,6 +10,20 @@ int occurrences(CardFace face, List<Card> cards) {
   return occurrences;
 }
 
+// Returns map containing occurrence information of all cards.
+Map<CardFace, int> getOccurrenceCount(List<Card> cards) {
+  Map<CardFace, int> occurrenceCount = {};
+  cards.forEach((element) {
+    if (occurrenceCount.containsKey(element.face)) {
+      ++occurrenceCount[element.face];
+    } else {
+      occurrenceCount[element.face] = 1;
+    }
+  });
+
+  return occurrenceCount;
+}
+
 // Returns true when all cards in the list have the same color.
 bool uniformColor(List<Card> cards) {
   bool uniformColor = true;

@@ -7,11 +7,13 @@ List<Card> removeDuplicates(List<Card> cards) {
 
   removedDuplicates.sort(compareCards);
   int k = 0;
-  while (removedDuplicates[k + 1] != removedDuplicates.last) {
+  while (true) {
+    if (k == removedDuplicates.length - 1) break;
     if (removedDuplicates[k].value == removedDuplicates[k + 1].value) {
       removedDuplicates.removeAt(k + 1);
+    } else {
+      ++k;
     }
-    ++k;
   }
 
   return removedDuplicates;
@@ -62,7 +64,12 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
     // Look for single card gaps in segments add add phoenix there as well.
     for (int i = 1; i < connected.length; ++i) {
       if (cards[connected[i].beginIdx].value + 2 ==
-          cards[connected[i - 1].endIdx].value) {
+              cards[connected[i - 1].endIdx].value &&
+          (connected[i].endIdx -
+                  connected[i].beginIdx +
+                  connected[i - 1].endIdx -
+                  connected[i - 1].beginIdx >=
+              2)) {
         List<Card> phoenixCards =
             cards.sublist(connected[i - 1].beginIdx, connected[i].endIdx + 1);
         phoenixCards.add(Card.phoenix(cards[connected[i].beginIdx].value + 1));

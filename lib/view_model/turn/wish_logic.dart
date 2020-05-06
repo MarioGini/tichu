@@ -18,7 +18,7 @@ CardFace computeNextWish(
   }
 }
 
-/// Returns true when the wish rules are being followed, false else.
+// Returns true when wish could be played but is not selected.
 bool mahJong(DeckState deck, TichuTurn turn, List<Card> cards) {
   // We automatically obey in three cases:
   // - There is no wish.
@@ -37,7 +37,7 @@ bool mahJong(DeckState deck, TichuTurn turn, List<Card> cards) {
 // All functions below assume that cards contain the wish card.
 bool canPlayWish(DeckState deck, List<Card> cards) {
   // Check whether we have a bomb with the wish and the bomb is playable.
-  if (playableBomb(deck, cards)) {
+  if (haveValidWishBomb(deck, cards)) {
     return true;
   }
 
@@ -65,12 +65,15 @@ bool canPlayWish(DeckState deck, List<Card> cards) {
 }
 
 // Returns true when cards contain playable bomb including the wish card.
-bool playableBomb(DeckState deck, List<Card> cards) {
+bool haveValidWishBomb(DeckState deck, List<Card> cards) {
+  // Get a list of bombs that contain at least one wish card.
   List<TichuTurn> wishBombs = getBombs(cards)
       .where((bomb) => bomb.cards.any((card) => card.face == deck.wish))
       .toList();
   wishBombs.sort(compareTurns);
 
+  // We have a playable wish bomb when no bomb is on the deck or when we have a
+  // higher bomb.
   return wishBombs.length != 0 &&
       (deck.turn.type != TurnType.BOMB ||
           wishBombs.first.value > deck.turn.value);
@@ -84,9 +87,9 @@ bool canPlayWishOnSingle(DeckState deck, List<Card> cards) {
 
 bool canPlayWishOnPair(DeckState deck, List<Card> cards) {
   // Can play wish when we have at least two of them or one and the phoenix.
-  return Card(deck.wish, null).value > deck.turn.value &&
-      (cards.any((element) => element.face == CardFace.PHOENIX) ||
-          occurrences(deck.wish, cards) >= 2);
+  return Card.getValue(deck.wish) > deck.turn.value &&
+      (occurrences(deck.wish, cards) >= 2 ||
+          cards.any((element) => element.face == CardFace.PHOENIX));
 }
 
 bool canPlayWishOnPairStraight(DeckState deck, List<Card> cards) {

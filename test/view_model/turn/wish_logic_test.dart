@@ -1,27 +1,50 @@
 import 'package:test/test.dart';
-import "package:tichu/view_model/turn/wish_logic.dart";
 import 'package:tichu/view_model/turn/tichu_data.dart';
+import "package:tichu/view_model/turn/wish_logic.dart";
 
 void main() {
   group('computeNextWish', () {
-    test('noPreviousWishTest', () {});
+    CardFace previousWish = CardFace.TEN;
+    test('noInputWishTest', () {
+      TichuTurn currentTurn =
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.EIGHT, Color.BLUE)]);
+      CardFace inputWish;
+
+      expect(
+          computeNextWish(previousWish, currentTurn, inputWish), previousWish);
+    });
+    test('inputWishFulfilledTest', () {
+      TichuTurn currentTurn =
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.TEN, Color.BLUE)]);
+      CardFace inputWish;
+
+      expect(computeNextWish(previousWish, currentTurn, inputWish), null);
+    });
+    test('newInputWishTest', () {
+      previousWish = null;
+      TichuTurn currentTurn =
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.TEN, Color.BLUE)]);
+      CardFace inputWish = CardFace.KING;
+
+      expect(computeNextWish(previousWish, currentTurn, inputWish), inputWish);
+    });
   });
-  group('playableBomb', () {
+  group('haveValidWishBomb', () {
     final List<Card> cards = [
       Card(CardFace.EIGHT, Color.BLACK),
       Card(CardFace.EIGHT, Color.GREEN),
       Card(CardFace.EIGHT, Color.RED),
       Card(CardFace.EIGHT, Color.BLUE)
     ];
-    test('playableBombOnSingleTest', () {
+    test('quartetWishBombTest', () {
       CardFace wish = CardFace.EIGHT;
       TichuTurn turn =
-          TichuTurn(TurnType.SINGLE, [Card(CardFace.FOUR, Color.BLUE)]);
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.TEN, Color.BLUE)]);
       DeckState deck = DeckState(turn, wish);
 
-      expect(playableBomb(deck, cards), true);
+      expect(haveValidWishBomb(deck, cards), true);
     });
-    test('playableBombOnSingleTest', () {
+    test('noWishBombTest', () {
       CardFace wish = CardFace.EIGHT;
       TichuTurn turn = TichuTurn(TurnType.BOMB, [
         Card(CardFace.NINE, Color.BLACK),
@@ -31,7 +54,65 @@ void main() {
       ]);
       DeckState deck = DeckState(turn, wish);
 
-      expect(playableBomb(deck, cards), false);
+      expect(haveValidWishBomb(deck, cards), false);
+    });
+  });
+  group('mahJong', () {
+    TichuTurn deckTurn =
+        TichuTurn(TurnType.SINGLE, [Card(CardFace.EIGHT, Color.BLACK)]);
+    test('noWishPresentTest', () {
+      DeckState deck = DeckState(deckTurn, null);
+      TichuTurn selectedTurn =
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.KING, Color.BLACK)]);
+      List<Card> cards = [
+        Card(CardFace.FOUR, Color.GREEN),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.SEVEN, Color.RED),
+        Card(CardFace.NINE, Color.BLACK)
+      ];
+
+      expect(mahJong(deck, selectedTurn, cards), false);
+    });
+    test('wishCardNotAvailableTest', () {
+      DeckState deck = DeckState(deckTurn, CardFace.ACE);
+      TichuTurn selectedTurn =
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.KING, Color.BLACK)]);
+      List<Card> cards = [
+        Card(CardFace.FOUR, Color.GREEN),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.SEVEN, Color.RED),
+        Card(CardFace.NINE, Color.BLACK)
+      ];
+
+      expect(mahJong(deck, selectedTurn, cards), false);
+    });
+    test('wishCardNotAvailableTest', () {
+      DeckState deck = DeckState(deckTurn, CardFace.ACE);
+      TichuTurn selectedTurn =
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.ACE, Color.BLACK)]);
+      List<Card> cards = [
+        Card(CardFace.ACE, Color.BLACK),
+        Card(CardFace.FOUR, Color.GREEN),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.SEVEN, Color.RED),
+        Card(CardFace.NINE, Color.BLACK)
+      ];
+
+      expect(mahJong(deck, selectedTurn, cards), false);
+    });
+    test('couldPlayWishTest', () {
+      DeckState deck = DeckState(deckTurn, CardFace.ACE);
+      TichuTurn selectedTurn =
+          TichuTurn(TurnType.SINGLE, [Card(CardFace.NINE, Color.BLACK)]);
+      List<Card> cards = [
+        Card(CardFace.ACE, Color.BLACK),
+        Card(CardFace.FOUR, Color.GREEN),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.SEVEN, Color.RED),
+        Card(CardFace.NINE, Color.BLACK)
+      ];
+
+      expect(mahJong(deck, selectedTurn, cards), true);
     });
   });
   group('canPlayWishOnSingle', () {
@@ -151,6 +232,33 @@ void main() {
       expect(cards.any((element) => element.face == wish), true);
 
       expect(canPlayWishOnTriplet(deck, cards), true);
+    });
+  });
+  group('canPlayWishOnStraight', () {
+    List<Card> cards = [
+      Card(CardFace.FIVE, Color.GREEN),
+      Card(CardFace.PHOENIX, Color.SPECIAL),
+      Card(CardFace.SEVEN, Color.RED),
+      Card(CardFace.EIGHT, Color.GREEN),
+      Card(CardFace.NINE, Color.RED),
+      Card(CardFace.QUEEN, Color.RED)
+    ];
+    TichuTurn turn = TichuTurn(TurnType.STRAIGHT, [
+      Card(CardFace.MAH_JONG, Color.SPECIAL),
+      Card(CardFace.TWO, Color.BLUE),
+      Card(CardFace.THREE, Color.BLUE),
+      Card(CardFace.FOUR, Color.BLACK),
+      Card(CardFace.FIVE, Color.RED)
+    ]);
+    test('canPlayTest', () {
+      CardFace wish = CardFace.EIGHT;
+      DeckState deck = DeckState(turn, wish);
+      expect(canPlayWish(deck, cards), true);
+    });
+    test('cannotPlayTest', () {
+      CardFace wish = CardFace.QUEEN;
+      DeckState deck = DeckState(turn, wish);
+      expect(canPlayWish(deck, cards), false);
     });
   });
   // group('canPlayWishOnFullHouse', () {

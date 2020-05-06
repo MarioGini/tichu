@@ -25,6 +25,14 @@ void main() {
 
       expect(removeDuplicates(duplicateCards), uniqueCards);
     });
+    test('threeDuplicatesTest', () {
+      List<Card> duplicateCards = List<Card>.from(uniqueCards);
+      duplicateCards.add(Card(CardFace.FIVE, Color.BLACK));
+      duplicateCards.add(Card(CardFace.FIVE, Color.RED));
+      duplicateCards.sort(compareCards);
+
+      expect(removeDuplicates(duplicateCards), uniqueCards);
+    });
   });
   group('getStraights', () {
     final List<Card> sixStraight = [
@@ -82,6 +90,20 @@ void main() {
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.EIGHT));
       expect(turns[1].value, Card.getValue(CardFace.SEVEN));
+    });
+    test('phoenixTooSmallTest', () {
+      final List<Card> phoenixStraight = [
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.FOUR, Color.RED),
+        Card(CardFace.PHOENIX, Color.SPECIAL),
+        Card(CardFace.SIX, Color.RED),
+        Card(CardFace.ACE, Color.RED),
+      ];
+
+      final int desiredLength = 5;
+      List<TichuTurn> turns = getStraights(phoenixStraight, desiredLength);
+
+      expect(turns.length, 0);
     });
     test('phoenixAsGapAndPromotingTest', () {
       // The cards combine a segment of length four that is promoted to

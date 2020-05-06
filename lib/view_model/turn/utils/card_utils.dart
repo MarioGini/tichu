@@ -39,18 +39,6 @@ bool uniformColor(List<Card> cards) {
   return uniformColor;
 }
 
-// Returns true when cards form a valid full house.
-bool isFullHouse(List<Card> cards) {
-  cards.sort(compareCards);
-
-// When a full house is sorted, the first two and the last two cards are equal.
-// The third card can be equal to either the first or second pair.
-  return cards.length == 5 &&
-      cards[0].value == cards[1].value &&
-      cards[3].value == cards[4].value &&
-      (cards[2].value == cards[0].value || cards[2].value == cards[4].value);
-}
-
 class ConnectedCards {
   int beginIdx;
   int endIdx;

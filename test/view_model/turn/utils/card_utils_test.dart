@@ -40,30 +40,6 @@ void main() {
       expect(uniformColor(cards), false);
     });
   });
-  group('isFullHouse', () {
-    test('standardSituationTest', () {
-      List<Card> cards = [
-        Card(CardFace.TWO, Color.BLACK),
-        Card(CardFace.TWO, Color.GREEN),
-        Card(CardFace.TWO, Color.RED),
-        Card(CardFace.FIVE, Color.BLACK),
-        Card(CardFace.FIVE, Color.GREEN)
-      ];
-
-      expect(isFullHouse(cards), true);
-    });
-    test('phoenixTest', () {
-      List<Card> cards = [
-        Card.phoenix(5),
-        Card(CardFace.TWO, Color.GREEN),
-        Card(CardFace.TWO, Color.RED),
-        Card(CardFace.FIVE, Color.BLACK),
-        Card(CardFace.FIVE, Color.GREEN)
-      ];
-
-      expect(isFullHouse(cards), true);
-    });
-  });
   group('findConnected', () {
     test('simple', () {
       final List<Card> cards = [

@@ -1,4 +1,5 @@
 import 'package:tichu/view_model/turn/utils/card_utils.dart';
+import 'package:tichu/view_model/turn/utils/full_house_utils.dart';
 import 'package:tichu/view_model/turn/utils/straight_utils.dart';
 import 'package:tichu/view_model/turn/utils/pair_straight_utils.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';

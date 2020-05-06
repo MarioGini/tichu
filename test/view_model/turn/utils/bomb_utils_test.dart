@@ -24,6 +24,18 @@ void main() {
       expect(turns.any((turn) => turn.value == Card.getValue(CardFace.JACK)),
           true);
     });
+    test('noBombTest', () {
+      List<Card> cards = [
+        Card(CardFace.EIGHT, Color.BLACK),
+        Card(CardFace.EIGHT, Color.GREEN),
+        Card(CardFace.EIGHT, Color.RED),
+        Card(CardFace.JACK, Color.BLACK),
+        Card(CardFace.JACK, Color.GREEN),
+      ];
+
+      List<TichuTurn> turns = getBombs(cards);
+      expect(turns.length, 0);
+    });
   });
   group('isBomb', () {
     test('quartetBombTest', () {

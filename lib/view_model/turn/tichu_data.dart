@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:tichu/view_model/turn/utils/card_utils.dart';
 
 enum CardFace {
   MAH_JONG,
@@ -157,8 +158,9 @@ class TichuTurn {
         }
       case TurnType.FULL_HOUSE:
         {
-          // Value of the full house is defined by value of triplet.
-          return 0.0;
+          return occurrences(cards[0].face, cards) == 3
+              ? cards.first.value
+              : cards.last.value;
         }
       case TurnType.EMPTY:
       case TurnType.DOG:

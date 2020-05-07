@@ -17,7 +17,7 @@ List<TichuTurn> getFullHouses(List<Card> cards) {
       .where((element) => occurrenceCount[element] >= 3)
       .toList();
   List<CardFace> pairedFaces = occurrenceCount.keys
-      .where((element) => occurrenceCount[element] >= 2)
+      .where((element) => occurrenceCount[element] == 2)
       .toList();
 
   // TODO there are many full house combinations when color of card is taken
@@ -25,41 +25,83 @@ List<TichuTurn> getFullHouses(List<Card> cards) {
   for (int i = 0; i < tripledFaces.length; ++i) {
     CardFace tripleFace = tripledFaces[i];
 
-    int tripleCount = 0;
-    List<Card> fullHouseCards = cards.where((element) {
-      if (element.face == tripleFace && tripleCount < 3) {
-        ++tripleCount;
-        return true;
-      }
-      return false;
-    }).toList();
+    List<Card> fullHouseCards = cards
+        .where((card) {
+          return card.face == tripleFace;
+        })
+        .toList()
+        .sublist(0, 3);
 
     List<CardFace> possiblePairs =
-        pairedFaces.where((element) => element != tripleFace).toList();
+        tripledFaces.where((element) => element != tripleFace).toList();
+    possiblePairs.addAll(pairedFaces);
 
     for (int j = 0; j < possiblePairs.length; ++j) {
-      CardFace doubleFace = possiblePairs[j];
-      int pairCount = 0;
-      List<Card> pair = cards.where((element) {
-        if (element.face == doubleFace && pairCount < 2) {
-          ++pairCount;
-          return true;
-        }
-        return false;
-      }).toList();
+      List<Card> pair = cards
+          .where((card) {
+            return card.face == possiblePairs[j];
+          })
+          .toList()
+          .sublist(0, 2);
       fullHouses.add(TichuTurn(TurnType.FULL_HOUSE, fullHouseCards + pair));
     }
   }
 
   if (cards.any((element) => element.face == CardFace.PHOENIX)) {
-    if (pairedFaces.length >= 2) {
+    if (pairedFaces.length >= 1) {
       // We can promote any pair to a triplet and then use any of the other pair
       // to form full house.
+      for (int i = 0; i < pairedFaces.length; ++i) {
+        CardFace tripleFace = pairedFaces[i];
+
+        List<Card> phoenixCards = cards
+            .where((card) {
+              return card.face == tripleFace;
+            })
+            .toList()
+            .sublist(0, 2);
+        phoenixCards.add(Card.phoenix(phoenixCards.first.value));
+
+        List<CardFace> possiblePairs =
+            pairedFaces.where((element) => element != tripleFace).toList();
+        possiblePairs.addAll(tripledFaces);
+
+        for (int j = 0; j < possiblePairs.length; ++j) {
+          List<Card> pair = cards
+              .where((card) {
+                return card.face == possiblePairs[j];
+              })
+              .toList()
+              .sublist(0, 2);
+          fullHouses.add(TichuTurn(TurnType.FULL_HOUSE, phoenixCards + pair));
+        }
+      }
     }
 
     if (tripledFaces.length >= 1) {
       // In that case, we can also form full houses by promoting single card to
       // pair.
+      for (int i = 0; i < tripledFaces.length; ++i) {
+        CardFace tripleFace = tripledFaces[i];
+
+        List<Card> fullHouseCards = cards
+            .where((card) {
+              return card.face == tripleFace;
+            })
+            .toList()
+            .sublist(0, 3);
+        List<CardFace> availablePairs = occurrenceCount.keys
+            .where((element) =>
+                occurrenceCount[element] == 1 && element != CardFace.PHOENIX)
+            .toList();
+        for (int j = 0; j < availablePairs.length; ++j) {
+          Card pairCard =
+              cards.where((element) => element.face == availablePairs[j]).first;
+          Card phoenix = Card.phoenix(pairCard.value);
+          fullHouses.add(TichuTurn(
+              TurnType.FULL_HOUSE, fullHouseCards + [pairCard, phoenix]));
+        }
+      }
     }
   }
 

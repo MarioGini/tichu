@@ -1,5 +1,6 @@
 import 'package:tichu/view_model/turn/utils/bomb_utils.dart';
 import 'package:tichu/view_model/turn/utils/card_utils.dart';
+import 'package:tichu/view_model/turn/utils/full_house_utils.dart';
 import 'package:tichu/view_model/turn/utils/straight_utils.dart';
 import 'package:tichu/view_model/turn/utils/pair_straight_utils.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
@@ -119,24 +120,10 @@ bool canPlayWishOnStraight(DeckState deck, List<Card> cards) {
 }
 
 bool canPlayWishOnFullHouse(DeckState deck, List<Card> cards) {
-  if (cards.any((element) => element.face == CardFace.PHOENIX)) {
-    // When we also have the phoenix, we either need two pairs or a triplet.
-    int i = 2;
-    // We have a full house when we have a triplet that is higher as the deck
-    // triplet, a phoenix and at least one other card to form the pair.
-    if (i == 3) {
-      return true;
-    } else {
-      // Check whether we can use two pairs and the phoenix.
-    }
-  } else if (occurrences(deck.wish, cards) == 2) {
-    // The wish is in a pair, we need a triplet.
-  } else if (occurrences(deck.wish, cards) == 3) {
-    // The wish is in a triplet, we need a pair.
-  } else {
-    // We do not have a phoenix and the wish is not in a multiple set.
-    return false;
-  }
+  List<TichuTurn> possibleTurns = getFullHouses(cards);
 
-  return false;
+  possibleTurns.retainWhere(
+      (element) => element.cards.any((element) => element.face == deck.wish));
+
+  return possibleTurns.any((element) => element.value > deck.turn.value);
 }

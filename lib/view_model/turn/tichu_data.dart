@@ -158,9 +158,9 @@ class TichuTurn {
         }
       case TurnType.FULL_HOUSE:
         {
-          return occurrences(cards[0].face, cards) == 3
-              ? cards.first.value
-              : cards.last.value;
+          int firstValueCount =
+              cards.where((card) => card.value == cards.first.value).length;
+          return firstValueCount == 3 ? cards.first.value : cards.last.value;
         }
       case TurnType.EMPTY:
       case TurnType.DOG:

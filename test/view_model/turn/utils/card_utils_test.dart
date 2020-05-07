@@ -20,6 +20,21 @@ void main() {
       expect(occurrences(CardFace.TWO, cards), 0);
     });
   });
+  group('getOccurrenceCount', () {
+    test('standardTest', () {
+      final List<Card> cards = [
+        Card(CardFace.THREE, Color.GREEN),
+        Card(CardFace.THREE, Color.BLACK),
+        Card(CardFace.FOUR, Color.RED),
+      ];
+      Map<CardFace, int> occurrences = getOccurrenceCount(cards);
+      expect(occurrences.keys.length, 2);
+      expect(occurrences.values.fold(0, (prev, element) => prev + element),
+          cards.length);
+      expect(occurrences[CardFace.THREE], 2);
+      expect(occurrences[CardFace.FOUR], 1);
+    });
+  });
   group('uniformColor', () {
     test('uniformColorTest', () {
       List<Card> cards = [

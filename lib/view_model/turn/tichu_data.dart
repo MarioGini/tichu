@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:tichu/view_model/turn/utils/card_utils.dart';
 
 enum CardFace {
   MAH_JONG,

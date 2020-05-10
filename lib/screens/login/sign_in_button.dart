@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tichu/services/auth_provider.dart';
+import '../../services/auth_provider.dart';
 
 class SignInGoogleButton extends StatelessWidget {
   @override

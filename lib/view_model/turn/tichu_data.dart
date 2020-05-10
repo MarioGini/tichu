@@ -1,91 +1,88 @@
 import 'package:flutter/foundation.dart';
 
 enum CardFace {
-  MAH_JONG,
-  TWO,
-  THREE,
-  FOUR,
-  FIVE,
-  SIX,
-  SEVEN,
-  EIGHT,
-  NINE,
-  TEN,
-  JACK,
-  QUEEN,
-  KING,
-  ACE,
-  DRAGON,
-  PHOENIX,
-  DOG
+  mahJong,
+  two,
+  three,
+  four,
+  five,
+  six,
+  seven,
+  eight,
+  nine,
+  ten,
+  jack,
+  queen,
+  king,
+  ace,
+  dragon,
+  phoenix,
+  dog
 }
 
 // Special is the "color" for the four special cards of the deck.
-enum Color { BLACK, GREEN, RED, BLUE, SPECIAL }
+enum Color { black, green, red, blue, special }
 
+@immutable
 class Card {
   final CardFace face;
   final Color color;
   final double value;
 
-  Card(CardFace cardFace, Color color)
-      : face = cardFace,
-        color = color,
-        value = getValue(cardFace);
+  Card(this.face, this.color) : value = getValue(face);
 
-// Play phoenix with a specific value.
-  Card.phoenix(double value)
-      : face = CardFace.PHOENIX,
-        color = Color.SPECIAL,
-        value = value;
+  // Play phoenix with a specific value.
+  Card.phoenix(this.value)
+      : face = CardFace.phoenix,
+        color = Color.special;
 
   static double getValue(CardFace cardFace) {
     switch (cardFace) {
-      case CardFace.MAH_JONG:
+      case CardFace.mahJong:
         return 1.0;
-      case CardFace.TWO:
+      case CardFace.two:
         return 2.0;
-      case CardFace.THREE:
+      case CardFace.three:
         return 3.0;
-      case CardFace.FOUR:
+      case CardFace.four:
         return 4.0;
-      case CardFace.FIVE:
+      case CardFace.five:
         return 5.0;
-      case CardFace.SIX:
+      case CardFace.six:
         return 6.0;
-      case CardFace.SEVEN:
+      case CardFace.seven:
         return 7.0;
-      case CardFace.EIGHT:
+      case CardFace.eight:
         return 8.0;
-      case CardFace.NINE:
+      case CardFace.nine:
         return 9.0;
-      case CardFace.TEN:
+      case CardFace.ten:
         return 10.0;
-      case CardFace.JACK:
+      case CardFace.jack:
         return 11.0;
-      case CardFace.QUEEN:
+      case CardFace.queen:
         return 12.0;
-      case CardFace.KING:
+      case CardFace.king:
         return 13.0;
-      case CardFace.ACE:
+      case CardFace.ace:
         return 14.0;
-      case CardFace.DRAGON:
-        return 15.0;
-      case CardFace.PHOENIX:
-        return -1.0;
-      case CardFace.DOG:
-        return 0.0;
+      case CardFace.dragon:
+        return 25.0;
+      case CardFace.phoenix:
+        return -10.0;
+      case CardFace.dog:
+        return -2.0;
       default:
         return 0.0;
     }
   }
 
   @override
-  bool operator ==(other) {
+  bool operator ==(dynamic other) {
     return other is Card &&
-        this.color == other.color &&
-        this.face == other.face &&
-        this.value == other.value;
+        color == other.color &&
+        face == other.face &&
+        value == other.value;
   }
 
   @override
@@ -106,44 +103,40 @@ int compareCards(Card a, Card b) {
 }
 
 enum TurnType {
-  EMPTY,
-  SINGLE,
-  PAIR,
-  PAIR_STRAIGHT, // Length of straight to be determined from number of cards.
-  TRIPLET,
-  FULL_HOUSE,
-  STRAIGHT, // Length of straight to be determined from number of cards.
-  DRAGON,
-  DOG,
-  BOMB, // Either four of a kind or a straight bomb
+  empty,
+  single,
+  pair,
+  pairStraight, // Length of straight to be determined from number of cards.
+  triplet,
+  fullHouse,
+  straight, // Length of straight to be determined from number of cards.
+  dog,
+  bomb, // Either four of a kind or a straight bomb
 }
 
 // Describes a turn action.
+@immutable
 class TichuTurn {
   final TurnType type;
   final List<Card> cards;
   final double value;
 
   // NOTE: The user is responsible that the type and cards do match together.
-  TichuTurn(TurnType type, List<Card> cards)
-      : type = type,
-        cards = cards,
-        value = getValue(type, cards);
+  TichuTurn(this.type, this.cards) : value = getValue(type, cards);
 
   static double getValue(TurnType type, List<Card> cards) {
+    cards.sort(compareCards);
+
     switch (type) {
-      case TurnType.SINGLE:
-      case TurnType.DRAGON:
-      case TurnType.PAIR:
-      case TurnType.PAIR_STRAIGHT:
-      case TurnType.STRAIGHT:
-      case TurnType.TRIPLET:
-      case TurnType.DOG:
+      case TurnType.single:
+      case TurnType.pair:
+      case TurnType.pairStraight:
+      case TurnType.straight:
+      case TurnType.triplet:
         {
-          cards.sort(compareCards);
           return cards.first.value;
         }
-      case TurnType.BOMB:
+      case TurnType.bomb:
         {
           double value;
           if (cards.length == 4) {
@@ -151,20 +144,21 @@ class TichuTurn {
             value = cards.first.value;
           } else {
             // This means we have a straight bomb.
-            cards.sort(compareCards);
             value = 20 + cards.first.value; // 20 is a magic value
           }
           return value;
         }
-      case TurnType.FULL_HOUSE:
+      case TurnType.fullHouse:
         {
-          // Value of the full house is defined by value of triplet.
-          return 0.0;
+          var firstValueCount =
+              cards.where((card) => card.value == cards.first.value).length;
+          return firstValueCount == 3 ? cards.first.value : cards.last.value;
         }
-      case TurnType.EMPTY:
+      case TurnType.empty:
+      case TurnType.dog:
         {
-          // empty has a value of 1.0 because a phoenix played on it has a value
-          // of 1.5.
+          // empty and dog have a value of 1.0 because a phoenix played on it
+          // has a value of 1.5.
           return 1.0;
         }
       default:
@@ -173,19 +167,29 @@ class TichuTurn {
   }
 
   @override
-  bool operator ==(other) {
-    this.cards.sort(compareCards);
+  bool operator ==(dynamic other) {
+    cards.sort(compareCards);
     if (other is TichuTurn) other.cards.sort(compareCards);
 
     return other is TichuTurn &&
-        this.value == other.value &&
-        this.type == other.type &&
-        listEquals(this.cards, other.cards);
+        value == other.value &&
+        type == other.type &&
+        listEquals(cards, other.cards);
   }
 
   @override
   int get hashCode {
-    return this.type.index + this.value.toInt() * 10;
+    return type.index + value.toInt() * 10;
+  }
+}
+
+int compareTurns(TichuTurn a, TichuTurn b) {
+  if (a.value == b.value) {
+    return 0;
+  } else if (a.value > b.value) {
+    return -1;
+  } else {
+    return 1;
   }
 }
 
@@ -193,9 +197,8 @@ class TichuTurn {
 class DeckState {
   final TichuTurn turn;
   final CardFace wish;
-  // TODO needs a stack field that includes all played cards.
+  String currentWinner;
+  List<Card> cardStack; // Contains all cards played before the current turn.
 
   DeckState(this.turn, this.wish);
 }
-
-// TODO environment class that stores tichu calls and scores.

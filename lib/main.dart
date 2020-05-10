@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tichu/screens/login/login.dart';
+import 'screens/login/login.dart';
 
 void main() => runApp(MyApp());
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tichu/screens/login/sign_in_button.dart';
+import 'sign_in_button.dart';
 
 class LoginPage extends StatefulWidget {
   @override

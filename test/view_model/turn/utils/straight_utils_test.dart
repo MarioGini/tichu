@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import "package:tichu/view_model/turn/utils/straight_utils.dart";
+import 'package:tichu/view_model/turn/utils/straight_utils.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
 void main() {
@@ -7,10 +7,10 @@ void main() {
     List<Card> uniqueCards;
     setUp(() {
       uniqueCards = [
-        Card(CardFace.THREE, Color.GREEN),
-        Card(CardFace.FOUR, Color.RED),
-        Card(CardFace.FIVE, Color.RED),
-        Card(CardFace.SIX, Color.RED)
+        Card(CardFace.three, Color.green),
+        Card(CardFace.four, Color.red),
+        Card(CardFace.five, Color.red),
+        Card(CardFace.six, Color.red)
       ];
       uniqueCards.sort(compareCards);
     });
@@ -18,34 +18,34 @@ void main() {
       expect(removeDuplicates(uniqueCards), uniqueCards);
     });
     test('twoDuplicatesTest', () {
-      List<Card> duplicateCards = List<Card>.from(uniqueCards);
-      duplicateCards.add(Card(CardFace.FIVE, Color.BLACK));
-      duplicateCards.add(Card(CardFace.SIX, Color.BLACK));
+      var duplicateCards = List<Card>.from(uniqueCards);
+      duplicateCards.add(Card(CardFace.five, Color.black));
+      duplicateCards.add(Card(CardFace.six, Color.black));
       duplicateCards.sort(compareCards);
 
       expect(removeDuplicates(duplicateCards), uniqueCards);
     });
     test('threeDuplicatesTest', () {
-      List<Card> duplicateCards = List<Card>.from(uniqueCards);
-      duplicateCards.add(Card(CardFace.FIVE, Color.BLACK));
-      duplicateCards.add(Card(CardFace.FIVE, Color.RED));
+      var duplicateCards = List<Card>.from(uniqueCards);
+      duplicateCards.add(Card(CardFace.five, Color.black));
+      duplicateCards.add(Card(CardFace.five, Color.red));
       duplicateCards.sort(compareCards);
 
       expect(removeDuplicates(duplicateCards), uniqueCards);
     });
   });
   group('getStraights', () {
-    final List<Card> sixStraight = [
-      Card(CardFace.THREE, Color.GREEN),
-      Card(CardFace.FOUR, Color.RED),
-      Card(CardFace.FIVE, Color.RED),
-      Card(CardFace.SIX, Color.RED),
-      Card(CardFace.SEVEN, Color.RED),
-      Card(CardFace.EIGHT, Color.RED),
+    final sixStraight = [
+      Card(CardFace.three, Color.green),
+      Card(CardFace.four, Color.red),
+      Card(CardFace.five, Color.red),
+      Card(CardFace.six, Color.red),
+      Card(CardFace.seven, Color.red),
+      Card(CardFace.eight, Color.red),
     ];
     test('simpleSixStraightTest', () {
-      final int desiredLength = 6;
-      List<TichuTurn> straightTurns = getStraights(sixStraight, desiredLength);
+      final desiredLength = 6;
+      var straightTurns = getStraights(sixStraight, desiredLength);
 
       expect(straightTurns.length, 1);
       expect(straightTurns.every((turn) => isStraight(turn.cards)), true);
@@ -55,15 +55,14 @@ void main() {
     });
     test('hiddenSixStraightTest', () {
       // Here, we also have duplicates and other cards at hand.
-      List<Card> hiddenSixStraight = List<Card>.from(sixStraight);
-      hiddenSixStraight.add(Card(CardFace.KING, Color.RED));
-      hiddenSixStraight.add(Card(CardFace.QUEEN, Color.RED));
-      hiddenSixStraight.add(Card(CardFace.FOUR, Color.RED));
-      hiddenSixStraight.add(Card(CardFace.MAH_JONG, Color.SPECIAL));
+      var hiddenSixStraight = List<Card>.from(sixStraight);
+      hiddenSixStraight.add(Card(CardFace.king, Color.red));
+      hiddenSixStraight.add(Card(CardFace.queen, Color.red));
+      hiddenSixStraight.add(Card(CardFace.four, Color.red));
+      hiddenSixStraight.add(Card(CardFace.mahJong, Color.special));
 
-      final int desiredLength = 5;
-      List<TichuTurn> straightTurns =
-          getStraights(hiddenSixStraight, desiredLength);
+      final desiredLength = 5;
+      var straightTurns = getStraights(hiddenSixStraight, desiredLength);
 
       expect(straightTurns.length, 2);
       expect(straightTurns.every((turn) => isStraight(turn.cards)), true);
@@ -73,92 +72,92 @@ void main() {
       expect(straightTurns[1].value, 7);
     });
     test('phoenixAsGapTest', () {
-      final List<Card> phoenixStraight = [
-        Card(CardFace.THREE, Color.GREEN),
-        Card(CardFace.FOUR, Color.RED),
-        Card(CardFace.PHOENIX, Color.SPECIAL),
-        Card(CardFace.SIX, Color.RED),
-        Card(CardFace.SEVEN, Color.RED),
-        Card(CardFace.EIGHT, Color.RED),
+      final phoenixStraight = [
+        Card(CardFace.three, Color.green),
+        Card(CardFace.four, Color.red),
+        Card(CardFace.phoenix, Color.special),
+        Card(CardFace.six, Color.red),
+        Card(CardFace.seven, Color.red),
+        Card(CardFace.eight, Color.red),
       ];
 
-      final int desiredLength = 5;
-      List<TichuTurn> turns = getStraights(phoenixStraight, desiredLength);
+      final desiredLength = 5;
+      var turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 2);
       expect(turns.every((turn) => isStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, Card.getValue(CardFace.EIGHT));
-      expect(turns[1].value, Card.getValue(CardFace.SEVEN));
+      expect(turns[0].value, Card.getValue(CardFace.eight));
+      expect(turns[1].value, Card.getValue(CardFace.seven));
     });
     test('phoenixTooSmallTest', () {
-      final List<Card> phoenixStraight = [
-        Card(CardFace.THREE, Color.GREEN),
-        Card(CardFace.FOUR, Color.RED),
-        Card(CardFace.PHOENIX, Color.SPECIAL),
-        Card(CardFace.SIX, Color.RED),
-        Card(CardFace.ACE, Color.RED),
+      final phoenixStraight = [
+        Card(CardFace.three, Color.green),
+        Card(CardFace.four, Color.red),
+        Card(CardFace.phoenix, Color.special),
+        Card(CardFace.six, Color.red),
+        Card(CardFace.ace, Color.red),
       ];
 
-      final int desiredLength = 5;
-      List<TichuTurn> turns = getStraights(phoenixStraight, desiredLength);
+      final desiredLength = 5;
+      var turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 0);
     });
     test('phoenixAsGapAndPromotingTest', () {
       // The cards combine a segment of length four that is promoted to
       // straight.
-      final List<Card> phoenixStraight = [
-        Card(CardFace.THREE, Color.GREEN),
-        Card(CardFace.FOUR, Color.RED),
-        Card(CardFace.PHOENIX, Color.SPECIAL),
-        Card(CardFace.SIX, Color.RED),
-        Card(CardFace.SEVEN, Color.RED),
-        Card(CardFace.TEN, Color.GREEN),
-        Card(CardFace.JACK, Color.GREEN),
-        Card(CardFace.QUEEN, Color.GREEN),
-        Card(CardFace.KING, Color.GREEN),
+      final phoenixStraight = [
+        Card(CardFace.three, Color.green),
+        Card(CardFace.four, Color.red),
+        Card(CardFace.phoenix, Color.special),
+        Card(CardFace.six, Color.red),
+        Card(CardFace.seven, Color.red),
+        Card(CardFace.ten, Color.green),
+        Card(CardFace.jack, Color.green),
+        Card(CardFace.queen, Color.green),
+        Card(CardFace.king, Color.green),
       ];
 
-      final int desiredLength = 5;
-      List<TichuTurn> turns = getStraights(phoenixStraight, desiredLength);
+      final desiredLength = 5;
+      var turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 2);
       expect(turns.every((turn) => isStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, Card.getValue(CardFace.ACE));
-      expect(turns[1].value, Card.getValue(CardFace.SEVEN));
+      expect(turns[0].value, Card.getValue(CardFace.ace));
+      expect(turns[1].value, Card.getValue(CardFace.seven));
     });
     test('phoenixAsLowerGapTest', () {
-      final List<Card> phoenixStraight = [
-        Card(CardFace.PHOENIX, Color.SPECIAL),
-        Card(CardFace.JACK, Color.GREEN),
-        Card(CardFace.QUEEN, Color.GREEN),
-        Card(CardFace.KING, Color.GREEN),
-        Card(CardFace.ACE, Color.RED)
+      final phoenixStraight = [
+        Card(CardFace.phoenix, Color.special),
+        Card(CardFace.jack, Color.green),
+        Card(CardFace.queen, Color.green),
+        Card(CardFace.king, Color.green),
+        Card(CardFace.ace, Color.red)
       ];
 
-      final int desiredLength = 5;
-      List<TichuTurn> turns = getStraights(phoenixStraight, desiredLength);
+      final desiredLength = 5;
+      var turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 1);
       expect(turns.every((turn) => isStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, Card.getValue(CardFace.ACE));
+      expect(turns[0].value, Card.getValue(CardFace.ace));
     });
   });
   group('getStraightPermutations', () {
-    final List<Card> sevenStraight = [
-      Card(CardFace.TWO, Color.RED),
-      Card(CardFace.THREE, Color.GREEN),
-      Card(CardFace.FOUR, Color.RED),
-      Card(CardFace.FIVE, Color.RED),
-      Card(CardFace.SIX, Color.RED),
-      Card(CardFace.SEVEN, Color.RED),
-      Card(CardFace.EIGHT, Color.RED)
+    final sevenStraight = [
+      Card(CardFace.two, Color.red),
+      Card(CardFace.three, Color.green),
+      Card(CardFace.four, Color.red),
+      Card(CardFace.five, Color.red),
+      Card(CardFace.six, Color.red),
+      Card(CardFace.seven, Color.red),
+      Card(CardFace.eight, Color.red)
     ];
     test('getPermutationTest', () {
-      List<TichuTurn> turns = getStraightPermutations(sevenStraight);
+      var turns = getStraightPermutations(sevenStraight);
 
       expect(turns.length, 6);
       expect(turns.every((element) => isStraight(element.cards)), true);
@@ -178,35 +177,35 @@ void main() {
   });
   group('isStraight', () {
     test('fiveStraightTest', () {
-      List<Card> cards = [
-        Card(CardFace.FIVE, Color.BLACK),
-        Card(CardFace.FOUR, Color.GREEN),
-        Card(CardFace.THREE, Color.BLUE),
-        Card(CardFace.TWO, Color.BLUE),
-        Card(CardFace.MAH_JONG, Color.SPECIAL)
+      var cards = <Card>[
+        Card(CardFace.five, Color.black),
+        Card(CardFace.four, Color.green),
+        Card(CardFace.three, Color.blue),
+        Card(CardFace.two, Color.blue),
+        Card(CardFace.mahJong, Color.special)
       ];
 
       expect(isStraight(cards), true);
     });
     test('sevenPhoenixStraightTest', () {
-      List<Card> cards = [
-        Card(CardFace.FIVE, Color.BLACK),
-        Card(CardFace.SIX, Color.BLACK),
-        Card.phoenix(Card.getValue(CardFace.SEVEN)),
-        Card(CardFace.FOUR, Color.GREEN),
-        Card(CardFace.THREE, Color.BLUE),
-        Card(CardFace.TWO, Color.BLUE)
+      var cards = <Card>[
+        Card(CardFace.five, Color.black),
+        Card(CardFace.six, Color.black),
+        Card.phoenix(Card.getValue(CardFace.seven)),
+        Card(CardFace.four, Color.green),
+        Card(CardFace.three, Color.blue),
+        Card(CardFace.two, Color.blue)
       ];
 
       expect(isStraight(cards), true);
     });
     test('straightDragonTest', () {
-      List<Card> cards = [
-        Card(CardFace.JACK, Color.BLACK),
-        Card(CardFace.QUEEN, Color.BLACK),
-        Card(CardFace.KING, Color.GREEN),
-        Card(CardFace.ACE, Color.BLUE),
-        Card(CardFace.DRAGON, Color.SPECIAL)
+      var cards = <Card>[
+        Card(CardFace.jack, Color.black),
+        Card(CardFace.queen, Color.black),
+        Card(CardFace.king, Color.green),
+        Card(CardFace.ace, Color.blue),
+        Card(CardFace.dragon, Color.special)
       ];
 
       expect(isStraight(cards), false);

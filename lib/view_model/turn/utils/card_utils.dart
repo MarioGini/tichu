@@ -1,33 +1,35 @@
-import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'package:flutter/foundation.dart';
+
+import '../tichu_data.dart';
 
 // Returns number of occurrences of the card face in the list.
 int occurrences(CardFace face, List<Card> cards) {
-  int occurrences = 0;
-  cards.forEach((element) {
-    if (element.face == face) ++occurrences;
-  });
+  var occurrences = 0;
+  for (var card in cards) {
+    if (card.face == face) ++occurrences;
+  }
 
   return occurrences;
 }
 
 // Returns map containing occurrence information of all cards.
 Map<CardFace, int> getOccurrenceCount(List<Card> cards) {
-  Map<CardFace, int> occurrenceCount = {};
-  cards.forEach((element) {
-    if (occurrenceCount.containsKey(element.face)) {
-      ++occurrenceCount[element.face];
+  var occurrenceCount = <CardFace, int>{};
+  for (var card in cards) {
+    if (occurrenceCount.containsKey(card.face)) {
+      ++occurrenceCount[card.face];
     } else {
-      occurrenceCount[element.face] = 1;
+      occurrenceCount[card.face] = 1;
     }
-  });
+  }
 
   return occurrenceCount;
 }
 
 // Returns true when all cards in the list have the same color.
 bool uniformColor(List<Card> cards) {
-  bool uniformColor = true;
-  int i = 0;
+  var uniformColor = true;
+  var i = 0;
   while (i <= cards.length - 2) {
     if (cards[i].color != cards[i + 1].color) {
       uniformColor = false;
@@ -39,21 +41,19 @@ bool uniformColor(List<Card> cards) {
   return uniformColor;
 }
 
+@immutable
 class ConnectedCards {
-  int beginIdx;
-  int endIdx;
+  final int beginIdx;
+  final int endIdx;
 
-  ConnectedCards(
-    this.beginIdx,
-    this.endIdx,
-  );
+  ConnectedCards(this.beginIdx, this.endIdx);
 
   // Override to allow testing
   @override
-  bool operator ==(other) {
+  bool operator ==(dynamic other) {
     return other is ConnectedCards &&
-        this.beginIdx == other.beginIdx &&
-        this.endIdx == other.endIdx;
+        beginIdx == other.beginIdx &&
+        endIdx == other.endIdx;
   }
 
   @override
@@ -64,11 +64,11 @@ class ConnectedCards {
 
 List<ConnectedCards> findConnectedCards(List<Card> cards) {
   cards.sort(compareCards);
-  List<ConnectedCards> connected = [];
-  int beginIdx = 0;
-  int endIdx = 0;
+  var connected = <ConnectedCards>[];
+  var beginIdx = 0;
+  var endIdx = 0;
 
-  for (int i = 1; i < cards.length; ++i) {
+  for (var i = 1; i < cards.length; ++i) {
     if (cards[i].value + 1 != cards[i - 1].value) {
       connected.add(ConnectedCards(beginIdx, endIdx));
       beginIdx = i;

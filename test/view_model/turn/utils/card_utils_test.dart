@@ -4,52 +4,52 @@ import 'package:tichu/view_model/turn/tichu_data.dart';
 
 void main() {
   group('occurrences', () {
-    final List<Card> cards = [
-      Card(CardFace.NINE, Color.RED),
-      Card(CardFace.NINE, Color.GREEN),
-      Card(CardFace.NINE, Color.GREEN),
-      Card(CardFace.KING, Color.GREEN)
+    final cards = [
+      Card(CardFace.nine, Color.red),
+      Card(CardFace.nine, Color.green),
+      Card(CardFace.nine, Color.green),
+      Card(CardFace.king, Color.green)
     ];
     test('threeOccurrencesTest', () {
-      expect(occurrences(CardFace.NINE, cards), 3);
+      expect(occurrences(CardFace.nine, cards), 3);
     });
     test('singleOccurrenceTest', () {
-      expect(occurrences(CardFace.KING, cards), 1);
+      expect(occurrences(CardFace.king, cards), 1);
     });
     test('noOccurrencesTest', () {
-      expect(occurrences(CardFace.TWO, cards), 0);
+      expect(occurrences(CardFace.two, cards), 0);
     });
   });
   group('getOccurrenceCount', () {
     test('standardTest', () {
-      final List<Card> cards = [
-        Card(CardFace.THREE, Color.GREEN),
-        Card(CardFace.THREE, Color.BLACK),
-        Card(CardFace.FOUR, Color.RED),
+      final cards = [
+        Card(CardFace.three, Color.green),
+        Card(CardFace.three, Color.black),
+        Card(CardFace.four, Color.red),
       ];
-      Map<CardFace, int> occurrences = getOccurrenceCount(cards);
+      var occurrences = getOccurrenceCount(cards);
       expect(occurrences.keys.length, 2);
       expect(occurrences.values.fold(0, (prev, element) => prev + element),
           cards.length);
-      expect(occurrences[CardFace.THREE], 2);
-      expect(occurrences[CardFace.FOUR], 1);
+      expect(occurrences[CardFace.three], 2);
+      expect(occurrences[CardFace.four], 1);
     });
   });
   group('uniformColor', () {
     test('uniformColorTest', () {
-      List<Card> cards = [
-        Card(CardFace.FIVE, Color.RED),
-        Card(CardFace.JACK, Color.RED),
-        Card(CardFace.KING, Color.RED)
+      var cards = <Card>[
+        Card(CardFace.five, Color.red),
+        Card(CardFace.jack, Color.red),
+        Card(CardFace.king, Color.red)
       ];
 
       expect(uniformColor(cards), true);
     });
     test('nonUniformColorsTest', () {
-      List<Card> cards = [
-        Card(CardFace.FIVE, Color.RED),
-        Card(CardFace.JACK, Color.RED),
-        Card(CardFace.DOG, Color.SPECIAL)
+      var cards = <Card>[
+        Card(CardFace.five, Color.red),
+        Card(CardFace.jack, Color.red),
+        Card(CardFace.dog, Color.special)
       ];
 
       expect(uniformColor(cards), false);
@@ -57,21 +57,21 @@ void main() {
   });
   group('findConnected', () {
     test('simple', () {
-      final List<Card> cards = [
-        Card(CardFace.THREE, Color.GREEN),
-        Card(CardFace.FOUR, Color.RED),
-        Card(CardFace.FIVE, Color.RED),
-        Card(CardFace.SEVEN, Color.RED),
-        Card(CardFace.EIGHT, Color.RED),
-        Card(CardFace.KING, Color.RED),
+      final cards = [
+        Card(CardFace.three, Color.green),
+        Card(CardFace.four, Color.red),
+        Card(CardFace.five, Color.red),
+        Card(CardFace.seven, Color.red),
+        Card(CardFace.eight, Color.red),
+        Card(CardFace.king, Color.red),
       ];
 
-      List<ConnectedCards> expected = [
+      var expected = <ConnectedCards>[
         ConnectedCards(0, 0),
         ConnectedCards(1, 2),
         ConnectedCards(3, 5)
       ];
-      List<ConnectedCards> connectedCards = findConnectedCards(cards);
+      var connectedCards = findConnectedCards(cards);
 
       expect(connectedCards.first.beginIdx, 0);
       expect(connectedCards.last.endIdx, cards.indexOf(cards.last));

@@ -13,30 +13,29 @@ String imageUrl;
 
 Future<String> signInAnon() async {
   if (_auth.currentUser() == null) {
-    final AuthResult authResult = await _auth.signInAnonymously();
+    final authResult = await _auth.signInAnonymously();
     _user = authResult.user;
     assert(await _user.getIdToken() != null);
   }
 
-  return 'anonymous signin success: $_user';
+  return 'anonymous sign-in success: $_user';
 }
 
 Future<String> signInWithGoogle() async {
-  final GoogleSignInAccount googleSignInAccount = await googleSignIn.signIn();
-  final GoogleSignInAuthentication googleSignInAuthentication =
-      await googleSignInAccount.authentication;
-  final AuthCredential credential = GoogleAuthProvider.getCredential(
+  final googleSignInAccount = await googleSignIn.signIn();
+  final googleSignInAuthentication = await googleSignInAccount.authentication;
+  final credential = GoogleAuthProvider.getCredential(
     accessToken: googleSignInAuthentication.accessToken,
     idToken: googleSignInAuthentication.idToken,
   );
 
-  final AuthResult authResult = await _auth.signInWithCredential(credential);
+  final authResult = await _auth.signInWithCredential(credential);
   _user = authResult.user;
 
   assert(!_user.isAnonymous);
   assert(await _user.getIdToken() != null);
 
-  final FirebaseUser currentUser = await _auth.currentUser();
+  final currentUser = await _auth.currentUser();
   assert(_user.uid == currentUser.uid);
 
   assert(_user.email != null);
@@ -48,8 +47,8 @@ Future<String> signInWithGoogle() async {
   imageUrl = _user.photoUrl;
 
   // Only taking the first part of the name, i.e., First Name
-  if (name.contains(" ")) {
-    name = name.substring(0, name.indexOf(" "));
+  if (name.contains(' ')) {
+    name = name.substring(0, name.indexOf(' '));
   }
 
   return 'signInWithGoogle succeeded: $_user';
@@ -59,15 +58,14 @@ Future<String> signInWithFacebook() async {
   facebookLogin.loginBehavior = FacebookLoginBehavior.webViewOnly;
   final result = await facebookLogin.logIn(['email']);
   final token = result.accessToken.token;
-  AuthCredential credential =
-      FacebookAuthProvider.getCredential(accessToken: token);
-  final AuthResult authResult = await _auth.signInWithCredential(credential);
+  var credential = FacebookAuthProvider.getCredential(accessToken: token);
+  final authResult = await _auth.signInWithCredential(credential);
   _user = authResult.user;
 
   assert(!_user.isAnonymous);
   assert(await _user.getIdToken() != null);
 
-  final FirebaseUser currentUser = await _auth.currentUser();
+  final currentUser = await _auth.currentUser();
   assert(_user.uid == currentUser.uid);
 
   assert(_user.email != null);
@@ -79,8 +77,8 @@ Future<String> signInWithFacebook() async {
   imageUrl = _user.photoUrl;
 
   // Only taking the first part of the name, i.e., First Name
-  if (name.contains(" ")) {
-    name = name.substring(0, name.indexOf(" "));
+  if (name.contains(' ')) {
+    name = name.substring(0, name.indexOf(' '));
   }
 
   return 'signInWithGoogle succeeded: $_user';

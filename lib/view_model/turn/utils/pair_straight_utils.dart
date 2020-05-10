@@ -1,11 +1,11 @@
-import 'package:tichu/view_model/turn/tichu_data.dart';
-import 'package:tichu/view_model/turn/utils/card_utils.dart';
+import '../tichu_data.dart';
+import 'card_utils.dart';
 
 List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
-  List<TichuTurn> pairStraights = [];
+  var pairStraights = <TichuTurn>[];
 
   cards.removeWhere((element) =>
-      element.face == CardFace.DRAGON || element.face == CardFace.DOG);
+      element.face == CardFace.dragon || element.face == CardFace.dog);
 
   if (cards.length < 4 || desiredLength % 2 != 0) return pairStraights;
 
@@ -13,7 +13,7 @@ List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
 
   // Remove cards that are present more than twice since they are irrelevant for
   // pair straights.
-  Map<CardFace, int> occurrenceCount = getOccurrenceCount(cards);
+  var occurrenceCount = getOccurrenceCount(cards);
   cards.removeWhere((element) {
     bool tooMany;
     tooMany = occurrenceCount[element.face] > 2;
@@ -24,46 +24,45 @@ List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
   });
 
   // Create list of all paired cards.
-  List<Card> pairCards =
+  var pairCards =
       cards.where((element) => occurrenceCount[element.face] == 2).toList();
 
   // Look for consecutive pairs. findConnectedCards expects a unique list as
   // input. The output is mapped to the indices of the paired list.
-  List<ConnectedCards> pairIndices = findConnectedCards(pairCards
+  var pairIndices = findConnectedCards(pairCards
           .where((element) => pairCards.indexOf(element) % 2 == 0)
           .toList())
       .map((e) => ConnectedCards(2 * e.beginIdx, 2 * e.endIdx))
       .toList();
 
   // Add connected pairs as tichu turns.
-  pairIndices.forEach((element) {
-    if (element.endIdx - element.beginIdx >= 2) {
-      pairStraights.add(TichuTurn(TurnType.PAIR_STRAIGHT,
-          pairCards.sublist(element.beginIdx, element.endIdx + 2)));
+  for (var seq in pairIndices) {
+    if (seq.endIdx - seq.beginIdx >= 2) {
+      pairStraights.add(TichuTurn(TurnType.pairStraight,
+          pairCards.sublist(seq.beginIdx, seq.endIdx + 2)));
     }
-  });
+  }
 
-  if (cards.any((element) => element.face == CardFace.PHOENIX)) {
+  if (cards.any((element) => element.face == CardFace.phoenix)) {
     // Check for pair straight fusions.
-    for (int i = 0; i < pairIndices.length - 1; ++i) {
-      double gapValue = pairCards[pairIndices[i].endIdx].value - 1.0;
+    for (var i = 0; i < pairIndices.length - 1; ++i) {
+      var gapValue = pairCards[pairIndices[i].endIdx].value - 1.0;
       if (gapValue == pairCards[pairIndices[i + 1].beginIdx].value + 1.0 &&
-          cards.where((element) => element.value == gapValue).length != 0) {
+          cards.where((element) => element.value == gapValue).isNotEmpty) {
         pairStraights.add(addPhoenixPadding(cards, pairCards,
             pairIndices[i].beginIdx, pairIndices[i + 1].endIdx, gapValue));
       }
     }
-    for (int i = 0; i < pairIndices.length; ++i) {
+    for (var i = 0; i < pairIndices.length; ++i) {
       // Add upper padding when possible
-      double desValue = pairCards[pairIndices[i].beginIdx].value + 1.0;
-      if (cards.where((element) => element.value == desValue).length != 0) {
+      var desValue = pairCards[pairIndices[i].beginIdx].value + 1.0;
+      if (cards.where((element) => element.value == desValue).isNotEmpty) {
         pairStraights.add(addPhoenixPadding(cards, pairCards,
             pairIndices[i].beginIdx, pairIndices[i].endIdx, desValue));
       }
       // Add lower padding when possible
-      double desLowerValue = pairCards[pairIndices[i].endIdx].value - 1.0;
-      if (cards.where((element) => element.value == desLowerValue).length !=
-          0) {
+      var desLowerValue = pairCards[pairIndices[i].endIdx].value - 1.0;
+      if (cards.where((element) => element.value == desLowerValue).isNotEmpty) {
         pairStraights.add(addPhoenixPadding(cards, pairCards,
             pairIndices[i].beginIdx, pairIndices[i].endIdx, desLowerValue));
       }
@@ -71,16 +70,16 @@ List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
   }
 
   // Add permutations and filter to desired length.
-  List<TichuTurn> allPairStraights = [];
-  pairStraights.forEach((element) {
-    allPairStraights.addAll(getPairStraightPermutations(element.cards));
-  });
+  var allPairStraights = <TichuTurn>[];
+  for (var pairStraight in pairStraights) {
+    allPairStraights.addAll(getPairStraightPermutations(pairStraight.cards));
+  }
   allPairStraights
       .retainWhere((element) => element.cards.length == desiredLength);
 
   // Remove duplicate elements which come from permutation logic when both
   // standard and phoenix straights are possible.
-  Set<double> values = {};
+  var values = <double>{};
   allPairStraights =
       allPairStraights.where((element) => values.add(element.value)).toList();
 
@@ -89,29 +88,29 @@ List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
 
 TichuTurn addPhoenixPadding(List<Card> cards, List<Card> pairCards,
     int beginIdx, int endIdx, double desiredValue) {
-  Card phoenix = Card.phoenix(desiredValue);
-  List<Card> phoenixCards = [
+  var phoenix = Card.phoenix(desiredValue);
+  var phoenixCards = <Card>[
     phoenix,
     cards.where((element) => element.value == desiredValue).single
   ];
   phoenixCards.addAll(pairCards.sublist(beginIdx, endIdx + 2));
 
-  return TichuTurn(TurnType.PAIR_STRAIGHT, phoenixCards);
+  return TichuTurn(TurnType.pairStraight, phoenixCards);
 }
 
 // Adds all permutations of shorter straights that are present in longer
 // straights.
 List<TichuTurn> getPairStraightPermutations(List<Card> cards) {
   assert(isPairStraight(cards));
-  List<TichuTurn> pairStraightPermutations = [
-    TichuTurn(TurnType.PAIR_STRAIGHT, cards)
+  var pairStraightPermutations = <TichuTurn>[
+    TichuTurn(TurnType.pairStraight, cards)
   ];
-  int currentPermutationLength = cards.length - 2;
+  var currentPermutationLength = cards.length - 2;
 
   while (currentPermutationLength >= 4) {
-    for (int i = 0; i + currentPermutationLength <= cards.length; i += 2) {
-      List<Card> subSet = cards.sublist(i, i + currentPermutationLength);
-      pairStraightPermutations.add(TichuTurn(TurnType.PAIR_STRAIGHT, subSet));
+    for (var i = 0; i + currentPermutationLength <= cards.length; i += 2) {
+      var subSet = cards.sublist(i, i + currentPermutationLength);
+      pairStraightPermutations.add(TichuTurn(TurnType.pairStraight, subSet));
     }
     currentPermutationLength -= 2;
   }
@@ -121,18 +120,18 @@ List<TichuTurn> getPairStraightPermutations(List<Card> cards) {
 
 // Return true when cards form a valid pair straight.
 bool isPairStraight(List<Card> cards) {
-  bool isPairStraight = true;
+  var isPairStraight = true;
 
 // Pair straights cannot contain dragon or dog, and must consist of an even
 // number of cards that is at least four.
   if (cards.any((element) =>
-          element.face == CardFace.DRAGON || element.face == CardFace.DOG) ||
+          element.face == CardFace.dragon || element.face == CardFace.dog) ||
       cards.length < 4 ||
       cards.length % 2 != 0) isPairStraight = false;
 
   if (isPairStraight) {
     cards.sort(compareCards);
-    int i = 0;
+    var i = 0;
 
     while (i <= cards.length - 4) {
       if (cards[i].value != cards[i + 1].value ||

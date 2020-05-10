@@ -5,57 +5,57 @@ import 'package:tichu/view_model/turn/tichu_data.dart';
 void main() {
   group('getBombs', () {
     test('twoQuartetBombTest', () {
-      List<Card> cards = [
-        Card(CardFace.EIGHT, Color.BLACK),
-        Card(CardFace.EIGHT, Color.GREEN),
-        Card(CardFace.EIGHT, Color.RED),
-        Card(CardFace.EIGHT, Color.BLUE),
-        Card(CardFace.JACK, Color.BLACK),
-        Card(CardFace.JACK, Color.GREEN),
-        Card(CardFace.JACK, Color.RED),
-        Card(CardFace.JACK, Color.BLUE)
+      var cards = <Card>[
+        Card(CardFace.eight, Color.black),
+        Card(CardFace.eight, Color.green),
+        Card(CardFace.eight, Color.red),
+        Card(CardFace.eight, Color.blue),
+        Card(CardFace.jack, Color.black),
+        Card(CardFace.jack, Color.green),
+        Card(CardFace.jack, Color.red),
+        Card(CardFace.jack, Color.blue)
       ];
 
-      List<TichuTurn> turns = getBombs(cards);
+      var turns = getBombs(cards);
       expect(turns.length, 2);
       expect(turns.every((turn) => isBomb(turn.cards)), true);
-      expect(turns.any((turn) => turn.value == Card.getValue(CardFace.EIGHT)),
+      expect(turns.any((turn) => turn.value == Card.getValue(CardFace.eight)),
           true);
-      expect(turns.any((turn) => turn.value == Card.getValue(CardFace.JACK)),
+      expect(turns.any((turn) => turn.value == Card.getValue(CardFace.jack)),
           true);
     });
     test('noBombTest', () {
-      List<Card> cards = [
-        Card(CardFace.EIGHT, Color.BLACK),
-        Card(CardFace.EIGHT, Color.GREEN),
-        Card(CardFace.EIGHT, Color.RED),
-        Card(CardFace.JACK, Color.BLACK),
-        Card(CardFace.JACK, Color.GREEN),
+      var cards = <Card>[
+        Card(CardFace.eight, Color.black),
+        Card(CardFace.eight, Color.green),
+        Card(CardFace.eight, Color.red),
+        Card(CardFace.jack, Color.black),
+        Card(CardFace.jack, Color.green),
       ];
 
-      List<TichuTurn> turns = getBombs(cards);
+      var turns = getBombs(cards);
       expect(turns.length, 0);
     });
   });
   group('isBomb', () {
     test('quartetBombTest', () {
-      List<Card> cards = [
-        Card(CardFace.EIGHT, Color.BLACK),
-        Card(CardFace.EIGHT, Color.GREEN),
-        Card(CardFace.EIGHT, Color.RED),
-        Card(CardFace.EIGHT, Color.BLUE),
+      var cards = <Card>[
+        Card(CardFace.eight, Color.black),
+        Card(CardFace.eight, Color.green),
+        Card(CardFace.eight, Color.red),
+        Card(CardFace.eight, Color.blue),
       ];
 
       expect(isBomb(cards), true);
     });
     test('straightBombTest', () {
-      List<Card> cards = [
-        Card(CardFace.EIGHT, Color.BLACK),
-        Card(CardFace.NINE, Color.BLACK),
-        Card(CardFace.TEN, Color.BLACK),
-        Card(CardFace.JACK, Color.BLACK),
-        Card(CardFace.QUEEN, Color.BLACK),
-        Card(CardFace.KING, Color.BLACK)
+      var cards = <Card>[
+        Card(CardFace.eight, Color.black),
+        Card(CardFace.nine, Color.black),
+        Card(CardFace.ten, Color.black),
+        Card(CardFace.jack, Color.black),
+        Card(CardFace.queen, Color.black),
+        Card(CardFace.king, Color.black)
       ];
 
       expect(isBomb(cards), true);

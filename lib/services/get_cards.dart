@@ -63,5 +63,5 @@ class Record {
       : this.fromMap(snapshot.data, reference: snapshot.reference);
 
   @override
-  String toString() => "Record<$name:$votes>";
+  String toString() => 'Record<$name:$votes>';
 }

@@ -1,8 +1,8 @@
-import 'package:tichu/view_model/turn/utils/card_utils.dart';
-import 'package:tichu/view_model/turn/utils/full_house_utils.dart';
-import 'package:tichu/view_model/turn/utils/straight_utils.dart';
-import 'package:tichu/view_model/turn/utils/pair_straight_utils.dart';
-import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'tichu_data.dart';
+import 'utils/card_utils.dart';
+import 'utils/full_house_utils.dart';
+import 'utils/pair_straight_utils.dart';
+import 'utils/straight_utils.dart';
 
 // Returns null for invalid turns. The phoenix has already a dedicated value.
 TichuTurn getTurn(List<Card> cards) {
@@ -35,19 +35,17 @@ TichuTurn getTurn(List<Card> cards) {
 
 // A single card can be either of turn type dog, dragon or single.
 TichuTurn checkSingle(Card card) {
-  if (card.face == CardFace.DOG) {
-    return TichuTurn(TurnType.DOG, [card]);
-  } else if (card.face == CardFace.DRAGON) {
-    return TichuTurn(TurnType.DRAGON, [card]);
+  if (card.face == CardFace.dog) {
+    return TichuTurn(TurnType.dog, [card]);
   }
-  return TichuTurn(TurnType.SINGLE, [card]);
+  return TichuTurn(TurnType.single, [card]);
 }
 
 TichuTurn checkForPair(List<Card> cards) {
   TichuTurn possibleTurn;
 
   if (cards.length == 2 && cards[0].value == cards[1].value) {
-    possibleTurn = TichuTurn(TurnType.PAIR, cards);
+    possibleTurn = TichuTurn(TurnType.pair, cards);
   }
 
   return possibleTurn;
@@ -59,7 +57,7 @@ TichuTurn checkForTriplet(List<Card> cards) {
   if (cards.length == 3 &&
       cards[0].value == cards[1].value &&
       cards[1].value == cards[2].value) {
-    possibleTurn = TichuTurn(TurnType.TRIPLET, cards);
+    possibleTurn = TichuTurn(TurnType.triplet, cards);
   }
 
   return possibleTurn;
@@ -69,15 +67,15 @@ TichuTurn checkForQuartet(List<Card> cards) {
   TichuTurn possibleTurn;
 
   if (cards.length == 4 &&
-      cards.every((element) => element.face != CardFace.PHOENIX) &&
+      cards.every((element) => element.face != CardFace.phoenix) &&
       cards[0].value == cards[1].value &&
       cards[1].value == cards[2].value &&
       cards[2].value == cards[3].value) {
     // When all four cards have the same value and no phoenix is involved, we
     // have a quartet bomb.
-    possibleTurn = TichuTurn(TurnType.BOMB, cards);
+    possibleTurn = TichuTurn(TurnType.bomb, cards);
   } else if (isPairStraight(cards)) {
-    possibleTurn = TichuTurn(TurnType.PAIR_STRAIGHT, cards);
+    possibleTurn = TichuTurn(TurnType.pairStraight, cards);
   }
 
   return possibleTurn;
@@ -87,12 +85,12 @@ TichuTurn checkFives(List<Card> cards) {
   TichuTurn possibleTurn;
 
   if (isFullHouse(cards)) {
-    possibleTurn = TichuTurn(TurnType.FULL_HOUSE, cards);
+    possibleTurn = TichuTurn(TurnType.fullHouse, cards);
   } else if (isStraight(cards)) {
     if (uniformColor(cards)) {
-      possibleTurn = TichuTurn(TurnType.BOMB, cards);
+      possibleTurn = TichuTurn(TurnType.bomb, cards);
     } else {
-      possibleTurn = TichuTurn(TurnType.STRAIGHT, cards);
+      possibleTurn = TichuTurn(TurnType.straight, cards);
     }
   }
 
@@ -106,12 +104,12 @@ TichuTurn checkBigTurns(List<Card> cards) {
 
   if (isStraight(cards)) {
     if (uniformColor(cards)) {
-      possibleTurn = TichuTurn(TurnType.BOMB, cards);
+      possibleTurn = TichuTurn(TurnType.bomb, cards);
     } else {
-      possibleTurn = TichuTurn(TurnType.STRAIGHT, cards);
+      possibleTurn = TichuTurn(TurnType.straight, cards);
     }
   } else if (isPairStraight(cards)) {
-    possibleTurn = TichuTurn(TurnType.PAIR_STRAIGHT, cards);
+    possibleTurn = TichuTurn(TurnType.pairStraight, cards);
   }
 
   return possibleTurn;

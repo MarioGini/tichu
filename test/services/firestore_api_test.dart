@@ -12,9 +12,9 @@ void main() {
         'cards': [4, 2, 3]
       });
 
-      final api = StoreAPI(instance.collection('cards'));
+      final api = StoreAPI(instance);
 
-      var cards = await api.getFirstEightCards(uid);
+      var cards = await api.readCards();
 
       expect(cards.length, 3);
     });

@@ -1,8 +1,8 @@
+import '../services/firestore_api.dart';
 import 'turn/tichu_data.dart';
 import 'turn/turn_handler.dart';
 
 class Player {
-  final String id; // ids of players at a table must be unique.
   final Player left;
   final Player partner;
   final Player right;
@@ -18,5 +18,7 @@ class Player {
 
   TurnHandler turnHandler;
 
-  Player(this.id, this.left, this.partner, this.right);
+  final StoreAPI fireStore;
+
+  Player(this.left, this.partner, this.right, this.fireStore);
 }

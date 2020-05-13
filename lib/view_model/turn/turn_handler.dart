@@ -3,23 +3,9 @@ import 'tichu_data.dart';
 import 'wish_logic.dart';
 
 class TurnHandler {
-  List<Card> cards;
-  DeckState currentDeck; // This should be stored on Firebase.
-
   // This is the main function. Deck can be null. selection cannot be empty
-  void handleTurn(List<Card> cards, double phoenixValue, CardFace inputWish) {
-    // Check if phoenix present and if yes, set its value.
-    if (cards.any((element) => element.face == CardFace.phoenix)) {
-      cards.sort(compareCards);
-      cards.removeLast();
-      if (cards.length > 1) {
-        cards.add(Card.phoenix(phoenixValue));
-      } else if (currentDeck.turn.type == TurnType.single ||
-          currentDeck.turn.type == TurnType.empty) {
-        cards.add(Card.phoenix(currentDeck.turn.value + 0.5));
-      }
-    }
-
+  DeckState handleTurn(
+      DeckState currentDeck, List<Card> cards, CardFace inputWish) {
     var currentTurn = getTurn(cards);
 
     // Selected cards must form a valid turn.
@@ -37,7 +23,7 @@ class TurnHandler {
     }
 
     // The wish is either fulfilled or propagated to next deck state.
-    currentDeck = DeckState(
+    return DeckState(
         currentTurn, computeNextWish(currentDeck.wish, currentTurn, inputWish));
   }
 }

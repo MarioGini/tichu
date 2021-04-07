@@ -1,50 +1,48 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../view_model/turn/tichu_data.dart';
 
 class StoreAPI {
   final String tableUid;
   final String playerUid;
-  final Firestore instance;
 
-  DocumentReference cardDoc; // Reference to cards of the
-  DocumentReference deckRef;
+  //DocumentReference cardDoc; // Reference to cards of the
+  //DocumentReference deckRef;
 
-  StoreAPI(this.instance)
+  StoreAPI()
       : tableUid = '1',
-        playerUid = '1' {
-    cardDoc = instance
-        .collection('table')
-        .document(tableUid)
-        .collection('cards')
-        .document(playerUid);
-    deckRef = instance
-        .collection('tables')
-        .document(tableUid)
-        .collection('deck')
-        .document('current');
-  }
+        playerUid = '1';
+  //   {cardDoc = instance
+  //       .collection('table')
+  //       .document(tableUid)
+  //       .collection('cards')
+  //       .document(playerUid);
+  //   deckRef = instance
+  //       .collection('tables')
+  //       .document(tableUid)
+  //       .collection('deck')
+  //       .document('current');
+  // }
 
-  Future<List<Card>> getCards() async {
-    final doc = await cardDoc.get();
+  // Future<List<Card>> getCards() async {
+  //   //final doc = await cardDoc.get();
 
-    var cards = <int>[];
-    cards = doc['cards'].cast<int>();
+  //   var cards = <int>[];
+  //   // cards = doc['cards'].cast<int>();
 
-    return cards.map((e) => cardIdentifiers[e]).toList();
-  }
+  //   return cards.map((e) => cardIdentifiers[e]).toList();
+  // }
 
-  Map<String, Card> getSchupfCards() {
-    // We wait as long until the stream contains a map with three elements.
-    return {};
-  }
+  // Map<String, Card> getSchupfCards() {
+  //   // We wait as long until the stream contains a map with three elements.
+  //   return {};
+  // }
 
   void sendSchupfCards(Map<String, Card> schupfCards) {
     // move into the correct path
   }
 
   Stream<DeckState> deckStateStream() {
-    var bla = deckRef.snapshots();
+    //var bla = deckRef.snapshots();
+    var bla;
     var deckStream = bla.map(
         (docSnap) => DeckState(docSnap.data['turn'], docSnap.data['wish']));
 
@@ -55,7 +53,7 @@ class StoreAPI {
     // Deck will also handle the scoring, we just put the cards into a separate
     // field.
     // Send updated to fire store
-    deckRef.updateData(null);
+    //deckRef.updateData(null);
   }
 
   static final Map<int, Card> cardIdentifiers = {

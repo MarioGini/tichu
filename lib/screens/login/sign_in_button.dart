@@ -4,8 +4,7 @@ import '../../services/auth_provider.dart';
 class SignInGoogleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return OutlineButton(
-      splashColor: Colors.grey,
+    return OutlinedButton(
       onPressed: () {
         signInAnon().whenComplete(() {
           Navigator.of(context).push(
@@ -17,9 +16,6 @@ class SignInGoogleButton extends StatelessWidget {
           );
         });
       },
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
-      highlightElevation: 0,
-      borderSide: BorderSide(color: Colors.grey),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
         child: Row(

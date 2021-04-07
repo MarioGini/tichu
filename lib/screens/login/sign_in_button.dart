@@ -6,15 +6,15 @@ class SignInGoogleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return OutlinedButton(
       onPressed: () {
-        signInAnon().whenComplete(() {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) {
-                return Scaffold();
-              },
-            ),
-          );
-        });
+        // signInAnon().whenComplete(() {
+        //   Navigator.of(context).push(
+        //     MaterialPageRoute(
+        //       builder: (context) {
+        //         return Scaffold();
+        //       },
+        //     ),
+        //   );
+        // });
       },
       child: Padding(
         padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),

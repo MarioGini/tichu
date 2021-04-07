@@ -22,7 +22,7 @@ class Player {
   Player(this.left, this.partner, this.right, this.storeAPI);
 
   Future<void> preGame() async {
-    handCards = await storeAPI.getCards();
+    //handCards = await storeAPI.getCards();
 
     // First show eight cards, then await grand tichu decision.
 

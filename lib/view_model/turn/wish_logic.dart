@@ -72,7 +72,7 @@ bool haveValidWishBomb(DeckState deck, List<Card> cards) {
 
   // We have a playable wish bomb when no bomb is on the deck or when we have a
   // higher bomb.
-  return wishBombs.length != 0 &&
+  return wishBombs.isNotEmpty &&
       (deck.turn.type != TurnType.bomb ||
           wishBombs.first.value > deck.turn.value);
 }

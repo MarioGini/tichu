@@ -1,19 +1,19 @@
-import 'tichu_data.dart';
-import 'utils/bomb_utils.dart';
-import 'utils/card_utils.dart';
-import 'utils/full_house_utils.dart';
-import 'utils/pair_straight_utils.dart';
-import 'utils/straight_utils.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'package:tichu/view_model/turn/utils/bomb_utils.dart';
+import 'package:tichu/view_model/turn/utils/card_utils.dart';
+import 'package:tichu/view_model/turn/utils/full_house_utils.dart';
+import 'package:tichu/view_model/turn/utils/pair_straight_utils.dart';
+import 'package:tichu/view_model/turn/utils/straight_utils.dart';
 
 // Simple state machine that computes next wish based on previous wish and
 // whether the wish has been satisfied or not.
 CardFace computeNextWish(
     CardFace previousWish, TichuTurn currentTurn, CardFace inputWish) {
-  if (inputWish != null) {
+  if (inputWish != CardFace.none) {
     return inputWish;
   }
   if (currentTurn.cards.any((element) => element.face == previousWish)) {
-    return null;
+    return CardFace.none;
   } else {
     return previousWish;
   }
@@ -25,7 +25,7 @@ bool mahJong(DeckState deck, TichuTurn turn, List<Card> cards) {
   // - There is no wish.
   // - We cannot fulfill the wish.
   // - We fulfill the wish.
-  if (deck.wish == null ||
+  if (deck.wish == CardFace.none ||
       cards.every((element) => element.face != deck.wish) ||
       turn.cards.any((element) => element.face == deck.wish)) {
     return false;
@@ -100,7 +100,7 @@ bool canPlayWishOnPairStraight(DeckState deck, List<Card> cards) {
 }
 
 bool canPlayWishOnTriplet(DeckState deck, List<Card> cards) {
-  return Card(deck.wish, null).value > deck.turn.value &&
+  return Card(deck.wish, Color.black).value > deck.turn.value &&
           occurrences(deck.wish, cards) == 3 ||
       (cards.any((element) => element.face == CardFace.phoenix) &&
           occurrences(deck.wish, cards) == 2);

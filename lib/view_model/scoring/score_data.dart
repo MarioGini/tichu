@@ -1,5 +1,5 @@
-import '../player.dart';
-import '../turn/tichu_data.dart';
+import 'package:tichu/view_model/player.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
 
 // Core data structure for scoring.
 final Map<CardFace, int> cardPoints = {
@@ -26,9 +26,9 @@ class Team {
   final Player firstPlayer;
   final Player secondPlayer;
 
-  List<Card> teamCards;
+  List<Card> teamCards = [];
 
-  int score;
+  int score = 0;
 
   Team(this.firstPlayer, this.secondPlayer);
 }
@@ -37,7 +37,7 @@ class ScoreCounter {
   final Team firstTeam;
   final Team secondTeam;
 
-  List<Player> finishOrder;
+  List<Player> finishOrder = [];
 
   ScoreCounter(this.firstTeam, this.secondTeam);
 

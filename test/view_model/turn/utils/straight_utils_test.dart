@@ -4,7 +4,7 @@ import 'package:tichu/view_model/turn/tichu_data.dart';
 
 void main() {
   group('removeDuplicates', () {
-    List<Card> uniqueCards;
+    List<Card> uniqueCards = [];
     setUp(() {
       uniqueCards = [
         Card(CardFace.three, Color.green),

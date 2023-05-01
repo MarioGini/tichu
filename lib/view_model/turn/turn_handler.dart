@@ -1,25 +1,24 @@
-import 'find_turn.dart';
-import 'tichu_data.dart';
-import 'wish_logic.dart';
+import 'package:tichu/view_model/turn/find_turn.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'package:tichu/view_model/turn/wish_logic.dart';
 
 class TurnHandler {
-  // This is the main function. Deck can be null. selection cannot be empty
   DeckState handleTurn(
       DeckState currentDeck, List<Card> cards, CardFace inputWish) {
     var currentTurn = getTurn(cards);
 
     // Selected cards must form a valid turn.
-    if (currentTurn == null) {
-      return null; // TODO inform user
+    if (currentTurn == TichuTurn.InvalidTurn()) {
+      return DeckState.Invalid(); // TODO inform user
     }
 
     // When mah jong is not obeyed, turn is invalid.
     if (mahJong(currentDeck, currentTurn, cards)) {
-      return null;
+      return DeckState.Invalid();
     }
 
     if (!validTurn(currentDeck.turn, currentTurn)) {
-      return null;
+      return DeckState.Invalid();
     }
 
     // The wish is either fulfilled or propagated to next deck state.

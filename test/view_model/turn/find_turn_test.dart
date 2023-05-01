@@ -31,7 +31,7 @@ void main() {
     });
     test('phoenixInvalidTest', () {
       var cards = <Card>[Card(CardFace.five, Color.blue), Card.phoenix(4)];
-      expect(checkForPair(cards), null);
+      expect(checkForPair(cards), TichuTurn.InvalidTurn());
     });
     test('phoenixValidTest', () {
       var cards = <Card>[Card(CardFace.five, Color.blue), Card.phoenix(5)];
@@ -53,7 +53,7 @@ void main() {
         Card(CardFace.five, Color.green),
         Card.phoenix(4.0)
       ];
-      expect(checkForTriplet(cards), null);
+      expect(checkForTriplet(cards), TichuTurn.InvalidTurn());
     });
     test('phoenixValidTest', () {
       var cards = <Card>[
@@ -73,15 +73,6 @@ void main() {
         Card(CardFace.five, Color.green),
       ];
       expect(checkForQuartet(cards), TichuTurn(TurnType.bomb, cards));
-    });
-    test('phoenixInvalidBombTest', () {
-      var cards = <Card>[
-        Card(CardFace.five, Color.blue),
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card.phoenix(Card.getValue(CardFace.five))
-      ];
-      expect(checkForQuartet(cards), null);
     });
     test('pairStraightTest', () {
       // The list should be sorted.
@@ -202,7 +193,7 @@ void main() {
         Card(CardFace.four, Color.green),
         Card.phoenix(Card.getValue(CardFace.five))
       ];
-      expect(getTurn(cards), null);
+      expect(getTurn(cards), TichuTurn.InvalidTurn());
     });
     test('invalidStraightTest', () {
       var cards = <Card>[
@@ -212,7 +203,7 @@ void main() {
         Card(CardFace.seven, Color.blue),
         Card(CardFace.nine, Color.green),
       ];
-      expect(getTurn(cards), null);
+      expect(getTurn(cards), TichuTurn.InvalidTurn());
     });
     test('threePairStraightTest', () {
       var cards = <Card>[

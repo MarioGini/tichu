@@ -24,7 +24,7 @@ class SignInGoogleButton extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 10),
               child: Text(
-                'Sign in with Google',
+                'Sign in anonymously',
                 style: TextStyle(
                   fontSize: 20,
                   color: Colors.grey,
@@ -37,42 +37,3 @@ class SignInGoogleButton extends StatelessWidget {
     );
   }
 }
-
-// Widget signInFacebookButton() {
-//   return OutlineButton(
-//     splashColor: Colors.grey,
-//     onPressed: () {
-//       signInWithFacebook().whenComplete(() {
-//         Navigator.of(context).push(
-//           MaterialPageRoute(
-//             builder: (context) {
-//               return FirstScreen();
-//             },
-//           ),
-//         );
-//       });
-//     },
-//     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(40)),
-//     highlightElevation: 0,
-//     borderSide: BorderSide(color: Colors.grey),
-//     child: Padding(
-//       padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
-//       child: Row(
-//         mainAxisSize: MainAxisSize.min,
-//         mainAxisAlignment: MainAxisAlignment.center,
-//         children: <Widget>[
-//           Padding(
-//             padding: const EdgeInsets.only(left: 10),
-//             child: Text(
-//               'Sign in with Facebook',
-//               style: TextStyle(
-//                 fontSize: 20,
-//                 color: Colors.grey,
-//               ),
-//             ),
-//           )
-//         ],
-//       ),
-//     ),
-//   );
-// }

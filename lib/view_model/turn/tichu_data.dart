@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 enum CardFace {
+  none,
   mahJong,
   two,
   three,
@@ -103,6 +104,7 @@ int compareCards(Card a, Card b) {
 }
 
 enum TurnType {
+  none,
   empty,
   single,
   pair,
@@ -122,7 +124,12 @@ class TichuTurn {
   final double value;
 
   // NOTE: The user is responsible that the type and cards do match together.
+
   TichuTurn(this.type, this.cards) : value = getValue(type, cards);
+
+  static TichuTurn InvalidTurn() {
+    return TichuTurn(TurnType.none, []);
+  }
 
   static double getValue(TurnType type, List<Card> cards) {
     cards.sort(compareCards);
@@ -197,8 +204,13 @@ int compareTurns(TichuTurn a, TichuTurn b) {
 class DeckState {
   final TichuTurn turn;
   final CardFace wish;
-  String currentWinner;
-  List<Card> cardStack; // Contains all cards played before the current turn.
+  String currentWinner = "";
+  List<Card> cardStack =
+      []; // Contains all cards played before the current turn.
 
   DeckState(this.turn, this.wish);
+
+  static DeckState Invalid() {
+    return DeckState(TichuTurn.InvalidTurn(), CardFace.none);
+  }
 }

@@ -1,14 +1,1 @@
-{
-    "coverage-gutters.showLineCoverage": true,
-    "coverage-gutters.showGutterCoverage": false,
-    "cSpell.enabled": true,
-    "cSpell.enableFiletypes": [
-        "dart"
-    ],
-    "cSpell.language": "en,en-US",
-    "cSpell.words": [
-        "jong",
-        "structs",
-        "tichu"
-    ],
-}
+{}

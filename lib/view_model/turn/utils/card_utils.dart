@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
-
-import '../tichu_data.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
 
 // Returns number of occurrences of the card face in the list.
 int occurrences(CardFace face, List<Card> cards) {
@@ -16,13 +15,12 @@ int occurrences(CardFace face, List<Card> cards) {
 Map<CardFace, int> getOccurrenceCount(List<Card> cards) {
   var occurrenceCount = <CardFace, int>{};
   for (var card in cards) {
-    if (occurrenceCount.containsKey(card.face)) {
-      ++occurrenceCount[card.face];
-    } else {
-      occurrenceCount[card.face] = 1;
-    }
+    occurrenceCount.update(
+      card.face,
+      (value) => ++value,
+      ifAbsent: () => 1,
+    );
   }
-
   return occurrenceCount;
 }
 

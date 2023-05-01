@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class GetCards extends StatelessWidget {
   @override
@@ -51,12 +50,9 @@ class GetCards extends StatelessWidget {
 class Record {
   final String name;
   final int votes;
-  final DocumentReference reference;
 
-  Record.fromMap(Map<String, dynamic> map, {this.reference})
-      : assert(map['name'] != null),
-        assert(map['votes'] != null),
-        name = map['name'],
+  Record.fromMap(Map<String, dynamic> map)
+      : name = map['name'],
         votes = map['votes'];
 
   // Record.fromSnapshot(DocumentSnapshot snapshot)

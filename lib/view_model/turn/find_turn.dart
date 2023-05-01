@@ -42,7 +42,7 @@ TichuTurn checkSingle(Card card) {
 }
 
 TichuTurn checkForPair(List<Card> cards) {
-  TichuTurn possibleTurn;
+  TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
   if (cards.length == 2 && cards[0].value == cards[1].value) {
     possibleTurn = TichuTurn(TurnType.pair, cards);
@@ -52,7 +52,7 @@ TichuTurn checkForPair(List<Card> cards) {
 }
 
 TichuTurn checkForTriplet(List<Card> cards) {
-  TichuTurn possibleTurn;
+  TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
   if (cards.length == 3 &&
       cards[0].value == cards[1].value &&
@@ -64,7 +64,7 @@ TichuTurn checkForTriplet(List<Card> cards) {
 }
 
 TichuTurn checkForQuartet(List<Card> cards) {
-  TichuTurn possibleTurn;
+  TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
   if (cards.length == 4 &&
       cards.every((element) => element.face != CardFace.phoenix) &&
@@ -82,7 +82,7 @@ TichuTurn checkForQuartet(List<Card> cards) {
 }
 
 TichuTurn checkFives(List<Card> cards) {
-  TichuTurn possibleTurn;
+  TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
   if (isFullHouse(cards)) {
     possibleTurn = TichuTurn(TurnType.fullHouse, cards);
@@ -100,7 +100,7 @@ TichuTurn checkFives(List<Card> cards) {
 // For selections with six or more cards. That can only be a straight or pair
 // straight. Uniformly colored straights are bombs.
 TichuTurn checkBigTurns(List<Card> cards) {
-  TichuTurn possibleTurn;
+  TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
   if (isStraight(cards)) {
     if (uniformColor(cards)) {

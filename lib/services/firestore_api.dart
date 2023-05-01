@@ -1,4 +1,4 @@
-import '../view_model/turn/tichu_data.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
 
 class StoreAPI {
   final String tableUid;

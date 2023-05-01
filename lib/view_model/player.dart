@@ -1,25 +1,24 @@
-import '../services/firestore_api.dart';
-import 'turn/tichu_data.dart';
-import 'turn/turn_handler.dart';
+import 'package:tichu/services/firestore_api.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'package:tichu/view_model/turn/turn_handler.dart';
 
 class Player {
   final Player left;
   final Player partner;
   final Player right;
   final StoreAPI storeAPI;
+  final TurnHandler turnHandler;
 
-  List<Card> handCards;
-  bool grandTichu;
-  bool tichu;
-  int numCards;
+  List<Card> handCards = [];
+  bool grandTichu = false;
+  bool tichu = false;
+  int numCards = -1;
 
-  int finishNumber;
+  int finishNumber = -1;
 
-  List<Card> madeCards;
+  List<Card> madeCards = [];
 
-  TurnHandler turnHandler;
-
-  Player(this.left, this.partner, this.right, this.storeAPI);
+  Player(this.left, this.partner, this.right, this.storeAPI, this.turnHandler);
 
   Future<void> preGame() async {
     //handCards = await storeAPI.getCards();
@@ -45,7 +44,7 @@ class Player {
     }
 
     // Check whether the wish card is contained
-    CardFace inputWish;
+    CardFace inputWish = CardFace.none;
     if (cards.any((element) => element.face == CardFace.mahJong)) {
       // Check for valid turn.
       inputWish = obtainWishValue();

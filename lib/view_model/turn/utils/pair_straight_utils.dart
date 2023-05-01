@@ -1,5 +1,5 @@
-import '../tichu_data.dart';
-import 'card_utils.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'package:tichu/view_model/turn/utils/card_utils.dart';
 
 List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
   var pairStraights = <TichuTurn>[];
@@ -13,12 +13,11 @@ List<TichuTurn> getPairStraights(List<Card> cards, int desiredLength) {
 
   // Remove cards that are present more than twice since they are irrelevant for
   // pair straights.
-  var occurrenceCount = getOccurrenceCount(cards);
-  cards.removeWhere((element) {
-    bool tooMany;
-    tooMany = occurrenceCount[element.face] > 2;
+  final Map<CardFace, int> occurrenceCount = getOccurrenceCount(cards);
+  cards.removeWhere((card) {
+    bool tooMany = occurrenceCount[card.face]! > 2;
     if (tooMany) {
-      --occurrenceCount[element.face];
+      occurrenceCount[card.face] = occurrenceCount[card.face]! - 1;
     }
     return tooMany;
   });

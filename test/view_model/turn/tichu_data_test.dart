@@ -1,21 +1,21 @@
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
 void main() {
   test('Sorting test', () {
     var testCards = <Card>[
-      Card(CardFace.dog, Color.special),
-      Card(CardFace.ten, Color.black),
-      Card(CardFace.eight, Color.red),
-      Card(CardFace.phoenix, Color.special)
+      Card(CardFace.dog, CardColor.special),
+      Card(CardFace.ten, CardColor.black),
+      Card(CardFace.eight, CardColor.red),
+      Card(CardFace.phoenix, CardColor.special)
     ];
     testCards.sort(compareCards);
 
     var expectedOrder = <Card>[
-      Card(CardFace.ten, Color.black),
-      Card(CardFace.eight, Color.red),
-      Card(CardFace.dog, Color.special),
-      Card(CardFace.phoenix, Color.special)
+      Card(CardFace.ten, CardColor.black),
+      Card(CardFace.eight, CardColor.red),
+      Card(CardFace.dog, CardColor.special),
+      Card(CardFace.phoenix, CardColor.special)
     ];
     expect(testCards, expectedOrder);
   });

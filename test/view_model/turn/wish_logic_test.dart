@@ -1,4 +1,4 @@
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 import 'package:tichu/view_model/turn/wish_logic.dart';
 
@@ -6,24 +6,31 @@ void main() {
   group('computeNextWish', () {
     const previousWish = CardFace.ten;
     test('noInputWishTest', () {
-      final currentTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.eight, Color.blue)]);
+      final currentTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.eight, CardColor.blue),
+      ]);
       const CardFace inputWish = CardFace.none;
 
       expect(
-          computeNextWish(previousWish, currentTurn, inputWish), previousWish);
+        computeNextWish(previousWish, currentTurn, inputWish),
+        previousWish,
+      );
     });
     test('inputWishFulfilledTest', () {
-      final currentTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.ten, Color.blue)]);
+      final currentTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.ten, CardColor.blue),
+      ]);
       const CardFace inputWish = CardFace.none;
 
       expect(
-          computeNextWish(previousWish, currentTurn, inputWish), CardFace.none);
+        computeNextWish(previousWish, currentTurn, inputWish),
+        CardFace.none,
+      );
     });
     test('newInputWishTest', () {
-      final currentTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.ten, Color.blue)]);
+      final currentTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.ten, CardColor.blue),
+      ]);
       const inputWish = CardFace.king;
 
       expect(computeNextWish(CardFace.none, currentTurn, inputWish), inputWish);
@@ -31,14 +38,16 @@ void main() {
   });
   group('haveValidWishBomb', () {
     final cards = [
-      Card(CardFace.eight, Color.black),
-      Card(CardFace.eight, Color.green),
-      Card(CardFace.eight, Color.red),
-      Card(CardFace.eight, Color.blue)
+      Card(CardFace.eight, CardColor.black),
+      Card(CardFace.eight, CardColor.green),
+      Card(CardFace.eight, CardColor.red),
+      Card(CardFace.eight, CardColor.blue),
     ];
     test('quartetWishBombTest', () {
       var wish = CardFace.eight;
-      var turn = TichuTurn(TurnType.single, [Card(CardFace.ten, Color.blue)]);
+      var turn = TichuTurn(TurnType.single, [
+        Card(CardFace.ten, CardColor.blue),
+      ]);
       var deck = DeckState(turn, wish);
 
       expect(haveValidWishBomb(deck, cards), true);
@@ -46,10 +55,10 @@ void main() {
     test('noWishBombTest', () {
       var wish = CardFace.eight;
       var turn = TichuTurn(TurnType.bomb, [
-        Card(CardFace.nine, Color.black),
-        Card(CardFace.nine, Color.green),
-        Card(CardFace.nine, Color.red),
-        Card(CardFace.nine, Color.blue)
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.nine, CardColor.green),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.nine, CardColor.blue),
       ]);
       var deck = DeckState(turn, wish);
 
@@ -57,58 +66,63 @@ void main() {
     });
   });
   group('mahJong', () {
-    var deckTurn =
-        TichuTurn(TurnType.single, [Card(CardFace.eight, Color.black)]);
+    var deckTurn = TichuTurn(TurnType.single, [
+      Card(CardFace.eight, CardColor.black),
+    ]);
     test('noWishPresentTest', () {
       var deck = DeckState(deckTurn, CardFace.none);
-      var selectedTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.king, Color.black)]);
+      var selectedTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.king, CardColor.black),
+      ]);
       var cards = <Card>[
-        Card(CardFace.four, Color.green),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.nine, Color.black)
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.nine, CardColor.black),
       ];
 
       expect(mahJong(deck, selectedTurn, cards), false);
     });
     test('wishCardNotAvailableTest', () {
       var deck = DeckState(deckTurn, CardFace.ace);
-      var selectedTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.king, Color.black)]);
+      var selectedTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.king, CardColor.black),
+      ]);
       var cards = <Card>[
-        Card(CardFace.four, Color.green),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.nine, Color.black)
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.nine, CardColor.black),
       ];
 
       expect(mahJong(deck, selectedTurn, cards), false);
     });
     test('wishCardNotAvailableTest', () {
       var deck = DeckState(deckTurn, CardFace.ace);
-      var selectedTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.ace, Color.black)]);
+      var selectedTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.ace, CardColor.black),
+      ]);
       var cards = <Card>[
-        Card(CardFace.ace, Color.black),
-        Card(CardFace.four, Color.green),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.nine, Color.black)
+        Card(CardFace.ace, CardColor.black),
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.nine, CardColor.black),
       ];
 
       expect(mahJong(deck, selectedTurn, cards), false);
     });
     test('couldPlayWishTest', () {
       var deck = DeckState(deckTurn, CardFace.ace);
-      var selectedTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.nine, Color.black)]);
+      var selectedTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.nine, CardColor.black),
+      ]);
       var cards = <Card>[
-        Card(CardFace.ace, Color.black),
-        Card(CardFace.four, Color.green),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.nine, Color.black)
+        Card(CardFace.ace, CardColor.black),
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.nine, CardColor.black),
       ];
 
       expect(mahJong(deck, selectedTurn, cards), true);
@@ -116,12 +130,14 @@ void main() {
   });
   group('canPlayWishOnSingle', () {
     final cards = [
-      Card(CardFace.four, Color.green),
-      Card(CardFace.phoenix, Color.special),
-      Card(CardFace.seven, Color.red),
-      Card(CardFace.nine, Color.black)
+      Card(CardFace.four, CardColor.green),
+      Card(CardFace.phoenix, CardColor.special),
+      Card(CardFace.seven, CardColor.red),
+      Card(CardFace.nine, CardColor.black),
     ];
-    final turn = TichuTurn(TurnType.single, [Card(CardFace.five, Color.black)]);
+    final turn = TichuTurn(TurnType.single, [
+      Card(CardFace.five, CardColor.black),
+    ]);
     test('cannotPlayTest', () {
       const wish = CardFace.four;
       final deck = DeckState(turn, wish);
@@ -141,17 +157,20 @@ void main() {
   });
   group('canPlayWishSpecialTurnTypes', () {
     const wish = CardFace.nine;
-    final cards = <Card>[Card(CardFace.nine, Color.red)];
+    final cards = <Card>[Card(CardFace.nine, CardColor.red)];
     test('playWishOnDragonTest', () {
-      final turn =
-          TichuTurn(TurnType.single, [Card(CardFace.dragon, Color.special)]);
+      final turn = TichuTurn(TurnType.single, [
+        Card(CardFace.dragon, CardColor.special),
+      ]);
       final deck = DeckState(turn, wish);
 
       expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), false);
     });
     test('playWishOnDogTest', () {
-      final turn = TichuTurn(TurnType.dog, [Card(CardFace.dog, Color.special)]);
+      final turn = TichuTurn(TurnType.dog, [
+        Card(CardFace.dog, CardColor.special),
+      ]);
       final deck = DeckState(turn, wish);
 
       expect(cards.any((element) => element.face == wish), true);
@@ -160,14 +179,16 @@ void main() {
   });
   group('canPlayWishOnPair', () {
     final cards = [
-      Card(CardFace.five, Color.green),
-      Card(CardFace.seven, Color.red),
-      Card(CardFace.phoenix, Color.special),
-      Card(CardFace.king, Color.black),
-      Card(CardFace.king, Color.green)
+      Card(CardFace.five, CardColor.green),
+      Card(CardFace.seven, CardColor.red),
+      Card(CardFace.phoenix, CardColor.special),
+      Card(CardFace.king, CardColor.black),
+      Card(CardFace.king, CardColor.green),
     ];
-    final turn = TichuTurn(TurnType.pair,
-        [Card(CardFace.five, Color.red), Card(CardFace.five, Color.black)]);
+    final turn = TichuTurn(TurnType.pair, [
+      Card(CardFace.five, CardColor.red),
+      Card(CardFace.five, CardColor.black),
+    ]);
 
     test('cannotPlayTest', () {
       // The wish has the same value as the current deck so it cannot be
@@ -197,20 +218,20 @@ void main() {
   });
   group('canPlayWishOnTriplet', () {
     final cards = [
-      Card(CardFace.five, Color.green),
-      Card(CardFace.seven, Color.red),
-      Card(CardFace.nine, Color.red),
-      Card(CardFace.jack, Color.red),
-      Card(CardFace.jack, Color.green),
-      Card(CardFace.phoenix, Color.special),
-      Card(CardFace.king, Color.black),
-      Card(CardFace.king, Color.green),
-      Card(CardFace.king, Color.red)
+      Card(CardFace.five, CardColor.green),
+      Card(CardFace.seven, CardColor.red),
+      Card(CardFace.nine, CardColor.red),
+      Card(CardFace.jack, CardColor.red),
+      Card(CardFace.jack, CardColor.green),
+      Card(CardFace.phoenix, CardColor.special),
+      Card(CardFace.king, CardColor.black),
+      Card(CardFace.king, CardColor.green),
+      Card(CardFace.king, CardColor.red),
     ];
     final TichuTurn turn = TichuTurn(TurnType.triplet, [
-      Card(CardFace.seven, Color.red),
-      Card(CardFace.seven, Color.black),
-      Card(CardFace.seven, Color.green)
+      Card(CardFace.seven, CardColor.red),
+      Card(CardFace.seven, CardColor.black),
+      Card(CardFace.seven, CardColor.green),
     ]);
     test('cannotPlayTest', () {
       // We have only one nine and cannot fulfill wish.
@@ -239,25 +260,45 @@ void main() {
   });
   group('canPlayWishOnStraight', () {
     final cards = <Card>[
-      Card(CardFace.five, Color.green),
-      Card(CardFace.phoenix, Color.special),
-      Card(CardFace.seven, Color.red),
-      Card(CardFace.eight, Color.green),
-      Card(CardFace.nine, Color.red),
-      Card(CardFace.queen, Color.red)
+      Card(CardFace.five, CardColor.green),
+      Card(CardFace.phoenix, CardColor.special),
+      Card(CardFace.seven, CardColor.red),
+      Card(CardFace.eight, CardColor.green),
+      Card(CardFace.nine, CardColor.red),
+      Card(CardFace.queen, CardColor.red),
     ];
     final turn = TichuTurn(TurnType.straight, [
-      Card(CardFace.mahJong, Color.special),
-      Card(CardFace.two, Color.blue),
-      Card(CardFace.three, Color.blue),
-      Card(CardFace.four, Color.black),
-      Card(CardFace.five, Color.red)
+      Card(CardFace.mahJong, CardColor.special),
+      Card(CardFace.two, CardColor.blue),
+      Card(CardFace.three, CardColor.blue),
+      Card(CardFace.four, CardColor.black),
+      Card(CardFace.five, CardColor.red),
     ]);
     test('canPlayTest', () {
       const wish = CardFace.eight;
       final deck = DeckState(turn, wish);
 
       expect(canPlayWish(deck, cards), true);
+    });
+    test('canPlayWithPhoenixGapTest', () {
+      const wish = CardFace.seven;
+      final deckTurn = TichuTurn(TurnType.straight, [
+        Card(CardFace.three, CardColor.red),
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.five, CardColor.blue),
+        Card(CardFace.six, CardColor.black),
+        Card(CardFace.seven, CardColor.red),
+      ]);
+      final deck = DeckState(deckTurn, wish);
+      final phoenixGapCards = <Card>[
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+
+      expect(canPlayWish(deck, phoenixGapCards), true);
     });
     test('cannotPlayTest', () {
       const wish = CardFace.queen;
@@ -268,18 +309,18 @@ void main() {
   });
   group('canPlayWishOnPairStraight', () {
     final turn = TichuTurn(TurnType.pairStraight, [
-      Card(CardFace.five, Color.red),
-      Card(CardFace.five, Color.black),
-      Card(CardFace.six, Color.black),
-      Card(CardFace.six, Color.green)
+      Card(CardFace.five, CardColor.red),
+      Card(CardFace.five, CardColor.black),
+      Card(CardFace.six, CardColor.black),
+      Card(CardFace.six, CardColor.green),
     ]);
     test('cannotPlayTest', () {
       const wish = CardFace.eight;
       final cards = <Card>[
-        Card(CardFace.eight, Color.red),
-        Card(CardFace.eight, Color.black),
-        Card(CardFace.nine, Color.red),
-        Card(CardFace.phoenix, Color.special)
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.phoenix, CardColor.special),
       ];
       final deck = DeckState(turn, wish);
 
@@ -290,18 +331,18 @@ void main() {
   group('canPlayWishOnFullHouse', () {
     const wish = CardFace.nine;
     final TichuTurn turn = TichuTurn(TurnType.fullHouse, [
-      Card(CardFace.seven, Color.red),
-      Card(CardFace.seven, Color.black),
-      Card(CardFace.seven, Color.green),
-      Card(CardFace.five, Color.green),
-      Card(CardFace.five, Color.red)
+      Card(CardFace.seven, CardColor.red),
+      Card(CardFace.seven, CardColor.black),
+      Card(CardFace.seven, CardColor.green),
+      Card(CardFace.five, CardColor.green),
+      Card(CardFace.five, CardColor.red),
     ]);
     test('cannotPlayTripletAndPhoenix', () {
       final cards = <Card>[
-        Card(CardFace.nine, Color.red),
-        Card(CardFace.nine, Color.black),
-        Card(CardFace.nine, Color.green),
-        Card(CardFace.phoenix, Color.special)
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.nine, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
       ];
       final deck = DeckState(turn, wish);
 
@@ -310,12 +351,12 @@ void main() {
     });
     test('canPlayTripletSingleAndPhoenix', () {
       final cards = <Card>[
-        Card(CardFace.eight, Color.red),
-        Card(CardFace.eight, Color.black),
-        Card(CardFace.eight, Color.green),
-        Card(CardFace.nine, Color.green),
-        Card(CardFace.jack, Color.green),
-        Card(CardFace.phoenix, Color.special)
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.nine, CardColor.green),
+        Card(CardFace.jack, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
       ];
       final deck = DeckState(turn, wish);
 
@@ -324,11 +365,11 @@ void main() {
     });
     test('canPlayTwoPairsAndPhoenix', () {
       final cards = <Card>[
-        Card(CardFace.nine, Color.green),
-        Card(CardFace.nine, Color.black),
-        Card(CardFace.jack, Color.green),
-        Card(CardFace.jack, Color.black),
-        Card(CardFace.phoenix, Color.special)
+        Card(CardFace.nine, CardColor.green),
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.jack, CardColor.green),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.phoenix, CardColor.special),
       ];
       final deck = DeckState(turn, wish);
 
@@ -337,12 +378,12 @@ void main() {
     });
     test('canPlayWithoutPhoenix', () {
       final cards = <Card>[
-        Card(CardFace.nine, Color.green),
-        Card(CardFace.nine, Color.black),
-        Card(CardFace.nine, Color.red),
-        Card(CardFace.jack, Color.green),
-        Card(CardFace.jack, Color.black),
-        Card(CardFace.six, Color.red)
+        Card(CardFace.nine, CardColor.green),
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.jack, CardColor.green),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.six, CardColor.red),
       ];
       final deck = DeckState(turn, wish);
 
@@ -351,11 +392,11 @@ void main() {
     });
     test('cannotPlayWithoutPhoenix', () {
       final cards = <Card>[
-        Card(CardFace.nine, Color.green),
-        Card(CardFace.nine, Color.black),
-        Card(CardFace.jack, Color.green),
-        Card(CardFace.jack, Color.black),
-        Card(CardFace.six, Color.red)
+        Card(CardFace.nine, CardColor.green),
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.jack, CardColor.green),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.six, CardColor.red),
       ];
       final deck = DeckState(turn, wish);
 

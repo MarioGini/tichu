@@ -1,28 +1,122 @@
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 import 'package:tichu/view_model/turn/turn_handler.dart';
 
 void main() {
   group('validTurn', () {
     test('dragonOnSingleTest', () {
-      var deckTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.ten, Color.red)]);
-      var currentTurn =
-          TichuTurn(TurnType.single, [Card(CardFace.dragon, Color.special)]);
+      var deckTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.ten, CardColor.red),
+      ]);
+      var currentTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.dragon, CardColor.special),
+      ]);
 
       expect(validTurn(deckTurn, currentTurn), true);
     });
     test('bombPairTest', () {
-      var deckTurn = TichuTurn(TurnType.pair,
-          [Card(CardFace.ten, Color.red), Card(CardFace.ten, Color.blue)]);
+      var deckTurn = TichuTurn(TurnType.pair, [
+        Card(CardFace.ten, CardColor.red),
+        Card(CardFace.ten, CardColor.blue),
+      ]);
       var currentTurn = TichuTurn(TurnType.bomb, [
-        Card(CardFace.eight, Color.red),
-        Card(CardFace.eight, Color.black),
-        Card(CardFace.eight, Color.green),
-        Card(CardFace.eight, Color.blue),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.eight, CardColor.blue),
       ]);
 
       expect(validTurn(deckTurn, currentTurn), true);
+    });
+  });
+
+  group('handleTurn wish enforcement', () {
+    test('rejects play that ignores fulfillable wish', () {
+      final handler = TurnHandler();
+      final deck = DeckState(
+        TichuTurn(TurnType.single, [Card(CardFace.four, CardColor.blue)]),
+        CardFace.ace,
+      );
+      final hand = <Card>[
+        Card(CardFace.ace, CardColor.red),
+        Card(CardFace.six, CardColor.green),
+      ];
+      final selected = <Card>[Card(CardFace.six, CardColor.green)];
+
+      final updated = handler.handleTurn(
+        deck,
+        selected,
+        CardFace.none,
+        hand: hand,
+      );
+
+      expect(updated.turn, TichuTurn.InvalidTurn());
+    });
+
+    test('allows play when wish cannot be fulfilled', () {
+      final handler = TurnHandler();
+      final deck = DeckState(
+        TichuTurn(TurnType.single, [Card(CardFace.king, CardColor.black)]),
+        CardFace.four,
+      );
+      final hand = <Card>[
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.ace, CardColor.green),
+      ];
+      final selected = <Card>[Card(CardFace.ace, CardColor.green)];
+
+      final updated = handler.handleTurn(
+        deck,
+        selected,
+        CardFace.none,
+        hand: hand,
+      );
+
+      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+    });
+  });
+
+  group('handleTurn recognizes triplet/full house plays', () {
+    test('accepts triplet on empty deck', () {
+      final handler = TurnHandler();
+      final deck = DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+      final selected = <Card>[
+        Card(CardFace.queen, CardColor.red),
+        Card(CardFace.queen, CardColor.blue),
+        Card(CardFace.queen, CardColor.green),
+      ];
+
+      final updated = handler.handleTurn(
+        deck,
+        selected,
+        CardFace.none,
+        hand: List<Card>.from(selected),
+      );
+
+      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn.type, TurnType.triplet);
+    });
+
+    test('accepts full house on empty deck', () {
+      final handler = TurnHandler();
+      final deck = DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+      final selected = <Card>[
+        Card(CardFace.queen, CardColor.red),
+        Card(CardFace.queen, CardColor.blue),
+        Card(CardFace.queen, CardColor.green),
+        Card(CardFace.king, CardColor.red),
+        Card(CardFace.king, CardColor.blue),
+      ];
+
+      final updated = handler.handleTurn(
+        deck,
+        selected,
+        CardFace.none,
+        hand: List<Card>.from(selected),
+      );
+
+      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn.type, TurnType.fullHouse);
     });
   });
 }

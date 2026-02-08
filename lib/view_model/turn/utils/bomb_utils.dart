@@ -1,6 +1,5 @@
 import '../tichu_data.dart';
 import 'card_utils.dart';
-import 'straight_utils.dart';
 
 List<TichuTurn> getBombs(List<Card> cards) {
   var bombTurns = <TichuTurn>[];
@@ -11,29 +10,51 @@ List<TichuTurn> getBombs(List<Card> cards) {
       .where((element) => occurrenceCount[element] == 4)
       .toList();
   for (var bombFace in bombFaces) {
-    bombTurns.add(TichuTurn(
-        TurnType.bomb, cards.where((card) => card.face == bombFace).toList()));
+    bombTurns.add(
+      TichuTurn(
+        TurnType.bomb,
+        cards.where((card) => card.face == bombFace).toList(),
+      ),
+    );
   }
 
   // Look for straight bombs.
-  // TODO how to look for random length?
-  var straightBombs = getStraights(cards, 5);
-  for (var straightBomb in straightBombs) {
-    if (uniformColor(straightBomb.cards)) {
-      bombTurns.add(straightBomb);
-    }
-  }
+  bombTurns.addAll(_getStraightBombs(cards));
 
   return bombTurns;
 }
 
-bool isBomb(List<Card> cards) {
-  var isBomb = false;
-  if (cards.length == 4 && getOccurrenceCount(cards).keys.length == 1) {
-    isBomb = true;
-  } else if (isStraight(cards) && uniformColor(cards)) {
-    isBomb = true;
+bool hasBombInHand(List<Card> cards) {
+  return getBombs(cards).isNotEmpty;
+}
+
+List<TichuTurn> _getStraightBombs(List<Card> cards) {
+  final bombs = <TichuTurn>[];
+  final suitedCards = cards
+      .where((card) => card.color != CardColor.special)
+      .toList();
+  final colors = CardColor.values.where((color) => color != CardColor.special);
+
+  for (final color in colors) {
+    final colorCards = suitedCards.where((card) => card.color == color).toList()
+      ..sort(compareCards);
+    if (colorCards.length < 5) continue;
+
+    var start = 0;
+    while (start < colorCards.length) {
+      var end = start;
+      while (end + 1 < colorCards.length &&
+          colorCards[end].value == colorCards[end + 1].value + 1) {
+        end++;
+      }
+
+      if (end - start + 1 >= 5) {
+        bombs.add(TichuTurn(TurnType.bomb, colorCards.sublist(start, end + 1)));
+      }
+
+      start = end + 1;
+    }
   }
 
-  return isBomb;
+  return bombs;
 }

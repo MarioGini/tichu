@@ -1,4 +1,4 @@
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import "package:tichu/view_model/turn/utils/bomb_utils.dart";
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
@@ -6,59 +6,124 @@ void main() {
   group('getBombs', () {
     test('twoQuartetBombTest', () {
       var cards = <Card>[
-        Card(CardFace.eight, Color.black),
-        Card(CardFace.eight, Color.green),
-        Card(CardFace.eight, Color.red),
-        Card(CardFace.eight, Color.blue),
-        Card(CardFace.jack, Color.black),
-        Card(CardFace.jack, Color.green),
-        Card(CardFace.jack, Color.red),
-        Card(CardFace.jack, Color.blue)
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.blue),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.jack, CardColor.green),
+        Card(CardFace.jack, CardColor.red),
+        Card(CardFace.jack, CardColor.blue),
       ];
 
       var turns = getBombs(cards);
       expect(turns.length, 2);
-      expect(turns.every((turn) => isBomb(turn.cards)), true);
-      expect(turns.any((turn) => turn.value == Card.getValue(CardFace.eight)),
-          true);
-      expect(turns.any((turn) => turn.value == Card.getValue(CardFace.jack)),
-          true);
+      expect(turns.every((turn) => turn.type == TurnType.bomb), true);
+      expect(
+        turns.any((turn) => turn.value == Card.getValue(CardFace.eight)),
+        true,
+      );
+      expect(
+        turns.any((turn) => turn.value == Card.getValue(CardFace.jack)),
+        true,
+      );
     });
     test('noBombTest', () {
       var cards = <Card>[
-        Card(CardFace.eight, Color.black),
-        Card(CardFace.eight, Color.green),
-        Card(CardFace.eight, Color.red),
-        Card(CardFace.jack, Color.black),
-        Card(CardFace.jack, Color.green),
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.jack, CardColor.green),
       ];
 
       var turns = getBombs(cards);
       expect(turns.length, 0);
     });
+
+    test('nonUniformStraightIsNotBomb', () {
+      var cards = <Card>[
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.ten, CardColor.black),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.queen, CardColor.black),
+      ];
+
+      var turns = getBombs(cards);
+      expect(turns, isEmpty);
+    });
+
+    test('phoenixDoesNotCreateStraightBomb', () {
+      var cards = <Card>[
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.ten, CardColor.black),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+
+      var turns = getBombs(cards);
+      expect(turns, isEmpty);
+    });
   });
   group('isBomb', () {
     test('quartetBombTest', () {
       var cards = <Card>[
-        Card(CardFace.eight, Color.black),
-        Card(CardFace.eight, Color.green),
-        Card(CardFace.eight, Color.red),
-        Card(CardFace.eight, Color.blue),
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.blue),
       ];
-
-      expect(isBomb(cards), true);
+      expect(getBombs(cards).length, 1);
     });
     test('straightBombTest', () {
       var cards = <Card>[
-        Card(CardFace.eight, Color.black),
-        Card(CardFace.nine, Color.black),
-        Card(CardFace.ten, Color.black),
-        Card(CardFace.jack, Color.black),
-        Card(CardFace.queen, Color.black),
-        Card(CardFace.king, Color.black)
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.ten, CardColor.black),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.queen, CardColor.black),
+        Card(CardFace.king, CardColor.black),
+      ];
+      expect(getBombs(cards).length, 1);
+    });
+  });
+  group('hasBombInHand', () {
+    test('returnsTrueForQuartetBomb', () {
+      var cards = <Card>[
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.blue),
+        Card(CardFace.jack, CardColor.black),
       ];
 
-      expect(isBomb(cards), true);
+      expect(hasBombInHand(cards), true);
+    });
+
+    test('returnsTrueForStraightBomb', () {
+      var cards = <Card>[
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.ten, CardColor.red),
+      ];
+
+      expect(hasBombInHand(cards), true);
+    });
+
+    test('returnsFalseWhenNoBombExists', () {
+      var cards = <Card>[
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.queen, CardColor.green),
+      ];
+
+      expect(hasBombInHand(cards), false);
     });
   });
 }

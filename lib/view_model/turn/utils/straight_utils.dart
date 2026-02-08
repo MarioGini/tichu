@@ -3,6 +3,8 @@ import 'card_utils.dart';
 
 // Removes cards with duplicate face from list.
 List<Card> removeDuplicates(List<Card> cards) {
+  if (cards.isEmpty) return [];
+
   var removedDuplicates = List<Card>.from(cards);
 
   removedDuplicates.sort(compareCards);
@@ -26,20 +28,26 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
   var straights = <TichuTurn>[];
 
   // To find straights, we remove duplicates, dragon and dog.
-  cards.removeWhere((element) =>
-      element.face == CardFace.dragon || element.face == CardFace.dog);
+  cards.removeWhere(
+    (element) =>
+        element.face == CardFace.dragon || element.face == CardFace.dog,
+  );
   cards = removeDuplicates(cards);
 
   // No logic required when less then five cards remain.
   if (cards.length < 5) return straights;
 
-// Look for consecutive cards and add segments that have length of at least
-// five.
+  // Look for consecutive cards and add segments that have length of at least
+  // five.
   var connected = findConnectedCards(cards);
   for (var sequence in connected) {
     if (sequence.endIdx - sequence.beginIdx >= 4) {
-      straights.add(TichuTurn(TurnType.straight,
-          cards.sublist(sequence.beginIdx, sequence.endIdx + 1)));
+      straights.add(
+        TichuTurn(
+          TurnType.straight,
+          cards.sublist(sequence.beginIdx, sequence.endIdx + 1),
+        ),
+      );
     }
   }
 
@@ -50,8 +58,10 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
     // card.
     for (var sequence in connected) {
       if (sequence.endIdx - sequence.beginIdx >= 3) {
-        var phoenixCards =
-            cards.sublist(sequence.beginIdx, sequence.endIdx + 1);
+        var phoenixCards = cards.sublist(
+          sequence.beginIdx,
+          sequence.endIdx + 1,
+        );
         if (cards[sequence.beginIdx].value != Card.getValue(CardFace.ace)) {
           phoenixCards.add(Card.phoenix(cards[sequence.beginIdx].value + 1));
         } else {
@@ -70,8 +80,10 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
                   connected[i - 1].endIdx -
                   connected[i - 1].beginIdx >=
               2)) {
-        var phoenixCards =
-            cards.sublist(connected[i - 1].beginIdx, connected[i].endIdx + 1);
+        var phoenixCards = cards.sublist(
+          connected[i - 1].beginIdx,
+          connected[i].endIdx + 1,
+        );
         phoenixCards.add(Card.phoenix(cards[connected[i].beginIdx].value + 1));
         phoenixStraights.add(TichuTurn(TurnType.straight, phoenixCards));
       }
@@ -92,8 +104,9 @@ List<TichuTurn> getStraights(List<Card> cards, int desiredLength) {
   // permutation logic will result in duplicated straights which are removed
   // below to assure unique elements in the list.
   var values = <double>{};
-  allStraights =
-      allStraights.where((element) => values.add(element.value)).toList();
+  allStraights = allStraights
+      .where((element) => values.add(element.value))
+      .toList();
 
   return allStraights;
 }
@@ -121,9 +134,13 @@ bool isStraight(List<Card> cards) {
 
   // Straights cannot contain dragon or dog, and must consist of at least five
   // cards.
-  if (cards.any((element) =>
-          element.face == CardFace.dragon || element.face == CardFace.dog) ||
-      cards.length < 5) isStraight = false;
+  if (cards.any(
+        (element) =>
+            element.face == CardFace.dragon || element.face == CardFace.dog,
+      ) ||
+      cards.length < 5) {
+    isStraight = false;
+  }
 
   if (isStraight) {
     cards.sort(compareCards);

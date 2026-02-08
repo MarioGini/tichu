@@ -4,8 +4,13 @@ import 'package:tichu/view_model/turn/wish_logic.dart';
 
 class TurnHandler {
   DeckState handleTurn(
-      DeckState currentDeck, List<Card> cards, CardFace inputWish) {
-    var currentTurn = getTurn(cards);
+    DeckState currentDeck,
+    List<Card> selectedCards,
+    CardFace inputWish, {
+    List<Card>? hand,
+  }) {
+    var currentTurn = getTurn(selectedCards);
+    final handCards = hand ?? selectedCards;
 
     // Selected cards must form a valid turn.
     if (currentTurn == TichuTurn.InvalidTurn()) {
@@ -13,7 +18,7 @@ class TurnHandler {
     }
 
     // When mah jong is not obeyed, turn is invalid.
-    if (mahJong(currentDeck, currentTurn, cards)) {
+    if (mahJong(currentDeck, currentTurn, handCards)) {
       return DeckState.Invalid();
     }
 
@@ -23,7 +28,9 @@ class TurnHandler {
 
     // The wish is either fulfilled or propagated to next deck state.
     return DeckState(
-        currentTurn, computeNextWish(currentDeck.wish, currentTurn, inputWish));
+      currentTurn,
+      computeNextWish(currentDeck.wish, currentTurn, inputWish),
+    );
   }
 }
 

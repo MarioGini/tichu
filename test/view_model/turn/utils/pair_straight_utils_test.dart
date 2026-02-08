@@ -1,4 +1,4 @@
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/view_model/turn/utils/pair_straight_utils.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
@@ -6,15 +6,15 @@ void main() {
   group('getPairStraights', () {
     test('removeTripleCardsTest', () {
       var cards = <Card>[
-        Card(CardFace.three, Color.green),
-        Card(CardFace.three, Color.red),
-        Card(CardFace.three, Color.black),
-        Card(CardFace.four, Color.red),
-        Card(CardFace.four, Color.black),
-        Card(CardFace.five, Color.red),
-        Card(CardFace.six, Color.red),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.eight, Color.red),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.three, CardColor.red),
+        Card(CardFace.three, CardColor.black),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.four, CardColor.black),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.eight, CardColor.red),
       ];
       var desiredLength = 4;
       var turns = getPairStraights(cards, 4);
@@ -26,20 +26,20 @@ void main() {
     });
     test('twoSeparatedPairStraightsTest', () {
       var cards = <Card>[
-        Card(CardFace.two, Color.black),
-        Card(CardFace.three, Color.green),
-        Card(CardFace.three, Color.red),
-        Card(CardFace.three, Color.black),
-        Card(CardFace.four, Color.red),
-        Card(CardFace.four, Color.black),
-        Card(CardFace.five, Color.red),
-        Card(CardFace.six, Color.red),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.seven, Color.green),
-        Card(CardFace.eight, Color.red),
-        Card(CardFace.eight, Color.black),
-        Card(CardFace.nine, Color.black),
-        Card(CardFace.nine, Color.red)
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.three, CardColor.red),
+        Card(CardFace.three, CardColor.black),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.four, CardColor.black),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.seven, CardColor.green),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.nine, CardColor.red)
       ];
       var desiredLength = 4;
       var turns = getPairStraights(cards, desiredLength);
@@ -53,12 +53,12 @@ void main() {
     });
     test('phoenixFusionTest', () {
       var cards = <Card>[
-        Card(CardFace.three, Color.green),
-        Card(CardFace.three, Color.red),
-        Card(CardFace.four, Color.black),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.five, Color.red),
-        Card(CardFace.five, Color.black)
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.three, CardColor.red),
+        Card(CardFace.four, CardColor.black),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.five, CardColor.black)
       ];
       var desiredLength = 4;
       var turns = getPairStraights(cards, desiredLength);
@@ -71,12 +71,12 @@ void main() {
     });
     test('phoenixPaddingTest', () {
       var cards = <Card>[
-        Card(CardFace.two, Color.black),
-        Card(CardFace.three, Color.green),
-        Card(CardFace.three, Color.red),
-        Card(CardFace.four, Color.black),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.six, Color.red)
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.three, CardColor.red),
+        Card(CardFace.four, CardColor.black),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.six, CardColor.red)
       ];
       var desiredLength = 4;
       var turns = getPairStraights(cards, desiredLength);
@@ -89,20 +89,20 @@ void main() {
     });
     test('phoenixComplexTest', () {
       var cards = <Card>[
-        Card(CardFace.mahJong, Color.special),
-        Card(CardFace.two, Color.black),
-        Card(CardFace.two, Color.green),
-        Card(CardFace.three, Color.green),
-        Card(CardFace.three, Color.red),
-        Card(CardFace.three, Color.black),
-        Card(CardFace.four, Color.red),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.five, Color.red),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.six, Color.red),
-        Card(CardFace.six, Color.black),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.nine, Color.black)
+        Card(CardFace.mahJong, CardColor.special),
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.three, CardColor.red),
+        Card(CardFace.three, CardColor.black),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.six, CardColor.black),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.nine, CardColor.black)
       ];
       var desiredLength = 6;
       var turns = getPairStraights(cards, desiredLength);
@@ -120,14 +120,14 @@ void main() {
   });
   group('getPairStraightPermutations', () {
     final fourPairStraight = [
-      Card(CardFace.two, Color.red),
-      Card(CardFace.two, Color.green),
-      Card(CardFace.three, Color.red),
-      Card(CardFace.three, Color.black),
-      Card(CardFace.four, Color.red),
-      Card(CardFace.four, Color.black),
-      Card(CardFace.five, Color.red),
-      Card(CardFace.five, Color.green)
+      Card(CardFace.two, CardColor.red),
+      Card(CardFace.two, CardColor.green),
+      Card(CardFace.three, CardColor.red),
+      Card(CardFace.three, CardColor.black),
+      Card(CardFace.four, CardColor.red),
+      Card(CardFace.four, CardColor.black),
+      Card(CardFace.five, CardColor.red),
+      Card(CardFace.five, CardColor.green)
     ];
     test('standardTest', () {
       var turns = getPairStraightPermutations(fourPairStraight);
@@ -151,21 +151,21 @@ void main() {
   group('isPairStraight', () {
     test('twoPairStraightTest', () {
       var cards = <Card>[
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.six, Color.blue),
-        Card(CardFace.six, Color.green)
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.six, CardColor.green)
       ];
 
       expect(isPairStraight(cards), true);
     });
     test('threePairStraightPhoenixTest', () {
       var cards = <Card>[
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.six, Color.blue),
-        Card(CardFace.six, Color.green),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.six, CardColor.green),
         Card.phoenix(Card.getValue(CardFace.seven))
       ];
 
@@ -173,26 +173,26 @@ void main() {
     });
     test('pairStraightOddCardsTest', () {
       var cards = <Card>[
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.six, Color.blue),
-        Card(CardFace.six, Color.green),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.six, CardColor.green),
         Card.phoenix(Card.getValue(CardFace.seven)),
-        Card(CardFace.eight, Color.black)
+        Card(CardFace.eight, CardColor.black)
       ];
 
       expect(isPairStraight(cards), false);
     });
     test('pairStraightDogTest', () {
       var cards = <Card>[
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.six, Color.blue),
-        Card(CardFace.six, Color.green),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.six, CardColor.green),
         Card.phoenix(Card.getValue(CardFace.seven)),
-        Card(CardFace.dog, Color.special)
+        Card(CardFace.dog, CardColor.special)
       ];
 
       expect(isPairStraight(cards), false);

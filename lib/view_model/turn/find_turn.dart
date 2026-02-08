@@ -84,8 +84,15 @@ TichuTurn checkForQuartet(List<Card> cards) {
 TichuTurn checkFives(List<Card> cards) {
   TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
-  if (isFullHouse(cards)) {
-    possibleTurn = TichuTurn(TurnType.fullHouse, cards);
+  final fullHouses = getFullHouses(List<Card>.from(cards));
+  if (fullHouses.isNotEmpty) {
+    var best = fullHouses.first;
+    for (var i = 1; i < fullHouses.length; i++) {
+      if (fullHouses[i].value > best.value) {
+        best = fullHouses[i];
+      }
+    }
+    possibleTurn = best;
   } else if (isStraight(cards)) {
     if (uniformColor(cards)) {
       possibleTurn = TichuTurn(TurnType.bomb, cards);

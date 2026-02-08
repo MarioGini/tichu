@@ -1,93 +1,115 @@
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 import 'package:tichu/view_model/turn/utils/full_house_utils.dart';
 
 void main() {
-  group('isFullHouse', () {
-    test('standardSituationTest', () {
-      var cards = <Card>[
-        Card(CardFace.two, Color.black),
-        Card(CardFace.two, Color.green),
-        Card(CardFace.two, Color.red),
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green)
-      ];
-
-      expect(isFullHouse(cards), true);
-    });
-    test('phoenixTest', () {
-      var cards = <Card>[
-        Card.phoenix(5),
-        Card(CardFace.two, Color.green),
-        Card(CardFace.two, Color.red),
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green)
-      ];
-
-      expect(isFullHouse(cards), true);
-    });
-  });
   group('getFullHouses', () {
+    test('returnsEmptyWhenLessThanFiveCards', () {
+      var cards = <Card>[
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+      ];
+
+      var turns = getFullHouses(cards);
+
+      expect(turns, isEmpty);
+    });
+
+    test('ignoresDragonAndDogCards', () {
+      var cards = <Card>[
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.two, CardColor.red),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.dragon, CardColor.special),
+        Card(CardFace.dog, CardColor.special),
+      ];
+
+      var turns = getFullHouses(cards);
+
+      expect(turns.length, 1);
+      expect(turns.first.type, TurnType.fullHouse);
+      expect(
+        turns.first.cards.any(
+          (card) => card.face == CardFace.dragon || card.face == CardFace.dog,
+        ),
+        false,
+      );
+    });
+
     test('twoTripletsTest', () {
       var cards = <Card>[
-        Card(CardFace.two, Color.black),
-        Card(CardFace.two, Color.green),
-        Card(CardFace.two, Color.red),
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.five, Color.red)
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.two, CardColor.red),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.five, CardColor.red),
       ];
 
       var turns = getFullHouses(cards);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => isFullHouse(turn.cards)), true);
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       expect(
-          turns.any((turn) => turn.value == Card.getValue(CardFace.two)), true);
-      expect(turns.any((turn) => turn.value == Card.getValue(CardFace.five)),
-          true);
+        turns.any((turn) => turn.value == Card.getValue(CardFace.two)),
+        true,
+      );
+      expect(
+        turns.any((turn) => turn.value == Card.getValue(CardFace.five)),
+        true,
+      );
     });
     test('twoPairsTest', () {
       var cards = <Card>[
-        Card(CardFace.two, Color.black),
-        Card(CardFace.two, Color.green),
-        Card(CardFace.two, Color.red),
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.seven, Color.black)
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.two, CardColor.red),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.seven, CardColor.black),
       ];
 
       var turns = getFullHouses(cards);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => isFullHouse(turn.cards)), true);
-      expect(turns.every((turn) => turn.value == Card.getValue(CardFace.two)),
-          true);
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       expect(
-          turns.any(
-              (turn) => turn.cards.any((card) => card.face == CardFace.five)),
-          true);
+        turns.every((turn) => turn.value == Card.getValue(CardFace.two)),
+        true,
+      );
       expect(
-          turns.any(
-              (turn) => turn.cards.any((card) => card.face == CardFace.seven)),
-          true);
+        turns.any(
+          (turn) => turn.cards.any((card) => card.face == CardFace.five),
+        ),
+        true,
+      );
+      expect(
+        turns.any(
+          (turn) => turn.cards.any((card) => card.face == CardFace.seven),
+        ),
+        true,
+      );
     });
     test('twoPairsPhoenixTest', () {
       var cards = <Card>[
-        Card(CardFace.two, Color.black),
-        Card(CardFace.two, Color.green),
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.seven, Color.black)
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.seven, CardColor.black),
       ];
 
       var turns = getFullHouses(cards);
 
       expect(turns.length, 6);
-      expect(turns.every((turn) => isFullHouse(turn.cards)), true);
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       var sevenFullHouseCount = turns
           .where((element) => element.value == Card.getValue(CardFace.seven))
           .length;
@@ -103,19 +125,19 @@ void main() {
     });
     test('tripletPhoenixTest', () {
       var cards = <Card>[
-        Card(CardFace.two, Color.black),
-        Card(CardFace.two, Color.green),
-        Card(CardFace.two, Color.red),
-        Card(CardFace.five, Color.black),
-        Card(CardFace.five, Color.green),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.seven, Color.black)
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.two, CardColor.red),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.seven, CardColor.black),
       ];
 
       var turns = getFullHouses(cards);
 
       expect(turns.length, 3);
-      expect(turns.every((turn) => isFullHouse(turn.cards)), true);
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       var fiveFullHouseCount = turns
           .where((element) => element.value == Card.getValue(CardFace.five))
           .length;

@@ -1,4 +1,4 @@
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/view_model/turn/utils/straight_utils.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
@@ -7,10 +7,10 @@ void main() {
     List<Card> uniqueCards = [];
     setUp(() {
       uniqueCards = [
-        Card(CardFace.three, Color.green),
-        Card(CardFace.four, Color.red),
-        Card(CardFace.five, Color.red),
-        Card(CardFace.six, Color.red)
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.red)
       ];
       uniqueCards.sort(compareCards);
     });
@@ -19,16 +19,16 @@ void main() {
     });
     test('twoDuplicatesTest', () {
       var duplicateCards = List<Card>.from(uniqueCards);
-      duplicateCards.add(Card(CardFace.five, Color.black));
-      duplicateCards.add(Card(CardFace.six, Color.black));
+      duplicateCards.add(Card(CardFace.five, CardColor.black));
+      duplicateCards.add(Card(CardFace.six, CardColor.black));
       duplicateCards.sort(compareCards);
 
       expect(removeDuplicates(duplicateCards), uniqueCards);
     });
     test('threeDuplicatesTest', () {
       var duplicateCards = List<Card>.from(uniqueCards);
-      duplicateCards.add(Card(CardFace.five, Color.black));
-      duplicateCards.add(Card(CardFace.five, Color.red));
+      duplicateCards.add(Card(CardFace.five, CardColor.black));
+      duplicateCards.add(Card(CardFace.five, CardColor.red));
       duplicateCards.sort(compareCards);
 
       expect(removeDuplicates(duplicateCards), uniqueCards);
@@ -36,12 +36,12 @@ void main() {
   });
   group('getStraights', () {
     final sixStraight = [
-      Card(CardFace.three, Color.green),
-      Card(CardFace.four, Color.red),
-      Card(CardFace.five, Color.red),
-      Card(CardFace.six, Color.red),
-      Card(CardFace.seven, Color.red),
-      Card(CardFace.eight, Color.red),
+      Card(CardFace.three, CardColor.green),
+      Card(CardFace.four, CardColor.red),
+      Card(CardFace.five, CardColor.red),
+      Card(CardFace.six, CardColor.red),
+      Card(CardFace.seven, CardColor.red),
+      Card(CardFace.eight, CardColor.red),
     ];
     test('simpleSixStraightTest', () {
       final desiredLength = 6;
@@ -56,10 +56,10 @@ void main() {
     test('hiddenSixStraightTest', () {
       // Here, we also have duplicates and other cards at hand.
       var hiddenSixStraight = List<Card>.from(sixStraight);
-      hiddenSixStraight.add(Card(CardFace.king, Color.red));
-      hiddenSixStraight.add(Card(CardFace.queen, Color.red));
-      hiddenSixStraight.add(Card(CardFace.four, Color.red));
-      hiddenSixStraight.add(Card(CardFace.mahJong, Color.special));
+      hiddenSixStraight.add(Card(CardFace.king, CardColor.red));
+      hiddenSixStraight.add(Card(CardFace.queen, CardColor.red));
+      hiddenSixStraight.add(Card(CardFace.four, CardColor.red));
+      hiddenSixStraight.add(Card(CardFace.mahJong, CardColor.special));
 
       final desiredLength = 5;
       var straightTurns = getStraights(hiddenSixStraight, desiredLength);
@@ -73,12 +73,12 @@ void main() {
     });
     test('phoenixAsGapTest', () {
       final phoenixStraight = [
-        Card(CardFace.three, Color.green),
-        Card(CardFace.four, Color.red),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.six, Color.red),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.eight, Color.red),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.eight, CardColor.red),
       ];
 
       final desiredLength = 5;
@@ -92,11 +92,11 @@ void main() {
     });
     test('phoenixTooSmallTest', () {
       final phoenixStraight = [
-        Card(CardFace.three, Color.green),
-        Card(CardFace.four, Color.red),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.six, Color.red),
-        Card(CardFace.ace, Color.red),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.ace, CardColor.red),
       ];
 
       final desiredLength = 5;
@@ -108,15 +108,15 @@ void main() {
       // The cards combine a segment of length four that is promoted to
       // straight.
       final phoenixStraight = [
-        Card(CardFace.three, Color.green),
-        Card(CardFace.four, Color.red),
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.six, Color.red),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.ten, Color.green),
-        Card(CardFace.jack, Color.green),
-        Card(CardFace.queen, Color.green),
-        Card(CardFace.king, Color.green),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.ten, CardColor.green),
+        Card(CardFace.jack, CardColor.green),
+        Card(CardFace.queen, CardColor.green),
+        Card(CardFace.king, CardColor.green),
       ];
 
       final desiredLength = 5;
@@ -130,11 +130,11 @@ void main() {
     });
     test('phoenixAsLowerGapTest', () {
       final phoenixStraight = [
-        Card(CardFace.phoenix, Color.special),
-        Card(CardFace.jack, Color.green),
-        Card(CardFace.queen, Color.green),
-        Card(CardFace.king, Color.green),
-        Card(CardFace.ace, Color.red)
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.jack, CardColor.green),
+        Card(CardFace.queen, CardColor.green),
+        Card(CardFace.king, CardColor.green),
+        Card(CardFace.ace, CardColor.red)
       ];
 
       final desiredLength = 5;
@@ -148,13 +148,13 @@ void main() {
   });
   group('getStraightPermutations', () {
     final sevenStraight = [
-      Card(CardFace.two, Color.red),
-      Card(CardFace.three, Color.green),
-      Card(CardFace.four, Color.red),
-      Card(CardFace.five, Color.red),
-      Card(CardFace.six, Color.red),
-      Card(CardFace.seven, Color.red),
-      Card(CardFace.eight, Color.red)
+      Card(CardFace.two, CardColor.red),
+      Card(CardFace.three, CardColor.green),
+      Card(CardFace.four, CardColor.red),
+      Card(CardFace.five, CardColor.red),
+      Card(CardFace.six, CardColor.red),
+      Card(CardFace.seven, CardColor.red),
+      Card(CardFace.eight, CardColor.red)
     ];
     test('getPermutationTest', () {
       var turns = getStraightPermutations(sevenStraight);
@@ -178,34 +178,34 @@ void main() {
   group('isStraight', () {
     test('fiveStraightTest', () {
       var cards = <Card>[
-        Card(CardFace.five, Color.black),
-        Card(CardFace.four, Color.green),
-        Card(CardFace.three, Color.blue),
-        Card(CardFace.two, Color.blue),
-        Card(CardFace.mahJong, Color.special)
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.three, CardColor.blue),
+        Card(CardFace.two, CardColor.blue),
+        Card(CardFace.mahJong, CardColor.special)
       ];
 
       expect(isStraight(cards), true);
     });
     test('sevenPhoenixStraightTest', () {
       var cards = <Card>[
-        Card(CardFace.five, Color.black),
-        Card(CardFace.six, Color.black),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.six, CardColor.black),
         Card.phoenix(Card.getValue(CardFace.seven)),
-        Card(CardFace.four, Color.green),
-        Card(CardFace.three, Color.blue),
-        Card(CardFace.two, Color.blue)
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.three, CardColor.blue),
+        Card(CardFace.two, CardColor.blue)
       ];
 
       expect(isStraight(cards), true);
     });
     test('straightDragonTest', () {
       var cards = <Card>[
-        Card(CardFace.jack, Color.black),
-        Card(CardFace.queen, Color.black),
-        Card(CardFace.king, Color.green),
-        Card(CardFace.ace, Color.blue),
-        Card(CardFace.dragon, Color.special)
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.queen, CardColor.black),
+        Card(CardFace.king, CardColor.green),
+        Card(CardFace.ace, CardColor.blue),
+        Card(CardFace.dragon, CardColor.special)
       ];
 
       expect(isStraight(cards), false);

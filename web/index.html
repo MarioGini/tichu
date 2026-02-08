@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html>
+
 <head>
+  <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
-  <meta name="google-signin-client_id" content="275103363928-01p4gfdoolb9coo4j010bau2c9pv87ir.apps.googleusercontent.com">
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,71 +14,34 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="shortcut icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="favicon.png" />
 
   <title>Tichu</title>
   <link rel="manifest" href="manifest.json">
+
+  <script>
+    // The value below is injected by flutter build, do not touch.
+    var flutterServiceWorkerVersion = "{{flutter_service_worker_version}}";
+  </script>
 </head>
+
 <body>
-  <!-- This script installs service_worker.js to provide PWA functionality to
-       application. For more information, see:
-       https://developers.google.com/web/fundamentals/primers/service-workers -->
+  <div id="loading" style="font-family: Arial, sans-serif; color: #ffffff; background:#0f5d3d; padding:16px;">Loading
+    Tichu…</div>
   <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js');
-      });
-    }
+    window.addEventListener('load', function () {
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            registrations.forEach(function (registration) {
+              registration.unregister();
+            });
+          });
+        }
+      }
+    });
   </script>
-  <!-- Other firebase SDKs/config here -->
-  <!-- The core Firebase JS SDK is always required and must be listed first -->
-  <script src="https://www.gstatic.com/firebasejs/7.13.2/firebase-app.js"></script>
-  
-  <!-- TODO: Add SDKs for Firebase products that you want to use
-    https://firebase.google.com/docs/web/setup#available-libraries -->
-  <script src="https://www.gstatic.com/firebasejs/7.13.2/firebase-analytics.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/7.13.2/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/7.13.2/firebase-firestore.js"></script>
-
-  <script>
-    // Your web app's Firebase configuration
-    var firebaseConfig = {
-      apiKey: "AIzaSyA5CuCHSe7eDkjq_WG0SbmuTZWfLevU5CA",
-      authDomain: "tichu-a373a.firebaseapp.com",
-      databaseURL: "https://tichu-a373a.firebaseio.com",
-      projectId: "tichu-a373a",
-      storageBucket: "tichu-a373a.appspot.com",
-      messagingSenderId: "275103363928",
-      appId: "1:275103363928:web:8dc8fe1d786a760e972b2d",
-      measurementId: "G-E247PY9ZN3"
-    };
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    firebase.analytics();
-  </script>
-
-  <script>
-    window.fbAsyncInit = function () {
-      FB.init({
-        appId: '801604493697551', // Replace "000000000000" with your Facebook App ID here.
-        xfbml: true,
-        version: 'v6.0' // Check current Facebook SDK version
-      });
-      FB.AppEvents.logPageView();
-    };
-  </script>
-  <script>
-    (function (d, s, id) {
-      var js, fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) { return; }
-      js = d.createElement(s); js.id = id;
-      js.src = "https://connect.facebook.net/en_US/sdk.js";
-      fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));
-  </script>
-
-  <script src="https://apis.google.com/js/platform.js" async defer></script>
-
-  <script src="main.dart.js" type="application/javascript"></script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
+
 </html>

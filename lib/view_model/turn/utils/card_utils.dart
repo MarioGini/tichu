@@ -15,11 +15,7 @@ int occurrences(CardFace face, List<Card> cards) {
 Map<CardFace, int> getOccurrenceCount(List<Card> cards) {
   var occurrenceCount = <CardFace, int>{};
   for (var card in cards) {
-    occurrenceCount.update(
-      card.face,
-      (value) => ++value,
-      ifAbsent: () => 1,
-    );
+    occurrenceCount.update(card.face, (value) => ++value, ifAbsent: () => 1);
   }
   return occurrenceCount;
 }
@@ -44,11 +40,11 @@ class ConnectedCards {
   final int beginIdx;
   final int endIdx;
 
-  ConnectedCards(this.beginIdx, this.endIdx);
+  const ConnectedCards(this.beginIdx, this.endIdx);
 
   // Override to allow testing
   @override
-  bool operator ==(dynamic other) {
+  bool operator ==(Object other) {
     return other is ConnectedCards &&
         beginIdx == other.beginIdx &&
         endIdx == other.endIdx;

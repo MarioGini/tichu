@@ -1,0 +1,34 @@
+import 'package:flutter/material.dart' hide Card;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/screens/game/game_screen.dart';
+import '../../utils/test_game_backend.dart';
+import '../../utils/test_game_fixtures.dart';
+import 'package:tichu/view_model/turn/tichu_data.dart';
+
+void main() {
+  testWidgets('enables bomb button when hand contains bomb', (tester) async {
+    final backend = FakeGameBackend();
+
+    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+
+    final bombHand = [
+      Card(CardFace.five, CardColor.red),
+      Card(CardFace.five, CardColor.blue),
+      Card(CardFace.five, CardColor.green),
+      Card(CardFace.five, CardColor.black),
+      Card(CardFace.two, CardColor.red),
+    ];
+
+    backend.emit(
+      buildPlayerSnapshot(hand: bombHand, currentPlayerId: testHumanId),
+    );
+
+    await tester.pump();
+
+    final bombButtonFinder = find.widgetWithText(OutlinedButton, 'Bomb');
+    expect(bombButtonFinder, findsOneWidget);
+
+    final bombButton = tester.widget<OutlinedButton>(bombButtonFinder);
+    expect(bombButton.onPressed, isNotNull);
+  });
+}

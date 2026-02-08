@@ -1,14 +1,14 @@
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import "package:tichu/view_model/turn/utils/card_utils.dart";
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
 void main() {
   group('occurrences', () {
     final cards = [
-      Card(CardFace.nine, Color.red),
-      Card(CardFace.nine, Color.green),
-      Card(CardFace.nine, Color.green),
-      Card(CardFace.king, Color.green)
+      Card(CardFace.nine, CardColor.red),
+      Card(CardFace.nine, CardColor.green),
+      Card(CardFace.nine, CardColor.green),
+      Card(CardFace.king, CardColor.green)
     ];
     test('threeOccurrencesTest', () {
       expect(occurrences(CardFace.nine, cards), 3);
@@ -23,9 +23,9 @@ void main() {
   group('getOccurrenceCount', () {
     test('standardTest', () {
       final cards = [
-        Card(CardFace.three, Color.green),
-        Card(CardFace.three, Color.black),
-        Card(CardFace.four, Color.red),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.three, CardColor.black),
+        Card(CardFace.four, CardColor.red),
       ];
       var occurrences = getOccurrenceCount(cards);
       expect(occurrences.keys.length, 2);
@@ -38,18 +38,18 @@ void main() {
   group('uniformColor', () {
     test('uniformColorTest', () {
       var cards = <Card>[
-        Card(CardFace.five, Color.red),
-        Card(CardFace.jack, Color.red),
-        Card(CardFace.king, Color.red)
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.jack, CardColor.red),
+        Card(CardFace.king, CardColor.red)
       ];
 
       expect(uniformColor(cards), true);
     });
     test('nonUniformColorsTest', () {
       var cards = <Card>[
-        Card(CardFace.five, Color.red),
-        Card(CardFace.jack, Color.red),
-        Card(CardFace.dog, Color.special)
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.jack, CardColor.red),
+        Card(CardFace.dog, CardColor.special)
       ];
 
       expect(uniformColor(cards), false);
@@ -58,12 +58,12 @@ void main() {
   group('findConnected', () {
     test('simple', () {
       final cards = [
-        Card(CardFace.three, Color.green),
-        Card(CardFace.four, Color.red),
-        Card(CardFace.five, Color.red),
-        Card(CardFace.seven, Color.red),
-        Card(CardFace.eight, Color.red),
-        Card(CardFace.king, Color.red),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.king, CardColor.red),
       ];
 
       var expected = <ConnectedCards>[

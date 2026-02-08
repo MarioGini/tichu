@@ -7,7 +7,7 @@ void main() {
       Card(CardFace.dog, CardColor.special),
       Card(CardFace.ten, CardColor.black),
       Card(CardFace.eight, CardColor.red),
-      Card(CardFace.phoenix, CardColor.special)
+      Card(CardFace.phoenix, CardColor.special),
     ];
     testCards.sort(compareCards);
 
@@ -15,7 +15,7 @@ void main() {
       Card(CardFace.ten, CardColor.black),
       Card(CardFace.eight, CardColor.red),
       Card(CardFace.dog, CardColor.special),
-      Card(CardFace.phoenix, CardColor.special)
+      Card(CardFace.phoenix, CardColor.special),
     ];
     expect(testCards, expectedOrder);
   });

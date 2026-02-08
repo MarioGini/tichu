@@ -25,7 +25,7 @@ void main() {
     test('standardTest', () {
       var cards = <Card>[
         Card(CardFace.five, CardColor.blue),
-        Card(CardFace.five, CardColor.red)
+        Card(CardFace.five, CardColor.red),
       ];
       expect(checkForPair(cards), TichuTurn(TurnType.pair, cards));
     });
@@ -51,7 +51,7 @@ void main() {
       var cards = <Card>[
         Card(CardFace.five, CardColor.blue),
         Card(CardFace.five, CardColor.green),
-        Card.phoenix(4.0)
+        Card.phoenix(4.0),
       ];
       expect(checkForTriplet(cards), TichuTurn.InvalidTurn());
     });
@@ -59,7 +59,7 @@ void main() {
       var cards = <Card>[
         Card(CardFace.five, CardColor.blue),
         Card(CardFace.five, CardColor.green),
-        Card.phoenix(Card.getValue(CardFace.five))
+        Card.phoenix(Card.getValue(CardFace.five)),
       ];
       expect(checkForTriplet(cards), TichuTurn(TurnType.triplet, cards));
     });
@@ -80,7 +80,7 @@ void main() {
         Card(CardFace.six, CardColor.green),
         Card.phoenix(Card.getValue(CardFace.six)),
         Card(CardFace.five, CardColor.blue),
-        Card(CardFace.five, CardColor.green)
+        Card(CardFace.five, CardColor.green),
       ];
       expect(checkForQuartet(cards), TichuTurn(TurnType.pairStraight, cards));
     });
@@ -92,7 +92,7 @@ void main() {
         Card(CardFace.five, CardColor.red),
         Card(CardFace.seven, CardColor.green),
         Card(CardFace.six, CardColor.blue),
-        Card(CardFace.eight, CardColor.green)
+        Card(CardFace.eight, CardColor.green),
       ];
       expect(checkFives(cards), TichuTurn(TurnType.straight, cards));
     });
@@ -102,7 +102,7 @@ void main() {
         Card(CardFace.five, CardColor.red),
         Card.phoenix(Card.getValue(CardFace.seven)),
         Card(CardFace.six, CardColor.blue),
-        Card(CardFace.eight, CardColor.green)
+        Card(CardFace.eight, CardColor.green),
       ];
       expect(checkFives(cards), TichuTurn(TurnType.straight, cards));
     });
@@ -112,7 +112,7 @@ void main() {
         Card(CardFace.five, CardColor.blue),
         Card(CardFace.seven, CardColor.blue),
         Card(CardFace.six, CardColor.blue),
-        Card(CardFace.eight, CardColor.blue)
+        Card(CardFace.eight, CardColor.blue),
       ];
       expect(checkFives(cards), TichuTurn(TurnType.bomb, cards));
     });
@@ -122,7 +122,7 @@ void main() {
         Card(CardFace.four, CardColor.blue),
         Card(CardFace.four, CardColor.green),
         Card(CardFace.six, CardColor.blue),
-        Card.phoenix(Card.getValue(CardFace.six))
+        Card.phoenix(Card.getValue(CardFace.six)),
       ];
       expect(checkFives(cards), TichuTurn(TurnType.fullHouse, cards));
     });
@@ -137,7 +137,7 @@ void main() {
         Card(CardFace.seven, CardColor.blue),
         Card(CardFace.eight, CardColor.blue),
         Card(CardFace.nine, CardColor.blue),
-        Card(CardFace.ten, CardColor.blue)
+        Card(CardFace.ten, CardColor.blue),
       ];
       expect(checkBigTurns(cards), TichuTurn(TurnType.straight, cards));
     });
@@ -150,7 +150,7 @@ void main() {
         Card(CardFace.five, CardColor.black),
         Card(CardFace.six, CardColor.black),
         Card(CardFace.seven, CardColor.blue),
-        Card(CardFace.seven, CardColor.red)
+        Card(CardFace.seven, CardColor.red),
       ];
       expect(checkBigTurns(cards), TichuTurn(TurnType.pairStraight, cards));
     });
@@ -161,7 +161,7 @@ void main() {
         Card(CardFace.six, CardColor.blue),
         Card(CardFace.seven, CardColor.blue),
         Card(CardFace.eight, CardColor.blue),
-        Card(CardFace.nine, CardColor.blue)
+        Card(CardFace.nine, CardColor.blue),
       ];
       expect(checkBigTurns(cards), TichuTurn(TurnType.bomb, cards));
     });
@@ -174,7 +174,7 @@ void main() {
     test('pairTest', () {
       var cards = <Card>[
         Card(CardFace.four, CardColor.blue),
-        Card(CardFace.four, CardColor.red)
+        Card(CardFace.four, CardColor.red),
       ];
       expect(getTurn(cards), TichuTurn(TurnType.pair, cards));
     });
@@ -183,7 +183,7 @@ void main() {
         Card(CardFace.four, CardColor.blue),
         Card(CardFace.four, CardColor.green),
         Card(CardFace.five, CardColor.blue),
-        Card.phoenix(Card.getValue(CardFace.five))
+        Card.phoenix(Card.getValue(CardFace.five)),
       ];
       expect(getTurn(cards), TichuTurn(TurnType.pairStraight, cards));
     });
@@ -191,7 +191,7 @@ void main() {
       var cards = <Card>[
         Card(CardFace.four, CardColor.blue),
         Card(CardFace.four, CardColor.green),
-        Card.phoenix(Card.getValue(CardFace.five))
+        Card.phoenix(Card.getValue(CardFace.five)),
       ];
       expect(getTurn(cards), TichuTurn.InvalidTurn());
     });

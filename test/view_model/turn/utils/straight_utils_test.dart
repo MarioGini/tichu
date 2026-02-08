@@ -10,7 +10,7 @@ void main() {
         Card(CardFace.three, CardColor.green),
         Card(CardFace.four, CardColor.red),
         Card(CardFace.five, CardColor.red),
-        Card(CardFace.six, CardColor.red)
+        Card(CardFace.six, CardColor.red),
       ];
       uniqueCards.sort(compareCards);
     });
@@ -49,8 +49,10 @@ void main() {
 
       expect(straightTurns.length, 1);
       expect(straightTurns.every((turn) => isStraight(turn.cards)), true);
-      expect(straightTurns.every((turn) => turn.cards.length == desiredLength),
-          true);
+      expect(
+        straightTurns.every((turn) => turn.cards.length == desiredLength),
+        true,
+      );
       expect(straightTurns[0].value, 8);
     });
     test('hiddenSixStraightTest', () {
@@ -66,8 +68,10 @@ void main() {
 
       expect(straightTurns.length, 2);
       expect(straightTurns.every((turn) => isStraight(turn.cards)), true);
-      expect(straightTurns.every((turn) => turn.cards.length == desiredLength),
-          true);
+      expect(
+        straightTurns.every((turn) => turn.cards.length == desiredLength),
+        true,
+      );
       expect(straightTurns[0].value, 8);
       expect(straightTurns[1].value, 7);
     });
@@ -134,7 +138,7 @@ void main() {
         Card(CardFace.jack, CardColor.green),
         Card(CardFace.queen, CardColor.green),
         Card(CardFace.king, CardColor.green),
-        Card(CardFace.ace, CardColor.red)
+        Card(CardFace.ace, CardColor.red),
       ];
 
       final desiredLength = 5;
@@ -154,7 +158,7 @@ void main() {
       Card(CardFace.five, CardColor.red),
       Card(CardFace.six, CardColor.red),
       Card(CardFace.seven, CardColor.red),
-      Card(CardFace.eight, CardColor.red)
+      Card(CardFace.eight, CardColor.red),
     ];
     test('getPermutationTest', () {
       var turns = getStraightPermutations(sevenStraight);
@@ -182,7 +186,7 @@ void main() {
         Card(CardFace.four, CardColor.green),
         Card(CardFace.three, CardColor.blue),
         Card(CardFace.two, CardColor.blue),
-        Card(CardFace.mahJong, CardColor.special)
+        Card(CardFace.mahJong, CardColor.special),
       ];
 
       expect(isStraight(cards), true);
@@ -194,7 +198,7 @@ void main() {
         Card.phoenix(Card.getValue(CardFace.seven)),
         Card(CardFace.four, CardColor.green),
         Card(CardFace.three, CardColor.blue),
-        Card(CardFace.two, CardColor.blue)
+        Card(CardFace.two, CardColor.blue),
       ];
 
       expect(isStraight(cards), true);
@@ -205,7 +209,7 @@ void main() {
         Card(CardFace.queen, CardColor.black),
         Card(CardFace.king, CardColor.green),
         Card(CardFace.ace, CardColor.blue),
-        Card(CardFace.dragon, CardColor.special)
+        Card(CardFace.dragon, CardColor.special),
       ];
 
       expect(isStraight(cards), false);

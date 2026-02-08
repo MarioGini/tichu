@@ -39,7 +39,7 @@ void main() {
         Card(CardFace.eight, CardColor.red),
         Card(CardFace.eight, CardColor.black),
         Card(CardFace.nine, CardColor.black),
-        Card(CardFace.nine, CardColor.red)
+        Card(CardFace.nine, CardColor.red),
       ];
       var desiredLength = 4;
       var turns = getPairStraights(cards, desiredLength);
@@ -58,7 +58,7 @@ void main() {
         Card(CardFace.four, CardColor.black),
         Card(CardFace.phoenix, CardColor.special),
         Card(CardFace.five, CardColor.red),
-        Card(CardFace.five, CardColor.black)
+        Card(CardFace.five, CardColor.black),
       ];
       var desiredLength = 4;
       var turns = getPairStraights(cards, desiredLength);
@@ -76,7 +76,7 @@ void main() {
         Card(CardFace.three, CardColor.red),
         Card(CardFace.four, CardColor.black),
         Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.six, CardColor.red)
+        Card(CardFace.six, CardColor.red),
       ];
       var desiredLength = 4;
       var turns = getPairStraights(cards, desiredLength);
@@ -102,7 +102,7 @@ void main() {
         Card(CardFace.six, CardColor.red),
         Card(CardFace.six, CardColor.black),
         Card(CardFace.seven, CardColor.red),
-        Card(CardFace.nine, CardColor.black)
+        Card(CardFace.nine, CardColor.black),
       ];
       var desiredLength = 6;
       var turns = getPairStraights(cards, desiredLength);
@@ -127,7 +127,7 @@ void main() {
       Card(CardFace.four, CardColor.red),
       Card(CardFace.four, CardColor.black),
       Card(CardFace.five, CardColor.red),
-      Card(CardFace.five, CardColor.green)
+      Card(CardFace.five, CardColor.green),
     ];
     test('standardTest', () {
       var turns = getPairStraightPermutations(fourPairStraight);
@@ -154,7 +154,7 @@ void main() {
         Card(CardFace.five, CardColor.black),
         Card(CardFace.five, CardColor.green),
         Card(CardFace.six, CardColor.blue),
-        Card(CardFace.six, CardColor.green)
+        Card(CardFace.six, CardColor.green),
       ];
 
       expect(isPairStraight(cards), true);
@@ -166,7 +166,7 @@ void main() {
         Card(CardFace.seven, CardColor.red),
         Card(CardFace.six, CardColor.blue),
         Card(CardFace.six, CardColor.green),
-        Card.phoenix(Card.getValue(CardFace.seven))
+        Card.phoenix(Card.getValue(CardFace.seven)),
       ];
 
       expect(isPairStraight(cards), true);
@@ -179,7 +179,7 @@ void main() {
         Card(CardFace.six, CardColor.blue),
         Card(CardFace.six, CardColor.green),
         Card.phoenix(Card.getValue(CardFace.seven)),
-        Card(CardFace.eight, CardColor.black)
+        Card(CardFace.eight, CardColor.black),
       ];
 
       expect(isPairStraight(cards), false);
@@ -192,7 +192,7 @@ void main() {
         Card(CardFace.six, CardColor.blue),
         Card(CardFace.six, CardColor.green),
         Card.phoenix(Card.getValue(CardFace.seven)),
-        Card(CardFace.dog, CardColor.special)
+        Card(CardFace.dog, CardColor.special),
       ];
 
       expect(isPairStraight(cards), false);

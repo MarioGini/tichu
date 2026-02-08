@@ -8,7 +8,7 @@ void main() {
       Card(CardFace.nine, CardColor.red),
       Card(CardFace.nine, CardColor.green),
       Card(CardFace.nine, CardColor.green),
-      Card(CardFace.king, CardColor.green)
+      Card(CardFace.king, CardColor.green),
     ];
     test('threeOccurrencesTest', () {
       expect(occurrences(CardFace.nine, cards), 3);
@@ -29,8 +29,10 @@ void main() {
       ];
       var occurrences = getOccurrenceCount(cards);
       expect(occurrences.keys.length, 2);
-      expect(occurrences.values.fold(0, (prev, element) => prev + element),
-          cards.length);
+      expect(
+        occurrences.values.fold(0, (prev, element) => prev + element),
+        cards.length,
+      );
       expect(occurrences[CardFace.three], 2);
       expect(occurrences[CardFace.four], 1);
     });
@@ -40,7 +42,7 @@ void main() {
       var cards = <Card>[
         Card(CardFace.five, CardColor.red),
         Card(CardFace.jack, CardColor.red),
-        Card(CardFace.king, CardColor.red)
+        Card(CardFace.king, CardColor.red),
       ];
 
       expect(uniformColor(cards), true);
@@ -49,7 +51,7 @@ void main() {
       var cards = <Card>[
         Card(CardFace.five, CardColor.red),
         Card(CardFace.jack, CardColor.red),
-        Card(CardFace.dog, CardColor.special)
+        Card(CardFace.dog, CardColor.special),
       ];
 
       expect(uniformColor(cards), false);
@@ -69,7 +71,7 @@ void main() {
       var expected = <ConnectedCards>[
         ConnectedCards(0, 0),
         ConnectedCards(1, 2),
-        ConnectedCards(3, 5)
+        ConnectedCards(3, 5),
       ];
       var connectedCards = findConnectedCards(cards);
 

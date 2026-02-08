@@ -25,13 +25,23 @@ class GameBoard extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 720;
-        final topHeight = (constraints.maxHeight * 0.24)
-            .clamp(isWide ? 130.0 : 112.0, isWide ? 200.0 : 170.0)
-            .toDouble();
+        final isCompact = constraints.maxHeight < 500;
+        final topHeight = isCompact
+            ? (constraints.maxHeight * 0.16).clamp(56.0, 90.0).toDouble()
+            : (constraints.maxHeight * 0.24)
+                  .clamp(isWide ? 130.0 : 112.0, isWide ? 200.0 : 170.0)
+                  .toDouble();
         final topMaxWidth = math.min(
           constraints.maxWidth * (isWide ? 0.7 : 0.8),
           isWide ? 600.0 : 480.0,
         );
+        final topPadding = isCompact
+            ? const EdgeInsets.fromLTRB(8, 4, 8, 2)
+            : const EdgeInsets.fromLTRB(16, 12, 16, 8);
+        final sidePad = isCompact ? 4.0 : 8.0;
+        final handPadding = isCompact
+            ? const EdgeInsets.fromLTRB(8, 4, 8, 2)
+            : const EdgeInsets.fromLTRB(12, 10, 12, 6);
         return DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -48,7 +58,7 @@ class GameBoard extends StatelessWidget {
               SizedBox(
                 height: topHeight,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  padding: topPadding,
                   child: Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
@@ -63,15 +73,15 @@ class GameBoard extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  padding: EdgeInsets.symmetric(horizontal: sidePad),
                   child: LayoutBuilder(
                     builder: (context, areaConstraints) {
                       final areaWidth = areaConstraints.maxWidth;
                       final areaHeight = areaConstraints.maxHeight;
-                      final gap = isWide ? 12.0 : 8.0;
+                      final gap = isCompact ? 4.0 : (isWide ? 12.0 : 8.0);
                       final maxSideWidth = math.min(
                         areaWidth * (isWide ? 0.24 : 0.28),
-                        isWide ? 260.0 : 200.0,
+                        isWide ? 260.0 : (isCompact ? 160.0 : 200.0),
                       );
                       final sideWidth = math.max(
                         0.0,
@@ -85,7 +95,6 @@ class GameBoard extends StatelessWidget {
                         0.0,
                         math.min(areaHeight, centerMaxWidth),
                       );
-                      final sideHeight = math.min(areaHeight, squareSize);
 
                       return Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -93,7 +102,7 @@ class GameBoard extends StatelessWidget {
                         children: [
                           SizedBox(
                             width: sideWidth,
-                            height: sideHeight,
+                            height: squareSize,
                             child: leftOpponent,
                           ),
                           SizedBox(width: gap),
@@ -105,7 +114,7 @@ class GameBoard extends StatelessWidget {
                           SizedBox(width: gap),
                           SizedBox(
                             width: sideWidth,
-                            height: sideHeight,
+                            height: squareSize,
                             child: rightOpponent,
                           ),
                         ],
@@ -114,10 +123,7 @@ class GameBoard extends StatelessWidget {
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                child: handArea,
-              ),
+              Padding(padding: handPadding, child: handArea),
               actionBar,
             ],
           ),

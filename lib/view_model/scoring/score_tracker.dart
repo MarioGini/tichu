@@ -34,6 +34,7 @@ class ScoreState {
   final int teamTwoTotal;
   final int teamOneRound;
   final int teamTwoRound;
+  final Map<String, int> playerRoundPoints;
   final bool roundComplete;
   final int targetScore;
   final bool gameComplete;
@@ -48,6 +49,7 @@ class ScoreState {
     required this.teamTwoTotal,
     required this.teamOneRound,
     required this.teamTwoRound,
+    required this.playerRoundPoints,
     required this.roundComplete,
     required this.targetScore,
     required this.gameComplete,
@@ -63,6 +65,7 @@ class ScoreState {
     int? teamTwoTotal,
     int? teamOneRound,
     int? teamTwoRound,
+    Map<String, int>? playerRoundPoints,
     bool? roundComplete,
     int? targetScore,
     bool? gameComplete,
@@ -77,6 +80,7 @@ class ScoreState {
       teamTwoTotal: teamTwoTotal ?? this.teamTwoTotal,
       teamOneRound: teamOneRound ?? this.teamOneRound,
       teamTwoRound: teamTwoRound ?? this.teamTwoRound,
+      playerRoundPoints: playerRoundPoints ?? this.playerRoundPoints,
       roundComplete: roundComplete ?? this.roundComplete,
       targetScore: targetScore ?? this.targetScore,
       gameComplete: gameComplete ?? this.gameComplete,
@@ -96,6 +100,7 @@ class ScoreState {
       teamTwoTotal: 0,
       teamOneRound: 0,
       teamTwoRound: 0,
+      playerRoundPoints: const {},
       roundComplete: false,
       targetScore: targetScore,
       gameComplete: false,
@@ -155,6 +160,7 @@ class LocalScoreTracker implements ScoreTracker {
       roundComplete: false,
       teamOneRound: 0,
       teamTwoRound: 0,
+      playerRoundPoints: {for (final player in players) player.id: 0},
       gameComplete: false,
       winningTeam: null,
       finishOrder: const [],
@@ -168,6 +174,20 @@ class LocalScoreTracker implements ScoreTracker {
     final captured = _capturedCards[winnerId];
     if (captured == null) return;
     captured.addAll(cards);
+    final delta = pointsForCards(cards);
+    final roundPoints = Map<String, int>.from(_state.playerRoundPoints);
+    roundPoints[winnerId] = (roundPoints[winnerId] ?? 0) + delta;
+    if (_isTeamOne(winnerId)) {
+      _state = _state.copyWith(
+        teamOneRound: _state.teamOneRound + delta,
+        playerRoundPoints: roundPoints,
+      );
+    } else {
+      _state = _state.copyWith(
+        teamTwoRound: _state.teamTwoRound + delta,
+        playerRoundPoints: roundPoints,
+      );
+    }
   }
 
   @override

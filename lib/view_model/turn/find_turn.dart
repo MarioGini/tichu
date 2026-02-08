@@ -8,6 +8,13 @@ import 'utils/straight_utils.dart';
 TichuTurn getTurn(List<Card> cards) {
   TichuTurn detectedTurn;
 
+  if (_hasUnassignedPhoenix(cards)) {
+    detectedTurn = _resolvePhoenixTurn(cards);
+    if (detectedTurn != TichuTurn.InvalidTurn()) {
+      return detectedTurn;
+    }
+  }
+
   cards.sort(compareCards);
 
   if (cards.length == 1) {
@@ -33,6 +40,87 @@ TichuTurn getTurn(List<Card> cards) {
   return detectedTurn;
 }
 
+bool _hasUnassignedPhoenix(List<Card> cards) {
+  return cards.any(
+    (card) =>
+        card.face == CardFace.phoenix &&
+        card.value == Card.getValue(CardFace.phoenix),
+  );
+}
+
+TichuTurn _resolvePhoenixTurn(List<Card> cards) {
+  final phoenixCount = cards
+      .where((card) => card.face == CardFace.phoenix)
+      .length;
+  if (phoenixCount != 1) {
+    return TichuTurn.InvalidTurn();
+  }
+
+  if (cards.length == 2) {
+    final nonPhoenix = cards
+        .where((card) => card.face != CardFace.phoenix)
+        .toList();
+    if (nonPhoenix.length == 1) {
+      final matched = _withPhoenixValue(cards, nonPhoenix.first.value);
+      return TichuTurn(TurnType.pair, matched);
+    }
+  }
+
+  if (cards.length == 3) {
+    final nonPhoenix = cards
+        .where((card) => card.face != CardFace.phoenix)
+        .toList();
+    if (nonPhoenix.length == 2 && nonPhoenix[0].value == nonPhoenix[1].value) {
+      final matched = _withPhoenixValue(cards, nonPhoenix[0].value);
+      return TichuTurn(TurnType.triplet, matched);
+    }
+  }
+
+  if (cards.length == 4) {
+    final pairStraights = getPairStraights(List<Card>.from(cards), 4);
+    final best = _bestTurn(pairStraights);
+    if (best != null) return best;
+  }
+
+  if (cards.length == 5) {
+    final fullHouses = getFullHouses(List<Card>.from(cards));
+    final bestFullHouse = _bestTurn(fullHouses);
+    if (bestFullHouse != null) return bestFullHouse;
+
+    final straights = getStraights(List<Card>.from(cards), 5);
+    final bestStraight = _bestTurn(straights);
+    if (bestStraight != null) return bestStraight;
+  }
+
+  if (cards.length > 5) {
+    final straights = getStraights(List<Card>.from(cards), cards.length);
+    final bestStraight = _bestTurn(straights);
+    if (bestStraight != null) return bestStraight;
+
+    final pairStraights = getPairStraights(
+      List<Card>.from(cards),
+      cards.length,
+    );
+    final bestPairStraight = _bestTurn(pairStraights);
+    if (bestPairStraight != null) return bestPairStraight;
+  }
+
+  return TichuTurn.InvalidTurn();
+}
+
+List<Card> _withPhoenixValue(List<Card> cards, double value) {
+  return cards
+      .map((card) => card.face == CardFace.phoenix ? Card.phoenix(value) : card)
+      .toList();
+}
+
+TichuTurn? _bestTurn(List<TichuTurn> turns) {
+  if (turns.isEmpty) return null;
+  return turns.reduce((current, next) {
+    return compareTurns(current, next) <= 0 ? current : next;
+  });
+}
+
 // A single card can be either of turn type dog, dragon or single.
 TichuTurn checkSingle(Card card) {
   if (card.face == CardFace.dog) {
@@ -44,7 +132,9 @@ TichuTurn checkSingle(Card card) {
 TichuTurn checkForPair(List<Card> cards) {
   TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
-  if (cards.length == 2 && cards[0].value == cards[1].value) {
+  if (cards.length == 2 &&
+      (cards[0].value == cards[1].value ||
+          cards.any((card) => card.face == CardFace.phoenix))) {
     possibleTurn = TichuTurn(TurnType.pair, cards);
   }
 
@@ -55,8 +145,14 @@ TichuTurn checkForTriplet(List<Card> cards) {
   TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
   if (cards.length == 3 &&
-      cards[0].value == cards[1].value &&
-      cards[1].value == cards[2].value) {
+      ((cards[0].value == cards[1].value && cards[1].value == cards[2].value) ||
+          (cards.any((card) => card.face == CardFace.phoenix) &&
+              cards
+                      .where((card) => card.face != CardFace.phoenix)
+                      .map((card) => card.value)
+                      .toSet()
+                      .length ==
+                  1))) {
     possibleTurn = TichuTurn(TurnType.triplet, cards);
   }
 

@@ -118,5 +118,64 @@ void main() {
       expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
       expect(updated.turn.type, TurnType.fullHouse);
     });
+
+    test('accepts pair with phoenix on empty deck', () {
+      final handler = TurnHandler();
+      final deck = DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+      final selected = <Card>[
+        Card(CardFace.queen, CardColor.red),
+        Card.phoenix(2.0),
+      ];
+
+      final updated = handler.handleTurn(
+        deck,
+        selected,
+        CardFace.none,
+        hand: List<Card>.from(selected),
+      );
+
+      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn.type, TurnType.pair);
+    });
+  });
+
+  group('handleTurn phoenix single behavior', () {
+    test('phoenix single beats ace', () {
+      final handler = TurnHandler();
+      final deck = DeckState(
+        TichuTurn(TurnType.single, [Card(CardFace.ace, CardColor.blue)]),
+        CardFace.none,
+      );
+      final selected = <Card>[Card(CardFace.phoenix, CardColor.special)];
+
+      final updated = handler.handleTurn(
+        deck,
+        selected,
+        CardFace.none,
+        hand: List<Card>.from(selected),
+      );
+
+      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn.type, TurnType.single);
+      expect(updated.turn.value, deck.turn.value + 0.5);
+    });
+
+    test('phoenix single cannot beat dragon', () {
+      final handler = TurnHandler();
+      final deck = DeckState(
+        TichuTurn(TurnType.single, [Card(CardFace.dragon, CardColor.special)]),
+        CardFace.none,
+      );
+      final selected = <Card>[Card(CardFace.phoenix, CardColor.special)];
+
+      final updated = handler.handleTurn(
+        deck,
+        selected,
+        CardFace.none,
+        hand: List<Card>.from(selected),
+      );
+
+      expect(updated.turn, TichuTurn.InvalidTurn());
+    });
   });
 }

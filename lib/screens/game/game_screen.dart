@@ -92,7 +92,7 @@ class _GameScreenState extends State<GameScreen>
   @override
   double _aiDelaySeconds = 2.0;
   @override
-  bool _autoPassEnabled = false;
+  bool _autoPassEnabled = true;
   @override
   Card? _schupfToLeft;
   @override
@@ -203,11 +203,16 @@ class _GameScreenState extends State<GameScreen>
       _maybeShowDragonGiveDialog(snapshot);
     }
     final scoreState = snapshot?.scoreState;
-    final teamOneTotal = scoreState?.teamOneTotal ?? 0;
-    final teamTwoTotal = scoreState?.teamTwoTotal ?? 0;
+    final playerRoundPoints =
+      scoreState?.playerRoundPoints ?? const <String, int>{};
     final isRoundComplete = scoreState?.roundComplete ?? false;
     final isGameComplete = scoreState?.gameComplete ?? false;
     final targetScore = scoreState?.targetScore ?? widget._targetScore;
+    int roundPointsFor(String playerId) => playerRoundPoints[playerId] ?? 0;
+    final displayHumanScore = roundPointsFor(_humanId);
+    final displayPartnerScore = roundPointsFor('player-2');
+    final displayLeftScore = roundPointsFor('player-1');
+    final displayRightScore = roundPointsFor('player-3');
     final isHumanTurn = snapshot?.currentPlayerId == _humanId;
     final awaitingAiConfirm = snapshot?.aiAwaitingConfirmation ?? false;
     final isSchupfPhase = snapshot?.phase == GamePhase.schupf;
@@ -235,6 +240,18 @@ class _GameScreenState extends State<GameScreen>
       for (final player in snapshot?.players ?? const <GamePlayer>[])
         player.id: player.name,
     };
+    final scoreLabel = () {
+      if (snapshot == null) return 'Target: $targetScore';
+      final humanName = playerNames[_humanId] ?? 'You';
+      final leftName = playerNames['player-1'] ?? 'AI 1';
+      final partnerName = playerNames['player-2'] ?? 'AI 2';
+      final rightName = playerNames['player-3'] ?? 'AI 3';
+      return '$humanName: ${roundPointsFor(_humanId)} · '
+          '$leftName: ${roundPointsFor('player-1')} · '
+          '$partnerName: ${roundPointsFor('player-2')} · '
+          '$rightName: ${roundPointsFor('player-3')} · '
+          'Target: $targetScore';
+    }();
     final trickLabel = () {
       if (snapshot == null || _trickCards.isEmpty) return '';
       final lastPlayedBy = snapshot.lastPlayedBy;
@@ -269,7 +286,9 @@ class _GameScreenState extends State<GameScreen>
           slide: _bombSlide,
           scale: _bombScale,
         );
-    final handArea = isSchupfActive
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isCompact = screenHeight < 500;
+    final handContent = isSchupfActive
         ? _buildSchupfPanel()
         : hasSchupfReceipts
         ? _buildSchupfReceiptPanel(snapshot, playerNames)
@@ -278,6 +297,75 @@ class _GameScreenState extends State<GameScreen>
             selectedIndexes: _selectedIndexes,
             onCardTap: _toggleSelect,
           );
+    final humanTichuCall = tichuCalls['player-0'];
+    final humanTichu =
+        humanTichuCall == TichuCall.tichu ||
+        humanTichuCall == TichuCall.grandTichu;
+    final humanGrandTichu = humanTichuCall == TichuCall.grandTichu;
+    final handArea = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!isCompact)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.person, color: Colors.white70, size: 18),
+                const SizedBox(width: 4),
+                Text(
+                  'You',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: Colors.white),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$displayHumanScore pts',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: Colors.white70),
+                ),
+                if (humanTichu) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: humanGrandTichu
+                          ? Colors.deepOrange
+                          : Colors.orange,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              (humanGrandTichu
+                                      ? Colors.deepOrange
+                                      : Colors.orange)
+                                  .withValues(alpha: 0.4),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      humanGrandTichu ? 'GRAND' : 'TICHU',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        handContent,
+      ],
+    );
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tichu — Single Player Mode'),
@@ -312,6 +400,8 @@ class _GameScreenState extends State<GameScreen>
                 : const [],
             pendingPass:
                 snapshot?.pendingAiPlayerId == 'player-2' && _pendingAiPass,
+            pendingPlacement: PendingPlacement.below,
+            teamScore: displayPartnerScore,
           ),
           leftOpponent: OpponentDisplay(
             name: 'AI 1',
@@ -329,6 +419,8 @@ class _GameScreenState extends State<GameScreen>
                 : const [],
             pendingPass:
                 snapshot?.pendingAiPlayerId == 'player-1' && _pendingAiPass,
+            pendingPlacement: PendingPlacement.right,
+            teamScore: displayLeftScore,
           ),
           rightOpponent: OpponentDisplay(
             name: 'AI 3',
@@ -346,6 +438,8 @@ class _GameScreenState extends State<GameScreen>
                 : const [],
             pendingPass:
                 snapshot?.pendingAiPlayerId == 'player-3' && _pendingAiPass,
+            pendingPlacement: PendingPlacement.left,
+            teamScore: displayRightScore,
           ),
           trickArea: centerArea,
           handArea: handArea,
@@ -387,9 +481,7 @@ class _GameScreenState extends State<GameScreen>
             onPass: _pass,
             onSchupf: _submitSchupf,
             onDeclareTichu: _declareTichu,
-            scoreLabel:
-                'Your team: $teamOneTotal — Other team: $teamTwoTotal · '
-                'Target: $targetScore',
+            scoreLabel: scoreLabel,
           ),
         ),
       ),
@@ -519,6 +611,7 @@ class _GameScreenState extends State<GameScreen>
                         color: isActive ? Colors.amber : Colors.white24,
                       ),
                     ),
+                    clipBehavior: Clip.hardEdge,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -547,14 +640,17 @@ class _GameScreenState extends State<GameScreen>
                             ),
                           ),
                         if (value != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text(
-                              'Tap to remove',
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(color: Colors.white54),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          Flexible(
+                            flex: 0,
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                'Tap to remove',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: Colors.white54),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                       ],
@@ -694,119 +790,145 @@ class _GameScreenState extends State<GameScreen>
     PlayerSnapshot snapshot,
     Map<String, String> playerNames,
   ) {
-    final targetWidth = CardWidget.compactWidth * 1.05;
     final receipts = snapshot.schupfReceipts;
     final receiptByDirection = {
       for (final receipt in receipts) receipt.direction: receipt,
     };
 
-    Widget buildTarget({
-      required String label,
-      required SchupfReceipt? receipt,
-    }) {
-      final fromName = receipt == null
-          ? 'Waiting'
-          : playerNames[receipt.fromPlayerId] ?? 'Unknown';
-      return SizedBox(
-        width: targetWidth,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.all(6),
-          height: CardWidget.compactHeight * 0.9 + 72,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxH = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : null;
+        final targetWidth = CardWidget.compactWidth * 1.05;
+        final naturalTargetH = CardWidget.compactHeight * 0.9 + 72;
+        final targetHeight = maxH == null
+            ? naturalTargetH
+            : naturalTargetH
+                  .clamp(100.0, (maxH - 90).clamp(80.0, 300.0))
+                  .toDouble();
+        final cardScale = targetHeight < 140 ? 0.7 : 0.9;
+
+        Widget buildTarget({
+          required String label,
+          required SchupfReceipt? receipt,
+        }) {
+          final fromName = receipt == null
+              ? 'Waiting'
+              : playerNames[receipt.fromPlayerId] ?? 'Unknown';
+          return SizedBox(
+            width: targetWidth,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.all(6),
+              height: targetHeight,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white24),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: Colors.white70),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    fromName,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelSmall?.copyWith(color: Colors.white54),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  if (receipt == null)
+                    Icon(Icons.hourglass_empty, color: Colors.white38, size: 24)
+                  else
+                    Flexible(
+                      child: CardWidget(
+                        card: receipt.card,
+                        isSelected: false,
+                        compact: true,
+                        scale: cardScale,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.black.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white24),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(color: Colors.white70),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                fromName,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.copyWith(color: Colors.white54),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              if (receipt == null)
-                Icon(Icons.hourglass_empty, color: Colors.white38, size: 28)
-              else
-                CardWidget(
-                  card: receipt.card,
-                  isSelected: false,
-                  compact: true,
-                  scale: 0.9,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Schupf received',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'Schupf received',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
+                const SizedBox(height: 6),
+                Text(
+                  'Review your cards before starting the round.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    buildTarget(
+                      label: 'Left',
+                      receipt: receiptByDirection[SchupfDirection.left],
+                    ),
+                    const SizedBox(width: 8),
+                    buildTarget(
+                      label: 'Partner',
+                      receipt: receiptByDirection[SchupfDirection.partner],
+                    ),
+                    const SizedBox(width: 8),
+                    buildTarget(
+                      label: 'Right',
+                      receipt: receiptByDirection[SchupfDirection.right],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: _schupfAckPending
+                      ? null
+                      : _acknowledgeSchupfReceipts,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: Text(
+                    _schupfAckPending ? 'Accepting…' : 'Accept schupf',
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Review your cards before starting the round.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.white70),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              buildTarget(
-                label: 'Left opponent',
-                receipt: receiptByDirection[SchupfDirection.left],
-              ),
-              const SizedBox(width: 12),
-              buildTarget(
-                label: 'Partner',
-                receipt: receiptByDirection[SchupfDirection.partner],
-              ),
-              const SizedBox(width: 12),
-              buildTarget(
-                label: 'Right opponent',
-                receipt: receiptByDirection[SchupfDirection.right],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: _schupfAckPending ? null : _acknowledgeSchupfReceipts,
-            icon: const Icon(Icons.check_circle_outline),
-            label: Text(_schupfAckPending ? 'Accepting…' : 'Accept schupf'),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

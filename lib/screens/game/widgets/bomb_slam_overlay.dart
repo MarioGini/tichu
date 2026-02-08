@@ -9,6 +9,7 @@ extension BombOverlayExtension on TrickDisplay {
     required Animation<double> scale,
   }) {
     return Stack(
+      fit: StackFit.expand,
       alignment: Alignment.center,
       children: [
         this,

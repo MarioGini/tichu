@@ -41,8 +41,15 @@ class ActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isCompact = screenHeight < 500;
+    final hPad = isCompact ? 8.0 : 12.0;
+    final vPad = isCompact ? 6.0 : 10.0;
+    final vBottom = isCompact ? 6.0 : 12.0;
+    final buttonSpacing = isCompact ? 6.0 : 8.0;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, vBottom),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -59,97 +66,121 @@ class ActionBar extends StatelessWidget {
         top: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isCompact = constraints.maxWidth < 520;
+            final isNarrow = constraints.maxWidth < 520;
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
-                  width: isCompact ? constraints.maxWidth : null,
+                  width: isNarrow ? constraints.maxWidth : null,
                   child: Row(
-                    mainAxisSize: isCompact
+                    mainAxisSize: isNarrow
                         ? MainAxisSize.max
                         : MainAxisSize.min,
                     children: [
                       Icon(
                         Icons.scoreboard,
                         color: colorScheme.onSurface,
-                        size: 18,
+                        size: isCompact ? 14 : 18,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           scoreLabel,
-                          style: Theme.of(context).textTheme.bodyMedium
+                          style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: colorScheme.onSurface,
                                 fontWeight: FontWeight.w600,
+                                fontSize: isCompact ? 11 : null,
                               ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: isCompact ? 6 : 10),
                 Wrap(
                   alignment: WrapAlignment.center,
                   crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: buttonSpacing,
+                  runSpacing: buttonSpacing,
                   children: [
                     if (showStartRound)
-                      ElevatedButton.icon(
-                        onPressed: onStartRound,
-                        icon: const Icon(Icons.play_circle_fill),
-                        label: const Text('Start Round'),
+                      _buildButton(
+                        isCompact: isCompact,
+                        child: ElevatedButton.icon(
+                          onPressed: onStartRound,
+                          icon: const Icon(Icons.play_circle_fill),
+                          label: const Text('Start Round'),
+                        ),
                       )
                     else ...[
-                      OutlinedButton.icon(
-                        onPressed: isBombEnabled ? onBomb : null,
-                        icon: const Icon(Icons.bolt),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colorScheme.error,
-                          side: BorderSide(
-                            color: colorScheme.error.withValues(alpha: 0.7),
+                      _buildButton(
+                        isCompact: isCompact,
+                        child: OutlinedButton.icon(
+                          onPressed: isBombEnabled ? onBomb : null,
+                          icon: const Icon(Icons.bolt),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colorScheme.error,
+                            side: BorderSide(
+                              color: colorScheme.error.withValues(alpha: 0.7),
+                            ),
                           ),
+                          label: const Text('Bomb'),
                         ),
-                        label: const Text('Bomb'),
                       ),
                       if (isPassPreferred)
-                        ElevatedButton.icon(
-                          onPressed: isPassEnabled ? onPass : null,
-                          autofocus: isPassEnabled,
-                          icon: const Icon(Icons.not_interested),
-                          label: const Text('Pass'),
+                        _buildButton(
+                          isCompact: isCompact,
+                          child: ElevatedButton.icon(
+                            onPressed: isPassEnabled ? onPass : null,
+                            autofocus: isPassEnabled,
+                            icon: const Icon(Icons.not_interested),
+                            label: const Text('Pass'),
+                          ),
                         )
                       else
-                        OutlinedButton.icon(
-                          onPressed: isPassEnabled ? onPass : null,
-                          icon: const Icon(Icons.not_interested),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.onSurface,
+                        _buildButton(
+                          isCompact: isCompact,
+                          child: OutlinedButton.icon(
+                            onPressed: isPassEnabled ? onPass : null,
+                            icon: const Icon(Icons.not_interested),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colorScheme.onSurface,
+                            ),
+                            label: const Text('Pass'),
                           ),
-                          label: const Text('Pass'),
                         ),
-                      ElevatedButton.icon(
-                        onPressed: isPlayEnabled ? onPlay : null,
-                        icon: const Icon(Icons.check_circle),
-                        label: const Text('Play'),
+                      _buildButton(
+                        isCompact: isCompact,
+                        child: ElevatedButton.icon(
+                          onPressed: isPlayEnabled ? onPlay : null,
+                          icon: const Icon(Icons.check_circle),
+                          label: const Text('Play'),
+                        ),
                       ),
                       if (showSchupf)
-                        ElevatedButton.icon(
-                          onPressed: isSchupfEnabled ? onSchupf : null,
-                          icon: const Icon(Icons.swap_horiz),
-                          label: Text(schupfLabel),
+                        _buildButton(
+                          isCompact: isCompact,
+                          child: ElevatedButton.icon(
+                            onPressed: isSchupfEnabled ? onSchupf : null,
+                            icon: const Icon(Icons.swap_horiz),
+                            label: Text(schupfLabel),
+                          ),
                         ),
                       if (showDeclareTichu)
-                        OutlinedButton.icon(
-                          onPressed: onDeclareTichu,
-                          icon: const Icon(Icons.local_fire_department),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.secondary,
-                            side: BorderSide(color: colorScheme.secondary),
+                        _buildButton(
+                          isCompact: isCompact,
+                          child: OutlinedButton.icon(
+                            onPressed: onDeclareTichu,
+                            icon: const Icon(Icons.local_fire_department),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colorScheme.secondary,
+                              side: BorderSide(color: colorScheme.secondary),
+                            ),
+                            label: const Text('Tichu'),
                           ),
-                          label: const Text('Declare Tichu'),
                         ),
                     ],
                   ],
@@ -160,5 +191,10 @@ class ActionBar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildButton({required bool isCompact, required Widget child}) {
+    if (!isCompact) return child;
+    return SizedBox(height: 32, child: FittedBox(child: child));
   }
 }

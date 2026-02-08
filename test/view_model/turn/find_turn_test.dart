@@ -31,7 +31,18 @@ void main() {
     });
     test('phoenixInvalidTest', () {
       var cards = <Card>[Card(CardFace.five, CardColor.blue), Card.phoenix(4)];
-      expect(checkForPair(cards), TichuTurn.InvalidTurn());
+      expect(checkForPair(cards), TichuTurn(TurnType.pair, cards));
+    });
+    test('phoenixFromHandSelection', () {
+      var cards = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      var expected = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        Card.phoenix(Card.getValue(CardFace.five)),
+      ];
+      expect(getTurn(cards), TichuTurn(TurnType.pair, expected));
     });
     test('phoenixValidTest', () {
       var cards = <Card>[Card(CardFace.five, CardColor.blue), Card.phoenix(5)];
@@ -53,7 +64,7 @@ void main() {
         Card(CardFace.five, CardColor.green),
         Card.phoenix(4.0),
       ];
-      expect(checkForTriplet(cards), TichuTurn.InvalidTurn());
+      expect(checkForTriplet(cards), TichuTurn(TurnType.triplet, cards));
     });
     test('phoenixValidTest', () {
       var cards = <Card>[
@@ -62,6 +73,19 @@ void main() {
         Card.phoenix(Card.getValue(CardFace.five)),
       ];
       expect(checkForTriplet(cards), TichuTurn(TurnType.triplet, cards));
+    });
+    test('phoenixFromHandSelection', () {
+      var cards = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      var expected = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        Card(CardFace.five, CardColor.green),
+        Card.phoenix(Card.getValue(CardFace.five)),
+      ];
+      expect(getTurn(cards), TichuTurn(TurnType.triplet, expected));
     });
   });
   group('quartets', () {
@@ -106,6 +130,23 @@ void main() {
       ];
       expect(checkFives(cards), TichuTurn(TurnType.straight, cards));
     });
+    test('phoenixStraightFromHandSelection', () {
+      var cards = <Card>[
+        Card(CardFace.four, CardColor.blue),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      var expected = <Card>[
+        Card(CardFace.four, CardColor.blue),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.eight, CardColor.green),
+        Card.phoenix(Card.getValue(CardFace.seven)),
+      ];
+      expect(getTurn(cards), TichuTurn(TurnType.straight, expected));
+    });
     test('straightBombTest', () {
       var cards = <Card>[
         Card(CardFace.four, CardColor.blue),
@@ -125,6 +166,23 @@ void main() {
         Card.phoenix(Card.getValue(CardFace.six)),
       ];
       expect(checkFives(cards), TichuTurn(TurnType.fullHouse, cards));
+    });
+    test('fullHouseFromHandSelection', () {
+      var cards = <Card>[
+        Card(CardFace.four, CardColor.black),
+        Card(CardFace.four, CardColor.blue),
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      var expected = <Card>[
+        Card(CardFace.four, CardColor.black),
+        Card(CardFace.four, CardColor.blue),
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.six, CardColor.blue),
+        Card.phoenix(Card.getValue(CardFace.six)),
+      ];
+      expect(getTurn(cards), TichuTurn(TurnType.fullHouse, expected));
     });
   });
   group('checkBigTurns', () {
@@ -153,6 +211,21 @@ void main() {
         Card(CardFace.seven, CardColor.red),
       ];
       expect(checkBigTurns(cards), TichuTurn(TurnType.pairStraight, cards));
+    });
+    test('pairStraightFromHandSelection', () {
+      var cards = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      var expected = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.green),
+        Card.phoenix(Card.getValue(CardFace.six)),
+      ];
+      expect(getTurn(cards), TichuTurn(TurnType.pairStraight, expected));
     });
     test('sixStraightBombTest', () {
       var cards = <Card>[
@@ -193,7 +266,24 @@ void main() {
         Card(CardFace.four, CardColor.green),
         Card.phoenix(Card.getValue(CardFace.five)),
       ];
-      expect(getTurn(cards), TichuTurn.InvalidTurn());
+      expect(getTurn(cards), TichuTurn(TurnType.triplet, cards));
+    });
+    test('straightFromHandSelection', () {
+      var cards = <Card>[
+        Card(CardFace.nine, CardColor.blue),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.seven, CardColor.blue),
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      var expected = <Card>[
+        Card(CardFace.nine, CardColor.blue),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.seven, CardColor.blue),
+        Card(CardFace.six, CardColor.red),
+        Card.phoenix(Card.getValue(CardFace.ten)),
+      ];
+      expect(getTurn(cards), TichuTurn(TurnType.straight, expected));
     });
     test('invalidStraightTest', () {
       var cards = <Card>[

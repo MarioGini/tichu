@@ -9,7 +9,8 @@ class TurnHandler {
     CardFace inputWish, {
     List<Card>? hand,
   }) {
-    var currentTurn = getTurn(selectedCards);
+    final normalizedCards = _normalizePhoenixSingle(currentDeck, selectedCards);
+    var currentTurn = getTurn(normalizedCards);
     final handCards = hand ?? selectedCards;
 
     // Selected cards must form a valid turn.
@@ -32,6 +33,37 @@ class TurnHandler {
       computeNextWish(currentDeck.wish, currentTurn, inputWish),
     );
   }
+}
+
+List<Card> _normalizePhoenixSingle(
+  DeckState currentDeck,
+  List<Card> selectedCards,
+) {
+  if (selectedCards.length != 1) {
+    return selectedCards;
+  }
+
+  final card = selectedCards.first;
+  if (card.face != CardFace.phoenix) {
+    return selectedCards;
+  }
+
+  if (card.value != Card.getValue(CardFace.phoenix)) {
+    return selectedCards;
+  }
+
+  final deckTurn = currentDeck.turn;
+  if (deckTurn.type == TurnType.single &&
+      deckTurn.cards.isNotEmpty &&
+      deckTurn.cards.first.face == CardFace.dragon) {
+    return selectedCards;
+  }
+
+  final phoenixValue = deckTurn.type == TurnType.single &&
+          deckTurn.cards.isNotEmpty
+      ? deckTurn.value + 0.5
+      : 1.5;
+  return [Card.phoenix(phoenixValue)];
 }
 
 bool validTurn(TichuTurn deck, TichuTurn turn) {

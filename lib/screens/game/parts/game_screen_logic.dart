@@ -140,9 +140,8 @@ mixin _GameScreenHelpers on _GameScreenBindings {
 
   @override
   TichuTurn? _resolveSelectedTurn(
-    PlayerSnapshot snapshot, {
-    bool requireBomb = false,
-  }) {
+    PlayerSnapshot snapshot,
+  ) {
     final selected = _selectedCards();
     if (selected.isEmpty) {
       return null;
@@ -152,10 +151,6 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     if (selectedTurn == TichuTurn.InvalidTurn()) {
       return null;
     }
-    if (requireBomb && selectedTurn.type != TurnType.bomb) {
-      return null;
-    }
-
     final updated = _turnHandler.handleTurn(
       snapshot.deck,
       List<Card>.from(selected),
@@ -199,32 +194,6 @@ mixin _GameScreenHelpers on _GameScreenBindings {
       }
     }
     return false;
-  }
-
-  @override
-  bool _canBombSelected(PlayerSnapshot snapshot) {
-    if (snapshot.phase != GamePhase.play) return false;
-    if (snapshot.pendingDragonGiveBy == _humanId) return false;
-    if (snapshot.schupfReceipts.isNotEmpty) return false;
-    if (_schupfAckPending) return false;
-    if (_selectedIndexes.isEmpty) return false;
-    final isHumanTurn = snapshot.currentPlayerId == _humanId;
-    final deckType = snapshot.deck.turn.type;
-    if (!isHumanTurn &&
-        (deckType == TurnType.empty || deckType == TurnType.none)) {
-      return false;
-    }
-    final selectedTurn = _resolveSelectedTurn(snapshot, requireBomb: true);
-    if (selectedTurn == null) {
-      return false;
-    }
-    final updated = _turnHandler.handleTurn(
-      snapshot.deck,
-      List<Card>.from(selectedTurn.cards),
-      CardFace.none,
-      hand: _hand,
-    );
-    return updated.turn != TichuTurn.InvalidTurn();
   }
 
   bool _canEnableBomb(PlayerSnapshot snapshot) {

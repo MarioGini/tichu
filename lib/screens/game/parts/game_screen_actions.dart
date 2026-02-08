@@ -77,47 +77,60 @@ mixin _GameScreenActions on _GameScreenBindings {
 
   Future<void> _playBomb() async {
     final snapshot = _snapshot;
-    if (snapshot == null || _selectedIndexes.isEmpty) {
+    if (snapshot == null) return;
+
+    if (snapshot.schupfReceipts.isNotEmpty || _schupfAckPending) return;
+    if (snapshot.phase != GamePhase.play) return;
+    if (snapshot.pendingDragonGiveBy == _humanId) return;
+
+    // Find all bombs in the hand and pick the first one that can be played.
+    final bombs = getBombs(_hand);
+    if (bombs.isEmpty) return;
+
+    TichuTurn? playableBomb;
+    for (final bomb in bombs) {
+      final updated = _turnHandler.handleTurn(
+        snapshot.deck,
+        List<Card>.from(bomb.cards),
+        CardFace.none,
+        hand: _hand,
+      );
+      if (updated.turn != TichuTurn.InvalidTurn()) {
+        playableBomb = bomb;
+        break;
+      }
+    }
+
+    if (playableBomb == null) {
+      _showSnack('No bomb can beat the current play.');
       return;
     }
 
-    if (snapshot.schupfReceipts.isNotEmpty || _schupfAckPending) {
-      return;
+    // Auto-select the bomb cards in the hand display.
+    final indices = <int>{};
+    final used = <int>{};
+    for (final card in playableBomb.cards) {
+      for (var i = 0; i < _hand.length; i++) {
+        if (!used.contains(i) && _hand[i] == card) {
+          indices.add(i);
+          used.add(i);
+          break;
+        }
+      }
     }
-
-    if (snapshot.phase != GamePhase.play) {
-      return;
-    }
-
-    if (snapshot.pendingDragonGiveBy == _humanId) {
-      return;
-    }
-
-    if (!_canBombSelected(snapshot)) {
-      return;
-    }
-
-    final selectedTurn = _resolveSelectedTurn(snapshot, requireBomb: true);
-    if (selectedTurn == null) {
-      _showSnack('Selected cards do not form a valid bomb.');
-      return;
-    }
-
-    CardFace inputWish = CardFace.none;
-    if (selectedTurn.cards.any((card) => card.face == CardFace.mahJong)) {
-      final wish = await _promptWish();
-      if (!mounted) return;
-      if (wish == null) return;
-      inputWish = wish;
-    }
+    setState(() {
+      _selectedIndexes
+        ..clear()
+        ..addAll(indices);
+    });
 
     try {
       await _backend.submitAction(
         snapshot.gameId,
         PlayTurnAction(
           playerId: _humanId,
-          cards: selectedTurn.cards,
-          inputWish: inputWish,
+          cards: playableBomb.cards,
+          inputWish: CardFace.none,
         ),
       );
       setState(() {

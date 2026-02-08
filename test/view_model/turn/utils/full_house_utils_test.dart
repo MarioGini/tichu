@@ -147,5 +147,41 @@ void main() {
       expect(fiveFullHouseCount, 1);
       expect(twoFullHouseCount, 2);
     });
+
+    test('phoenixPromotesSingleToPair', () {
+      var cards = <Card>[
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.two, CardColor.red),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.seven, CardColor.green),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+
+      var turns = getFullHouses(cards);
+
+      expect(turns.length, 2);
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
+      expect(
+        turns.every((turn) => turn.value == Card.getValue(CardFace.two)),
+        true,
+      );
+      expect(
+        turns.any(
+          (turn) =>
+              turn.cards.any((card) => card.face == CardFace.phoenix) &&
+              turn.cards.any((card) => card.face == CardFace.five),
+        ),
+        true,
+      );
+      expect(
+        turns.any(
+          (turn) =>
+              turn.cards.any((card) => card.face == CardFace.phoenix) &&
+              turn.cards.any((card) => card.face == CardFace.seven),
+        ),
+        true,
+      );
+    });
   });
 }

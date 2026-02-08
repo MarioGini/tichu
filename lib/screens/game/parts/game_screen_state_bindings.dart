@@ -63,9 +63,7 @@ mixin _GameScreenBindings on State<GameScreen> {
   bool get _schupfAckPending;
   set _schupfAckPending(bool value);
 
-  TichuTurn? _resolveSelectedTurn(
-    PlayerSnapshot snapshot,
-  );
+  TichuTurn? _resolveSelectedTurn(PlayerSnapshot snapshot);
 
   void _showSnack(String message);
 

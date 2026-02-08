@@ -11,6 +11,7 @@ class GameBoard extends StatelessWidget {
     required this.trickArea,
     required this.handArea,
     required this.actionBar,
+    this.handAreaMaxHeightOverride,
   });
 
   final Widget topOpponent;
@@ -19,6 +20,7 @@ class GameBoard extends StatelessWidget {
   final Widget trickArea;
   final Widget handArea;
   final Widget actionBar;
+  final double? handAreaMaxHeightOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -26,15 +28,17 @@ class GameBoard extends StatelessWidget {
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 720;
         final isCompact = constraints.maxHeight < 500;
-        final topHeight = isCompact
-            ? (constraints.maxHeight * 0.16).clamp(56.0, 90.0).toDouble()
-            : (constraints.maxHeight * 0.24)
-                  .clamp(isWide ? 130.0 : 112.0, isWide ? 200.0 : 170.0)
-                  .toDouble();
         final topMaxWidth = math.min(
           constraints.maxWidth * (isWide ? 0.7 : 0.8),
           isWide ? 600.0 : 480.0,
         );
+        final desiredTopHeight = isCompact
+            ? (constraints.maxHeight * 0.16).clamp(56.0, 90.0)
+            : (constraints.maxHeight * 0.24).clamp(
+                isWide ? 130.0 : 112.0,
+                isWide ? 200.0 : 170.0,
+              );
+        final topHeight = math.min(desiredTopHeight, topMaxWidth).toDouble();
         final topPadding = isCompact
             ? const EdgeInsets.fromLTRB(8, 4, 8, 2)
             : const EdgeInsets.fromLTRB(16, 12, 16, 8);
@@ -42,6 +46,13 @@ class GameBoard extends StatelessWidget {
         final handPadding = isCompact
             ? const EdgeInsets.fromLTRB(8, 4, 8, 2)
             : const EdgeInsets.fromLTRB(12, 10, 12, 6);
+        final defaultHandHeight =
+            (constraints.maxHeight * (isCompact ? 0.22 : 0.28))
+                .clamp(80.0, isCompact ? 140.0 : 200.0)
+                .toDouble();
+        final maxHandHeight = handAreaMaxHeightOverride == null
+            ? defaultHandHeight
+            : math.max(defaultHandHeight, handAreaMaxHeightOverride!);
         return DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -93,7 +104,7 @@ class GameBoard extends StatelessWidget {
                       );
                       final squareSize = math.max(
                         0.0,
-                        math.min(areaHeight, centerMaxWidth),
+                        math.min(areaHeight, centerMaxWidth) * 0.92,
                       );
 
                       return Row(
@@ -123,7 +134,13 @@ class GameBoard extends StatelessWidget {
                   ),
                 ),
               ),
-              Padding(padding: handPadding, child: handArea),
+              Flexible(
+                fit: FlexFit.loose,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHandHeight),
+                  child: Padding(padding: handPadding, child: handArea),
+                ),
+              ),
               actionBar,
             ],
           ),

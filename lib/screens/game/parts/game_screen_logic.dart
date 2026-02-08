@@ -139,9 +139,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
   }
 
   @override
-  TichuTurn? _resolveSelectedTurn(
-    PlayerSnapshot snapshot,
-  ) {
+  TichuTurn? _resolveSelectedTurn(PlayerSnapshot snapshot) {
     final selected = _selectedCards();
     if (selected.isEmpty) {
       return null;

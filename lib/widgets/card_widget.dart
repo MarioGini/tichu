@@ -42,7 +42,7 @@ class CardWidget extends StatelessWidget {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       margin: EdgeInsets.only(
-        top: isSelected ? 0 : 8 * sizeScale,
+        top: 0,
         bottom: isSelected ? 8 * sizeScale : 0,
         right: (compact ? 6 : 8) * sizeScale,
       ),
@@ -71,33 +71,40 @@ class CardWidget extends StatelessWidget {
               ),
             ],
           ),
-          alignment: Alignment.center,
+          alignment: Alignment.topCenter,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(innerRadius),
             child: assetPath == null
-                ? Text(
-                    label,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: fontSize,
+                ? Align(
+                    alignment: Alignment.topCenter,
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: fontSize,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   )
                 : Image.asset(
                     assetPath,
                     width: width,
                     height: height,
                     fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
                     errorBuilder: (context, error, stackTrace) {
-                      return Text(
-                        label,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: fontSize,
+                      return Align(
+                        alignment: Alignment.topCenter,
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: fontSize,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
-                        textAlign: TextAlign.center,
                       );
                     },
                   ),

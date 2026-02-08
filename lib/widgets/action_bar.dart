@@ -18,7 +18,6 @@ class ActionBar extends StatelessWidget {
     required this.onPass,
     required this.onSchupf,
     required this.onDeclareTichu,
-    required this.scoreLabel,
   });
 
   final bool isPlayEnabled;
@@ -36,7 +35,6 @@ class ActionBar extends StatelessWidget {
   final VoidCallback onPass;
   final VoidCallback onSchupf;
   final VoidCallback onDeclareTichu;
-  final String scoreLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +43,7 @@ class ActionBar extends StatelessWidget {
     final isCompact = screenHeight < 500;
     final hPad = isCompact ? 8.0 : 12.0;
     final vPad = isCompact ? 6.0 : 10.0;
-    final vBottom = isCompact ? 6.0 : 12.0;
+    final vBottom = 0.0;
     final buttonSpacing = isCompact ? 6.0 : 8.0;
 
     return Container(
@@ -60,46 +58,16 @@ class ActionBar extends StatelessWidget {
           end: Alignment.bottomCenter,
         ),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.5)),
       ),
       child: SafeArea(
         top: false,
+        bottom: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 520;
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
-                  width: isNarrow ? constraints.maxWidth : null,
-                  child: Row(
-                    mainAxisSize: isNarrow
-                        ? MainAxisSize.max
-                        : MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.scoreboard,
-                        color: colorScheme.onSurface,
-                        size: isCompact ? 14 : 18,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          scoreLabel,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.w600,
-                                fontSize: isCompact ? 11 : null,
-                              ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: isCompact ? 6 : 10),
+                SizedBox(height: isCompact ? 2 : 4),
                 Wrap(
                   alignment: WrapAlignment.center,
                   crossAxisAlignment: WrapCrossAlignment.center,
@@ -122,9 +90,9 @@ class ActionBar extends StatelessWidget {
                           onPressed: isBombEnabled ? onBomb : null,
                           icon: const Icon(Icons.bolt),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.error,
-                            side: BorderSide(
-                              color: colorScheme.error.withValues(alpha: 0.7),
+                            side: BorderSide.none,
+                            backgroundColor: colorScheme.surface.withValues(
+                              alpha: 0.2,
                             ),
                           ),
                           label: const Text('Bomb'),
@@ -148,6 +116,10 @@ class ActionBar extends StatelessWidget {
                             icon: const Icon(Icons.not_interested),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: colorScheme.onSurface,
+                              side: BorderSide.none,
+                              backgroundColor: colorScheme.surface.withValues(
+                                alpha: 0.2,
+                              ),
                             ),
                             label: const Text('Pass'),
                           ),
@@ -177,7 +149,10 @@ class ActionBar extends StatelessWidget {
                             icon: const Icon(Icons.local_fire_department),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: colorScheme.secondary,
-                              side: BorderSide(color: colorScheme.secondary),
+                              side: BorderSide.none,
+                              backgroundColor: colorScheme.secondary.withValues(
+                                alpha: 0.15,
+                              ),
                             ),
                             label: const Text('Tichu'),
                           ),

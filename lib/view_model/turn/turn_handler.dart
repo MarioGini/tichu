@@ -59,8 +59,8 @@ List<Card> _normalizePhoenixSingle(
     return selectedCards;
   }
 
-  final phoenixValue = deckTurn.type == TurnType.single &&
-          deckTurn.cards.isNotEmpty
+  final phoenixValue =
+      deckTurn.type == TurnType.single && deckTurn.cards.isNotEmpty
       ? deckTurn.value + 0.5
       : 1.5;
   return [Card.phoenix(phoenixValue)];

@@ -77,3 +77,12 @@ Clean build outputs:
 ```
 flutter clean
 ```
+
+## Headless AI mode
+Run an AI-vs-AI match without UI and emit CSV for analysis:
+```
+dart run bin/headless.dart --seed=42 --target-score=1000
+```
+
+By default, the CSV is written to game.csv with a header and one row per event.
+Use --output=path.csv to change the output file.

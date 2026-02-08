@@ -15,6 +15,7 @@ import '../../widgets/action_bar.dart';
 import '../../widgets/card_widget.dart';
 import '../../widgets/hand_display.dart';
 import '../../widgets/opponent_display.dart';
+import '../../widgets/overlapping_card_row.dart';
 import '../../widgets/trick_display.dart';
 import 'widgets/bomb_slam_overlay.dart';
 import 'widgets/game_board.dart';
@@ -62,6 +63,8 @@ class _GameScreenState extends State<GameScreen>
   List<Card> _pendingAiCards = <Card>[];
   bool _pendingAiPass = false;
   String? _pendingAiLabel;
+  String? _dragonGiveKey;
+  TichuTurn? _dragonGiveTurn;
   int _activePlayerIndex = 0;
   @override
   bool _canDeclareTichu = true;
@@ -90,7 +93,7 @@ class _GameScreenState extends State<GameScreen>
   @override
   String? _lastAutoPassKey;
   @override
-  double _aiDelaySeconds = 2.0;
+  double _aiDelaySeconds = 1.0;
   @override
   bool _autoPassEnabled = true;
   @override
@@ -179,6 +182,16 @@ class _GameScreenState extends State<GameScreen>
           : snapshot.players
                 .firstWhere((player) => player.id == pendingAiId)
                 .name;
+      final dragonKey =
+          '${snapshot.lastDragonGiveBy ?? ''}|'
+          '${snapshot.lastDragonGiveTo ?? ''}';
+      if (snapshot.lastDragonGiveTo == null) {
+        _dragonGiveKey = null;
+        _dragonGiveTurn = null;
+      } else if (_dragonGiveKey != dragonKey) {
+        _dragonGiveKey = dragonKey;
+        _dragonGiveTurn = snapshot.lastPlayedTurn;
+      }
       if (snapshot.phase != GamePhase.schupf ||
           snapshot.schupfCompletedPlayers.contains(_humanId)) {
         _schupfToLeft = null;
@@ -204,11 +217,22 @@ class _GameScreenState extends State<GameScreen>
     }
     final scoreState = snapshot?.scoreState;
     final playerRoundPoints =
-      scoreState?.playerRoundPoints ?? const <String, int>{};
+        scoreState?.playerRoundPoints ?? const <String, int>{};
+    final finishOrder = scoreState?.finishOrder ?? const <String>[];
     final isRoundComplete = scoreState?.roundComplete ?? false;
     final isGameComplete = scoreState?.gameComplete ?? false;
-    final targetScore = scoreState?.targetScore ?? widget._targetScore;
     int roundPointsFor(String playerId) => playerRoundPoints[playerId] ?? 0;
+    int? finishPositionFor(String playerId) {
+      final index = finishOrder.indexOf(playerId);
+      return index == -1 ? null : index + 1;
+    }
+
+    bool isFinished(String playerId) {
+      final cardsLeft = snapshot?.opponentCardCounts[playerId];
+      return (cardsLeft != null && cardsLeft == 0) ||
+          finishPositionFor(playerId) != null;
+    }
+
     final displayHumanScore = roundPointsFor(_humanId);
     final displayPartnerScore = roundPointsFor('player-2');
     final displayLeftScore = roundPointsFor('player-1');
@@ -240,18 +264,6 @@ class _GameScreenState extends State<GameScreen>
       for (final player in snapshot?.players ?? const <GamePlayer>[])
         player.id: player.name,
     };
-    final scoreLabel = () {
-      if (snapshot == null) return 'Target: $targetScore';
-      final humanName = playerNames[_humanId] ?? 'You';
-      final leftName = playerNames['player-1'] ?? 'AI 1';
-      final partnerName = playerNames['player-2'] ?? 'AI 2';
-      final rightName = playerNames['player-3'] ?? 'AI 3';
-      return '$humanName: ${roundPointsFor(_humanId)} · '
-          '$leftName: ${roundPointsFor('player-1')} · '
-          '$partnerName: ${roundPointsFor('player-2')} · '
-          '$rightName: ${roundPointsFor('player-3')} · '
-          'Target: $targetScore';
-    }();
     final trickLabel = () {
       if (snapshot == null || _trickCards.isEmpty) return '';
       final lastPlayedBy = snapshot.lastPlayedBy;
@@ -261,6 +273,10 @@ class _GameScreenState extends State<GameScreen>
     }();
     final dragonLabel = () {
       if (snapshot == null) return '';
+      if (_dragonGiveTurn == null ||
+          snapshot.lastPlayedTurn != _dragonGiveTurn) {
+        return '';
+      }
       final targetId = snapshot.lastDragonGiveTo;
       if (targetId == null) return '';
       final targetName = playerNames[targetId] ?? 'Unknown';
@@ -288,83 +304,108 @@ class _GameScreenState extends State<GameScreen>
         );
     final screenHeight = MediaQuery.of(context).size.height;
     final isCompact = screenHeight < 500;
-    final handContent = isSchupfActive
-        ? _buildSchupfPanel()
-        : hasSchupfReceipts
-        ? _buildSchupfReceiptPanel(snapshot, playerNames)
-        : HandDisplay(
-            cards: _hand,
-            selectedIndexes: _selectedIndexes,
-            onCardTap: _toggleSelect,
-          );
+    final schupfHandMaxHeight = (isSchupfActive || hasSchupfReceipts)
+        ? screenHeight * (isCompact ? 0.32 : 0.38)
+        : null;
     final humanTichuCall = tichuCalls['player-0'];
     final humanTichu =
         humanTichuCall == TichuCall.tichu ||
         humanTichuCall == TichuCall.grandTichu;
     final humanGrandTichu = humanTichuCall == TichuCall.grandTichu;
-    final handArea = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (!isCompact)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.person, color: Colors.white70, size: 18),
-                const SizedBox(width: 4),
-                Text(
-                  'You',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: Colors.white),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$displayHumanScore pts',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelSmall?.copyWith(color: Colors.white70),
-                ),
-                if (humanTichu) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+    final handArea = LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : null;
+        final showHeader =
+            !isCompact && (maxHeight == null || maxHeight >= 120);
+        final headerHeight = showHeader ? 30.0 : 0.0;
+        final targetHeight = maxHeight == null
+            ? null
+            : (maxHeight - headerHeight).clamp(60.0, 180.0).toDouble();
+        final isSchupfPanel = isSchupfActive || hasSchupfReceipts;
+        final content = isSchupfActive
+            ? _buildSchupfPanel()
+            : hasSchupfReceipts
+            ? _buildSchupfReceiptPanel(snapshot, playerNames)
+            : HandDisplay(
+                cards: _hand,
+                selectedIndexes: _selectedIndexes,
+                onCardTap: _toggleSelect,
+                targetHeight: targetHeight,
+              );
+
+        return Column(
+          mainAxisSize: maxHeight == null || isSchupfPanel
+              ? MainAxisSize.min
+              : MainAxisSize.max,
+          children: [
+            if (showHeader)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person, color: Colors.white70, size: 18),
+                    const SizedBox(width: 4),
+                    Text(
+                      'You',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelMedium?.copyWith(color: Colors.white),
                     ),
-                    decoration: BoxDecoration(
-                      color: humanGrandTichu
-                          ? Colors.deepOrange
-                          : Colors.orange,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              (humanGrandTichu
-                                      ? Colors.deepOrange
-                                      : Colors.orange)
-                                  .withValues(alpha: 0.4),
-                          blurRadius: 8,
-                          spreadRadius: 1,
+                    const SizedBox(width: 8),
+                    Text(
+                      '$displayHumanScore pts',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelSmall?.copyWith(color: Colors.white70),
+                    ),
+                    if (humanTichu) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      humanGrandTichu ? 'GRAND' : 'TICHU',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.2,
+                        decoration: BoxDecoration(
+                          color: humanGrandTichu
+                              ? Colors.deepOrange
+                              : Colors.orange,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  (humanGrandTichu
+                                          ? Colors.deepOrange
+                                          : Colors.orange)
+                                      .withValues(alpha: 0.4),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          humanGrandTichu ? 'GRAND' : 'TICHU',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 1.2,
+                              ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        handContent,
-      ],
+                    ],
+                  ],
+                ),
+              ),
+            if (maxHeight == null || isSchupfPanel)
+              content
+            else
+              Expanded(child: content),
+          ],
+        );
+      },
     );
     return Scaffold(
       appBar: AppBar(
@@ -388,11 +429,12 @@ class _GameScreenState extends State<GameScreen>
             name: 'AI 2 (Partner)',
             cardCount: snapshot?.opponentCardCounts['player-2'] ?? 0,
             isActive: _activePlayerIndex == 2,
+            isFinished: isFinished('player-2'),
             tichuDeclared:
                 tichuCalls['player-2'] == TichuCall.tichu ||
                 tichuCalls['player-2'] == TichuCall.grandTichu,
             grandTichuDeclared: tichuCalls['player-2'] == TichuCall.grandTichu,
-            finishPosition: null,
+            finishPosition: finishPositionFor('player-2'),
             alignment: Axis.horizontal,
             icon: Icons.psychology_alt,
             pendingCards: snapshot?.pendingAiPlayerId == 'player-2'
@@ -407,11 +449,12 @@ class _GameScreenState extends State<GameScreen>
             name: 'AI 1',
             cardCount: snapshot?.opponentCardCounts['player-1'] ?? 0,
             isActive: _activePlayerIndex == 1,
+            isFinished: isFinished('player-1'),
             tichuDeclared:
                 tichuCalls['player-1'] == TichuCall.tichu ||
                 tichuCalls['player-1'] == TichuCall.grandTichu,
             grandTichuDeclared: tichuCalls['player-1'] == TichuCall.grandTichu,
-            finishPosition: null,
+            finishPosition: finishPositionFor('player-1'),
             alignment: Axis.vertical,
             icon: Icons.smart_toy_outlined,
             pendingCards: snapshot?.pendingAiPlayerId == 'player-1'
@@ -426,11 +469,12 @@ class _GameScreenState extends State<GameScreen>
             name: 'AI 3',
             cardCount: snapshot?.opponentCardCounts['player-3'] ?? 0,
             isActive: _activePlayerIndex == 3,
+            isFinished: isFinished('player-3'),
             tichuDeclared:
                 tichuCalls['player-3'] == TichuCall.tichu ||
                 tichuCalls['player-3'] == TichuCall.grandTichu,
             grandTichuDeclared: tichuCalls['player-3'] == TichuCall.grandTichu,
-            finishPosition: null,
+            finishPosition: finishPositionFor('player-3'),
             alignment: Axis.vertical,
             icon: Icons.memory,
             pendingCards: snapshot?.pendingAiPlayerId == 'player-3'
@@ -443,6 +487,7 @@ class _GameScreenState extends State<GameScreen>
           ),
           trickArea: centerArea,
           handArea: handArea,
+          handAreaMaxHeightOverride: schupfHandMaxHeight,
           actionBar: ActionBar(
             isPlayEnabled:
                 snapshot != null &&
@@ -481,7 +526,6 @@ class _GameScreenState extends State<GameScreen>
             onPass: _pass,
             onSchupf: _submitSchupf,
             onDeclareTichu: _declareTichu,
-            scoreLabel: scoreLabel,
           ),
         ),
       ),
@@ -578,11 +622,27 @@ class _GameScreenState extends State<GameScreen>
         final maxHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : null;
-        final targetHeight = maxHeight == null
-            ? CardWidget.compactHeight * 0.9 + 72
-            : (CardWidget.compactHeight * 0.9 + 72)
-                  .clamp(120.0, maxHeight * 0.55)
+        const minCardHeight = 90.0;
+        final maxTargetHeight = maxHeight == null
+            ? CardWidget.compactHeight * 0.75
+            : (maxHeight * 0.22)
+                  .clamp(minCardHeight, CardWidget.compactHeight * 0.75)
                   .toDouble();
+        final minScale = minCardHeight / CardWidget.compactHeight;
+        final cardScale = (maxTargetHeight / CardWidget.compactHeight).clamp(
+          minScale,
+          0.9,
+        );
+        final targetHeight = CardWidget.compactHeight * cardScale;
+        final availableHeight = maxHeight == null
+            ? 96.0
+            : (maxHeight * 0.18).clamp(48.0, 96.0).toDouble();
+        final tightGap = maxHeight == null
+            ? 4.0
+            : (maxHeight * 0.01).clamp(0.0, 4.0).toDouble();
+        final looseGap = maxHeight == null
+            ? 6.0
+            : (maxHeight * 0.015).clamp(0.0, 6.0).toDouble();
 
         Widget buildTarget({
           required String label,
@@ -592,75 +652,191 @@ class _GameScreenState extends State<GameScreen>
         }) {
           return SizedBox(
             width: targetWidth,
-            child: DragTarget<Card>(
-              onAcceptWithDetails: (details) => onAccept(details.data),
-              builder: (context, candidateData, rejectedData) {
-                final isActive = candidateData.isNotEmpty;
-                return GestureDetector(
-                  onTap: value == null ? null : onRemove,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.all(6),
-                    height: targetHeight,
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? Colors.amber.withValues(alpha: 0.15)
-                          : Colors.black.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isActive ? Colors.amber : Colors.white24,
-                      ),
-                    ),
-                    clipBehavior: Clip.hardEdge,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          label,
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: Colors.white70),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: Colors.white70),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: tightGap),
+                DragTarget<Card>(
+                  onAcceptWithDetails: (details) => onAccept(details.data),
+                  builder: (context, candidateData, rejectedData) {
+                    final isActive = candidateData.isNotEmpty;
+                    return GestureDetector(
+                      onTap: value == null ? null : onRemove,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: EdgeInsets.zero,
+                        height: targetHeight,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? Colors.amber.withValues(alpha: 0.15)
+                              : Colors.black.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isActive ? Colors.amber : Colors.white24,
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        if (value == null)
-                          Icon(
-                            Icons.add_circle_outline,
-                            color: Colors.white38,
-                            size: 28,
-                          )
-                        else
-                          Flexible(
-                            child: CardWidget(
-                              card: value,
-                              isSelected: false,
-                              compact: true,
-                              scale: 0.9,
-                            ),
-                          ),
-                        if (value != null)
-                          Flexible(
-                            flex: 0,
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                'Tap to remove',
-                                style: Theme.of(context).textTheme.labelSmall
-                                    ?.copyWith(color: Colors.white54),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+                        clipBehavior: Clip.hardEdge,
+                        child: Center(
+                          child: value == null
+                              ? Icon(
+                                  Icons.add_circle_outline,
+                                  color: Colors.white38,
+                                  size: 26,
+                                )
+                              : CardWidget(
+                                  card: value,
+                                  isSelected: false,
+                                  compact: true,
+                                  scale: cardScale,
+                                ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           );
         }
+
+        final content = Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Text(
+              'Schupf your cards',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: tightGap),
+            Text(
+              'Drag one card to each target.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+            ),
+            SizedBox(height: looseGap),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                buildTarget(
+                  label: 'Left opponent',
+                  value: _schupfToLeft,
+                  onRemove: () => _clearSchupfSlot(_SchupfSlot.left),
+                  onAccept: (card) => _setSchupfSlot(_SchupfSlot.left, card),
+                ),
+                const SizedBox(width: 12),
+                buildTarget(
+                  label: 'Partner',
+                  value: _schupfToPartner,
+                  onRemove: () => _clearSchupfSlot(_SchupfSlot.partner),
+                  onAccept: (card) => _setSchupfSlot(_SchupfSlot.partner, card),
+                ),
+                const SizedBox(width: 12),
+                buildTarget(
+                  label: 'Right opponent',
+                  value: _schupfToRight,
+                  onRemove: () => _clearSchupfSlot(_SchupfSlot.right),
+                  onAccept: (card) => _setSchupfSlot(_SchupfSlot.right, card),
+                ),
+              ],
+            ),
+            SizedBox(height: tightGap),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Available cards',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: Colors.white70),
+                ),
+                SizedBox(height: tightGap),
+                Center(
+                  child: ElevatedButton.icon(
+                    onPressed: canSubmit ? _submitSchupf : null,
+                    icon: const Icon(Icons.swap_horiz),
+                    label: const Text('Send Schupf'),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: tightGap),
+            SizedBox(
+              height: availableHeight,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final scale = (availableHeight / CardWidget.compactHeight)
+                      .clamp(0.5, 0.9);
+                  final cardW = CardWidget.compactWidth * scale;
+                  final cardH = CardWidget.compactHeight * scale;
+                  final spacing = 6 * scale;
+
+                  return OverlappingCardRow(
+                    itemCount: available.length,
+                    cardWidth: cardW,
+                    cardHeight: cardH,
+                    spacing: spacing,
+                    minVisible: 14 * scale,
+                    height: cardH + 8,
+                    itemBuilder: (context, index) {
+                      final card = available[index];
+                      void onQuickAssign() {
+                        if (_schupfToLeft == null) {
+                          _setSchupfSlot(_SchupfSlot.left, card);
+                        } else if (_schupfToPartner == null) {
+                          _setSchupfSlot(_SchupfSlot.partner, card);
+                        } else if (_schupfToRight == null) {
+                          _setSchupfSlot(_SchupfSlot.right, card);
+                        }
+                      }
+
+                      Widget buildCard() {
+                        return GestureDetector(
+                          onDoubleTap: onQuickAssign,
+                          child: CardWidget(
+                            card: card,
+                            isSelected: false,
+                            compact: true,
+                            scale: scale,
+                          ),
+                        );
+                      }
+
+                      return Draggable<Card>(
+                        data: card,
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: CardWidget(
+                            card: card,
+                            isSelected: false,
+                            compact: true,
+                            scale: scale,
+                          ),
+                        ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.4,
+                          child: buildCard(),
+                        ),
+                        child: buildCard(),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        );
 
         return Container(
           padding: const EdgeInsets.all(12),
@@ -669,118 +845,9 @@ class _GameScreenState extends State<GameScreen>
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.white24),
           ),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Schupf your cards',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Drag one card to each target.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    buildTarget(
-                      label: 'Left opponent',
-                      value: _schupfToLeft,
-                      onRemove: () => _clearSchupfSlot(_SchupfSlot.left),
-                      onAccept: (card) =>
-                          _setSchupfSlot(_SchupfSlot.left, card),
-                    ),
-                    const SizedBox(width: 12),
-                    buildTarget(
-                      label: 'Partner',
-                      value: _schupfToPartner,
-                      onRemove: () => _clearSchupfSlot(_SchupfSlot.partner),
-                      onAccept: (card) =>
-                          _setSchupfSlot(_SchupfSlot.partner, card),
-                    ),
-                    const SizedBox(width: 12),
-                    buildTarget(
-                      label: 'Right opponent',
-                      value: _schupfToRight,
-                      onRemove: () => _clearSchupfSlot(_SchupfSlot.right),
-                      onAccept: (card) =>
-                          _setSchupfSlot(_SchupfSlot.right, card),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Available cards',
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: Colors.white70),
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: canSubmit ? _submitSchupf : null,
-                      icon: const Icon(Icons.swap_horiz),
-                      label: const Text('Send Schupf'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 120,
-                  child: Scrollbar(
-                    thumbVisibility: true,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final card in available)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: Draggable<Card>(
-                                data: card,
-                                feedback: Material(
-                                  color: Colors.transparent,
-                                  child: CardWidget(
-                                    card: card,
-                                    isSelected: false,
-                                    compact: true,
-                                    scale: 0.9,
-                                  ),
-                                ),
-                                childWhenDragging: Opacity(
-                                  opacity: 0.4,
-                                  child: CardWidget(
-                                    card: card,
-                                    isSelected: false,
-                                    compact: true,
-                                    scale: 0.9,
-                                  ),
-                                ),
-                                child: CardWidget(
-                                  card: card,
-                                  isSelected: false,
-                                  compact: true,
-                                  scale: 0.9,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          child: maxHeight == null
+              ? content
+              : SizedBox(height: maxHeight, child: content),
         );
       },
     );
@@ -804,10 +871,9 @@ class _GameScreenState extends State<GameScreen>
         final naturalTargetH = CardWidget.compactHeight * 0.9 + 72;
         final targetHeight = maxH == null
             ? naturalTargetH
-            : naturalTargetH
-                  .clamp(100.0, (maxH - 90).clamp(80.0, 300.0))
-                  .toDouble();
-        final cardScale = targetHeight < 140 ? 0.7 : 0.9;
+            : (maxH * 0.42).clamp(90.0, naturalTargetH).toDouble();
+        final cardScale = (targetHeight / (CardWidget.compactHeight + 50))
+            .clamp(0.6, 0.9);
 
         Widget buildTarget({
           required String label,

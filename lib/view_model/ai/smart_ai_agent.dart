@@ -27,6 +27,8 @@ class SmartAiAgent implements PlayerAgent {
   late final PlaySelectionStrategy playSelectionStrategy;
   final WishStrategy wishStrategy;
   final DragonGiveStrategy dragonGiveStrategy;
+  CardFace? _lastSchupfedRightFace;
+  int _lastSchupfRoundNumber = 0;
 
   SmartAiAgent(
     this.playerId, {
@@ -70,7 +72,10 @@ class SmartAiAgent implements PlayerAgent {
 
   @override
   Future<SchupfAction> selectSchupfCards(GameSnapshot snapshot) async {
-    return schupfStrategy.selectSchupfCards(snapshot, playerId);
+    _syncRound(snapshot);
+    final action = await schupfStrategy.selectSchupfCards(snapshot, playerId);
+    _lastSchupfedRightFace = action.toRight.face;
+    return action;
   }
 
   // ---------------------------------------------------------------------------
@@ -79,6 +84,7 @@ class SmartAiAgent implements PlayerAgent {
 
   @override
   Future<GameAction> selectTurn(GameSnapshot snapshot) async {
+    _syncRound(snapshot);
     gameStateTracker.update(snapshot, playerId);
     final hand = List<Card>.from(snapshot.hands[playerId] ?? []);
     final deck = snapshot.deck;
@@ -92,15 +98,16 @@ class SmartAiAgent implements PlayerAgent {
       return PassAction(playerId: playerId);
     }
 
+    final isLeading =
+        deck.turn.type == TurnType.empty ||
+        deck.turn.type == TurnType.none ||
+        deck.turn.type == TurnType.dog;
+
     final partnerId = _partnerId(snapshot);
     if (partnerId != null) {
       final partnerCall =
           snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
       final partnerCards = (snapshot.hands[partnerId] ?? const <Card>[]).length;
-      final isLeading =
-          deck.turn.type == TurnType.empty ||
-          deck.turn.type == TurnType.none ||
-          deck.turn.type == TurnType.dog;
       if (partnerCall != TichuCall.none && partnerCards == 1 && isLeading) {
         final singles = legalTurns
             .where((turn) => turn.type == TurnType.single)
@@ -124,6 +131,23 @@ class SmartAiAgent implements PlayerAgent {
           deck.turn.type != TurnType.none) {
         return PassAction(playerId: playerId);
       }
+    }
+
+    final mahjongLead = _selectMahjongLeadTurn(
+      snapshot,
+      legalTurns,
+      deck,
+      hand,
+      isLeading,
+    );
+    if (mahjongLead != null) {
+      return _buildPlayAction(
+        snapshot,
+        mahjongLead,
+        deck,
+        hand,
+        suppressWish: mahjongLead.type == TurnType.straight,
+      );
     }
 
     // --- Wish enforcement: if there's an active wish, prefer plays containing
@@ -172,12 +196,15 @@ class SmartAiAgent implements PlayerAgent {
     GameSnapshot snapshot,
     TichuTurn turn,
     DeckState deck,
-    List<Card> hand,
-  ) {
+    List<Card> hand, {
+    bool suppressWish = false,
+  }) {
     // Determine wish if we're playing the Mah Jong.
     var wish = CardFace.none;
     if (turn.cards.any((c) => c.face == CardFace.mahJong)) {
-      wish = wishStrategy.selectWish(snapshot, hand, deck);
+      if (!suppressWish) {
+        wish = _selectMahjongWish(snapshot, hand, deck);
+      }
     }
 
     return PlayTurnAction(
@@ -210,6 +237,78 @@ class SmartAiAgent implements PlayerAgent {
   int selectDragonGive(GameSnapshot snapshot) {
     gameStateTracker.update(snapshot, playerId);
     return dragonGiveStrategy.selectDragonGive(snapshot, playerId);
+  }
+
+  TichuTurn? _selectMahjongLeadTurn(
+    GameSnapshot snapshot,
+    List<TichuTurn> legalTurns,
+    DeckState deck,
+    List<Card> hand,
+    bool isLeading,
+  ) {
+    if (!isLeading || deck.wish != CardFace.none) {
+      return null;
+    }
+    if (!hand.any((c) => c.face == CardFace.mahJong)) {
+      return null;
+    }
+
+    final mahjongTurns = legalTurns
+        .where((turn) => turn.cards.any((c) => c.face == CardFace.mahJong))
+        .toList();
+    if (mahjongTurns.isEmpty) {
+      return null;
+    }
+
+    final mahjongStraights = mahjongTurns
+        .where((turn) => turn.type == TurnType.straight)
+        .toList();
+    if (mahjongStraights.isNotEmpty) {
+      return playSelectionStrategy.selectPlay(
+        snapshot,
+        mahjongStraights,
+        deck,
+        hand,
+      );
+    }
+
+    return playSelectionStrategy.selectPlay(snapshot, mahjongTurns, deck, hand);
+  }
+
+  CardFace _selectMahjongWish(
+    GameSnapshot snapshot,
+    List<Card> hand,
+    DeckState deck,
+  ) {
+    final schupfedRight = _lastSchupfedRightFace;
+    if (schupfedRight != null && !_isSpecialWish(schupfedRight)) {
+      final haveWish = hand.any((c) => c.face == schupfedRight);
+      if (!haveWish) {
+        return schupfedRight;
+      }
+    }
+
+    final wish = wishStrategy.selectWish(snapshot, hand, deck);
+    if (wish != CardFace.none) {
+      return wish;
+    }
+
+    return CardFace.none;
+  }
+
+  bool _isSpecialWish(CardFace face) {
+    return face == CardFace.none ||
+        face == CardFace.mahJong ||
+        face == CardFace.dragon ||
+        face == CardFace.phoenix ||
+        face == CardFace.dog;
+  }
+
+  void _syncRound(GameSnapshot snapshot) {
+    if (_lastSchupfRoundNumber != snapshot.scoreState.roundNumber) {
+      _lastSchupfRoundNumber = snapshot.scoreState.roundNumber;
+      _lastSchupfedRightFace = null;
+    }
   }
 
   String? _partnerId(GameSnapshot snapshot) {

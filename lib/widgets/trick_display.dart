@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Card;
 
 import '../view_model/turn/tichu_data.dart';
 import 'card_widget.dart';
+import 'overlapping_card_row.dart';
 
 class TrickDisplay extends StatelessWidget {
   const TrickDisplay({
@@ -43,78 +44,96 @@ class TrickDisplay extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (currentWinnerLabel.isNotEmpty) ...[
-                    Text(
-                      currentWinnerLabel,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(color: Colors.white),
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                  if (dragonGiveLabel.isNotEmpty) ...[
-                    Text(
-                      dragonGiveLabel,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelMedium?.copyWith(color: Colors.amber),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                  Text(
-                    'Wish: ${_wishLabel(activeWish)}',
+          final isTight = constraints.maxHeight < 170;
+          final cardScale =
+              ((constraints.maxHeight * (isTight ? 0.26 : 0.32)) /
+                      CardWidget.compactHeight)
+                  .clamp(0.5, 1.0);
+          final cardW = CardWidget.compactWidth * cardScale;
+          final cardH = CardWidget.compactHeight * cardScale;
+          final rowHeight = cardH + 10;
+          final labelGap = isTight ? 4.0 : 6.0;
+          final blockGap = isTight ? 6.0 : 12.0;
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (currentWinnerLabel.isNotEmpty) ...[
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    currentWinnerLabel,
                     style: Theme.of(
                       context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                    ).textTheme.titleMedium?.copyWith(color: Colors.white),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Trick points: $trickPoints',
+                ),
+                SizedBox(height: labelGap),
+              ],
+              if (dragonGiveLabel.isNotEmpty) ...[
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    dragonGiveLabel,
                     style: Theme.of(
                       context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                    ).textTheme.labelMedium?.copyWith(color: Colors.amber),
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 12),
-                  if (cards.isEmpty)
-                    Column(
-                      children: [
-                        Icon(
-                          Icons.style_outlined,
-                          color: Colors.white54,
-                          size: 28,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No cards on table',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.white70),
-                        ),
-                      ],
-                    )
-                  else
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final card in cards)
-                          CardWidget(
-                            card: card,
-                            isSelected: false,
-                            compact: true,
-                          ),
-                      ],
-                    ),
-                ],
+                ),
+                SizedBox(height: labelGap),
+              ],
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Wish: ${_wishLabel(activeWish)}',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                ),
               ),
-            ),
+              SizedBox(height: isTight ? 2 : 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Trick points: $trickPoints',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                ),
+              ),
+              SizedBox(height: blockGap),
+              if (cards.isEmpty)
+                Column(
+                  children: [
+                    Icon(Icons.style_outlined, color: Colors.white54, size: 28),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No cards on table',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                )
+              else
+                OverlappingCardRow(
+                  itemCount: cards.length,
+                  cardWidth: cardW,
+                  cardHeight: cardH,
+                  spacing: 6 * cardScale,
+                  minVisible: 12 * cardScale,
+                  height: rowHeight,
+                  itemBuilder: (context, index) {
+                    return CardWidget(
+                      card: cards[index],
+                      isSelected: false,
+                      compact: true,
+                      scale: cardScale,
+                    );
+                  },
+                ),
+            ],
           );
         },
       ),

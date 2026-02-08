@@ -149,6 +149,21 @@ void main() {
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.ace));
     });
+
+    test('shortDesiredLengthReturnsEmpty', () {
+      final straight = [
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.seven, CardColor.red),
+      ];
+
+      final desiredLength = 4;
+      var turns = getStraights(straight, desiredLength);
+
+      expect(turns, isEmpty);
+    });
   });
   group('getStraightPermutations', () {
     final sevenStraight = [

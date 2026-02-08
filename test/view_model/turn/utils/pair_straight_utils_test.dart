@@ -117,6 +117,21 @@ void main() {
       expect(turns[3].value, Card.getValue(CardFace.four));
       expect(turns[4].value, Card.getValue(CardFace.three));
     });
+
+    test('oddDesiredLengthReturnsEmpty', () {
+      var cards = <Card>[
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.three, CardColor.black),
+        Card(CardFace.three, CardColor.green),
+        Card(CardFace.four, CardColor.red),
+        Card(CardFace.four, CardColor.green),
+      ];
+
+      var turns = getPairStraights(cards, 5);
+
+      expect(turns, isEmpty);
+    });
   });
   group('getPairStraightPermutations', () {
     final fourPairStraight = [

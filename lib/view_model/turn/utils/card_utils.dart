@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:tichu/view_model/turn/tichu_data.dart';
 
 // Returns number of occurrences of the card face in the list.

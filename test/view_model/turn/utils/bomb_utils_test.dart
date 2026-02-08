@@ -66,6 +66,32 @@ void main() {
       var turns = getBombs(cards);
       expect(turns, isEmpty);
     });
+
+    test('twoStraightBombsSameSuit', () {
+      var cards = <Card>[
+        Card(CardFace.two, CardColor.black),
+        Card(CardFace.three, CardColor.black),
+        Card(CardFace.four, CardColor.black),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.six, CardColor.black),
+        Card(CardFace.nine, CardColor.black),
+        Card(CardFace.ten, CardColor.black),
+        Card(CardFace.jack, CardColor.black),
+        Card(CardFace.queen, CardColor.black),
+        Card(CardFace.king, CardColor.black),
+      ];
+
+      var turns = getBombs(cards);
+      expect(turns.length, 2);
+      expect(
+        turns.any((turn) => turn.value == 20 + Card.getValue(CardFace.six)),
+        true,
+      );
+      expect(
+        turns.any((turn) => turn.value == 20 + Card.getValue(CardFace.king)),
+        true,
+      );
+    });
   });
   group('isBomb', () {
     test('quartetBombTest', () {

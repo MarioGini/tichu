@@ -4,6 +4,7 @@ import 'package:flutter/material.dart' hide Card;
 
 import '../view_model/turn/tichu_data.dart';
 import 'card_widget.dart';
+import 'overlapping_card_row.dart';
 
 enum PendingPlacement { below, left, right }
 
@@ -13,6 +14,7 @@ class OpponentDisplay extends StatelessWidget {
     required this.name,
     required this.cardCount,
     required this.isActive,
+    required this.isFinished,
     required this.tichuDeclared,
     required this.grandTichuDeclared,
     required this.finishPosition,
@@ -27,6 +29,7 @@ class OpponentDisplay extends StatelessWidget {
   final String name;
   final int cardCount;
   final bool isActive;
+  final bool isFinished;
   final bool tichuDeclared;
   final bool grandTichuDeclared;
   final int? finishPosition;
@@ -40,7 +43,7 @@ class OpponentDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isHorizontal = alignment == Axis.horizontal;
-    final hasPending = pendingPass || pendingCards.isNotEmpty;
+    final hasPending = pendingCards.isNotEmpty;
 
     if (isHorizontal) {
       return _buildHorizontalLayout(context, hasPending);
@@ -52,50 +55,66 @@ class OpponentDisplay extends StatelessWidget {
   Widget _buildHorizontalLayout(BuildContext context, bool hasPending) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    final box = AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.all(12),
-      decoration: _boxDecoration(colorScheme),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _nameRow(context, colorScheme),
-                  const SizedBox(height: 4),
-                  _infoLine(context),
-                  const SizedBox(height: 6),
-                  _statusPill(context, colorScheme),
-                  if (finishPosition != null) _finishLabel(context),
-                ],
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final maxHeight = constraints.maxHeight;
+        final gap = hasPending ? 4.0 : 0.0;
+        final pendingHeight = hasPending
+            ? (maxHeight * 0.42).clamp(60.0, 120.0).toDouble()
+            : 0.0;
+        final boxSide = math.max(
+          0.0,
+          math.min(maxWidth, maxHeight - pendingHeight - gap),
+        );
+
+        final box = SizedBox.square(
+          dimension: boxSide,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(12),
+            decoration: _boxDecoration(colorScheme),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _nameRow(context, colorScheme),
+                        const SizedBox(height: 4),
+                        _infoLine(context),
+                        const SizedBox(height: 6),
+                        _statusPill(context, colorScheme),
+                        if (finishPosition != null) _finishLabel(context),
+                      ],
+                    ),
+                  ),
+                ),
+                _tichuBadge(context, isHorizontal: true),
+              ],
             ),
           ),
-          _tichuBadge(context, isHorizontal: true),
-        ],
-      ),
-    );
+        );
 
-    if (!hasPending) {
-      return box;
-    }
+        if (!hasPending) {
+          return Center(child: box);
+        }
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        box,
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: _pendingWidget(context),
-        ),
-      ],
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            box,
+            SizedBox(height: gap),
+            SizedBox(height: pendingHeight, child: _pendingWidget(context)),
+          ],
+        );
+      },
     );
   }
 
@@ -151,13 +170,21 @@ class OpponentDisplay extends StatelessWidget {
         }
 
         if (pendingPlacement == PendingPlacement.below) {
+          final pendingHeight = (squareSide * 0.35).clamp(48.0, 110.0);
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               box,
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: _pendingWidget(context),
+              SizedBox(height: sideGap),
+              SizedBox(
+                height: pendingHeight,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: _pendingWidget(
+                    context,
+                    alignment: Alignment.topCenter,
+                  ),
+                ),
               ),
             ],
           );
@@ -165,7 +192,11 @@ class OpponentDisplay extends StatelessWidget {
 
         final pendingBox = SizedBox(
           width: pendingWidth,
-          child: _pendingWidget(context),
+          height: squareSide,
+          child: Align(
+            alignment: Alignment.center,
+            child: _pendingWidget(context, alignment: Alignment.center),
+          ),
         );
 
         final rowChildren = pendingPlacement == PendingPlacement.left
@@ -188,7 +219,10 @@ class OpponentDisplay extends StatelessWidget {
   BoxDecoration _boxDecoration(ColorScheme colorScheme) {
     final Color borderColor;
     final double borderWidth;
-    if (grandTichuDeclared) {
+    if (isFinished) {
+      borderColor = Colors.greenAccent;
+      borderWidth = 2.5;
+    } else if (grandTichuDeclared) {
       borderColor = Colors.deepOrange;
       borderWidth = 2.5;
     } else if (tichuDeclared) {
@@ -249,22 +283,45 @@ class OpponentDisplay extends StatelessWidget {
   }
 
   Widget _statusPill(BuildContext context, ColorScheme colorScheme) {
+    final String label;
+    final Color accent;
+    if (pendingPass) {
+      label = 'Pass';
+      accent = Colors.amberAccent;
+    } else if (isFinished) {
+      label = 'Out';
+      accent = Colors.greenAccent;
+    } else if (isActive) {
+      label = 'Their turn';
+      accent = colorScheme.secondary;
+    } else {
+      label = 'Waiting';
+      accent = Colors.white70;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isActive
+        color: pendingPass
+            ? Colors.amber.withValues(alpha: 0.15)
+            : isFinished
+            ? Colors.greenAccent.withValues(alpha: 0.18)
+            : isActive
             ? colorScheme.secondary.withValues(alpha: 0.18)
             : Colors.white10,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: isActive ? colorScheme.secondary : Colors.white24,
+          color: pendingPass
+              ? Colors.amberAccent
+              : isFinished
+              ? Colors.greenAccent
+              : isActive
+              ? colorScheme.secondary
+              : Colors.white24,
         ),
       ),
       child: Text(
-        isActive ? 'Their turn' : 'Waiting',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: isActive ? colorScheme.secondary : Colors.white70,
-        ),
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: accent),
       ),
     );
   }
@@ -310,7 +367,10 @@ class OpponentDisplay extends StatelessWidget {
     );
   }
 
-  Widget _pendingWidget(BuildContext context) {
+  Widget _pendingWidget(
+    BuildContext context, {
+    Alignment alignment = Alignment.topCenter,
+  }) {
     if (pendingPass) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -329,14 +389,38 @@ class OpponentDisplay extends StatelessWidget {
         ),
       );
     }
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 4,
-      runSpacing: 4,
-      children: [
-        for (final card in pendingCards)
-          CardWidget(card: card, isSelected: false, compact: true, scale: 0.6),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeight = constraints.maxHeight.isFinite
+            ? constraints.maxHeight
+            : CardWidget.compactHeight * 0.7 + 8;
+        final scale = math.min(0.7, maxHeight / CardWidget.compactHeight);
+        final cardW = CardWidget.compactWidth * scale;
+        final cardH = CardWidget.compactHeight * scale;
+        final spacing = 6 * scale;
+
+        return ClipRect(
+          child: Align(
+            alignment: alignment,
+            child: OverlappingCardRow(
+              itemCount: pendingCards.length,
+              cardWidth: cardW,
+              cardHeight: cardH,
+              spacing: spacing,
+              minVisible: 10 * scale,
+              height: cardH + 6,
+              itemBuilder: (context, index) {
+                return CardWidget(
+                  card: pendingCards[index],
+                  isSelected: true,
+                  compact: true,
+                  scale: scale,
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

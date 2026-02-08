@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 
 enum CardFace {
   none,
@@ -148,13 +148,22 @@ class TichuTurn {
     return other is TichuTurn &&
         value == other.value &&
         type == other.type &&
-        listEquals(cards, other.cards);
+        _listEquals(cards, other.cards);
   }
 
   @override
   int get hashCode {
     return type.index + value.toInt() * 10;
   }
+}
+
+bool _listEquals<T>(List<T> a, List<T> b) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 int compareTurns(TichuTurn a, TichuTurn b) {

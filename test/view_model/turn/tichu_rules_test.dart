@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/view_model/turn/tichu_rules.dart';
+import 'package:tichu/view_model/turn/utils/engine/trick_resolution.dart';
 
 void main() {
   group('requiredPassesForTrick', () {

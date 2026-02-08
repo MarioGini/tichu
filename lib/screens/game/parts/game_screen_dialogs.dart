@@ -249,27 +249,62 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        CardFace? selected;
+        CardFace selected = wishChoices.first;
+        final controller = FixedExtentScrollController();
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Declare a wish'),
-              content: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: wishChoices
-                    .map(
-                      (face) => ChoiceChip(
-                        label: Text(labelFor(face)),
-                        selected: selected == face,
-                        onSelected: (_) {
+              content: SizedBox(
+                height: 180,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Wish: ${labelFor(selected)}',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListWheelScrollView.useDelegate(
+                        controller: controller,
+                        itemExtent: 36,
+                        onSelectedItemChanged: (index) {
                           setState(() {
-                            selected = face;
+                            selected = wishChoices[index];
                           });
                         },
+                        perspective: 0.003,
+                        physics: const FixedExtentScrollPhysics(),
+                        childDelegate: ListWheelChildBuilderDelegate(
+                          childCount: wishChoices.length,
+                          builder: (context, index) {
+                            final face = wishChoices[index];
+                            final isSelected = face == selected;
+                            return Center(
+                              child: Text(
+                                labelFor(face),
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: isSelected
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : null,
+                                    ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
-                    )
-                    .toList(),
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -277,9 +312,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
-                  onPressed: selected == null
-                      ? null
-                      : () => Navigator.of(context).pop(selected),
+                  onPressed: () => Navigator.of(context).pop(selected),
                   child: const Text('Confirm'),
                 ),
               ],

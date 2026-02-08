@@ -36,6 +36,11 @@ void main() {
       expect(occurrences[CardFace.three], 2);
       expect(occurrences[CardFace.four], 1);
     });
+
+    test('emptyListTest', () {
+      var occurrences = getOccurrenceCount([]);
+      expect(occurrences, isEmpty);
+    });
   });
   group('uniformColor', () {
     test('uniformColorTest', () {

@@ -1,9 +1,8 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart' hide Card;
 
 import '../view_model/turn/tichu_data.dart';
 import 'card_widget.dart';
+import 'overlapping_card_row.dart';
 
 class HandDisplay extends StatelessWidget {
   const HandDisplay({
@@ -29,6 +28,10 @@ class HandDisplay extends StatelessWidget {
       1.2,
     );
 
+    if (cards.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
@@ -38,66 +41,29 @@ class HandDisplay extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final availWidth = constraints.maxWidth;
           final n = cards.length;
-
-          if (n == 0) {
-            return SizedBox(height: resolvedHeight);
-          }
 
           final cardW = CardWidget.normalWidth * scale;
           final cardH = CardWidget.normalHeight * scale;
           final marginR = 8 * scale;
           final selOffset = 8 * scale;
-          final naturalStep = cardW + marginR;
-          final totalNatural = n * naturalStep;
           final contentHeight = cardH + selOffset;
 
-          if (totalNatural <= availWidth) {
-            // Cards fit without overlap – centre them
-            return SizedBox(
-              height: contentHeight,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (int i = 0; i < n; i++)
-                    CardWidget(
-                      card: cards[i],
-                      isSelected: selectedIndexes.contains(i),
-                      onTap: () => onCardTap(i),
-                      scale: scale,
-                    ),
-                ],
-              ),
-            );
-          }
-
-          // Overlap mode: squeeze cards to fit available width.
-          // Last card fully visible; earlier cards show their left edge.
-          final step = math.max(
-            18.0, // minimum visible sliver per card
-            (availWidth - cardW - marginR) / math.max(1, n - 1),
-          );
-
-          return SizedBox(
+          return OverlappingCardRow(
+            itemCount: n,
+            cardWidth: cardW,
+            cardHeight: cardH,
+            spacing: marginR,
+            minVisible: 18.0,
             height: contentHeight,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                for (int i = 0; i < n; i++)
-                  Positioned(
-                    left: i * step,
-                    top: 0,
-                    child: CardWidget(
-                      card: cards[i],
-                      isSelected: selectedIndexes.contains(i),
-                      onTap: () => onCardTap(i),
-                      scale: scale,
-                    ),
-                  ),
-              ],
-            ),
+            itemBuilder: (context, index) {
+              return CardWidget(
+                card: cards[index],
+                isSelected: selectedIndexes.contains(index),
+                onTap: () => onCardTap(index),
+                scale: scale,
+              );
+            },
           );
         },
       ),

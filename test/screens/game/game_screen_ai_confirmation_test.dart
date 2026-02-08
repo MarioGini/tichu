@@ -61,7 +61,7 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('PASS'), findsOneWidget);
+    expect(find.text('Pass'), findsWidgets);
 
     await tester.pump(const Duration(milliseconds: 700));
   });

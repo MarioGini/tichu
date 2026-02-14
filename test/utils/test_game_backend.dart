@@ -6,6 +6,7 @@ class FakeGameBackend implements GameBackend {
   final StreamController<PlayerSnapshot> _controller =
       StreamController<PlayerSnapshot>.broadcast();
   final List<GameAction> actions = [];
+  Duration? automatedActionDelay;
 
   void emit(PlayerSnapshot snapshot) => _controller.add(snapshot);
 
@@ -14,7 +15,9 @@ class FakeGameBackend implements GameBackend {
   }
 
   @override
-  Future<void> setAutomatedActionDelay(Duration delay) async {}
+  Future<void> setAutomatedActionDelay(Duration delay) async {
+    automatedActionDelay = delay;
+  }
 
   @override
   Stream<PlayerSnapshot> watchGame(String gameId, String playerId) {

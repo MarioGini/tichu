@@ -38,13 +38,14 @@ class CardWidget extends StatelessWidget {
     final cornerRadius = 10 * sizeScale;
     final innerRadius = 8 * sizeScale;
     final fontSize = (compact ? 12 : 16) * sizeScale;
+    final selectionLift = 8 * sizeScale;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
-      margin: EdgeInsets.only(
-        top: 0,
-        bottom: isSelected ? 8 * sizeScale : 0,
-        right: (compact ? 6 : 8) * sizeScale,
+      transform: Matrix4.translationValues(
+        0,
+        isSelected ? -selectionLift : 0,
+        0,
       ),
       child: InkWell(
         onTap: onTap,

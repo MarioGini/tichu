@@ -97,7 +97,8 @@ void main() {
           .map((line) => line.split(','))
           .where(
             (columns) =>
-                columns.length > eventIndex && columns[eventIndex] == 'round_end',
+                columns.length > eventIndex &&
+                columns[eventIndex] == 'round_end',
           )
           .length;
 

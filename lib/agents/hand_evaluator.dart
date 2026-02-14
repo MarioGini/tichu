@@ -26,16 +26,6 @@ class HandEvaluator {
     return score.clamp(0, 100);
   }
 
-  /// Should the AI call Grand Tichu? (sees 8 cards)
-  static bool shouldCallGrandTichu(List<Card> eightCards) {
-    return evaluate(eightCards) >= 70;
-  }
-
-  /// Should the AI call Tichu? (sees 14 cards)
-  static bool shouldCallTichu(List<Card> fourteenCards) {
-    return evaluate(fourteenCards) >= 55;
-  }
-
   /// Score for high-value individual cards.
   /// Dragon (15), Phoenix (10), Aces (8 each), Kings (3 each)
   static double _highCardScore(List<Card> hand) {

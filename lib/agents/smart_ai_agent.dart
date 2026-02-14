@@ -9,15 +9,16 @@ import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/agents/turn_scorer.dart';
 import 'package:tichu/agents/wish_strategy.dart';
+import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 /// A strategic AI agent that makes intelligent decisions for all game phases.
 ///
-/// Uses [HandEvaluator] for tichu/grand tichu decisions, schupfs low cards
+/// Uses [TichuCallStrategy] for tichu/grand tichu decisions, schupfs low cards
 /// to opponents, picks the lowest valid play to conserve strong cards,
 /// and handles phoenix value, wish selection, and dragon give intelligently.
-class SmartAiAgent implements PlayerAgent {
+class SmartAiAgent extends PlayerAgent {
   @override
   final String playerId;
 
@@ -61,12 +62,23 @@ class SmartAiAgent implements PlayerAgent {
 
   @override
   Future<bool> shouldCallGrandTichu(GameSnapshot snapshot) async {
+    if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallGrandTichu(snapshot, playerId);
   }
 
   @override
   Future<bool> shouldCallTichu(GameSnapshot snapshot) async {
+    if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallTichu(snapshot, playerId);
+  }
+
+  bool _partnerAlreadyCalled(GameSnapshot snapshot) {
+    final table = TableRelationships(snapshot, playerId);
+    final partnerId = table.partnerId;
+    if (partnerId == null) return false;
+    final partnerCall =
+        snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
+    return partnerCall != TichuCall.none;
   }
 
   // ---------------------------------------------------------------------------

@@ -184,13 +184,17 @@ mixin _GameScreenActions on _GameScreenBindings {
   Future<void> _declareTichu() async {
     if (!_isSelfManual) return;
     final snapshot = _snapshot;
-    if (snapshot == null || snapshot.currentPlayerId != _humanId) {
+    if (snapshot == null) {
       return;
     }
+    if (!snapshot.canCallTichu) return;
     if (snapshot.schupfReceipts.isNotEmpty || _schupfAckPending) {
       return;
     }
-    if (snapshot.phase != GamePhase.play) return;
+    if (snapshot.phase != GamePhase.play &&
+        snapshot.phase != GamePhase.schupf) {
+      return;
+    }
     if (snapshot.pendingDragonGiveBy == _humanId) {
       return;
     }
@@ -211,21 +215,18 @@ mixin _GameScreenActions on _GameScreenBindings {
     setState(() {
       _schupfAckPending = true;
     });
-    final delayMs = (_opponentDelaySeconds * 1000).round();
-    await Future<void>.delayed(Duration(milliseconds: delayMs));
     try {
       await _backend.submitAction(
         snapshot.gameId,
         const AcknowledgeSchupfAction(playerId: 'player-0'),
       );
     } catch (error) {
-      _showSnack(error.toString());
-    } finally {
       if (mounted) {
         setState(() {
           _schupfAckPending = false;
         });
       }
+      _showSnack(error.toString());
     }
   }
 }

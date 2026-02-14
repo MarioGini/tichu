@@ -11,7 +11,6 @@ class GameBoard extends StatelessWidget {
     required this.trickArea,
     required this.handArea,
     required this.actionBar,
-    this.handAreaMaxHeightOverride,
   });
 
   final Widget topOpponent;
@@ -20,7 +19,6 @@ class GameBoard extends StatelessWidget {
   final Widget trickArea;
   final Widget handArea;
   final Widget actionBar;
-  final double? handAreaMaxHeightOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -33,26 +31,24 @@ class GameBoard extends StatelessWidget {
           isWide ? 600.0 : 480.0,
         );
         final desiredTopHeight = isCompact
-            ? (constraints.maxHeight * 0.16).clamp(56.0, 90.0)
-            : (constraints.maxHeight * 0.24).clamp(
-                isWide ? 130.0 : 112.0,
-                isWide ? 200.0 : 170.0,
+            ? (constraints.maxHeight * 0.2).clamp(64.0, 108.0)
+            : (constraints.maxHeight * 0.3).clamp(
+                isWide ? 160.0 : 136.0,
+                isWide ? 240.0 : 200.0,
               );
         final topHeight = math.min(desiredTopHeight, topMaxWidth).toDouble();
+
+        /// Unified gap used between all board sections
+        /// (top↔middle, sides↔trick, middle↔hand).
+        final boardGap = isCompact ? 4.0 : (isWide ? 12.0 : 8.0);
         final topPadding = isCompact
-            ? const EdgeInsets.fromLTRB(8, 4, 8, 2)
-            : const EdgeInsets.fromLTRB(16, 12, 16, 8);
+            ? const EdgeInsets.fromLTRB(8, 4, 8, 0)
+            : const EdgeInsets.fromLTRB(16, 8, 16, 0);
         final sidePad = isCompact ? 4.0 : 8.0;
         final handPadding = isCompact
-            ? const EdgeInsets.fromLTRB(8, 4, 8, 2)
-            : const EdgeInsets.fromLTRB(12, 10, 12, 6);
-        final defaultHandHeight =
-            (constraints.maxHeight * (isCompact ? 0.22 : 0.28))
-                .clamp(80.0, isCompact ? 140.0 : 200.0)
-                .toDouble();
-        final maxHandHeight = handAreaMaxHeightOverride == null
-            ? defaultHandHeight
-            : math.max(defaultHandHeight, handAreaMaxHeightOverride!);
+            ? const EdgeInsets.fromLTRB(8, 0, 8, 2)
+            : const EdgeInsets.fromLTRB(12, 0, 12, 6);
+
         return DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -82,64 +78,67 @@ class GameBoard extends StatelessWidget {
                   ),
                 ),
               ),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: sidePad),
-                  child: LayoutBuilder(
-                    builder: (context, areaConstraints) {
-                      final areaWidth = areaConstraints.maxWidth;
-                      final areaHeight = areaConstraints.maxHeight;
-                      final gap = isCompact ? 4.0 : (isWide ? 12.0 : 8.0);
-                      final maxSideWidth = math.min(
-                        areaWidth * (isWide ? 0.24 : 0.28),
-                        isWide ? 260.0 : (isCompact ? 160.0 : 200.0),
-                      );
-                      final sideWidth = math.max(
-                        0.0,
-                        math.min(maxSideWidth, (areaWidth - gap * 2) / 3),
-                      );
-                      final centerMaxWidth = math.max(
-                        0.0,
-                        areaWidth - (sideWidth * 2) - (gap * 2),
-                      );
-                      final squareSize = math.max(
-                        0.0,
-                        math.min(areaHeight, centerMaxWidth) * 0.92,
-                      );
+              SizedBox(height: boardGap),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: sidePad),
+                child: LayoutBuilder(
+                  builder: (context, areaConstraints) {
+                    final areaWidth = areaConstraints.maxWidth;
+                    final areaHeight = areaConstraints.maxHeight;
+                    final maxSideWidth = math.min(
+                      areaWidth * (isWide ? 0.24 : 0.28),
+                      isWide ? 260.0 : (isCompact ? 160.0 : 200.0),
+                    );
+                    final sideWidth = math.max(
+                      0.0,
+                      math.min(maxSideWidth, (areaWidth - boardGap * 2) / 3),
+                    );
+                    final centerMaxWidth = math.max(
+                      0.0,
+                      areaWidth - (sideWidth * 2) - (boardGap * 2),
+                    );
+                    final squareSize = math.max(
+                      0.0,
+                      math.min(
+                            areaHeight,
+                            math.min(sideWidth, centerMaxWidth),
+                          ) *
+                          0.94,
+                    );
 
-                      return Row(
+                    return SizedBox(
+                      height: squareSize,
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           SizedBox(
-                            width: sideWidth,
+                            width: squareSize,
                             height: squareSize,
                             child: leftOpponent,
                           ),
-                          SizedBox(width: gap),
+                          SizedBox(width: boardGap),
                           SizedBox(
                             width: squareSize,
                             height: squareSize,
                             child: trickArea,
                           ),
-                          SizedBox(width: gap),
+                          SizedBox(width: boardGap),
                           SizedBox(
-                            width: sideWidth,
+                            width: squareSize,
                             height: squareSize,
                             child: rightOpponent,
                           ),
                         ],
-                      );
-                    },
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
+              SizedBox(height: boardGap),
               Flexible(
                 fit: FlexFit.loose,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxHandHeight),
-                  child: Padding(padding: handPadding, child: handArea),
-                ),
+                child: Padding(padding: handPadding, child: handArea),
               ),
               actionBar,
             ],

@@ -274,5 +274,27 @@ void main() {
         expect(state.scoreTracker.state.roundComplete, isTrue);
       },
     );
+
+    test('finalizeRoundIfComplete finalizes immediately on match finish', () {
+      final state = _buildState();
+      state.finishedPlayers.addAll([testHumanId, testOpponentPartnerId]);
+      state.scoreTracker.recordPlayerFinished(testHumanId, const <Card>[]);
+      state.scoreTracker.recordPlayerFinished(
+        testOpponentPartnerId,
+        const <Card>[],
+      );
+
+      finalizeRoundIfComplete(state);
+
+      expect(state.scoreTracker.state.roundComplete, isTrue);
+      expect(
+        state.scoreTracker.state.rounds.last.roundEndType,
+        RoundEndType.match,
+      );
+      expect(state.scoreTracker.state.teamOneRound, 200);
+      expect(state.scoreTracker.state.teamTwoRound, 0);
+      expect(state.scoreTracker.state.rounds.last.teamOneCardPoints, 0);
+      expect(state.scoreTracker.state.rounds.last.teamTwoCardPoints, 0);
+    });
   });
 }

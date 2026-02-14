@@ -4,6 +4,8 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 enum TichuCall { none, tichu, grandTichu }
 
+enum RoundEndType { normal, match }
+
 class RoundScore {
   final int roundNumber;
   final int teamOnePoints;
@@ -13,6 +15,9 @@ class RoundScore {
   final int teamOneBonusPoints;
   final int teamTwoBonusPoints;
   final List<String> finishOrder;
+  final RoundEndType roundEndType;
+
+  bool get isMatch => roundEndType == RoundEndType.match;
 
   const RoundScore({
     required this.roundNumber,
@@ -23,6 +28,7 @@ class RoundScore {
     required this.teamOneBonusPoints,
     required this.teamTwoBonusPoints,
     required this.finishOrder,
+    required this.roundEndType,
   });
 }
 
@@ -217,49 +223,17 @@ class LocalScoreTracker implements ScoreTracker {
       _finishOrder.addAll(remainingPlayers);
     }
 
-    final firstFinisher = _finishOrder.first;
-    final lastFinisher = _finishOrder.last;
-
-    final lastHand = hands[lastFinisher] ?? const <Card>[];
-
-    final teamOneCards = <Card>[];
-    final teamTwoCards = <Card>[];
-
-    for (final entry in _capturedCards.entries) {
-      final playerId = entry.key;
-      final cards = entry.value;
-      if (playerId == lastFinisher) {
-        continue;
-      }
-      if (_isTeamOne(playerId)) {
-        teamOneCards.addAll(cards);
-      } else {
-        teamTwoCards.addAll(cards);
-      }
-    }
-
-    if (_isTeamOne(lastFinisher)) {
-      teamTwoCards.addAll(_capturedCards[lastFinisher] ?? const <Card>[]);
-    } else {
-      teamOneCards.addAll(_capturedCards[lastFinisher] ?? const <Card>[]);
-    }
-
-    if (_isTeamOne(firstFinisher)) {
-      teamOneCards.addAll(lastHand);
-    } else {
-      teamTwoCards.addAll(lastHand);
-    }
-
-    final teamOneCardPoints = pointsForCards(teamOneCards);
-    final teamTwoCardPoints = pointsForCards(teamTwoCards);
-
-    var teamOneRound = teamOneCardPoints;
-    var teamTwoRound = teamTwoCardPoints;
-
-    final doubleWin =
+    final isMatch =
+        _finishOrder.length >= 2 &&
         _isTeamOne(_finishOrder[0]) == _isTeamOne(_finishOrder[1]);
+    final roundEndType = isMatch ? RoundEndType.match : RoundEndType.normal;
 
-    if (doubleWin) {
+    var teamOneCardPoints = 0;
+    var teamTwoCardPoints = 0;
+    var teamOneRound = 0;
+    var teamTwoRound = 0;
+
+    if (isMatch) {
       if (_isTeamOne(_finishOrder[0])) {
         teamOneRound = 200;
         teamTwoRound = 0;
@@ -267,6 +241,43 @@ class LocalScoreTracker implements ScoreTracker {
         teamOneRound = 0;
         teamTwoRound = 200;
       }
+    } else {
+      final firstFinisher = _finishOrder.first;
+      final lastFinisher = _finishOrder.last;
+      final lastHand = hands[lastFinisher] ?? const <Card>[];
+
+      final teamOneCards = <Card>[];
+      final teamTwoCards = <Card>[];
+
+      for (final entry in _capturedCards.entries) {
+        final playerId = entry.key;
+        final cards = entry.value;
+        if (playerId == lastFinisher) {
+          continue;
+        }
+        if (_isTeamOne(playerId)) {
+          teamOneCards.addAll(cards);
+        } else {
+          teamTwoCards.addAll(cards);
+        }
+      }
+
+      if (_isTeamOne(lastFinisher)) {
+        teamTwoCards.addAll(_capturedCards[lastFinisher] ?? const <Card>[]);
+      } else {
+        teamOneCards.addAll(_capturedCards[lastFinisher] ?? const <Card>[]);
+      }
+
+      if (_isTeamOne(firstFinisher)) {
+        teamOneCards.addAll(lastHand);
+      } else {
+        teamTwoCards.addAll(lastHand);
+      }
+
+      teamOneCardPoints = pointsForCards(teamOneCards);
+      teamTwoCardPoints = pointsForCards(teamTwoCards);
+      teamOneRound = teamOneCardPoints;
+      teamTwoRound = teamTwoCardPoints;
     }
 
     final tichuBonuses = _computeTichuBonuses();
@@ -282,6 +293,7 @@ class LocalScoreTracker implements ScoreTracker {
       teamOneBonusPoints: tichuBonuses.$1,
       teamTwoBonusPoints: tichuBonuses.$2,
       finishOrder: List<String>.from(_finishOrder),
+      roundEndType: roundEndType,
     );
 
     final updatedTeamOneTotal = _state.teamOneTotal + teamOneRound;
@@ -314,16 +326,16 @@ class LocalScoreTracker implements ScoreTracker {
 
     if (_finishOrder.isEmpty) return (0, 0);
 
-    final winningTeamIsOne = _isTeamOne(_finishOrder.first);
+    final firstFinisherId = _finishOrder.first;
 
     for (final entry in _tichuCalls.entries) {
       final playerId = entry.key;
       final call = entry.value;
       if (call == TichuCall.none) continue;
 
-      final isCallerOnWinningTeam = _isTeamOne(playerId) == winningTeamIsOne;
+      final callerSucceeded = playerId == firstFinisherId;
       final delta = call == TichuCall.grandTichu ? 200 : 100;
-      final scoreDelta = isCallerOnWinningTeam ? delta : -delta;
+      final scoreDelta = callerSucceeded ? delta : -delta;
 
       if (_isTeamOne(playerId)) {
         teamOneBonus += scoreDelta;

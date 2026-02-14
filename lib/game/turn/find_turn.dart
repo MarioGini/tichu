@@ -60,7 +60,8 @@ TichuTurn _resolvePhoenixTurn(List<Card> cards) {
     final nonPhoenix = cards
         .where((card) => card.face != CardFace.phoenix)
         .toList();
-    if (nonPhoenix.length == 1) {
+    if (nonPhoenix.length == 1 &&
+        !_isForbiddenPairFace(nonPhoenix.first.face)) {
       final matched = _withPhoenixValue(cards, nonPhoenix.first.value);
       return TichuTurn(TurnType.pair, matched);
     }
@@ -133,12 +134,19 @@ TichuTurn checkForPair(List<Card> cards) {
   TichuTurn possibleTurn = TichuTurn.InvalidTurn();
 
   if (cards.length == 2 &&
+      !cards.any((card) => _isForbiddenPairFace(card.face)) &&
       (cards[0].value == cards[1].value ||
           cards.any((card) => card.face == CardFace.phoenix))) {
     possibleTurn = TichuTurn(TurnType.pair, cards);
   }
 
   return possibleTurn;
+}
+
+bool _isForbiddenPairFace(CardFace face) {
+  return face == CardFace.mahJong ||
+      face == CardFace.dragon ||
+      face == CardFace.dog;
 }
 
 TichuTurn checkForTriplet(List<Card> cards) {

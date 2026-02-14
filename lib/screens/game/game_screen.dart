@@ -17,7 +17,7 @@ import '../../widgets/hand_display.dart';
 import '../../widgets/opponent_display.dart';
 import '../../widgets/overlapping_card_row.dart';
 import '../../widgets/trick_display.dart';
-import 'widgets/bomb_slam_overlay.dart';
+import 'widgets/trick_event_overlay.dart';
 import 'widgets/game_board.dart';
 
 part 'parts/game_screen_actions.dart';
@@ -44,7 +44,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen>
     with
-        SingleTickerProviderStateMixin,
+        TickerProviderStateMixin,
         _GameScreenBindings,
         _GameScreenActions,
         _GameScreenHelpers,
@@ -77,6 +77,7 @@ class _GameScreenState extends State<GameScreen>
   List<Card> _trickCards = <Card>[];
   List<Card> _pendingOpponentCards = <Card>[];
   bool _pendingOpponentPass = false;
+  String? _pendingOpponentPlayerId;
   String? _pendingOpponentLabel;
   String? _dragonGiveKey;
   TichuTurn? _dragonGiveTurn;
@@ -92,6 +93,14 @@ class _GameScreenState extends State<GameScreen>
   late final AnimationController _bombController;
   late final Animation<Offset> _bombSlide;
   late final Animation<double> _bombScale;
+  @override
+  bool _showMatchOverlay = false;
+  @override
+  late final AnimationController _matchController;
+  late final Animation<Offset> _matchSlide;
+  late final Animation<double> _matchScale;
+  @override
+  int _lastMatchCelebrationRound = 0;
   @override
   bool _dragonGiveDialogOpen = false;
   @override
@@ -146,6 +155,27 @@ class _GameScreenState extends State<GameScreen>
         });
       }
     });
+    _matchController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 780),
+    );
+    _matchSlide = Tween<Offset>(begin: const Offset(0, -1.8), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _matchController, curve: Curves.easeOutCubic),
+        );
+    _matchScale = Tween<double>(begin: 0.78, end: 1.0).animate(
+      CurvedAnimation(parent: _matchController, curve: Curves.easeOutBack),
+    );
+    _matchController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Future.delayed(const Duration(milliseconds: 420), () {
+          if (!mounted) return;
+          setState(() {
+            _showMatchOverlay = false;
+          });
+        });
+      }
+    });
     _resolvedPlayerControls.addAll({
       'player-0': PlayerControlMode.manual,
       'player-1': PlayerControlMode.ai,
@@ -155,6 +185,7 @@ class _GameScreenState extends State<GameScreen>
     _resolvedPlayerControls.addAll(widget.playerControlModes);
     _selfControlMode =
         _resolvedPlayerControls[_humanId] ?? PlayerControlMode.manual;
+    _opponentDelaySeconds = _isSelfManual ? 1.0 : 2.0;
     _players = [
       GamePlayer(
         id: 'player-0',
@@ -203,9 +234,18 @@ class _GameScreenState extends State<GameScreen>
 
   void _handleSnapshot(PlayerSnapshot snapshot) {
     final previousTurn = _snapshot?.lastPlayedTurn;
+    final previousScoreState = _snapshot?.scoreState;
     if (!mounted) return;
+    if (!snapshot.opponentAwaitingConfirmation) {
+      _lastAutoConfirmKey = null;
+      _autoConfirmTimer?.cancel();
+      _autoConfirmTimer = null;
+    }
     setState(() {
       _snapshot = snapshot;
+      if (_schupfAckPending && snapshot.schupfReceipts.isEmpty) {
+        _schupfAckPending = false;
+      }
       if (_hand.length != snapshot.hand.length) {
         _selectedIndexes.clear();
       }
@@ -223,11 +263,11 @@ class _GameScreenState extends State<GameScreen>
       );
       _pendingOpponentCards = uiProjection.pendingOpponentCards;
       _pendingOpponentPass = uiProjection.pendingOpponentPass;
-      final pendingOpponentId = uiProjection.pendingOpponentPlayerId;
-      _pendingOpponentLabel = pendingOpponentId == null
+      _pendingOpponentPlayerId = uiProjection.pendingOpponentPlayerId;
+      _pendingOpponentLabel = _pendingOpponentPlayerId == null
           ? null
           : snapshot.players
-                .firstWhere((player) => player.id == pendingOpponentId)
+                .firstWhere((player) => player.id == _pendingOpponentPlayerId)
                 .name;
       final dragonKey =
           '${snapshot.lastDragonGiveBy ?? ''}|'
@@ -248,6 +288,7 @@ class _GameScreenState extends State<GameScreen>
     });
 
     _handleTurnEffects(previousTurn, snapshot.lastPlayedTurn);
+    _handleRoundEffects(previousScoreState, snapshot.scoreState);
     _maybeShowDragonGiveDialog(snapshot);
     _maybeShowRoundCompleteDialog(snapshot);
     _maybeShowGrandTichuDialog(snapshot);
@@ -287,26 +328,32 @@ class _GameScreenState extends State<GameScreen>
     final currentPlayerId = snapshot?.currentPlayerId;
     bool isCurrentTurn(String playerId) => currentPlayerId == playerId;
     final isLocalPlayerTurn = isCurrentTurn(_humanId);
-    final awaitingOpponentConfirm =
-        snapshot?.opponentAwaitingConfirmation ?? false;
-    final isSchupfPhase = snapshot?.phase == GamePhase.schupf;
-    final isPlayPhase = snapshot?.phase == GamePhase.play;
+    final phase = snapshot?.phase;
+
+    // ── Phase: schupf ──────────────────────────────────────────────────
     final isSchupfActive =
         snapshot != null &&
-        isSchupfPhase &&
+        phase == GamePhase.schupf &&
         !snapshot.schupfCompletedPlayers.contains(_humanId);
     final hasSchupfReceipts =
-        snapshot != null && snapshot.schupfReceipts.isNotEmpty;
-    final showTurnIndicators = !hasSchupfReceipts && !awaitingOpponentConfirm;
+        !_schupfAckPending &&
+        snapshot != null &&
+        snapshot.schupfReceipts.isNotEmpty;
+
+    // ── Phase: play ────────────────────────────────────────────────────
+    final isPlayPhase = phase == GamePhase.play;
+    final pendingReceipts =
+        _schupfAckPending ||
+        (snapshot != null && snapshot.schupfReceipts.isNotEmpty);
+    final showTurnIndicators = isPlayPhase;
+    final showTurnActions = isPlayPhase && !pendingReceipts;
     final canPlayAny = snapshot != null ? _canPlayAny(snapshot) : false;
     final canPass = snapshot != null ? _canPass(snapshot) : false;
     final passPreferred =
         _isSelfManual &&
-        isPlayPhase &&
+        showTurnActions &&
         isLocalPlayerTurn &&
-        !isSchupfActive &&
-        !hasSchupfReceipts &&
-        !awaitingOpponentConfirm &&
+        !(snapshot?.opponentAwaitingConfirmation ?? false) &&
         canPass &&
         !canPlayAny;
     final canStartRound =
@@ -355,12 +402,12 @@ class _GameScreenState extends State<GameScreen>
           showOverlay: _showBombOverlay,
           slide: _bombSlide,
           scale: _bombScale,
+          showMatchOverlay: _showMatchOverlay,
+          matchSlide: _matchSlide,
+          matchScale: _matchScale,
         );
     final screenHeight = MediaQuery.of(context).size.height;
     final isCompact = screenHeight < 500;
-    final schupfHandMaxHeight = (isSchupfActive || hasSchupfReceipts)
-        ? screenHeight * (isCompact ? 0.32 : 0.38)
-        : null;
     final humanTichuCall = tichuCalls['player-0'];
     final humanTichu =
         humanTichuCall == TichuCall.tichu ||
@@ -373,42 +420,26 @@ class _GameScreenState extends State<GameScreen>
             : null;
         final showHeader =
             !isCompact && (maxHeight == null || maxHeight >= 120);
-        final headerHeight = showHeader ? 30.0 : 0.0;
+        // Header (30) + gap (4) + container padding (12) are inside HandDisplay.
+        final handDisplayOverhead = showHeader ? 46.0 : 12.0;
         final targetHeight = maxHeight == null
             ? null
-            : (maxHeight - headerHeight).clamp(60.0, 180.0).toDouble();
+            : (maxHeight - handDisplayOverhead).clamp(60.0, 180.0).toDouble();
         final isSchupfPanel = isSchupfActive || hasSchupfReceipts;
-        final content = isSchupfActive
-            ? _buildSchupfPanel()
-            : hasSchupfReceipts
-            ? _buildSchupfReceiptPanel(snapshot, playerNames)
-            : HandDisplay(
-                cards: _hand,
-                selectedIndexes: _selectedIndexes,
-                onCardTap: _isSelfManual ? _toggleSelect : (_) {},
-                isActive: showTurnIndicators && isCurrentTurn(_humanId),
-                targetHeight: targetHeight,
-              );
 
-        return Column(
-          mainAxisSize: maxHeight == null || isSchupfPanel
-              ? MainAxisSize.min
-              : MainAxisSize.max,
-          children: [
-            if (showHeader)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.person, color: Colors.white70, size: 18),
-                    const SizedBox(width: 4),
-                    Text(
-                      'You',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelMedium?.copyWith(color: Colors.white),
-                    ),
+        final headerWidget = showHeader
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.person, color: Colors.white70, size: 18),
+                  const SizedBox(width: 4),
+                  Text(
+                    'You',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: Colors.white),
+                  ),
+                  if (isPlayPhase) ...[
                     const SizedBox(width: 8),
                     Text(
                       '$displayHumanScore pts',
@@ -416,48 +447,67 @@ class _GameScreenState extends State<GameScreen>
                         context,
                       ).textTheme.labelSmall?.copyWith(color: Colors.white70),
                     ),
-                    if (humanTichu) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: humanGrandTichu
-                              ? Colors.deepOrange
-                              : Colors.orange,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  (humanGrandTichu
-                                          ? Colors.deepOrange
-                                          : Colors.orange)
-                                      .withValues(alpha: 0.4),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          humanGrandTichu ? 'GRAND' : 'TICHU',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.2,
-                              ),
+                  ],
+                  if (humanTichu) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: humanGrandTichu
+                            ? Colors.deepOrange
+                            : Colors.orange,
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                (humanGrandTichu
+                                        ? Colors.deepOrange
+                                        : Colors.orange)
+                                    .withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        humanGrandTichu ? 'GRAND' : 'TICHU',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
                         ),
                       ),
-                    ],
+                    ),
                   ],
-                ),
+                ],
+              )
+            : null;
+
+        final content = isSchupfActive
+            ? _buildSchupfPanel()
+            : hasSchupfReceipts
+            ? _buildSchupfReceiptPanel(snapshot)
+            : HandDisplay(
+                cards: _hand,
+                selectedIndexes: _selectedIndexes,
+                onCardTap: _isSelfManual ? _toggleSelect : (_) {},
+                isActive: showTurnIndicators && isCurrentTurn(_humanId),
+                targetHeight: targetHeight,
+                header: headerWidget,
+              );
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showHeader && isSchupfPanel)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: headerWidget!,
               ),
-            if (maxHeight == null || isSchupfPanel)
-              content
-            else
-              Expanded(child: content),
+            content,
           ],
         );
       },
@@ -492,14 +542,14 @@ class _GameScreenState extends State<GameScreen>
             finishPosition: finishPositionFor('player-2'),
             alignment: Axis.horizontal,
             icon: Icons.psychology_alt,
-            pendingCards: snapshot?.pendingOpponentPlayerId == 'player-2'
+            pendingCards: _pendingOpponentPlayerId == 'player-2'
                 ? _pendingOpponentCards
                 : const [],
             pendingPass:
-                snapshot?.pendingOpponentPlayerId == 'player-2' &&
-                _pendingOpponentPass,
+                _pendingOpponentPlayerId == 'player-2' && _pendingOpponentPass,
             pendingPlacement: PendingPlacement.below,
             teamScore: displayPartnerScore,
+            showPoints: isPlayPhase,
           ),
           leftOpponent: OpponentDisplay(
             name: 'Opponent 3',
@@ -513,14 +563,14 @@ class _GameScreenState extends State<GameScreen>
             finishPosition: finishPositionFor('player-3'),
             alignment: Axis.vertical,
             icon: Icons.memory,
-            pendingCards: snapshot?.pendingOpponentPlayerId == 'player-3'
+            pendingCards: _pendingOpponentPlayerId == 'player-3'
                 ? _pendingOpponentCards
                 : const [],
             pendingPass:
-                snapshot?.pendingOpponentPlayerId == 'player-3' &&
-                _pendingOpponentPass,
+                _pendingOpponentPlayerId == 'player-3' && _pendingOpponentPass,
             pendingPlacement: PendingPlacement.right,
             teamScore: displayLeftScore,
+            showPoints: isPlayPhase,
           ),
           rightOpponent: OpponentDisplay(
             name: 'Opponent 1',
@@ -534,40 +584,31 @@ class _GameScreenState extends State<GameScreen>
             finishPosition: finishPositionFor('player-1'),
             alignment: Axis.vertical,
             icon: Icons.smart_toy_outlined,
-            pendingCards: snapshot?.pendingOpponentPlayerId == 'player-1'
+            pendingCards: _pendingOpponentPlayerId == 'player-1'
                 ? _pendingOpponentCards
                 : const [],
             pendingPass:
-                snapshot?.pendingOpponentPlayerId == 'player-1' &&
-                _pendingOpponentPass,
+                _pendingOpponentPlayerId == 'player-1' && _pendingOpponentPass,
             pendingPlacement: PendingPlacement.left,
             teamScore: displayRightScore,
+            showPoints: isPlayPhase,
           ),
           trickArea: centerArea,
           handArea: handArea,
-          handAreaMaxHeightOverride: schupfHandMaxHeight,
           actionBar: ActionBar(
+            showTurnActions: showTurnActions,
             isPlayEnabled:
                 _isSelfManual &&
                 snapshot != null &&
                 _canPlaySelected(snapshot) &&
-                !isSchupfActive &&
-                !hasSchupfReceipts &&
-                !_schupfAckPending,
+                !pendingReceipts,
             isBombEnabled:
                 _isSelfManual &&
                 snapshot != null &&
                 _canEnableBomb(snapshot) &&
-                !isSchupfActive &&
-                !hasSchupfReceipts &&
-                !_schupfAckPending,
+                !pendingReceipts,
             isPassEnabled:
-                _isSelfManual &&
-                !isSchupfActive &&
-                !hasSchupfReceipts &&
-                !_schupfAckPending &&
-                isPlayPhase &&
-                canPass,
+                _isSelfManual && isPlayPhase && !pendingReceipts && canPass,
             isPassPreferred: passPreferred,
             isSchupfEnabled:
                 isSchupfActive &&
@@ -578,10 +619,8 @@ class _GameScreenState extends State<GameScreen>
             showDeclareTichu:
                 _isSelfManual &&
                 !isRoundComplete &&
-                isLocalPlayerTurn &&
                 (snapshot?.canCallTichu ?? false) &&
-                !humanTichu &&
-                isPlayPhase,
+                !humanTichu,
             showStartRound: canStartRound,
             onStartRound: _startRound,
             onPlay: _playSelected,
@@ -675,6 +714,7 @@ class _GameScreenState extends State<GameScreen>
     }
     _autoConfirmTimer?.cancel();
     _bombController.dispose();
+    _matchController.dispose();
     super.dispose();
   }
 
@@ -683,7 +723,6 @@ class _GameScreenState extends State<GameScreen>
         _schupfToLeft != null &&
         _schupfToPartner != null &&
         _schupfToRight != null;
-    final targetWidth = CardWidget.compactWidth * 1.05;
     final selectedCards = <Card>{
       ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
     };
@@ -707,7 +746,11 @@ class _GameScreenState extends State<GameScreen>
           minScale,
           0.9,
         );
-        final targetHeight = CardWidget.compactHeight * cardScale;
+        final targetCardWidth = CardWidget.compactWidth * cardScale;
+        final targetCardHeight = CardWidget.compactHeight * cardScale;
+        const targetInset = 8.0;
+        final targetWidth = targetCardWidth + (targetInset * 2);
+        final targetHeight = targetCardHeight + (targetInset * 2);
         final availableHeight = maxHeight == null
             ? 96.0
             : (maxHeight * 0.18).clamp(48.0, 96.0).toDouble();
@@ -724,61 +767,32 @@ class _GameScreenState extends State<GameScreen>
           required VoidCallback onRemove,
           required ValueChanged<Card> onAccept,
         }) {
-          return SizedBox(
-            width: targetWidth,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelSmall?.copyWith(color: Colors.white70),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: tightGap),
-                DragTarget<Card>(
-                  onAcceptWithDetails: (details) => onAccept(details.data),
-                  builder: (context, candidateData, rejectedData) {
-                    final isActive = candidateData.isNotEmpty;
-                    return GestureDetector(
-                      onTap: value == null ? null : onRemove,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        padding: EdgeInsets.zero,
-                        height: targetHeight,
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? Colors.amber.withValues(alpha: 0.15)
-                              : Colors.black.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isActive ? Colors.amber : Colors.white24,
-                          ),
-                        ),
-                        clipBehavior: Clip.hardEdge,
-                        child: Center(
-                          child: value == null
-                              ? Icon(
-                                  Icons.add_circle_outline,
-                                  color: Colors.white38,
-                                  size: 26,
-                                )
-                              : CardWidget(
-                                  card: value,
-                                  isSelected: false,
-                                  compact: true,
-                                  scale: cardScale,
-                                ),
-                        ),
+          return DragTarget<Card>(
+            onAcceptWithDetails: (details) => onAccept(details.data),
+            builder: (context, candidateData, rejectedData) {
+              final isActive = candidateData.isNotEmpty;
+              return _buildSchupfTargetBox(
+                label: label,
+                targetWidth: targetWidth,
+                targetHeight: targetHeight,
+                labelGap: tightGap,
+                content: value == null
+                    ? const Icon(
+                        Icons.add_circle_outline,
+                        color: Colors.white38,
+                        size: 26,
+                      )
+                    : CardWidget(
+                        card: value,
+                        isSelected: false,
+                        compact: true,
+                        scale: cardScale,
                       ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                onTap: value == null ? null : onRemove,
+                isActive: isActive,
+                targetInset: targetInset,
+              );
+            },
           );
         }
 
@@ -793,18 +807,12 @@ class _GameScreenState extends State<GameScreen>
               ),
             ),
             SizedBox(height: tightGap),
-            Text(
-              'Drag one card to each target.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.white70),
-            ),
             SizedBox(height: looseGap),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 buildTarget(
-                  label: 'Left opponent',
+                  label: 'Left',
                   value: _schupfToRight,
                   onRemove: () => _clearSchupfSlot(_SchupfSlot.right),
                   onAccept: (card) => _setSchupfSlot(_SchupfSlot.right, card),
@@ -818,7 +826,7 @@ class _GameScreenState extends State<GameScreen>
                 ),
                 const SizedBox(width: 12),
                 buildTarget(
-                  label: 'Right opponent',
+                  label: 'Right',
                   value: _schupfToLeft,
                   onRemove: () => _clearSchupfSlot(_SchupfSlot.left),
                   onAccept: (card) => _setSchupfSlot(_SchupfSlot.left, card),
@@ -830,7 +838,13 @@ class _GameScreenState extends State<GameScreen>
               child: ElevatedButton.icon(
                 onPressed: canSubmit ? _submitSchupf : null,
                 icon: const Icon(Icons.swap_horiz),
-                label: const Text('Send Schupf'),
+                style: ElevatedButton.styleFrom(
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    width: 0.6,
+                  ),
+                ),
+                label: const Text('Schupf'),
               ),
             ),
             SizedBox(height: tightGap),
@@ -915,10 +929,7 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
-  Widget _buildSchupfReceiptPanel(
-    PlayerSnapshot snapshot,
-    Map<String, String> playerNames,
-  ) {
+  Widget _buildSchupfReceiptPanel(PlayerSnapshot snapshot) {
     final receipts = snapshot.schupfReceipts;
     final receiptByDirection = {
       for (final receipt in receipts) receipt.direction: receipt,
@@ -929,70 +940,48 @@ class _GameScreenState extends State<GameScreen>
         final maxH = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : null;
-        final targetWidth = CardWidget.compactWidth * 1.05;
-        final naturalTargetH = CardWidget.compactHeight * 0.9 + 72;
-        final targetHeight = maxH == null
-            ? naturalTargetH
-            : (maxH * 0.42).clamp(90.0, naturalTargetH).toDouble();
-        final cardScale = (targetHeight / (CardWidget.compactHeight + 50))
-            .clamp(0.6, 0.9);
+        const minCardHeight = 90.0;
+        final maxTargetHeight = maxH == null
+            ? CardWidget.compactHeight * 0.75
+            : (maxH * 0.22)
+                  .clamp(minCardHeight, CardWidget.compactHeight * 0.75)
+                  .toDouble();
+        final minScale = minCardHeight / CardWidget.compactHeight;
+        final cardScale = (maxTargetHeight / CardWidget.compactHeight).clamp(
+          minScale,
+          0.9,
+        );
+        final tightGap = maxH == null
+            ? 4.0
+            : (maxH * 0.01).clamp(0.0, 4.0).toDouble();
+        const targetInset = 8.0;
+        final targetWidth =
+            CardWidget.compactWidth * cardScale + (targetInset * 2);
+        final targetHeight =
+            CardWidget.compactHeight * cardScale + (targetInset * 2);
 
         Widget buildTarget({
           required String label,
           required SchupfReceipt? receipt,
         }) {
-          final fromName = receipt == null
-              ? 'Waiting'
-              : playerNames[receipt.fromPlayerId] ?? 'Unknown';
-          return SizedBox(
-            width: targetWidth,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.all(6),
-              height: targetHeight,
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white24),
-              ),
-              clipBehavior: Clip.hardEdge,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    label,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelMedium?.copyWith(color: Colors.white70),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+          return _buildSchupfTargetBox(
+            label: label,
+            targetWidth: targetWidth,
+            targetHeight: targetHeight,
+            labelGap: tightGap,
+            content: receipt == null
+                ? const Icon(
+                    Icons.hourglass_empty,
+                    color: Colors.white38,
+                    size: 24,
+                  )
+                : CardWidget(
+                    card: receipt.card,
+                    isSelected: false,
+                    compact: true,
+                    scale: cardScale,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    fromName,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelSmall?.copyWith(color: Colors.white54),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 6),
-                  if (receipt == null)
-                    Icon(Icons.hourglass_empty, color: Colors.white38, size: 24)
-                  else
-                    Flexible(
-                      child: CardWidget(
-                        card: receipt.card,
-                        isSelected: false,
-                        compact: true,
-                        scale: cardScale,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            targetInset: targetInset,
           );
         }
 
@@ -1013,14 +1002,6 @@ class _GameScreenState extends State<GameScreen>
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Review your cards before starting the round.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -1048,15 +1029,63 @@ class _GameScreenState extends State<GameScreen>
                       ? null
                       : _acknowledgeSchupfReceipts,
                   icon: const Icon(Icons.check_circle_outline),
-                  label: Text(
-                    _schupfAckPending ? 'Accepting…' : 'Accept schupf',
-                  ),
+                  label: const Text('PLAY'),
                 ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSchupfTargetBox({
+    required String label,
+    required double targetWidth,
+    required double targetHeight,
+    required Widget content,
+    bool isActive = false,
+    double labelGap = 4,
+    VoidCallback? onTap,
+    double targetInset = 8,
+  }) {
+    return SizedBox(
+      width: targetWidth,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: Colors.white70),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          SizedBox(height: labelGap),
+          GestureDetector(
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: targetWidth,
+              height: targetHeight,
+              padding: EdgeInsets.all(targetInset),
+              decoration: BoxDecoration(
+                color: isActive
+                    ? Colors.amber.withValues(alpha: 0.15)
+                    : Colors.black.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isActive ? Colors.amber : Colors.white24,
+                ),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: Center(child: content),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

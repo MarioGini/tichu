@@ -268,6 +268,44 @@ void main() {
       final pairs = turns.where((t) => t.type == TurnType.pair).toList();
       expect(pairs.length, 3);
     });
+
+    test('dragon plus phoenix does not form a pair', () {
+      final hand = [
+        Card(CardFace.dragon, CardColor.special),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      final deck = _pairDeck(CardFace.ace);
+
+      final turns = generateLegalTurns(deck, hand);
+      final dragonPairs = turns.where(
+        (t) =>
+            t.type == TurnType.pair &&
+            t.cards.any((c) => c.face == CardFace.dragon) &&
+            t.cards.any((c) => c.face == CardFace.phoenix),
+      );
+
+      expect(dragonPairs, isEmpty);
+      expect(turns, isEmpty);
+    });
+
+    test('mahjong plus phoenix does not form a pair', () {
+      final hand = [
+        Card(CardFace.mahJong, CardColor.special),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      final deck = _pairDeck(CardFace.two);
+
+      final turns = generateLegalTurns(deck, hand);
+      final mahjongPairs = turns.where(
+        (t) =>
+            t.type == TurnType.pair &&
+            t.cards.any((c) => c.face == CardFace.mahJong) &&
+            t.cards.any((c) => c.face == CardFace.phoenix),
+      );
+
+      expect(mahjongPairs, isEmpty);
+      expect(turns, isEmpty);
+    });
   });
 
   group('generateLegalTurns with dog deck', () {

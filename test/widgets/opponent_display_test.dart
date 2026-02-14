@@ -106,6 +106,44 @@ void main() {
     expect(sideContainer.padding, const EdgeInsets.all(8));
   });
 
+  testWidgets('horizontal player box is always square', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              height: 180,
+              child: OpponentDisplay(
+                name: 'Opponent Top',
+                cardCount: 8,
+                isActive: false,
+                isFinished: false,
+                tichuDeclared: false,
+                grandTichuDeclared: false,
+                finishPosition: null,
+                alignment: Axis.horizontal,
+                icon: Icons.psychology_alt,
+                teamScore: 0,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final boxSize = tester.getSize(
+      find
+          .descendant(
+            of: find.byType(OpponentDisplay),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first,
+    );
+
+    expect(boxSize.width, closeTo(boxSize.height, 0.001));
+  });
+
   testWidgets('horizontal pending cards fit available pending area', (
     tester,
   ) async {
@@ -141,9 +179,102 @@ void main() {
     final pendingRow = tester.widget<OverlappingCardRow>(
       find.byType(OverlappingCardRow),
     );
+    final pendingCard = tester.getSize(
+      find
+          .descendant(
+            of: find.byType(OverlappingCardRow),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first,
+    );
 
     expect(pendingRow.height, isNotNull);
-    expect(pendingRow.height!, lessThanOrEqualTo(64));
+    expect(pendingRow.height!, greaterThanOrEqualTo(pendingCard.height));
     expect(find.byType(OverflowBar), findsNothing);
+  });
+
+  testWidgets('horizontal pending cards stay visible in tight mobile layout', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 220,
+              height: 110,
+              child: OpponentDisplay(
+                name: 'Opponent Top',
+                cardCount: 5,
+                isActive: true,
+                isFinished: false,
+                tichuDeclared: false,
+                grandTichuDeclared: false,
+                finishPosition: null,
+                alignment: Axis.horizontal,
+                icon: Icons.psychology_alt,
+                teamScore: 12,
+                pendingCards: [
+                  Card(CardFace.ace, CardColor.blue),
+                  Card(CardFace.king, CardColor.red),
+                  Card(CardFace.queen, CardColor.green),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final pendingRow = tester.widget<OverlappingCardRow>(
+      find.byType(OverlappingCardRow),
+    );
+    final pendingCard = tester.getSize(
+      find
+          .descendant(
+            of: find.byType(OverlappingCardRow),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first,
+    );
+
+    expect(pendingRow.height, isNotNull);
+    expect(pendingRow.height!, greaterThanOrEqualTo(pendingCard.height));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('pending pass styling is neutral when opponent is not active', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 260,
+              height: 260,
+              child: OpponentDisplay(
+                name: 'Opponent',
+                cardCount: 8,
+                isActive: false,
+                isFinished: false,
+                tichuDeclared: false,
+                grandTichuDeclared: false,
+                finishPosition: null,
+                alignment: Axis.vertical,
+                icon: Icons.smart_toy_outlined,
+                teamScore: 0,
+                pendingPass: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final statusText = tester.widget<Text>(find.text('Pass'));
+    expect(statusText.style?.color, Colors.white70);
+
+    expect(find.text('Their turn'), findsNothing);
   });
 }

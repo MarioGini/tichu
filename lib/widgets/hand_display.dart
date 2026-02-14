@@ -12,6 +12,7 @@ class HandDisplay extends StatelessWidget {
     required this.onCardTap,
     this.isActive = false,
     this.targetHeight,
+    this.header,
   });
 
   final List<Card> cards;
@@ -19,6 +20,7 @@ class HandDisplay extends StatelessWidget {
   final ValueChanged<int> onCardTap;
   final bool isActive;
   final double? targetHeight;
+  final Widget? header;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +33,17 @@ class HandDisplay extends StatelessWidget {
     );
 
     if (cards.isEmpty) {
+      if (header != null) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white12, width: 1),
+          ),
+          child: header!,
+        );
+      }
       return const SizedBox.shrink();
     }
 
@@ -44,33 +57,39 @@ class HandDisplay extends StatelessWidget {
           width: isActive ? 2 : 1,
         ),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final n = cards.length;
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (header != null) ...[header!, const SizedBox(height: 4)],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final n = cards.length;
 
-          final cardW = CardWidget.normalWidth * scale;
-          final cardH = CardWidget.normalHeight * scale;
-          final marginR = 8 * scale;
-          final selOffset = 8 * scale;
-          final contentHeight = cardH + selOffset;
+              final cardW = CardWidget.normalWidth * scale;
+              final cardH = CardWidget.normalHeight * scale;
+              final marginR = 8 * scale;
+              final selOffset = 8 * scale;
+              final contentHeight = cardH + selOffset;
 
-          return OverlappingCardRow(
-            itemCount: n,
-            cardWidth: cardW,
-            cardHeight: cardH,
-            spacing: marginR,
-            minVisible: 18.0,
-            height: contentHeight,
-            itemBuilder: (context, index) {
-              return CardWidget(
-                card: cards[index],
-                isSelected: selectedIndexes.contains(index),
-                onTap: () => onCardTap(index),
-                scale: scale,
+              return OverlappingCardRow(
+                itemCount: n,
+                cardWidth: cardW,
+                cardHeight: cardH,
+                spacing: marginR,
+                minVisible: 18.0,
+                height: contentHeight,
+                itemBuilder: (context, index) {
+                  return CardWidget(
+                    card: cards[index],
+                    isSelected: selectedIndexes.contains(index),
+                    onTap: () => onCardTap(index),
+                    scale: scale,
+                  );
+                },
               );
             },
-          );
-        },
+          ),
+        ],
       ),
     );
   }

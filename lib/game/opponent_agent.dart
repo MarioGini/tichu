@@ -1,6 +1,5 @@
-import 'package:tichu/game/game_backend.dart';
+// Deprecated – use PlayerAgent directly.
+// Kept temporarily so existing imports compile; will be removed.
 import 'package:tichu/game/player_agent.dart';
 
-abstract class OpponentAgent extends PlayerAgent {
-  Future<GameAction> selectAction(GameSnapshot snapshot);
-}
+typedef OpponentAgent = PlayerAgent;

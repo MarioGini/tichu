@@ -139,6 +139,9 @@ List<TichuTurn> _generatePairs(List<Card> hand, DeckState? deck) {
   for (final entry in occurrenceCount.entries) {
     final face = entry.key;
     final count = entry.value;
+    if (_isForbiddenPairFace(face)) {
+      continue;
+    }
     if (count >= 2) {
       final faceCards = nonPhoenix
           .where((card) => card.face == face)
@@ -166,6 +169,12 @@ List<TichuTurn> _generatePairs(List<Card> hand, DeckState? deck) {
   }
 
   return turns;
+}
+
+bool _isForbiddenPairFace(CardFace face) {
+  return face == CardFace.mahJong ||
+      face == CardFace.dragon ||
+      face == CardFace.dog;
 }
 
 List<TichuTurn> _generateTriplets(List<Card> hand, DeckState? deck) {

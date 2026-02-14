@@ -5,7 +5,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'ai_test_fixtures.dart';
 
-class _FakeAgent implements PlayerAgent {
+class _FakeAgent extends PlayerAgent {
   @override
   final String playerId;
 

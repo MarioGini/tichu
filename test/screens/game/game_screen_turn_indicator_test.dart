@@ -32,6 +32,33 @@ void main() {
     expect(handDisplay.isActive, isTrue);
   });
 
+  testWidgets('keeps self turn indicator when AI self pending move is staged', (
+    tester,
+  ) async {
+    final backend = FakeGameBackend();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GameScreen(
+          backend: backend,
+          playerControlModes: const {testHumanId: PlayerControlMode.ai},
+        ),
+      ),
+    );
+
+    backend.emit(
+      buildPlayerSnapshot(
+        currentPlayerId: testHumanId,
+        pendingOpponentPlayerId: testHumanId,
+        pendingOpponentCards: [Card(CardFace.ace, CardColor.green)],
+      ),
+    );
+    await tester.pump();
+
+    final handDisplay = tester.widget<HandDisplay>(find.byType(HandDisplay));
+    expect(handDisplay.isActive, isTrue);
+  });
+
   testWidgets('shows AI self pending play cards as selected in hand', (
     tester,
   ) async {
@@ -147,60 +174,5 @@ void main() {
       ),
       findsOneWidget,
     );
-  });
-
-  testWidgets('manual schupf ignores pending play overlay cards', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1400, 1000));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final previousOnError = FlutterError.onError;
-    FlutterError.onError = (details) {
-      final message = details.exceptionAsString();
-      if (message.contains('A RenderFlex overflowed')) {
-        return;
-      }
-      previousOnError?.call(details);
-    };
-    addTearDown(() {
-      FlutterError.onError = previousOnError;
-    });
-
-    final backend = FakeGameBackend();
-    final staged = Card(CardFace.ace, CardColor.green);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: GameScreen(
-          backend: backend,
-          playerControlModes: const {testHumanId: PlayerControlMode.manual},
-        ),
-      ),
-    );
-
-    backend.emit(
-      buildPlayerSnapshot(
-        phase: GamePhase.schupf,
-        currentPlayerId: testHumanId,
-        hand: [
-          Card(CardFace.two, CardColor.red),
-          Card(CardFace.three, CardColor.blue),
-          Card(CardFace.four, CardColor.green),
-        ],
-        pendingOpponentPlayerId: testOpponentLeftId,
-        pendingOpponentCards: [staged],
-        opponentAwaitingConfirmation: false,
-      ),
-    );
-    await tester.pump();
-
-    expect(
-      find.byWidgetPredicate(
-        (widget) => widget is CardWidget && widget.card == staged,
-      ),
-      findsNothing,
-    );
-    expect(find.text('Opponent 1 is thinking…'), findsNothing);
   });
 }

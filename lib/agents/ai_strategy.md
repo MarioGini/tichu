@@ -33,7 +33,9 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart)
 ### R2 — Partner Protection Pass
 - If partner is currently winning a high trick, prefer pass (unless urgent
   opponent-Tichu disruption condition).
-- If partner called Tichu and is winning with small remaining hand, prefer pass.
+- If partner called Tichu or Grand Tichu and partner has not yet finished,
+  pass whenever pass is legal only when self has not called Tichu/Grand Tichu
+  (avoid conflicting dual-support behavior).
 - Code: [play_tactics_policy.dart](play_tactics_policy.dart)
 
 ### R3 — Partner Finish Enablement
@@ -70,8 +72,10 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart)
   view; Tichu is evaluated on full hand state.
 - Delayed Tichu timing for automated opponents is decided in the AI layer at
   first legal call opportunity (`selectAction`), not in backend orchestration.
+- Team constraint in AI: never call Tichu when partner already has any call
+  (`tichu` or `grandTichu`) in the current round.
 - Code: [tichu_call_strategy.dart](tichu_call_strategy.dart),
-  [opponent_agent.dart](../opponents/opponent_agent.dart)
+  [player_agent.dart](../game/player_agent.dart)
 
 ### R8 — Schupf Conventions
 - Reject schupf when hand has <3 cards.

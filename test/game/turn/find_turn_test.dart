@@ -48,6 +48,22 @@ void main() {
       var cards = <Card>[Card(CardFace.five, CardColor.blue), Card.phoenix(5)];
       expect(checkForPair(cards), TichuTurn(TurnType.pair, cards));
     });
+
+    test('dragonWithPhoenixIsInvalidPair', () {
+      var cards = <Card>[
+        Card(CardFace.dragon, CardColor.special),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      expect(getTurn(cards), TichuTurn.InvalidTurn());
+    });
+
+    test('mahjongWithPhoenixIsInvalidPair', () {
+      var cards = <Card>[
+        Card(CardFace.mahJong, CardColor.special),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+      expect(getTurn(cards), TichuTurn.InvalidTurn());
+    });
   });
   group('triplets', () {
     test('standardTest', () {

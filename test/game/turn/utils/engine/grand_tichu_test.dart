@@ -78,5 +78,28 @@ void main() {
 
       expect(state.currentPlayerIndex, 1);
     });
+
+    test('suppresses grand tichu when teammate already called', () {
+      final state = _buildState();
+
+      applyGrandTichuDecision(
+        state,
+        const GrandTichuDecisionAction(playerId: testHumanId, call: true),
+      );
+      applyGrandTichuDecision(
+        state,
+        const GrandTichuDecisionAction(
+          playerId: testOpponentPartnerId,
+          call: true,
+        ),
+      );
+
+      expect(state.grandTichuDecisions[testHumanId], isTrue);
+      expect(state.grandTichuDecisions[testOpponentPartnerId], isFalse);
+      expect(
+        state.scoreTracker.state.tichuCalls[testOpponentPartnerId],
+        isNull,
+      );
+    });
   });
 }

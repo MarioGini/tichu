@@ -68,6 +68,141 @@ void main() {
     );
 
     test(
+      'selectPartnerSupportPass returns pass whenever partner grand tichu is active',
+      () {
+        final deckTurn = TichuTurn(TurnType.single, [
+          Card(CardFace.five, CardColor.red),
+        ]);
+        final deck = DeckState(deckTurn, CardFace.none)
+          ..currentWinner = aiTestLeftId;
+        final snapshot = aiSnapshot(
+          myHand: [Card(CardFace.six, CardColor.blue)],
+          deck: deck,
+          tichuCalls: {aiTestPartnerId: TichuCall.grandTichu},
+          otherHands: {
+            aiTestLeftId: aiDefaultHand(),
+            aiTestPartnerId: [Card(CardFace.ace, CardColor.red)],
+            aiTestRightId: aiDefaultHand(),
+          },
+          lastPlayedBy: aiTestLeftId,
+          lastPlayedTurn: deckTurn,
+        );
+
+        final pass = policy.selectPartnerSupportPass(
+          playerId: aiTestSelfId,
+          snapshot: snapshot,
+          deck: deck,
+          hand: snapshot.hands[aiTestSelfId]!,
+          table: TableRelationships(snapshot, aiTestSelfId),
+        );
+
+        expect(pass, isA<PassAction>());
+      },
+    );
+
+    test('selectPartnerSupportPass returns null when wish is fulfillable', () {
+      final deckTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.five, CardColor.red),
+      ]);
+      final deck = DeckState(deckTurn, CardFace.seven)
+        ..currentWinner = aiTestLeftId;
+      final snapshot = aiSnapshot(
+        myHand: [
+          Card(CardFace.seven, CardColor.blue),
+          Card(CardFace.jack, CardColor.green),
+        ],
+        deck: deck,
+        tichuCalls: {aiTestPartnerId: TichuCall.grandTichu},
+        otherHands: {
+          aiTestLeftId: aiDefaultHand(),
+          aiTestPartnerId: [Card(CardFace.ace, CardColor.red)],
+          aiTestRightId: aiDefaultHand(),
+        },
+        lastPlayedBy: aiTestLeftId,
+        lastPlayedTurn: deckTurn,
+      );
+
+      final pass = policy.selectPartnerSupportPass(
+        playerId: aiTestSelfId,
+        snapshot: snapshot,
+        deck: deck,
+        hand: snapshot.hands[aiTestSelfId]!,
+        table: TableRelationships(snapshot, aiTestSelfId),
+      );
+
+      expect(pass, isNull);
+    });
+
+    test(
+      'selectPartnerSupportPass does not auto-pass when self also called tichu',
+      () {
+        final deckTurn = TichuTurn(TurnType.single, [
+          Card(CardFace.five, CardColor.red),
+        ]);
+        final deck = DeckState(deckTurn, CardFace.none)
+          ..currentWinner = aiTestLeftId;
+        final snapshot = aiSnapshot(
+          myHand: [Card(CardFace.six, CardColor.blue)],
+          deck: deck,
+          tichuCalls: {
+            aiTestSelfId: TichuCall.tichu,
+            aiTestPartnerId: TichuCall.grandTichu,
+          },
+          otherHands: {
+            aiTestLeftId: aiDefaultHand(),
+            aiTestPartnerId: [Card(CardFace.ace, CardColor.red)],
+            aiTestRightId: aiDefaultHand(),
+          },
+          lastPlayedBy: aiTestLeftId,
+          lastPlayedTurn: deckTurn,
+        );
+
+        final pass = policy.selectPartnerSupportPass(
+          playerId: aiTestSelfId,
+          snapshot: snapshot,
+          deck: deck,
+          hand: snapshot.hands[aiTestSelfId]!,
+          table: TableRelationships(snapshot, aiTestSelfId),
+        );
+
+        expect(pass, isNull);
+      },
+    );
+
+    test(
+      'selectPartnerSupportPass returns null when partner call owner is already finished',
+      () {
+        final deckTurn = TichuTurn(TurnType.single, [
+          Card(CardFace.five, CardColor.red),
+        ]);
+        final deck = DeckState(deckTurn, CardFace.none)
+          ..currentWinner = aiTestLeftId;
+        final snapshot = aiSnapshot(
+          myHand: [Card(CardFace.six, CardColor.blue)],
+          deck: deck,
+          tichuCalls: {aiTestPartnerId: TichuCall.tichu},
+          otherHands: {
+            aiTestLeftId: aiDefaultHand(),
+            aiTestPartnerId: const <Card>[],
+            aiTestRightId: aiDefaultHand(),
+          },
+          lastPlayedBy: aiTestLeftId,
+          lastPlayedTurn: deckTurn,
+        );
+
+        final pass = policy.selectPartnerSupportPass(
+          playerId: aiTestSelfId,
+          snapshot: snapshot,
+          deck: deck,
+          hand: snapshot.hands[aiTestSelfId]!,
+          table: TableRelationships(snapshot, aiTestSelfId),
+        );
+
+        expect(pass, isNull);
+      },
+    );
+
+    test(
       'selectPartnerGrandTichuDogLead returns dog when leading after own win',
       () {
         final snapshot = aiSnapshot(

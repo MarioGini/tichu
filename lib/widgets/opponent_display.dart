@@ -21,6 +21,7 @@ class OpponentDisplay extends StatelessWidget {
     required this.alignment,
     required this.icon,
     required this.teamScore,
+    this.showPoints = true,
     this.pendingCards = const [],
     this.pendingPass = false,
     this.pendingPlacement = PendingPlacement.below,
@@ -36,6 +37,7 @@ class OpponentDisplay extends StatelessWidget {
   final Axis alignment;
   final IconData icon;
   final int teamScore;
+  final bool showPoints;
   final List<Card> pendingCards;
   final bool pendingPass;
   final PendingPlacement pendingPlacement;
@@ -61,15 +63,18 @@ class OpponentDisplay extends StatelessWidget {
         final maxHeight = constraints.maxHeight;
         final gap = hasPending ? 4.0 : 0.0;
         final pendingHeight = hasPending
-            ? (maxHeight * 0.42).clamp(64.0, 140.0).toDouble()
+            ? math
+                  .min(
+                    (maxHeight * 0.46).clamp(64.0, 120.0).toDouble(),
+                    math.max(0.0, maxHeight - gap - 44.0),
+                  )
+                  .toDouble()
             : 0.0;
-        final boxSide = math.max(
-          0.0,
-          math.min(maxWidth, maxHeight - pendingHeight - gap),
-        );
+        final boxHeight = math.max(0.0, maxHeight - pendingHeight - gap);
+        final squareSide = math.max(0.0, math.min(maxWidth, boxHeight));
 
         final box = SizedBox.square(
-          dimension: boxSide,
+          dimension: squareSide,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             margin: const EdgeInsets.all(6),
@@ -263,7 +268,7 @@ class OpponentDisplay extends StatelessWidget {
 
   Widget _infoLine(BuildContext context) {
     return Text(
-      '$cardCount cards · $teamScore pts',
+      showPoints ? '$cardCount cards · $teamScore pts' : '$cardCount cards',
       style: Theme.of(
         context,
       ).textTheme.bodySmall?.copyWith(color: Colors.white70),
@@ -275,7 +280,7 @@ class OpponentDisplay extends StatelessWidget {
     final Color accent;
     if (pendingPass) {
       label = 'Pass';
-      accent = Colors.amberAccent;
+      accent = Colors.white70;
     } else if (isFinished) {
       label = 'Out';
       accent = Colors.greenAccent;
@@ -290,7 +295,7 @@ class OpponentDisplay extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: pendingPass
-            ? Colors.amber.withValues(alpha: 0.15)
+            ? Colors.white10
             : isFinished
             ? Colors.greenAccent.withValues(alpha: 0.18)
             : isActive
@@ -299,7 +304,7 @@ class OpponentDisplay extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: pendingPass
-              ? Colors.amberAccent
+              ? Colors.white24
               : isFinished
               ? Colors.greenAccent
               : isActive
@@ -363,14 +368,14 @@ class OpponentDisplay extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.amber.withValues(alpha: 0.15),
+          color: Colors.white10,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.amberAccent),
+          border: Border.all(color: Colors.white24),
         ),
         child: Text(
           'PASS',
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Colors.amberAccent,
+            color: Colors.white70,
             letterSpacing: 1.6,
             fontWeight: FontWeight.w700,
           ),
@@ -382,12 +387,17 @@ class OpponentDisplay extends StatelessWidget {
         final maxHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : CardWidget.compactHeight * 0.7 + 8;
-        final safeHeight = math.max(0.0, maxHeight - 6);
-        final scale = math.min(0.7, safeHeight / CardWidget.compactHeight);
+        const framePadding = 6.0;
+        final safeHeight = math.max(0.0, maxHeight - framePadding);
+        final scale = math.min(
+          0.7,
+          safeHeight / (CardWidget.compactHeight + 8),
+        );
         final cardW = CardWidget.compactWidth * scale;
         final cardH = CardWidget.compactHeight * scale;
         final spacing = 6 * scale;
-        final rowHeight = math.min(maxHeight, cardH + 6);
+        final selectedInset = 8 * scale;
+        final rowHeight = math.min(maxHeight, cardH + selectedInset + 6);
 
         return ClipRect(
           child: Align(

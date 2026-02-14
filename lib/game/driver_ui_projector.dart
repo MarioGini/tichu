@@ -36,14 +36,19 @@ class DriverUiProjector {
     required Card? currentSchupfToPartner,
     required Card? currentSchupfToRight,
   }) {
-    final inPlayPhase = snapshot.phase == GamePhase.play;
-    final pendingOpponentPlayerId = inPlayPhase
-        ? snapshot.pendingOpponentPlayerId
-        : null;
-    final pendingOpponentCards = inPlayPhase
-        ? List<Card>.from(snapshot.pendingOpponentCards)
-        : const <Card>[];
-    final pendingOpponentPass = inPlayPhase && snapshot.pendingOpponentPass;
+    // When the visible player is AI-controlled, their pending turn appears
+    // as selected cards in the hand, not as a center-area overlay.
+    final isAiSelfPending =
+        !isSelfManual && snapshot.pendingOpponentPlayerId == humanId;
+
+    final pendingOpponentPlayerId = isAiSelfPending
+        ? null
+        : snapshot.pendingOpponentPlayerId;
+    final pendingOpponentCards = isAiSelfPending
+        ? const <Card>[]
+        : List<Card>.from(snapshot.pendingOpponentCards);
+    final pendingOpponentPass =
+        !isAiSelfPending && snapshot.pendingOpponentPass;
 
     final selectedIndexes = _projectSelectedIndexes(
       snapshot: snapshot,
@@ -84,8 +89,8 @@ class DriverUiProjector {
       return Set<int>.from(currentSelectedIndexes);
     }
 
+    // AI-controlled visible player: show pending cards as selected in hand.
     final isPendingSelfPlay =
-        snapshot.phase == GamePhase.play &&
         snapshot.pendingOpponentPlayerId == humanId &&
         snapshot.pendingOpponentCards.isNotEmpty &&
         !snapshot.pendingOpponentPass;

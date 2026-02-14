@@ -225,6 +225,24 @@ void main() {
       );
       expect(await agent.shouldCallGrandTichu(snapshot), true);
     });
+
+    test('declines when partner already called tichu', () async {
+      final snapshot = _snapshot(
+        myHand: [
+          Card(CardFace.dragon, CardColor.special),
+          Card(CardFace.phoenix, CardColor.special),
+          Card(CardFace.ace, CardColor.red),
+          Card(CardFace.ace, CardColor.blue),
+          Card(CardFace.ace, CardColor.green),
+          Card(CardFace.ace, CardColor.black),
+          Card(CardFace.king, CardColor.red),
+          Card(CardFace.king, CardColor.blue),
+        ],
+        tichuCalls: const {_partnerId: TichuCall.tichu},
+      );
+
+      expect(await agent.shouldCallGrandTichu(snapshot), false);
+    });
   });
 
   group('shouldCallTichu', () {
@@ -600,6 +618,34 @@ void main() {
       expect(action, isA<PassAction>());
     });
 
+    test(
+      'passes instead of finishing while partner tichu call is still active',
+      () async {
+        final hand = [Card(CardFace.six, CardColor.red)];
+        final deckTurn = TichuTurn(TurnType.single, [
+          Card(CardFace.five, CardColor.black),
+        ]);
+        final deck = DeckState(deckTurn, CardFace.none);
+        deck.currentWinner = _leftId;
+
+        final snapshot = _snapshot(
+          myHand: hand,
+          deck: deck,
+          otherHands: {
+            _leftId: _defaultHand(),
+            _partnerId: [Card(CardFace.ace, CardColor.red)],
+            _rightId: _defaultHand(),
+          },
+          tichuCalls: {_partnerId: TichuCall.tichu},
+          lastPlayedBy: _leftId,
+          lastPlayedTurn: deckTurn,
+        );
+
+        final action = await agent.selectTurn(snapshot);
+        expect(action, isA<PassAction>());
+      },
+    );
+
     test('passes when partner is already winning a high trick', () async {
       final hand = [
         Card(CardFace.ace, CardColor.red),
@@ -737,6 +783,42 @@ void main() {
       final play = action as PlayTurnAction;
       expect(play.cards.any((c) => c.face == CardFace.seven), true);
     });
+
+    test(
+      'does not pass for partner support when wish is fulfillable',
+      () async {
+        final hand = [
+          Card(CardFace.seven, CardColor.red),
+          Card(CardFace.king, CardColor.blue),
+        ];
+        final deckTurn = TichuTurn(TurnType.single, [
+          Card(CardFace.five, CardColor.black),
+        ]);
+        final deck = DeckState(deckTurn, CardFace.seven)
+          ..currentWinner = _partnerId;
+
+        final snapshot = _snapshot(
+          myHand: hand,
+          deck: deck,
+          otherHands: {
+            _leftId: _defaultHand(),
+            _partnerId: [
+              Card(CardFace.two, CardColor.red),
+              Card(CardFace.three, CardColor.blue),
+            ],
+            _rightId: _defaultHand(),
+          },
+          tichuCalls: {_partnerId: TichuCall.tichu},
+          lastPlayedBy: _partnerId,
+          lastPlayedTurn: deckTurn,
+        );
+
+        final action = await agent.selectTurn(snapshot);
+        expect(action, isA<PlayTurnAction>());
+        final play = action as PlayTurnAction;
+        expect(play.cards.any((c) => c.face == CardFace.seven), isTrue);
+      },
+    );
   });
 
   // -----------------------------------------------------------------------

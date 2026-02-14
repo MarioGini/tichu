@@ -19,6 +19,27 @@ class PlayTacticsPolicy {
       return null;
     }
 
+    final partnerCall =
+        snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
+    final selfCall = snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none;
+    final partnerCards = (snapshot.hands[partnerId] ?? const <Card>[]).length;
+    final canPass =
+        deck.turn.type != TurnType.empty &&
+        deck.turn.type != TurnType.none &&
+        deck.turn.type != TurnType.dog;
+    final mustFulfillWish = mahJong(deck, TichuTurn(TurnType.none, []), hand);
+
+    if (mustFulfillWish) {
+      return null;
+    }
+
+    if (partnerCall != TichuCall.none &&
+        selfCall == TichuCall.none &&
+        partnerCards > 0 &&
+        canPass) {
+      return PassAction(playerId: playerId);
+    }
+
     final partnerWinning =
         snapshot.lastPlayedBy == partnerId || deck.currentWinner == partnerId;
     if (partnerWinning &&
@@ -35,9 +56,6 @@ class PlayTacticsPolicy {
       return PassAction(playerId: playerId);
     }
 
-    final partnerCall =
-        snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
-    final partnerCards = (snapshot.hands[partnerId] ?? const <Card>[]).length;
     if (partnerCall != TichuCall.none &&
         snapshot.lastPlayedBy == partnerId &&
         partnerCards <= 5 &&

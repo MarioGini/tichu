@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class ActionBar extends StatelessWidget {
   const ActionBar({
     super.key,
+    required this.showTurnActions,
     required this.isPlayEnabled,
     required this.isBombEnabled,
     required this.isPassEnabled,
@@ -11,7 +12,7 @@ class ActionBar extends StatelessWidget {
     required this.showSchupf,
     required this.showDeclareTichu,
     required this.showStartRound,
-    this.schupfLabel = 'Send Schupf',
+    this.schupfLabel = 'Schupf',
     required this.onStartRound,
     required this.onPlay,
     required this.onBomb,
@@ -20,6 +21,7 @@ class ActionBar extends StatelessWidget {
     required this.onDeclareTichu,
   });
 
+  final bool showTurnActions;
   final bool isPlayEnabled;
   final bool isBombEnabled;
   final bool isPassEnabled;
@@ -43,11 +45,10 @@ class ActionBar extends StatelessWidget {
     final isCompact = screenHeight < 500;
     final hPad = isCompact ? 8.0 : 12.0;
     final vPad = isCompact ? 6.0 : 10.0;
-    final vBottom = 0.0;
     final buttonSpacing = isCompact ? 6.0 : 8.0;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, vBottom),
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
@@ -61,13 +62,12 @@ class ActionBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        bottom: false,
+        bottom: true,
         child: LayoutBuilder(
           builder: (context, constraints) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(height: isCompact ? 2 : 4),
                 Wrap(
                   alignment: WrapAlignment.center,
                   crossAxisAlignment: WrapCrossAlignment.center,
@@ -83,7 +83,7 @@ class ActionBar extends StatelessWidget {
                           label: const Text('Start Round'),
                         ),
                       )
-                    else ...[
+                    else if (showTurnActions) ...[
                       _buildButton(
                         isCompact: isCompact,
                         child: OutlinedButton.icon(
@@ -129,7 +129,7 @@ class ActionBar extends StatelessWidget {
                         child: ElevatedButton.icon(
                           onPressed: isPlayEnabled ? onPlay : null,
                           icon: const Icon(Icons.check_circle),
-                          label: const Text('Play'),
+                          label: const Text('PLAY'),
                         ),
                       ),
                       if (showSchupf)
@@ -141,23 +141,23 @@ class ActionBar extends StatelessWidget {
                             label: Text(schupfLabel),
                           ),
                         ),
-                      if (showDeclareTichu)
-                        _buildButton(
-                          isCompact: isCompact,
-                          child: OutlinedButton.icon(
-                            onPressed: onDeclareTichu,
-                            icon: const Icon(Icons.local_fire_department),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: colorScheme.secondary,
-                              side: BorderSide.none,
-                              backgroundColor: colorScheme.secondary.withValues(
-                                alpha: 0.15,
-                              ),
-                            ),
-                            label: const Text('Tichu'),
-                          ),
-                        ),
                     ],
+                    if (showDeclareTichu)
+                      _buildButton(
+                        isCompact: isCompact,
+                        child: OutlinedButton.icon(
+                          onPressed: onDeclareTichu,
+                          icon: const Icon(Icons.local_fire_department),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colorScheme.secondary,
+                            side: BorderSide.none,
+                            backgroundColor: colorScheme.secondary.withValues(
+                              alpha: 0.15,
+                            ),
+                          ),
+                          label: const Text('Tichu'),
+                        ),
+                      ),
                   ],
                 ),
               ],

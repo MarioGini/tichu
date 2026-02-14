@@ -78,7 +78,7 @@ void main() {
     );
   });
 
-  testWidgets('hides turn labels while schupf receipts are pending', (
+  testWidgets('shows turn labels even while schupf receipts are pending', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 1000));
@@ -114,36 +114,74 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Their turn'), findsNothing);
-
-    backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentLeftId));
-    await tester.pump();
-
+    // Turn indicator is always visible during play phase, even with receipts.
     expect(find.text('Their turn'), findsOneWidget);
   });
 
-  testWidgets('hides turn labels while opponent action is pending confirm', (
+  testWidgets('hides turn labels until schupf phase is complete', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final previousOnError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      final message = details.exceptionAsString();
+      if (message.contains('A RenderFlex overflowed')) {
+        return;
+      }
+      previousOnError?.call(details);
+    };
+    addTearDown(() {
+      FlutterError.onError = previousOnError;
+    });
+
     final backend = FakeGameBackend();
 
     await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
 
     backend.emit(
       buildPlayerSnapshot(
-        currentPlayerId: testOpponentPartnerId,
-        pendingOpponentPlayerId: testOpponentLeftId,
-        pendingOpponentCards: [Card(CardFace.king, CardColor.red)],
-        opponentAwaitingConfirmation: true,
+        phase: GamePhase.schupf,
+        currentPlayerId: testOpponentLeftId,
+        schupfCompletedPlayers: const <String>[],
       ),
     );
     await tester.pump();
 
     expect(find.text('Their turn'), findsNothing);
 
-    backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentPartnerId));
+    backend.emit(
+      buildPlayerSnapshot(
+        phase: GamePhase.play,
+        currentPlayerId: testOpponentLeftId,
+      ),
+    );
     await tester.pump();
 
     expect(find.text('Their turn'), findsOneWidget);
   });
+
+  testWidgets(
+    'shows turn labels even while opponent action is pending confirm',
+    (tester) async {
+      final backend = FakeGameBackend();
+
+      await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+
+      backend.emit(
+        buildPlayerSnapshot(
+          currentPlayerId: testOpponentPartnerId,
+          pendingOpponentPlayerId: testOpponentLeftId,
+          pendingOpponentCards: [Card(CardFace.king, CardColor.red)],
+          opponentAwaitingConfirmation: true,
+        ),
+      );
+      await tester.pump();
+
+      // Turn indicator is always visible during play phase,
+      // regardless of pending opponent confirmation state.
+      expect(find.text('Their turn'), findsOneWidget);
+    },
+  );
 }

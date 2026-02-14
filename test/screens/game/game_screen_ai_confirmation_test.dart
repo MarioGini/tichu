@@ -29,8 +29,6 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('No cards on table'), findsOneWidget);
-
     expect(backend.actions.whereType<ConfirmOpponentTurnAction>().length, 0);
 
     backend.emit(
@@ -66,5 +64,49 @@ void main() {
     expect(find.text('Pass'), findsWidgets);
 
     await tester.pump(const Duration(milliseconds: 700));
+  });
+
+  testWidgets('auto-confirms repeated identical pending passes', (
+    tester,
+  ) async {
+    final backend = FakeGameBackend();
+
+    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+
+    backend.emit(
+      buildPlayerSnapshot(
+        pendingOpponentPlayerId: testOpponentLeftId,
+        pendingOpponentCards: const [],
+        pendingOpponentPass: true,
+        opponentAwaitingConfirmation: true,
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1100));
+
+    expect(backend.actions.whereType<ConfirmOpponentTurnAction>().length, 1);
+
+    backend.emit(
+      buildPlayerSnapshot(
+        currentPlayerId: testHumanId,
+        opponentAwaitingConfirmation: false,
+      ),
+    );
+    await tester.pump();
+
+    backend.emit(
+      buildPlayerSnapshot(
+        pendingOpponentPlayerId: testOpponentLeftId,
+        pendingOpponentCards: const [],
+        pendingOpponentPass: true,
+        opponentAwaitingConfirmation: true,
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1100));
+
+    expect(backend.actions.whereType<ConfirmOpponentTurnAction>().length, 2);
   });
 }

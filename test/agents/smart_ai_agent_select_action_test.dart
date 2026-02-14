@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
-import 'package:tichu/agents/opponents/default_opponent_agent.dart';
+import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/game/scoring/score_tracker.dart';
 
-import '../ai_test_fixtures.dart';
+import 'ai_test_fixtures.dart';
 
 class _AlwaysCallTichuStrategy implements TichuCallStrategy {
   const _AlwaysCallTichuStrategy();
@@ -34,11 +35,11 @@ class _NeverCallTichuStrategy implements TichuCallStrategy {
 }
 
 void main() {
-  group('DefaultOpponentAgent.selectAction', () {
+  group('SmartAiAgent.selectAction', () {
     test(
       'returns CallTichuAction when call is available and strategy wants it',
       () async {
-        final agent = DefaultOpponentAgent(
+        final agent = SmartAiAgent(
           aiTestSelfId,
           tichuCallStrategy: const _AlwaysCallTichuStrategy(),
         );
@@ -53,7 +54,7 @@ void main() {
     );
 
     test('falls back to turn selection when call is not available', () async {
-      final agent = DefaultOpponentAgent(
+      final agent = SmartAiAgent(
         aiTestSelfId,
         tichuCallStrategy: const _AlwaysCallTichuStrategy(),
       );
@@ -67,7 +68,7 @@ void main() {
     });
 
     test('falls back to turn selection when strategy declines call', () async {
-      final agent = DefaultOpponentAgent(
+      final agent = SmartAiAgent(
         aiTestSelfId,
         tichuCallStrategy: const _NeverCallTichuStrategy(),
       );
@@ -79,5 +80,38 @@ void main() {
       final action = await agent.selectAction(snapshot);
       expect(action, isNot(isA<CallTichuAction>()));
     });
+
+    test('does not call tichu when partner already called tichu', () async {
+      final agent = SmartAiAgent(
+        aiTestSelfId,
+        tichuCallStrategy: const _AlwaysCallTichuStrategy(),
+      );
+      final snapshot = aiSnapshot(
+        myHand: aiDefaultHand(),
+        canCallTichuByPlayer: {aiTestSelfId: true},
+        tichuCalls: {aiTestPartnerId: TichuCall.tichu},
+      );
+
+      final action = await agent.selectAction(snapshot);
+      expect(action, isNot(isA<CallTichuAction>()));
+    });
+
+    test(
+      'does not call tichu when partner already called grand tichu',
+      () async {
+        final agent = SmartAiAgent(
+          aiTestSelfId,
+          tichuCallStrategy: const _AlwaysCallTichuStrategy(),
+        );
+        final snapshot = aiSnapshot(
+          myHand: aiDefaultHand(),
+          canCallTichuByPlayer: {aiTestSelfId: true},
+          tichuCalls: {aiTestPartnerId: TichuCall.grandTichu},
+        );
+
+        final action = await agent.selectAction(snapshot);
+        expect(action, isNot(isA<CallTichuAction>()));
+      },
+    );
   });
 }

@@ -275,7 +275,7 @@ class GameEngineImpl implements GameEngine {
   }
 
   bool _canPlayerCallTichu(GameEngineState state, String playerId) {
-    if (state.phase != GamePhase.play) {
+    if (state.phase != GamePhase.play && state.phase != GamePhase.schupf) {
       return false;
     }
 

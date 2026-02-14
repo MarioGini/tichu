@@ -116,6 +116,17 @@ int _leadReturnIndex(GameEngineState state, String winnerId) {
 void finalizeRoundIfComplete(GameEngineState state) {
   if (state.scoreTracker.state.roundComplete) return;
 
+  final matchComplete = _isMatchFinish(state);
+
+  if (matchComplete) {
+    state.currentTrickCards.clear();
+    state.pendingDragonGiveBy = null;
+    state.pendingDragonGiveTargets.clear();
+    state.pendingDragonTrickCards.clear();
+    state.scoreTracker.finalizeRound(state.hands);
+    return;
+  }
+
   if (state.finishedPlayers.length >= state.players.length - 1) {
     if (state.lastPlayedBy != null && state.currentTrickCards.isNotEmpty) {
       final winnerId = state.lastPlayedBy!;
@@ -128,6 +139,18 @@ void finalizeRoundIfComplete(GameEngineState state) {
       state.scoreTracker.finalizeRound(state.hands);
     }
   }
+}
+
+bool _isMatchFinish(GameEngineState state) {
+  final finishOrder = state.scoreTracker.state.finishOrder;
+  if (finishOrder.length < 2) return false;
+  return _sameTeam(state, finishOrder[0], finishOrder[1]);
+}
+
+bool _sameTeam(GameEngineState state, String playerAId, String playerBId) {
+  final playerA = state.players.firstWhere((player) => player.id == playerAId);
+  final playerB = state.players.firstWhere((player) => player.id == playerBId);
+  return playerA.seat % 2 == playerB.seat % 2;
 }
 
 bool maybeAwardTrick(

@@ -36,7 +36,8 @@ class OverlappingCardRow extends StatelessWidget {
       builder: (context, constraints) {
         final availWidth = constraints.maxWidth;
         final naturalStep = cardWidth + spacing;
-        final totalNatural = itemCount * naturalStep;
+        final totalNatural =
+            cardWidth + math.max(0, itemCount - 1) * naturalStep;
 
         if (totalNatural <= availWidth) {
           return SizedBox(
@@ -47,7 +48,10 @@ class OverlappingCardRow extends StatelessWidget {
                   : MainAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (int i = 0; i < itemCount; i++) itemBuilder(context, i),
+                for (int i = 0; i < itemCount; i++) ...[
+                  itemBuilder(context, i),
+                  if (i < itemCount - 1) SizedBox(width: spacing),
+                ],
               ],
             ),
           );
@@ -55,7 +59,7 @@ class OverlappingCardRow extends StatelessWidget {
 
         final step = math.max(
           minVisible,
-          (availWidth - cardWidth - spacing) / math.max(1, itemCount - 1),
+          (availWidth - cardWidth) / math.max(1, itemCount - 1),
         );
 
         return SizedBox(

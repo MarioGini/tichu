@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/opponent_agent.dart';
+import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/engine.dart';
@@ -8,7 +8,7 @@ import 'package:tichu/services/local/local_backend.dart';
 
 Card _card(CardFace face, CardColor color) => Card(face, color);
 
-class _FakeOpponentAgent implements OpponentAgent {
+class _FakePlayerAgent extends PlayerAgent {
   @override
   final String playerId;
 
@@ -16,7 +16,7 @@ class _FakeOpponentAgent implements OpponentAgent {
   final SchupfAction schupfAction;
   final int dragonSeat;
 
-  _FakeOpponentAgent({
+  _FakePlayerAgent({
     required this.playerId,
     required this.action,
     required this.schupfAction,
@@ -408,7 +408,7 @@ void main() {
 
     test('confirm applies pending automated opponent action', () async {
       final engine = _FakeEngine();
-      final automatedAgent = _FakeOpponentAgent(
+      final automatedAgent = _FakePlayerAgent(
         playerId: 'p0',
         action: const PassAction(playerId: 'p0'),
         schupfAction: SchupfAction(
@@ -443,7 +443,7 @@ void main() {
       final engine = _FakeEngine()
         ..initialPendingDragonBy = 'p0'
         ..opponentIdsResult = ['p1', 'p3'];
-      final automatedAgent = _FakeOpponentAgent(
+      final automatedAgent = _FakePlayerAgent(
         playerId: 'p0',
         action: const PassAction(playerId: 'p0'),
         schupfAction: SchupfAction(
@@ -469,7 +469,7 @@ void main() {
 
     test('auto acknowledges schupf receipts for automated players', () async {
       final engine = _SchupfFlowEngine();
-      final automatedAgent = _FakeOpponentAgent(
+      final automatedAgent = _FakePlayerAgent(
         playerId: 'p0',
         action: const PassAction(playerId: 'p0'),
         schupfAction: SchupfAction(

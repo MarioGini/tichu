@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -49,26 +48,6 @@ Map<String, List<Card>> _handsWithLast(String lastId, List<Card> lastHand) {
 }
 
 void main() {
-  group('score data', () {
-    test('pointsForCard returns correct values', () {
-      expect(pointsForCard(_card(CardFace.five, CardColor.red)), 5);
-      expect(pointsForCard(_card(CardFace.ten, CardColor.black)), 10);
-      expect(pointsForCard(_card(CardFace.king, CardColor.green)), 10);
-      expect(pointsForCard(_card(CardFace.dragon, CardColor.special)), 25);
-      expect(pointsForCard(_card(CardFace.phoenix, CardColor.special)), -25);
-      expect(pointsForCard(_card(CardFace.ace, CardColor.blue)), 0);
-    });
-
-    test('pointsForCards sums correctly', () {
-      final cards = [
-        _card(CardFace.ten, CardColor.red),
-        _card(CardFace.five, CardColor.blue),
-        _card(CardFace.phoenix, CardColor.special),
-      ];
-      expect(pointsForCards(cards), -10);
-    });
-  });
-
   group('LocalScoreTracker', () {
     late LocalScoreTracker tracker;
 
@@ -113,6 +92,7 @@ void main() {
       expect(tracker.state.rounds, hasLength(1));
       expect(tracker.state.rounds.last.teamOneCardPoints, 20);
       expect(tracker.state.rounds.last.teamTwoCardPoints, 25);
+      expect(tracker.state.rounds.last.roundEndType, RoundEndType.normal);
     });
 
     test('applies tichu and grand tichu bonuses', () {
@@ -132,7 +112,7 @@ void main() {
       expect(tracker.state.rounds.last.teamTwoBonusPoints, -200);
     });
 
-    test('double win overrides card points', () {
+    test('double win (match) uses fixed score without card counting', () {
       tracker.recordTrick(_playerOneId, [_card(CardFace.ten, CardColor.red)]);
       tracker.recordTrick(_playerTwoId, [
         _card(CardFace.king, CardColor.black),
@@ -153,8 +133,9 @@ void main() {
 
       expect(tracker.state.teamOneRound, 200);
       expect(tracker.state.teamTwoRound, 0);
-      expect(tracker.state.rounds.last.teamOneCardPoints, 40);
-      expect(tracker.state.rounds.last.teamTwoCardPoints, 10);
+      expect(tracker.state.rounds.last.teamOneCardPoints, 0);
+      expect(tracker.state.rounds.last.teamTwoCardPoints, 0);
+      expect(tracker.state.rounds.last.roundEndType, RoundEndType.match);
     });
 
     test('finalizeRound appends missing finishers', () {
@@ -250,7 +231,7 @@ void main() {
       );
     });
 
-    test('all calls on winning team are positive and stack', () {
+    test('only first finisher call succeeds even on winning team', () {
       tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
       tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
       tracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
@@ -262,9 +243,25 @@ void main() {
       tracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
 
       expect(tracker.state.rounds.last.teamOneCardPoints, 0);
-      expect(tracker.state.rounds.last.teamOneBonusPoints, 300);
-      expect(tracker.state.rounds.last.teamOnePoints, 300);
+      expect(tracker.state.rounds.last.teamOneBonusPoints, -100);
+      expect(tracker.state.rounds.last.teamOnePoints, -100);
       expect(tracker.state.rounds.last.teamTwoBonusPoints, 0);
+    });
+
+    test('double win with missed tichu by second finisher nets +100', () {
+      tracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerFourId, const <Card>[]);
+
+      tracker.recordTichuCall(_playerOneId, isGrand: false);
+
+      tracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
+
+      expect(tracker.state.rounds.last.teamOneCardPoints, 0);
+      expect(tracker.state.rounds.last.teamOneBonusPoints, -100);
+      expect(tracker.state.teamOneRound, 100);
+      expect(tracker.state.teamTwoRound, 0);
     });
 
     test('all calls on losing team are negative and stack', () {

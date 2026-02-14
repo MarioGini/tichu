@@ -1,0 +1,1 @@
+enum PlayerControlMode { manual, ai }

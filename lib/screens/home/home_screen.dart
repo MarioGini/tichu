@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tichu/game/player_control.dart';
 import '../game/game_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -11,6 +12,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static const List<int> _scoreOptions = [500, 1000, 1500, 2000];
   int _targetScore = 1000;
+  PlayerControlMode _selfControlMode = PlayerControlMode.manual;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Play locally against three AI agents and fine-tune your tactics.',
+                        'Play locally against three automated opponents and fine-tune your tactics.',
                         style: Theme.of(context).textTheme.bodyLarge,
                         textAlign: TextAlign.center,
                       ),
@@ -100,14 +102,57 @@ class _HomeScreenState extends State<HomeScreen> {
                             .toList(),
                       ),
                       const SizedBox(height: 24),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Your player control',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SegmentedButton<PlayerControlMode>(
+                        segments: const [
+                          ButtonSegment<PlayerControlMode>(
+                            value: PlayerControlMode.manual,
+                            label: Text('Manual'),
+                            icon: Icon(Icons.person),
+                          ),
+                          ButtonSegment<PlayerControlMode>(
+                            value: PlayerControlMode.ai,
+                            label: Text('AI'),
+                            icon: Icon(Icons.smart_toy),
+                          ),
+                        ],
+                        selected: {_selfControlMode},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (selection) {
+                          final selected = selection.first;
+                          setState(() {
+                            _selfControlMode = selected;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _selfControlMode == PlayerControlMode.manual
+                            ? 'You play manually; opponents are AI.'
+                            : 'AI controls your seat too so you can watch full AI play.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    GameScreen(targetScore: _targetScore),
+                                builder: (_) => GameScreen(
+                                  targetScore: _targetScore,
+                                  playerControlModes: {
+                                    'player-0': _selfControlMode,
+                                  },
+                                ),
                               ),
                             );
                           },

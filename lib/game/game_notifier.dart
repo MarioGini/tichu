@@ -1,5 +1,5 @@
 import 'package:flutter/foundation.dart';
-import 'package:tichu/services/game_backend.dart';
+import 'package:tichu/game/game_backend.dart';
 
 /// UI-facing notifier API that can be backed by either a local or cloud backend.
 ///

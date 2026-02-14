@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Card;
 
-import '../view_model/turn/tichu_data.dart';
+import '../game/turn/tichu_data.dart';
 
 class CardWidget extends StatelessWidget {
   const CardWidget({

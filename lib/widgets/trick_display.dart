@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Card;
 
-import '../view_model/turn/tichu_data.dart';
+import '../game/turn/tichu_data.dart';
 import 'card_widget.dart';
 import 'overlapping_card_row.dart';
 
@@ -12,9 +12,9 @@ class TrickDisplay extends StatelessWidget {
     this.dragonGiveLabel = '',
     required this.activeWish,
     this.trickPoints = 0,
-    this.pendingAiLabel,
-    this.pendingAiCards = const [],
-    this.pendingAiPass = false,
+    this.pendingOpponentLabel,
+    this.pendingOpponentCards = const [],
+    this.pendingOpponentPass = false,
   });
 
   final List<Card> cards;
@@ -22,9 +22,9 @@ class TrickDisplay extends StatelessWidget {
   final String dragonGiveLabel;
   final CardFace activeWish;
   final int trickPoints;
-  final String? pendingAiLabel;
-  final List<Card> pendingAiCards;
-  final bool pendingAiPass;
+  final String? pendingOpponentLabel;
+  final List<Card> pendingOpponentCards;
+  final bool pendingOpponentPass;
 
   @override
   Widget build(BuildContext context) {

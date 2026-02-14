@@ -73,6 +73,22 @@ Run tests:
 flutter test
 ```
 
+Global coverage report (single run for all files):
+```
+flutter test --coverage
+```
+
+Coverage output is written to `coverage/lcov.info`.
+
+Quick inspect examples:
+```
+# overall line coverage
+lcov --summary coverage/lcov.info
+
+# inspect one file (example)
+lcov --list coverage/lcov.info | grep "lib/agents/ai/wish_strategy.dart"
+```
+
 Clean build outputs:
 ```
 flutter clean
@@ -81,7 +97,7 @@ flutter clean
 ## Headless AI mode
 Run an AI-vs-AI match without UI and emit CSV for analysis:
 ```
-dart run bin/headless.dart --seed=42 --target-score=1000
+dart run lib/headless/headless.dart --seed=42 --target-score=1000
 ```
 
 By default, the CSV is written to game.csv with a header and one row per event.

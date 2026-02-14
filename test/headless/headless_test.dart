@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/headless/headless.dart' as headless;
 
-import '../../headless/headless.dart' as headless;
 
 void main() {
   test('headless runner writes a playable log', () async {

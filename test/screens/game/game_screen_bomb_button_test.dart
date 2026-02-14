@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 import '../../utils/test_game_backend.dart';
 import '../../utils/test_game_fixtures.dart';
-import 'package:tichu/view_model/turn/tichu_data.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
 
 void main() {
   testWidgets('enables bomb button when hand contains bomb', (tester) async {

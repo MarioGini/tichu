@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Card;
 
-import '../view_model/turn/tichu_data.dart';
+import '../game/turn/tichu_data.dart';
 import 'card_widget.dart';
 import 'overlapping_card_row.dart';
 
@@ -10,12 +10,14 @@ class HandDisplay extends StatelessWidget {
     required this.cards,
     required this.selectedIndexes,
     required this.onCardTap,
+    this.isActive = false,
     this.targetHeight,
   });
 
   final List<Card> cards;
   final Set<int> selectedIndexes;
   final ValueChanged<int> onCardTap;
+  final bool isActive;
   final double? targetHeight;
 
   @override
@@ -35,9 +37,12 @@ class HandDisplay extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.25),
+        color: Colors.black.withValues(alpha: isActive ? 0.35 : 0.25),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(
+          color: isActive ? Colors.amber : Colors.white12,
+          width: isActive ? 2 : 1,
+        ),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {

@@ -127,6 +127,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
   }
 
   void _maybeShowDragonGiveDialog(PlayerSnapshot snapshot) {
+    if (!_isSelfManual) return;
     if (_dragonGiveDialogOpen) return;
     if (snapshot.pendingDragonGiveBy != _humanId) return;
     if (snapshot.pendingDragonGiveTargets.isEmpty) return;
@@ -170,6 +171,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
   }
 
   void _maybeShowGrandTichuDialog(PlayerSnapshot snapshot) {
+    if (!_isSelfManual) return;
     if (_grandTichuDialogOpen) return;
     if (snapshot.phase != GamePhase.grandTichu) return;
     if (snapshot.grandTichuDecisions.containsKey(_humanId)) return;
@@ -206,13 +208,14 @@ mixin _GameScreenDialogs on _GameScreenBindings {
   }
 
   @override
-  Future<CardFace?> _promptWish() async {
+  Future<CardFace?> _promptWish({CardFace? defaultWish}) async {
     if (_wishDialogOpen) return null;
     if (!mounted) return null;
 
     _wishDialogOpen = true;
 
     const wishChoices = <CardFace>[
+      CardFace.none,
       CardFace.two,
       CardFace.three,
       CardFace.four,
@@ -230,6 +233,8 @@ mixin _GameScreenDialogs on _GameScreenBindings {
 
     String labelFor(CardFace face) {
       switch (face) {
+        case CardFace.none:
+          return 'No wish';
         case CardFace.ten:
           return '10';
         case CardFace.jack:
@@ -245,63 +250,46 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       }
     }
 
+    final initialChoice = (defaultWish != null &&
+            wishChoices.contains(defaultWish))
+        ? defaultWish
+        : CardFace.none;
+
     final selection = await showDialog<CardFace>(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        CardFace selected = wishChoices.first;
-        final controller = FixedExtentScrollController();
+        CardFace selected = initialChoice;
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
               title: const Text('Declare a wish'),
               content: SizedBox(
-                height: 180,
+                width: 360,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Wish: ${labelFor(selected)}',
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: ListWheelScrollView.useDelegate(
-                        controller: controller,
-                        itemExtent: 36,
-                        onSelectedItemChanged: (index) {
-                          setState(() {
-                            selected = wishChoices[index];
-                          });
-                        },
-                        perspective: 0.003,
-                        physics: const FixedExtentScrollPhysics(),
-                        childDelegate: ListWheelChildBuilderDelegate(
-                          childCount: wishChoices.length,
-                          builder: (context, index) {
-                            final face = wishChoices[index];
-                            final isSelected = face == selected;
-                            return Center(
-                              child: Text(
-                                labelFor(face),
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(
-                                      color: isSelected
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.primary
-                                          : Theme.of(
-                                              context,
-                                            ).colorScheme.onSurface,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : null,
-                                    ),
-                              ),
-                            );
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: wishChoices.map((face) {
+                        final isSelected = face == selected;
+                        return ChoiceChip(
+                          label: Text(labelFor(face)),
+                          selected: isSelected,
+                          onSelected: (_) {
+                            setState(() {
+                              selected = face;
+                            });
                           },
-                        ),
-                      ),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),
@@ -340,6 +328,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
   }
 
   Future<void> _submitSchupf() async {
+    if (!_isSelfManual) return;
     final snapshot = _snapshot;
     if (snapshot == null) return;
     if (snapshot.phase != GamePhase.schupf) return;
@@ -350,6 +339,8 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       _showSnack('Pick one card for each player before sending.');
       return;
     }
+
+    final wishDefault = _schupfToLeft?.face;
 
     try {
       await _backend.submitAction(
@@ -362,6 +353,8 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         ),
       );
       setState(() {
+        _defaultWishFaceFromSchupf = wishDefault;
+        _defaultWishRoundNumber = snapshot.scoreState.roundNumber;
         _selectedIndexes.clear();
         _schupfToLeft = null;
         _schupfToPartner = null;

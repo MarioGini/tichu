@@ -2,6 +2,7 @@ part of '../game_screen.dart';
 
 mixin _GameScreenActions on _GameScreenBindings {
   void _toggleSelect(int index) {
+    if (!_isSelfManual) return;
     setState(() {
       if (_selectedIndexes.contains(index)) {
         _selectedIndexes.remove(index);
@@ -14,14 +15,11 @@ mixin _GameScreenActions on _GameScreenBindings {
   @override
   Future<void> _startRound() async {
     if (_gameId == null || !_roundCompleteAcknowledged) return;
-    setState(() {
-      _canDeclareTichu = true;
-      _tichuDeclared = false;
-    });
     await _backend.startNewRound(_gameId!);
   }
 
   Future<void> _playSelected() async {
+    if (!_isSelfManual) return;
     final snapshot = _snapshot;
     if (snapshot == null || _selectedIndexes.isEmpty) {
       return;
@@ -51,7 +49,14 @@ mixin _GameScreenActions on _GameScreenBindings {
 
     CardFace inputWish = CardFace.none;
     if (selectedTurn.cards.any((card) => card.face == CardFace.mahJong)) {
-      final wish = await _promptWish();
+      CardFace? defaultWish;
+      if (_defaultWishRoundNumber == snapshot.scoreState.roundNumber) {
+        final schupfWish = _defaultWishFaceFromSchupf;
+        if (schupfWish != null && _isWishableFace(schupfWish)) {
+          defaultWish = schupfWish;
+        }
+      }
+      final wish = await _promptWish(defaultWish: defaultWish);
       if (!mounted) return;
       if (wish == null) return;
       inputWish = wish;
@@ -68,7 +73,6 @@ mixin _GameScreenActions on _GameScreenBindings {
       );
       setState(() {
         _selectedIndexes.clear();
-        _canDeclareTichu = false;
       });
     } catch (error) {
       _showSnack(error.toString());
@@ -76,6 +80,7 @@ mixin _GameScreenActions on _GameScreenBindings {
   }
 
   Future<void> _playBomb() async {
+    if (!_isSelfManual) return;
     final snapshot = _snapshot;
     if (snapshot == null) return;
 
@@ -84,22 +89,10 @@ mixin _GameScreenActions on _GameScreenBindings {
     if (snapshot.pendingDragonGiveBy == _humanId) return;
 
     // Find all bombs in the hand and pick the first one that can be played.
-    final bombs = getBombs(_hand);
+    final bombs = _turnRules.bombsInHand(_hand);
     if (bombs.isEmpty) return;
 
-    TichuTurn? playableBomb;
-    for (final bomb in bombs) {
-      final updated = _turnHandler.handleTurn(
-        snapshot.deck,
-        List<Card>.from(bomb.cards),
-        CardFace.none,
-        hand: _hand,
-      );
-      if (updated.turn != TichuTurn.InvalidTurn()) {
-        playableBomb = bomb;
-        break;
-      }
-    }
+    final playableBomb = _turnRules.firstPlayableBomb(snapshot.deck, _hand);
 
     if (playableBomb == null) {
       _showSnack('No bomb can beat the current play.');
@@ -135,7 +128,6 @@ mixin _GameScreenActions on _GameScreenBindings {
       );
       setState(() {
         _selectedIndexes.clear();
-        _canDeclareTichu = false;
       });
     } catch (error) {
       _showSnack(error.toString());
@@ -143,16 +135,16 @@ mixin _GameScreenActions on _GameScreenBindings {
   }
 
   @override
-  Future<void> _confirmAiTurn() async {
+  Future<void> _confirmOpponentTurn() async {
     final snapshot = _snapshot;
-    if (snapshot == null || !snapshot.aiAwaitingConfirmation) {
+    if (snapshot == null || !snapshot.opponentAwaitingConfirmation) {
       return;
     }
 
     try {
       await _backend.submitAction(
         snapshot.gameId,
-        ConfirmAiTurnAction(playerId: _humanId),
+        ConfirmOpponentTurnAction(playerId: _humanId),
       );
     } catch (error) {
       _showSnack(error.toString());
@@ -161,6 +153,7 @@ mixin _GameScreenActions on _GameScreenBindings {
 
   @override
   Future<void> _pass() async {
+    if (!_isSelfManual) return;
     final snapshot = _snapshot;
     if (snapshot == null || snapshot.currentPlayerId != _humanId) {
       return;
@@ -179,7 +172,6 @@ mixin _GameScreenActions on _GameScreenBindings {
       );
       setState(() {
         _selectedIndexes.clear();
-        _canDeclareTichu = false;
       });
     } catch (error) {
       _showSnack(error.toString());
@@ -187,6 +179,7 @@ mixin _GameScreenActions on _GameScreenBindings {
   }
 
   Future<void> _declareTichu() async {
+    if (!_isSelfManual) return;
     final snapshot = _snapshot;
     if (snapshot == null || snapshot.currentPlayerId != _humanId) {
       return;
@@ -198,10 +191,6 @@ mixin _GameScreenActions on _GameScreenBindings {
     if (snapshot.pendingDragonGiveBy == _humanId) {
       return;
     }
-    setState(() {
-      _tichuDeclared = true;
-      _canDeclareTichu = false;
-    });
     try {
       await _backend.submitAction(
         snapshot.gameId,
@@ -219,7 +208,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     setState(() {
       _schupfAckPending = true;
     });
-    final delayMs = (_aiDelaySeconds * 1000).round();
+    final delayMs = (_opponentDelaySeconds * 1000).round();
     await Future.delayed(Duration(milliseconds: delayMs));
     try {
       await _backend.submitAction(
@@ -235,5 +224,26 @@ mixin _GameScreenActions on _GameScreenBindings {
         });
       }
     }
+  }
+}
+
+bool _isWishableFace(CardFace face) {
+  switch (face) {
+    case CardFace.two:
+    case CardFace.three:
+    case CardFace.four:
+    case CardFace.five:
+    case CardFace.six:
+    case CardFace.seven:
+    case CardFace.eight:
+    case CardFace.nine:
+    case CardFace.ten:
+    case CardFace.jack:
+    case CardFace.queen:
+    case CardFace.king:
+    case CardFace.ace:
+      return true;
+    default:
+      return false;
   }
 }

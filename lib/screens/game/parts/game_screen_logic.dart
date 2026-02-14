@@ -11,31 +11,33 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     }
   }
 
-  void _maybeAutoConfirmAi(PlayerSnapshot snapshot) {
-    if (!snapshot.aiAwaitingConfirmation) return;
-    final pendingPlayer = snapshot.pendingAiPlayerId;
-    if (pendingPlayer == null || pendingPlayer == _humanId) return;
+  void _maybeAutoConfirmOpponentTurn(PlayerSnapshot snapshot) {
+    if (!snapshot.opponentAwaitingConfirmation) return;
+    final pendingPlayer = snapshot.pendingOpponentPlayerId;
+    if (pendingPlayer == null) return;
+    if (_isSelfManual && pendingPlayer == _humanId) return;
 
     final pendingKey = [
       snapshot.gameId,
       pendingPlayer,
-      snapshot.pendingAiPass.toString(),
-      snapshot.pendingAiCards.map((card) => card.hashCode).join(','),
+      snapshot.pendingOpponentPass.toString(),
+      snapshot.pendingOpponentCards.map((card) => card.hashCode).join(','),
     ].join('|');
 
     if (_lastAutoConfirmKey == pendingKey) return;
     _lastAutoConfirmKey = pendingKey;
 
-    final delayMs = (_aiDelaySeconds * 1000).round();
+    final delayMs = (_opponentDelaySeconds * 1000).round();
     _autoConfirmTimer?.cancel();
     _autoConfirmTimer = Timer(Duration(milliseconds: delayMs), () {
       if (!mounted) return;
-      if (_snapshot?.aiAwaitingConfirmation != true) return;
-      _confirmAiTurn();
+      if (_snapshot?.opponentAwaitingConfirmation != true) return;
+      _confirmOpponentTurn();
     });
   }
 
   void _maybeAutoPass(PlayerSnapshot snapshot) {
+    if (!_isSelfManual) return;
     if (!_autoPassEnabled) return;
     if (snapshot.phase != GamePhase.play) return;
     if (snapshot.currentPlayerId != _humanId) return;
@@ -64,21 +66,15 @@ mixin _GameScreenHelpers on _GameScreenBindings {
   }
 
   void _maybeAutoSelectFinisher(PlayerSnapshot snapshot) {
-    if (snapshot.phase != GamePhase.play) return;
-    if (snapshot.currentPlayerId != _humanId) return;
-    if (snapshot.pendingDragonGiveBy == _humanId) return;
-    if (snapshot.schupfReceipts.isNotEmpty) return;
-    if (_schupfAckPending) return;
-    if (_selectedIndexes.isNotEmpty) return;
-    if (_hand.isEmpty) return;
-
-    final updated = _turnHandler.handleTurn(
-      snapshot.deck,
-      List<Card>.from(_hand),
-      CardFace.none,
+    if (!_isSelfManual) return;
+    final shouldAutoSelect = _playController.shouldAutoSelectFinisher(
+      snapshot: snapshot,
+      humanId: _humanId,
       hand: _hand,
+      schupfAckPending: _schupfAckPending,
+      hasSelectedCards: _selectedIndexes.isNotEmpty,
     );
-    if (updated.turn == TichuTurn.InvalidTurn()) {
+    if (!shouldAutoSelect) {
       return;
     }
 
@@ -140,71 +136,38 @@ mixin _GameScreenHelpers on _GameScreenBindings {
 
   @override
   TichuTurn? _resolveSelectedTurn(PlayerSnapshot snapshot) {
-    final selected = _selectedCards();
-    if (selected.isEmpty) {
-      return null;
-    }
-
-    final selectedTurn = getTurn(List<Card>.from(selected));
-    if (selectedTurn == TichuTurn.InvalidTurn()) {
-      return null;
-    }
-    final updated = _turnHandler.handleTurn(
-      snapshot.deck,
-      List<Card>.from(selected),
-      CardFace.none,
+    return _playController.resolveSelectedTurn(
+      snapshot: snapshot,
+      selectedCards: _selectedCards(),
       hand: _hand,
     );
-    if (updated.turn == TichuTurn.InvalidTurn()) {
-      return null;
-    }
-
-    return selectedTurn;
   }
 
   bool _canPlaySelected(PlayerSnapshot snapshot) {
-    if (snapshot.phase != GamePhase.play) return false;
-    if (snapshot.pendingDragonGiveBy == _humanId) return false;
-    if (snapshot.currentPlayerId != _humanId) return false;
-    if (snapshot.schupfReceipts.isNotEmpty) return false;
-    if (_schupfAckPending) return false;
-    if (_selectedIndexes.isEmpty) return false;
-    return _resolveSelectedTurn(snapshot) != null;
+    return _playController.canPlaySelected(
+      snapshot: snapshot,
+      humanId: _humanId,
+      hand: _hand,
+      selectedCards: _selectedCards(),
+      schupfAckPending: _schupfAckPending,
+    );
   }
 
   bool _canPlayAny(PlayerSnapshot snapshot) {
-    if (snapshot.phase != GamePhase.play) return false;
-    if (snapshot.pendingDragonGiveBy == _humanId) return false;
-    if (snapshot.currentPlayerId != _humanId) return false;
-    if (snapshot.schupfReceipts.isNotEmpty) return false;
-    if (_schupfAckPending) return false;
-
-    final legalTurns = generateLegalTurns(snapshot.deck, _hand);
-    for (final turn in legalTurns) {
-      final updated = _turnHandler.handleTurn(
-        snapshot.deck,
-        List<Card>.from(turn.cards),
-        CardFace.none,
-        hand: _hand,
-      );
-      if (updated.turn != TichuTurn.InvalidTurn()) {
-        return true;
-      }
-    }
-    return false;
+    return _playController.canPlayAny(
+      snapshot: snapshot,
+      humanId: _humanId,
+      hand: _hand,
+      schupfAckPending: _schupfAckPending,
+    );
   }
 
   bool _canEnableBomb(PlayerSnapshot snapshot) {
-    if (snapshot.phase != GamePhase.play) return false;
-    if (snapshot.pendingDragonGiveBy == _humanId) return false;
-    if (!hasBombInHand(_hand)) return false;
-    final isHumanTurn = snapshot.currentPlayerId == _humanId;
-    final deckType = snapshot.deck.turn.type;
-    if (!isHumanTurn &&
-        (deckType == TurnType.empty || deckType == TurnType.none)) {
-      return false;
-    }
-    return true;
+    return _playController.canEnableBomb(
+      snapshot: snapshot,
+      humanId: _humanId,
+      hand: _hand,
+    );
   }
 
   @override

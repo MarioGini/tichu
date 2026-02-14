@@ -4,19 +4,15 @@ part of '../game_screen.dart';
 
 mixin _GameScreenBindings on State<GameScreen> {
   String get _humanId;
+  bool get _isSelfManual;
   GameBackend get _backend;
   String? get _gameId;
   PlayerSnapshot? get _snapshot;
   List<Card> get _hand;
   Set<int> get _selectedIndexes;
-  TurnHandler get _turnHandler;
+  TurnRulesAdapter get _turnRules;
+  GamePlayController get _playController;
   AnimationController get _bombController;
-
-  bool get _canDeclareTichu;
-  set _canDeclareTichu(bool value);
-
-  bool get _tichuDeclared;
-  set _tichuDeclared(bool value);
 
   bool get _roundCompleteAcknowledged;
   set _roundCompleteAcknowledged(bool value);
@@ -33,6 +29,12 @@ mixin _GameScreenBindings on State<GameScreen> {
   bool get _wishDialogOpen;
   set _wishDialogOpen(bool value);
 
+  CardFace? get _defaultWishFaceFromSchupf;
+  set _defaultWishFaceFromSchupf(CardFace? value);
+
+  int get _defaultWishRoundNumber;
+  set _defaultWishRoundNumber(int value);
+
   bool get _showBombOverlay;
   set _showBombOverlay(bool value);
 
@@ -42,8 +44,8 @@ mixin _GameScreenBindings on State<GameScreen> {
   String? get _lastAutoPassKey;
   set _lastAutoPassKey(String? value);
 
-  double get _aiDelaySeconds;
-  set _aiDelaySeconds(double value);
+  double get _opponentDelaySeconds;
+  set _opponentDelaySeconds(double value);
 
   bool get _autoPassEnabled;
   set _autoPassEnabled(bool value);
@@ -71,9 +73,9 @@ mixin _GameScreenBindings on State<GameScreen> {
 
   Future<void> _startRound();
 
-  Future<void> _confirmAiTurn();
+  Future<void> _confirmOpponentTurn();
 
   Future<void> _pass();
 
-  Future<CardFace?> _promptWish();
+  Future<CardFace?> _promptWish({CardFace? defaultWish});
 }

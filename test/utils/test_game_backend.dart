@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:tichu/services/game_backend.dart';
+import 'package:tichu/game/game_backend.dart';
 
 class FakeGameBackend implements GameBackend {
   final StreamController<PlayerSnapshot> _controller =

@@ -67,6 +67,8 @@ mixin _GameScreenBindings on State<GameScreen> {
 
   TichuTurn? _resolveSelectedTurn(PlayerSnapshot snapshot);
 
+  bool _canPass(PlayerSnapshot snapshot);
+
   void _showSnack(String message);
 
   List<Card> _selectedCards();

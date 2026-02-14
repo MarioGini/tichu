@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/agents/ai/bomb_timing_strategy.dart';
+import 'package:tichu/agents/bomb_timing_strategy.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'ai_test_fixtures.dart';

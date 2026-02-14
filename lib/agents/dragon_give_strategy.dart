@@ -1,5 +1,5 @@
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/agents/ai/table_relationships.dart';
+import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 
 abstract class DragonGiveStrategy {

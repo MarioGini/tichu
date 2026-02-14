@@ -306,5 +306,44 @@ void main() {
       ];
       expect(getTurn(cards), TichuTurn(TurnType.pairStraight, cards));
     });
+
+    test('invalid when two phoenix cards are present', () {
+      var cards = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        Card(CardFace.five, CardColor.red),
+        Card.phoenix(Card.getValue(CardFace.five)),
+        Card.phoenix(Card.getValue(CardFace.five)),
+      ];
+      expect(getTurn(cards), TichuTurn.InvalidTurn());
+    });
+
+    test('phoenix resolves as straight in six-card hand', () {
+      var cards = <Card>[
+        Card(CardFace.two, CardColor.blue),
+        Card(CardFace.three, CardColor.red),
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.seven, CardColor.blue),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+
+      final turn = getTurn(cards);
+      expect(turn.type, TurnType.straight);
+      expect(turn.cards, hasLength(6));
+    });
+
+    test('phoenix resolves in long pair-straight when possible', () {
+      var cards = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.green),
+        Card(CardFace.six, CardColor.black),
+        Card(CardFace.seven, CardColor.blue),
+        Card(CardFace.phoenix, CardColor.special),
+      ];
+
+      final turn = getTurn(cards);
+      expect(turn.type, TurnType.pairStraight);
+    });
   });
 }

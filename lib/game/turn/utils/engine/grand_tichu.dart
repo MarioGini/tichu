@@ -14,11 +14,21 @@ void applyGrandTichuDecision(
     state.scoreTracker.recordTichuCall(action.playerId, isGrand: true);
   }
 
-  _maybeFinalizeGrandTichu(state);
+  if (_allPlayersDecided(state)) {
+    _maybeFinalizeGrandTichu(state);
+    return;
+  }
+
+  state.currentPlayerIndex =
+      (state.currentPlayerIndex + 1) % state.players.length;
+}
+
+bool _allPlayersDecided(GameEngineState state) {
+  return state.grandTichuDecisions.length >= state.players.length;
 }
 
 void _maybeFinalizeGrandTichu(GameEngineState state) {
-  if (state.grandTichuDecisions.length < state.players.length) {
+  if (!_allPlayersDecided(state)) {
     return;
   }
 

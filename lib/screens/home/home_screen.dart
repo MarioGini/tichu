@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: ElevatedButton.icon(
                           onPressed: () {
                             Navigator.of(context).push(
-                              MaterialPageRoute(
+                              MaterialPageRoute<void>(
                                 builder: (_) => GameScreen(
                                   targetScore: _targetScore,
                                   playerControlModes: {

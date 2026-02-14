@@ -46,6 +46,7 @@ class DefaultSchupfStrategy implements SchupfStrategy {
 
     final (leftId, partnerId, rightId) = _seatIds(snapshot, playerId);
     final tichuCalls = snapshot.scoreState.tichuCalls;
+    final selfGrand = tichuCalls[playerId] == TichuCall.grandTichu;
     final partnerGrand =
         partnerId != null && tichuCalls[partnerId] == TichuCall.grandTichu;
     final leftGrand =
@@ -57,7 +58,9 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     Card? toRight;
 
     // If an opponent called Grand Tichu, prefer giving them the Dog.
-    if ((leftGrand || rightGrand) &&
+    // If partner called Grand Tichu, keep Dog for support plays.
+    if (!partnerGrand &&
+        (leftGrand || rightGrand) &&
         remaining.any((c) => c.face == CardFace.dog)) {
       final dogIndex = remaining.indexWhere((c) => c.face == CardFace.dog);
       if (dogIndex != -1) {
@@ -93,7 +96,7 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     if (toLeft == null) {
       final pick =
           _pickLowestByParity(normalPool, isEven: false) ??
-          _pickLowest(remaining);
+          _pickLowest(remaining, avoidDog: partnerGrand);
       toLeft = pick;
       remaining.remove(pick);
     }
@@ -101,16 +104,27 @@ class DefaultSchupfStrategy implements SchupfStrategy {
       final updatedNormal = _normalCandidates(remaining);
       final pick =
           _pickLowestByParity(updatedNormal, isEven: true) ??
-          _pickLowest(remaining);
+          _pickLowest(remaining, avoidDog: partnerGrand);
       toRight = pick;
       remaining.remove(pick);
     }
 
-    // Partner card: if partner called Grand Tichu, give the best available.
+    // Partner card strategy:
+    // - Partner called Grand Tichu: give strongest non-Dog card if possible.
+    // - Self called Grand Tichu: keep strength and give partner the 3rd low.
+    // - Otherwise: give strongest regular card.
     Card toPartner;
     if (partnerGrand) {
-      remaining.sort((a, b) => b.value.compareTo(a.value));
-      toPartner = remaining.first;
+      final nonDog = remaining.where((c) => c.face != CardFace.dog).toList();
+      if (nonDog.isNotEmpty) {
+        nonDog.sort((a, b) => b.value.compareTo(a.value));
+        toPartner = nonDog.first;
+      } else {
+        remaining.sort((a, b) => b.value.compareTo(a.value));
+        toPartner = remaining.first;
+      }
+    } else if (selfGrand) {
+      toPartner = _pickLowest(remaining);
     } else {
       final partnerPool = _normalCandidates(remaining);
       if (partnerPool.isNotEmpty) {
@@ -157,9 +171,15 @@ class DefaultSchupfStrategy implements SchupfStrategy {
         .toList();
   }
 
-  Card _pickLowest(List<Card> pool) {
-    pool.sort((a, b) => a.value.compareTo(b.value));
-    return pool.first;
+  Card _pickLowest(List<Card> pool, {bool avoidDog = false}) {
+    final candidates = avoidDog
+        ? pool.where((card) => card.face != CardFace.dog).toList()
+        : List<Card>.from(pool);
+    if (candidates.isEmpty) {
+      candidates.addAll(pool);
+    }
+    candidates.sort((a, b) => a.value.compareTo(b.value));
+    return candidates.first;
   }
 
   Card? _pickLowestByParity(List<Card> pool, {required bool isEven}) {

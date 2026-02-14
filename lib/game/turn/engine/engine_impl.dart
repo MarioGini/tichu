@@ -114,6 +114,11 @@ class GameEngineImpl implements GameEngine {
     }
 
     if (state.phase == GamePhase.grandTichu) {
+      final expectedPlayer = state.players[state.currentPlayerIndex].id;
+      if (action.playerId != expectedPlayer) {
+        throw StateError('Grand tichu decisions must be made in turn order.');
+      }
+
       if (action is CallGrandTichuAction) {
         applyGrandTichuDecision(
           state,

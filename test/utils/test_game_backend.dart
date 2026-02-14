@@ -14,6 +14,9 @@ class FakeGameBackend implements GameBackend {
   }
 
   @override
+  Future<void> setAutomatedActionDelay(Duration delay) async {}
+
+  @override
   Stream<PlayerSnapshot> watchGame(String gameId, String playerId) {
     return _controller.stream;
   }

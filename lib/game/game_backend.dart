@@ -219,6 +219,8 @@ class AcknowledgeSchupfAction extends GameAction {
 abstract class GameBackend {
   Stream<PlayerSnapshot> watchGame(String gameId, String playerId);
 
+  Future<void> setAutomatedActionDelay(Duration delay);
+
   Future<String> createGame(List<GamePlayer> players, {int targetScore = 1000});
 
   Future<void> startGame(String gameId);

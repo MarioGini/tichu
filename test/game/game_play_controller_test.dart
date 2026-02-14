@@ -80,7 +80,9 @@ void main() {
         currentPlayerId: testHumanId,
         hand: [Card(CardFace.two, CardColor.green)],
         deck: DeckState(
-          TichuTurn(TurnType.single, [Card(CardFace.dragon, CardColor.special)]),
+          TichuTurn(TurnType.single, [
+            Card(CardFace.dragon, CardColor.special),
+          ]),
           CardFace.none,
         ),
       );
@@ -93,6 +95,50 @@ void main() {
       );
 
       expect(canPlayAny, isFalse);
+    });
+
+    test('canPass is false when active wish can be fulfilled', () {
+      final ace = Card(CardFace.ace, CardColor.green);
+      final snapshot = buildPlayerSnapshot(
+        currentPlayerId: testHumanId,
+        hand: [ace],
+        deck: DeckState(
+          TichuTurn(TurnType.single, [Card(CardFace.king, CardColor.red)]),
+          CardFace.ace,
+        ),
+      );
+
+      final canPass = controller.canPass(
+        snapshot: snapshot,
+        humanId: testHumanId,
+        hand: snapshot.hand,
+        schupfAckPending: false,
+      );
+
+      expect(canPass, isFalse);
+    });
+
+    test('canPass is true when active wish cannot be fulfilled', () {
+      final ace = Card(CardFace.ace, CardColor.green);
+      final snapshot = buildPlayerSnapshot(
+        currentPlayerId: testHumanId,
+        hand: [ace],
+        deck: DeckState(
+          TichuTurn(TurnType.single, [
+            Card(CardFace.dragon, CardColor.special),
+          ]),
+          CardFace.ace,
+        ),
+      );
+
+      final canPass = controller.canPass(
+        snapshot: snapshot,
+        humanId: testHumanId,
+        hand: snapshot.hand,
+        schupfAckPending: false,
+      );
+
+      expect(canPass, isTrue);
     });
 
     test('canEnableBomb is false when deck empty and not human turn', () {

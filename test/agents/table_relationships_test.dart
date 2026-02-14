@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/agents/ai/table_relationships.dart';
+import 'package:tichu/agents/table_relationships.dart';
 
 import 'ai_test_fixtures.dart';
 

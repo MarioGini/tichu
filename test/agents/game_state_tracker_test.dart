@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/agents/ai/game_state_tracker.dart';
+import 'package:tichu/agents/game_state_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'ai_test_fixtures.dart';

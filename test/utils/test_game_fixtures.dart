@@ -53,6 +53,8 @@ PlayerSnapshot buildPlayerSnapshot({
   String? pendingDragonGiveBy,
   List<String>? pendingDragonGiveTargets,
   ScoreState? scoreState,
+  GamePhase phase = GamePhase.play,
+  List<String>? schupfCompletedPlayers,
   List<SchupfReceipt>? schupfReceipts,
 }) {
   return PlayerSnapshot(
@@ -88,9 +90,9 @@ PlayerSnapshot buildPlayerSnapshot({
     pendingOpponentPass: pendingOpponentPass,
     scoreState: scoreState ?? ScoreState.initial(),
     opponentAwaitingConfirmation: opponentAwaitingConfirmation,
-    phase: GamePhase.play,
+    phase: phase,
     grandTichuDecisions: const {},
-    schupfCompletedPlayers: const [],
+    schupfCompletedPlayers: schupfCompletedPlayers ?? const [],
     schupfReceipts: schupfReceipts ?? const [],
   );
 }

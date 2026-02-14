@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/agents/ai/play_tactics_policy.dart';
-import 'package:tichu/agents/ai/schupf_strategy.dart';
-import 'package:tichu/agents/ai/smart_ai_agent.dart';
-import 'package:tichu/agents/ai/table_relationships.dart';
+import 'package:tichu/agents/play_tactics_policy.dart';
+import 'package:tichu/agents/schupf_strategy.dart';
+import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -691,6 +691,25 @@ void main() {
       final play = action as PlayTurnAction;
       expect(getTurn(play.cards).type, TurnType.single);
       expect(play.cards.first.face, CardFace.two);
+    });
+
+    test('plays dog after winning when partner called grand tichu', () async {
+      final hand = [
+        Card(CardFace.dog, CardColor.special),
+        Card(CardFace.five, CardColor.blue),
+      ];
+
+      final snapshot = _snapshot(
+        myHand: hand,
+        deck: _emptyDeck(),
+        tichuCalls: {_partnerId: TichuCall.grandTichu},
+        lastPlayedBy: _aiId,
+      );
+
+      final action = await agent.selectTurn(snapshot);
+      expect(action, isA<PlayTurnAction>());
+      final play = action as PlayTurnAction;
+      expect(getTurn(play.cards).type, TurnType.dog);
     });
   });
 

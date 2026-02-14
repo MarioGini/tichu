@@ -165,6 +165,9 @@ mixin _GameScreenActions on _GameScreenBindings {
     if (snapshot.pendingDragonGiveBy == _humanId) {
       return;
     }
+    if (!_canPass(snapshot)) {
+      return;
+    }
     try {
       await _backend.submitAction(
         snapshot.gameId,
@@ -209,7 +212,7 @@ mixin _GameScreenActions on _GameScreenBindings {
       _schupfAckPending = true;
     });
     final delayMs = (_opponentDelaySeconds * 1000).round();
-    await Future.delayed(Duration(milliseconds: delayMs));
+    await Future<void>.delayed(Duration(milliseconds: delayMs));
     try {
       await _backend.submitAction(
         snapshot.gameId,

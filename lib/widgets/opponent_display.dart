@@ -61,7 +61,7 @@ class OpponentDisplay extends StatelessWidget {
         final maxHeight = constraints.maxHeight;
         final gap = hasPending ? 4.0 : 0.0;
         final pendingHeight = hasPending
-            ? (maxHeight * 0.42).clamp(60.0, 120.0).toDouble()
+            ? (maxHeight * 0.42).clamp(64.0, 140.0).toDouble()
             : 0.0;
         final boxSide = math.max(
           0.0,
@@ -72,32 +72,24 @@ class OpponentDisplay extends StatelessWidget {
           dimension: boxSide,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            margin: const EdgeInsets.all(8),
-            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: _boxDecoration(colorScheme),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _nameRow(context, colorScheme),
-                        const SizedBox(height: 4),
-                        _infoLine(context),
-                        const SizedBox(height: 6),
-                        _statusPill(context, colorScheme),
-                        if (finishPosition != null) _finishLabel(context),
-                      ],
-                    ),
-                  ),
-                ),
-                _tichuBadge(context, isHorizontal: true),
-              ],
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _nameRow(context, colorScheme),
+                  const SizedBox(height: 3),
+                  _infoLine(context),
+                  const SizedBox(height: 4),
+                  _statusPill(context, colorScheme),
+                  if (finishPosition != null) _finishLabel(context),
+                  _tichuBadge(context, isHorizontal: false),
+                ],
+              ),
             ),
           ),
         );
@@ -222,10 +214,7 @@ class OpponentDisplay extends StatelessWidget {
     if (isFinished) {
       borderColor = Colors.greenAccent;
       borderWidth = 2.5;
-    } else if (grandTichuDeclared) {
-      borderColor = Colors.deepOrange;
-      borderWidth = 2.5;
-    } else if (tichuDeclared) {
+    } else if (tichuDeclared && !grandTichuDeclared) {
       borderColor = Colors.orange;
       borderWidth = 2.5;
     } else if (isActive) {
@@ -240,11 +229,10 @@ class OpponentDisplay extends StatelessWidget {
       color: Colors.black.withValues(alpha: isActive ? 0.35 : 0.2),
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: borderColor, width: borderWidth),
-      boxShadow: (tichuDeclared || grandTichuDeclared)
+      boxShadow: (tichuDeclared && !grandTichuDeclared)
           ? [
               BoxShadow(
-                color: (grandTichuDeclared ? Colors.deepOrange : Colors.orange)
-                    .withValues(alpha: 0.35),
+                color: Colors.orange.withValues(alpha: 0.35),
                 blurRadius: 10,
                 spreadRadius: 1,
               ),
@@ -394,10 +382,12 @@ class OpponentDisplay extends StatelessWidget {
         final maxHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : CardWidget.compactHeight * 0.7 + 8;
-        final scale = math.min(0.7, maxHeight / CardWidget.compactHeight);
+        final safeHeight = math.max(0.0, maxHeight - 6);
+        final scale = math.min(0.7, safeHeight / CardWidget.compactHeight);
         final cardW = CardWidget.compactWidth * scale;
         final cardH = CardWidget.compactHeight * scale;
         final spacing = 6 * scale;
+        final rowHeight = math.min(maxHeight, cardH + 6);
 
         return ClipRect(
           child: Align(
@@ -408,7 +398,7 @@ class OpponentDisplay extends StatelessWidget {
               cardHeight: cardH,
               spacing: spacing,
               minVisible: 10 * scale,
-              height: cardH + 6,
+              height: rowHeight,
               itemBuilder: (context, index) {
                 return CardWidget(
                   card: pendingCards[index],

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/agents/ai/play_selection_strategy.dart';
-import 'package:tichu/agents/ai/turn_scorer.dart';
+import 'package:tichu/agents/play_selection_strategy.dart';
+import 'package:tichu/agents/turn_scorer.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'ai_test_fixtures.dart';

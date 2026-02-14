@@ -61,6 +61,14 @@ void main() {
 
       expect(uniformColor(cards), false);
     });
+
+    test('singleCardIsUniform', () {
+      expect(uniformColor([Card(CardFace.five, CardColor.red)]), true);
+    });
+
+    test('emptyListIsUniform', () {
+      expect(uniformColor([]), true);
+    });
   });
   group('findConnected', () {
     test('simple', () {
@@ -83,6 +91,15 @@ void main() {
       expect(connectedCards.first.beginIdx, 0);
       expect(connectedCards.last.endIdx, cards.indexOf(cards.last));
       expect(connectedCards, expected);
+    });
+
+    test('emptyList', () {
+      expect(findConnectedCards([]), isEmpty);
+    });
+
+    test('singleCardProducesSingleSegment', () {
+      final cards = [Card(CardFace.three, CardColor.green)];
+      expect(findConnectedCards(cards), [ConnectedCards(0, 0)]);
     });
   });
 }

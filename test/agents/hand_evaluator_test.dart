@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/agents/ai/hand_evaluator.dart';
+import 'package:tichu/agents/hand_evaluator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 void main() {

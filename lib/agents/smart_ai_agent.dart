@@ -1,14 +1,14 @@
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/agents/ai/dragon_give_strategy.dart';
-import 'package:tichu/agents/ai/game_state_tracker.dart';
-import 'package:tichu/agents/ai/play_tactics_policy.dart';
-import 'package:tichu/agents/ai/player_agent.dart';
-import 'package:tichu/agents/ai/play_selection_strategy.dart';
-import 'package:tichu/agents/ai/schupf_strategy.dart';
-import 'package:tichu/agents/ai/table_relationships.dart';
-import 'package:tichu/agents/ai/tichu_call_strategy.dart';
-import 'package:tichu/agents/ai/turn_scorer.dart';
-import 'package:tichu/agents/ai/wish_strategy.dart';
+import 'package:tichu/agents/dragon_give_strategy.dart';
+import 'package:tichu/agents/game_state_tracker.dart';
+import 'package:tichu/agents/play_tactics_policy.dart';
+import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/agents/play_selection_strategy.dart';
+import 'package:tichu/agents/schupf_strategy.dart';
+import 'package:tichu/agents/table_relationships.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
+import 'package:tichu/agents/turn_scorer.dart';
+import 'package:tichu/agents/wish_strategy.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -126,6 +126,18 @@ class SmartAiAgent implements PlayerAgent {
     );
     if (partnerLead != null) {
       return _buildPlayAction(snapshot, partnerLead, deck, hand);
+    }
+
+    final partnerGrandDogLead = playTacticsPolicy
+        .selectPartnerGrandTichuDogLead(
+          playerId: playerId,
+          snapshot: snapshot,
+          legalTurns: legalTurns,
+          isLeading: isLeading,
+          table: table,
+        );
+    if (partnerGrandDogLead != null) {
+      return _buildPlayAction(snapshot, partnerGrandDogLead, deck, hand);
     }
 
     final mahjongLead = playTacticsPolicy.selectMahjongLeadTurn(

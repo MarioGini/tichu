@@ -20,6 +20,7 @@ Future<void> main(List<String> args) async {
 
   final random = config.seed == null ? Random() : Random(config.seed);
   final backend = LocalGameBackend(random: random);
+  await backend.setAutomatedActionDelay(Duration.zero);
   final players = _buildAutomatedPlayers();
   final gameId = await backend.createGame(
     players,
@@ -32,10 +33,12 @@ Future<void> main(List<String> args) async {
     gameId: gameId,
     stream: stream,
     output: outputSink,
+    maxRounds: config.rounds,
   );
 
+  final runFuture = runner.run();
   await backend.startGame(gameId);
-  await runner.run();
+  await runFuture;
   await backend.disposeGame(gameId);
   await outputSink.flush();
   await outputSink.close();
@@ -46,10 +49,12 @@ class _HeadlessRunner {
   final String gameId;
   final Stream<GameSnapshot> stream;
   final IOSink output;
+  final int? maxRounds;
 
   GameSnapshot? _previous;
   var _sequence = 0;
   var _headerWritten = false;
+  var _completedRounds = 0;
   late final StreamSubscription<GameSnapshot> _subscription;
   final Completer<void> _done = Completer<void>();
 
@@ -58,12 +63,13 @@ class _HeadlessRunner {
     required this.gameId,
     required this.stream,
     required this.output,
+    required this.maxRounds,
   });
 
   Future<void> run() async {
     _subscription = stream.listen(
       (snapshot) => _handleSnapshot(snapshot),
-      onError: (error, stackTrace) {
+      onError: (Object error, StackTrace stackTrace) {
         stderr.writeln('error,$error');
         if (!_done.isCompleted) {
           _done.completeError(error, stackTrace);
@@ -231,11 +237,24 @@ class _HeadlessRunner {
       return;
     }
 
+    _completedRounds++;
+
     _writeRow(
       event: 'round_end',
       snapshot: snapshot,
       note: snapshot.scoreState.finishOrder.join('|'),
     );
+
+    if (maxRounds != null && _completedRounds >= maxRounds!) {
+      if (!_done.isCompleted) {
+        _done.complete();
+      }
+      return;
+    }
+
+    if (!snapshot.scoreState.gameComplete) {
+      unawaited(backend.startNewRound(gameId));
+    }
   }
 
   void _emitGameEnd(GameSnapshot snapshot, GameSnapshot previous) {
@@ -342,12 +361,14 @@ class _HeadlessRunner {
 class _HeadlessConfig {
   final int? seed;
   final int targetScore;
+  final int? rounds;
   final String outputPath;
   final bool showHelp;
 
   const _HeadlessConfig({
     required this.seed,
     required this.targetScore,
+    required this.rounds,
     required this.outputPath,
     required this.showHelp,
   });
@@ -356,6 +377,7 @@ class _HeadlessConfig {
 _HeadlessConfig _parseArgs(List<String> args) {
   int? seed;
   var targetScore = _defaultTargetScore;
+  int? rounds;
   var outputPath = 'game.csv';
   var showHelp = false;
 
@@ -372,6 +394,13 @@ _HeadlessConfig _parseArgs(List<String> args) {
       targetScore = int.tryParse(arg.split('=').last) ?? _defaultTargetScore;
       continue;
     }
+    if (arg.startsWith('--rounds=')) {
+      final parsedRounds = int.tryParse(arg.split('=').last);
+      if (parsedRounds != null && parsedRounds > 0) {
+        rounds = parsedRounds;
+      }
+      continue;
+    }
     if (arg.startsWith('--output=')) {
       outputPath = arg.split('=').last;
       continue;
@@ -381,6 +410,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
   return _HeadlessConfig(
     seed: seed,
     targetScore: targetScore,
+    rounds: rounds,
     outputPath: outputPath,
     showHelp: showHelp,
   );
@@ -389,7 +419,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
 void _printUsage() {
   stdout.writeln('Headless Tichu automated-opponent runner');
   stdout.writeln('Usage: dart run lib/headless/headless.dart [--seed=N]');
-  stdout.writeln('       [--target-score=N] [--output=game.csv]');
+  stdout.writeln('       [--target-score=N] [--rounds=N] [--output=game.csv]');
 }
 
 List<GamePlayer> _buildAutomatedPlayers() {

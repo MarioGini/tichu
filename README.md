@@ -65,7 +65,7 @@ flutter format --output=none --set-exit-if-changed .
 
 Analyze:
 ```
-flutter analyze
+flutter analyze --fatal-infos --fatal-warnings
 ```
 
 Run tests:
@@ -86,7 +86,13 @@ Quick inspect examples:
 lcov --summary coverage/lcov.info
 
 # inspect one file (example)
-lcov --list coverage/lcov.info | grep "lib/agents/ai/wish_strategy.dart"
+lcov --list coverage/lcov.info | grep "lib/agents/wish_strategy.dart"
+
+# python summary helper (overall + top files)
+uv run python coverage/parse_lcov.py --top 30
+
+# focus only on game/scoring files and show uncovered line numbers
+uv run python coverage/parse_lcov.py --include lib/game --include scoring --show-uncovered
 ```
 
 Clean build outputs:
@@ -102,3 +108,9 @@ dart run lib/headless/headless.dart --seed=42 --target-score=1000
 
 By default, the CSV is written to game.csv with a header and one row per event.
 Use --output=path.csv to change the output file.
+
+## Rules explainer (scoring)
+- Card points across both teams sum to 100 each round.
+- Tichu/grand-tichu bonuses are applied in steps of ±100/±200.
+- Double-win rounds are scored as 200:0 before bonuses.
+- Therefore, the combined round score (`team_one_round + team_two_round`) is always divisible by 100.

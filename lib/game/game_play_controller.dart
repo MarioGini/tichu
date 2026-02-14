@@ -1,6 +1,7 @@
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/turn_rules_adapter.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/wish_logic.dart';
 
 class GamePlayController {
   final TurnRulesAdapter _turnRules;
@@ -80,6 +81,28 @@ class GamePlayController {
     }
 
     return false;
+  }
+
+  bool canPass({
+    required PlayerSnapshot snapshot,
+    required String humanId,
+    required List<Card> hand,
+    required bool schupfAckPending,
+  }) {
+    if (!_isPlayTurnForHuman(snapshot, humanId, schupfAckPending)) {
+      return false;
+    }
+
+    final deckType = snapshot.deck.turn.type;
+    if (deckType == TurnType.empty || deckType == TurnType.none) {
+      return false;
+    }
+
+    if (mahJong(snapshot.deck, TichuTurn(TurnType.none, []), hand)) {
+      return false;
+    }
+
+    return true;
   }
 
   bool canEnableBomb({

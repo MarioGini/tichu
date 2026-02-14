@@ -174,6 +174,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     if (!_isSelfManual) return;
     if (_grandTichuDialogOpen) return;
     if (snapshot.phase != GamePhase.grandTichu) return;
+    if (snapshot.currentPlayerId != _humanId) return;
     if (snapshot.grandTichuDecisions.containsKey(_humanId)) return;
 
     _grandTichuDialogOpen = true;
@@ -250,8 +251,8 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       }
     }
 
-    final initialChoice = (defaultWish != null &&
-            wishChoices.contains(defaultWish))
+    final initialChoice =
+        (defaultWish != null && wishChoices.contains(defaultWish))
         ? defaultWish
         : CardFace.none;
 

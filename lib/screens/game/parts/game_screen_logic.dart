@@ -162,6 +162,16 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     );
   }
 
+  @override
+  bool _canPass(PlayerSnapshot snapshot) {
+    return _playController.canPass(
+      snapshot: snapshot,
+      humanId: _humanId,
+      hand: _hand,
+      schupfAckPending: _schupfAckPending,
+    );
+  }
+
   bool _canEnableBomb(PlayerSnapshot snapshot) {
     return _playController.canEnableBomb(
       snapshot: snapshot,

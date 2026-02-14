@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/agents/ai/play_tactics_policy.dart';
-import 'package:tichu/agents/ai/table_relationships.dart';
+import 'package:tichu/agents/play_tactics_policy.dart';
+import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -64,6 +64,35 @@ void main() {
         );
 
         expect(pass, isA<PassAction>());
+      },
+    );
+
+    test(
+      'selectPartnerGrandTichuDogLead returns dog when leading after own win',
+      () {
+        final snapshot = aiSnapshot(
+          myHand: [
+            Card(CardFace.dog, CardColor.special),
+            Card(CardFace.five, CardColor.red),
+          ],
+          tichuCalls: {aiTestPartnerId: TichuCall.grandTichu},
+          lastPlayedBy: aiTestSelfId,
+        );
+        final legalTurns = [
+          TichuTurn(TurnType.dog, [Card(CardFace.dog, CardColor.special)]),
+          TichuTurn(TurnType.single, [Card(CardFace.five, CardColor.red)]),
+        ];
+
+        final selected = policy.selectPartnerGrandTichuDogLead(
+          playerId: aiTestSelfId,
+          snapshot: snapshot,
+          legalTurns: legalTurns,
+          isLeading: true,
+          table: TableRelationships(snapshot, aiTestSelfId),
+        );
+
+        expect(selected, isNotNull);
+        expect(selected!.type, TurnType.dog);
       },
     );
 

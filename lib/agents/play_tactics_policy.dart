@@ -1,5 +1,5 @@
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/agents/ai/table_relationships.dart';
+import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/wish_logic.dart';
@@ -84,6 +84,42 @@ class PlayTacticsPolicy {
       (turn) => !turn.cards.any((c) => c.face == CardFace.dragon),
     );
     return nonDragon.isNotEmpty ? nonDragon.first : singles.first;
+  }
+
+  TichuTurn? selectPartnerGrandTichuDogLead({
+    required String playerId,
+    required GameSnapshot snapshot,
+    required List<TichuTurn> legalTurns,
+    required bool isLeading,
+    required TableRelationships table,
+  }) {
+    if (!isLeading) {
+      return null;
+    }
+
+    final partnerId = table.partnerId;
+    if (partnerId == null) {
+      return null;
+    }
+
+    final partnerCall =
+        snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
+    if (partnerCall != TichuCall.grandTichu) {
+      return null;
+    }
+
+    if (snapshot.lastPlayedBy != playerId) {
+      return null;
+    }
+
+    for (final turn in legalTurns) {
+      if (turn.type == TurnType.dog ||
+          turn.cards.any((card) => card.face == CardFace.dog)) {
+        return turn;
+      }
+    }
+
+    return null;
   }
 
   List<TichuTurn> wishPreferredTurns({

@@ -170,5 +170,118 @@ void main() {
         _playerFourId,
       ]);
     });
+
+    test('recordTrick ignores unknown winner and empty trick', () {
+      tracker.recordTrick('unknown', [_card(CardFace.ten, CardColor.red)]);
+      tracker.recordTrick(_playerOneId, const <Card>[]);
+
+      expect(tracker.state.teamOneRound, 0);
+      expect(tracker.state.teamTwoRound, 0);
+    });
+
+    test('recordPlayerFinished is idempotent', () {
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+
+      expect(tracker.state.finishOrder, [_playerOneId]);
+    });
+
+    test('finalizeRound is idempotent after completion', () {
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerFourId, const <Card>[]);
+
+      tracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
+      final firstTotalOne = tracker.state.teamOneTotal;
+      final firstTotalTwo = tracker.state.teamTwoTotal;
+
+      tracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
+      expect(tracker.state.teamOneTotal, firstTotalOne);
+      expect(tracker.state.teamTwoTotal, firstTotalTwo);
+      expect(tracker.state.rounds, hasLength(1));
+    });
+
+    test('round advances on startNewRound after completion', () {
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerFourId, const <Card>[]);
+      tracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
+
+      tracker.startNewRound(_players);
+
+      expect(tracker.state.roundNumber, 2);
+      expect(tracker.state.roundComplete, isFalse);
+      expect(tracker.state.teamOneRound, 0);
+      expect(tracker.state.teamTwoRound, 0);
+      expect(tracker.state.tichuCalls, isEmpty);
+    });
+
+    test('winningTeam is set when one team crosses target score', () {
+      final winTracker = LocalScoreTracker(targetScore: 200);
+      winTracker.startNewRound(_players);
+
+      winTracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      winTracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
+      winTracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
+      winTracker.recordPlayerFinished(_playerFourId, const <Card>[]);
+
+      winTracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
+
+      expect(winTracker.state.gameComplete, isTrue);
+      expect(winTracker.state.teamOneTotal, 200);
+      expect(winTracker.state.winningTeam, 0);
+    });
+
+    test('losing tichu call applies negative bonus to caller team', () {
+      tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerFourId, const <Card>[]);
+
+      tracker.recordTichuCall(_playerOneId, isGrand: false);
+      tracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
+
+      expect(tracker.state.rounds.last.teamOneBonusPoints, -100);
+      expect(
+        tracker.state.teamOneRound,
+        lessThan(tracker.state.rounds.last.teamOneCardPoints),
+      );
+    });
+
+    test('all calls on winning team are positive and stack', () {
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerFourId, const <Card>[]);
+
+      tracker.recordTichuCall(_playerOneId, isGrand: false);
+      tracker.recordTichuCall(_playerThreeId, isGrand: true);
+
+      tracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
+
+      expect(tracker.state.rounds.last.teamOneCardPoints, 0);
+      expect(tracker.state.rounds.last.teamOneBonusPoints, 300);
+      expect(tracker.state.rounds.last.teamOnePoints, 300);
+      expect(tracker.state.rounds.last.teamTwoBonusPoints, 0);
+    });
+
+    test('all calls on losing team are negative and stack', () {
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerFourId, const <Card>[]);
+
+      tracker.recordTichuCall(_playerTwoId, isGrand: false);
+      tracker.recordTichuCall(_playerFourId, isGrand: true);
+
+      tracker.finalizeRound(_handsWithLast(_playerFourId, const <Card>[]));
+
+      expect(tracker.state.rounds.last.teamTwoCardPoints, 0);
+      expect(tracker.state.rounds.last.teamTwoBonusPoints, -300);
+      expect(tracker.state.rounds.last.teamTwoPoints, -300);
+      expect(tracker.state.rounds.last.teamOneBonusPoints, 0);
+    });
   });
 }

@@ -3,7 +3,7 @@ import 'dart:math';
 
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/opponents/default_opponent_agent.dart';
-import 'package:tichu/agents/opponents/opponent_agent.dart';
+import 'package:tichu/game/opponent_agent.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -13,6 +13,7 @@ class LocalGameBackend implements GameBackend {
   final Map<String, _LocalGameState> _games = {};
   final Map<String, OpponentAgent> _automatedAgents = {};
   final Set<String> _automatedTurnsInFlight = {};
+  Duration _automatedActionDelay = const Duration(seconds: 1);
 
   LocalGameBackend({
     GameEngine? engine,
@@ -33,6 +34,11 @@ class LocalGameBackend implements GameBackend {
     return state.controller.stream.map(
       (snapshot) => _engine.buildPlayerSnapshot(snapshot, playerId),
     );
+  }
+
+  @override
+  Future<void> setAutomatedActionDelay(Duration delay) async {
+    _automatedActionDelay = delay;
   }
 
   Stream<GameSnapshot> watchGameState(String gameId) {
@@ -60,7 +66,6 @@ class LocalGameBackend implements GameBackend {
 
     _games[gameId] = state;
     _emitSnapshot(state);
-    _maybeRunAutomatedOpponents(state);
     return gameId;
   }
 
@@ -74,7 +79,7 @@ class LocalGameBackend implements GameBackend {
     _clearPendingOpponentTurn(state);
 
     _emitSnapshot(state);
-    _maybeRunAutomatedOpponents(state);
+    await _maybeRunAutomatedOpponents(state);
   }
 
   @override
@@ -86,7 +91,7 @@ class LocalGameBackend implements GameBackend {
     _engine.startGame(state.engineState);
     _clearPendingOpponentTurn(state);
     _emitSnapshot(state);
-    _maybeRunAutomatedOpponents(state);
+    await _maybeRunAutomatedOpponents(state);
   }
 
   @override
@@ -111,7 +116,7 @@ class LocalGameBackend implements GameBackend {
       _clearPendingOpponentTurn(state);
       _engine.applyAction(state.engineState, pendingAction);
       _emitSnapshot(state);
-      _maybeRunAutomatedOpponents(state);
+      await _maybeRunAutomatedOpponents(state);
       return;
     }
     _engine.applyAction(state.engineState, action);
@@ -126,7 +131,7 @@ class LocalGameBackend implements GameBackend {
     }
 
     _emitSnapshot(state);
-    _maybeRunAutomatedOpponents(state);
+    await _maybeRunAutomatedOpponents(state);
   }
 
   @override
@@ -163,6 +168,12 @@ class LocalGameBackend implements GameBackend {
       return;
     }
 
+    final automatedReceiptsResolved =
+        await _resolveSchupfReceiptsForAutomatedPlayers(state);
+    if (automatedReceiptsResolved) {
+      _emitSnapshot(state);
+    }
+
     if (_engine.hasPendingHumanSchupfReceipts(state.engineState)) {
       return;
     }
@@ -171,7 +182,7 @@ class LocalGameBackend implements GameBackend {
       await _resolveGrandTichuForAutomatedOpponents(state);
       _emitSnapshot(state);
       if (state.engineState.phase != GamePhase.grandTichu) {
-        _maybeRunAutomatedOpponents(state);
+        await _maybeRunAutomatedOpponents(state);
       }
       return;
     }
@@ -180,7 +191,7 @@ class LocalGameBackend implements GameBackend {
       await _resolveSchupfForAutomatedOpponents(state);
       _emitSnapshot(state);
       if (state.engineState.phase != GamePhase.schupf) {
-        _maybeRunAutomatedOpponents(state);
+        await _maybeRunAutomatedOpponents(state);
       }
       return;
     }
@@ -202,7 +213,7 @@ class LocalGameBackend implements GameBackend {
         _autoResolveDragonGive(state, pendingId);
         _emitSnapshot(state);
         if (state.engineState.pendingDragonGiveBy == null) {
-          _maybeRunAutomatedOpponents(state);
+          await _maybeRunAutomatedOpponents(state);
         }
       }
       return;
@@ -236,24 +247,35 @@ class LocalGameBackend implements GameBackend {
   Future<void> _resolveGrandTichuForAutomatedOpponents(
     _LocalGameState state,
   ) async {
-    final snapshot = _buildSnapshot(state);
-    for (final player in state.engineState.players) {
-      if (state.engineState.phase != GamePhase.grandTichu) {
-        return;
-      }
-      if (player.type != PlayerType.automated) continue;
-      if (state.engineState.grandTichuDecisions.containsKey(player.id)) {
+    while (state.engineState.phase == GamePhase.grandTichu) {
+      final currentPlayer =
+          state.engineState.players[state.engineState.currentPlayerIndex];
+
+      if (state.engineState.grandTichuDecisions.containsKey(currentPlayer.id)) {
+        state.engineState.currentPlayerIndex =
+            (state.engineState.currentPlayerIndex + 1) %
+            state.engineState.players.length;
         continue;
       }
-      final agent = _automatedAgents[player.id];
-      if (agent == null) continue;
+
+      if (currentPlayer.type != PlayerType.automated) {
+        return;
+      }
+
+      final agent = _automatedAgents[currentPlayer.id];
+      if (agent == null) {
+        return;
+      }
+
+      final snapshot = _buildSnapshot(state);
       final shouldCall = await agent.shouldCallGrandTichu(snapshot);
       if (state.engineState.phase != GamePhase.grandTichu) {
         return;
       }
+
       _engine.applyAction(
         state.engineState,
-        GrandTichuDecisionAction(playerId: player.id, call: shouldCall),
+        GrandTichuDecisionAction(playerId: currentPlayer.id, call: shouldCall),
       );
     }
   }
@@ -276,8 +298,51 @@ class LocalGameBackend implements GameBackend {
       if (state.engineState.phase != GamePhase.schupf) {
         return;
       }
+      state.pendingOpponentPlayerId = player.id;
+      state.pendingOpponentCards
+        ..clear()
+        ..addAll([selection.toLeft, selection.toPartner, selection.toRight]);
+      state.pendingOpponentPass = false;
+      state.opponentAwaitingConfirmation = false;
+      _emitSnapshot(state);
+      await _waitForAutomatedActionDelay();
+      if (state.engineState.phase != GamePhase.schupf) {
+        return;
+      }
+      if (state.pendingOpponentPlayerId == player.id) {
+        state.pendingOpponentPlayerId = null;
+        state.pendingOpponentCards.clear();
+        state.pendingOpponentPass = false;
+      }
       _engine.applyAction(state.engineState, selection);
     }
+  }
+
+  Future<bool> _resolveSchupfReceiptsForAutomatedPlayers(
+    _LocalGameState state,
+  ) async {
+    var applied = false;
+    for (final player in state.engineState.players) {
+      if (player.type != PlayerType.automated) continue;
+      final receipts = state.engineState.schupfReceipts[player.id];
+      if (receipts == null || receipts.isEmpty) continue;
+      await _waitForAutomatedActionDelay();
+      final currentReceipts = state.engineState.schupfReceipts[player.id];
+      if (currentReceipts == null || currentReceipts.isEmpty) {
+        continue;
+      }
+      _engine.applyAction(
+        state.engineState,
+        AcknowledgeSchupfAction(playerId: player.id),
+      );
+      applied = true;
+    }
+    return applied;
+  }
+
+  Future<void> _waitForAutomatedActionDelay() async {
+    if (_automatedActionDelay <= Duration.zero) return;
+    await Future<void>.delayed(_automatedActionDelay);
   }
 
   void _autoResolveDragonGive(_LocalGameState state, String winnerId) {

@@ -286,4 +286,115 @@ void main() {
       expect(turns, isNotEmpty);
     });
   });
+
+  group('generateLegalTurns on advanced trick types', () {
+    test('straight deck only allows same-length higher straight or bombs', () {
+      final hand = [
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.seven, CardColor.green),
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.ten, CardColor.blue),
+      ];
+      final deck = DeckState(
+        TichuTurn(TurnType.straight, [
+          Card(CardFace.four, CardColor.red),
+          Card(CardFace.five, CardColor.blue),
+          Card(CardFace.six, CardColor.green),
+          Card(CardFace.seven, CardColor.black),
+          Card(CardFace.eight, CardColor.red),
+        ]),
+        CardFace.none,
+      );
+
+      final turns = generateLegalTurns(deck, hand);
+      expect(
+        turns.any((t) => t.type == TurnType.straight && t.cards.length == 5),
+        isTrue,
+      );
+    });
+
+    test('pair-straight deck generates valid pair-straight responses', () {
+      final hand = [
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.seven, CardColor.red),
+        Card(CardFace.seven, CardColor.blue),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.blue),
+      ];
+      final deck = DeckState(
+        TichuTurn(TurnType.pairStraight, [
+          Card(CardFace.four, CardColor.red),
+          Card(CardFace.four, CardColor.blue),
+          Card(CardFace.five, CardColor.red),
+          Card(CardFace.five, CardColor.blue),
+        ]),
+        CardFace.none,
+      );
+
+      final turns = generateLegalTurns(deck, hand);
+      expect(turns.any((t) => t.type == TurnType.pairStraight), isTrue);
+    });
+
+    test('full-house deck generates valid full-house responses', () {
+      final hand = [
+        Card(CardFace.six, CardColor.red),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.six, CardColor.green),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.nine, CardColor.blue),
+      ];
+      final deck = DeckState(
+        TichuTurn(TurnType.fullHouse, [
+          Card(CardFace.five, CardColor.red),
+          Card(CardFace.five, CardColor.blue),
+          Card(CardFace.five, CardColor.green),
+          Card(CardFace.seven, CardColor.red),
+          Card(CardFace.seven, CardColor.blue),
+        ]),
+        CardFace.none,
+      );
+
+      final turns = generateLegalTurns(deck, hand);
+      expect(turns.any((t) => t.type == TurnType.fullHouse), isTrue);
+    });
+
+    test('bomb deck only allows stronger bombs', () {
+      final hand = [
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.nine, CardColor.blue),
+        Card(CardFace.nine, CardColor.green),
+        Card(CardFace.nine, CardColor.black),
+      ];
+      final deck = DeckState(
+        TichuTurn(TurnType.bomb, [
+          Card(CardFace.five, CardColor.red),
+          Card(CardFace.five, CardColor.blue),
+          Card(CardFace.five, CardColor.green),
+          Card(CardFace.five, CardColor.black),
+        ]),
+        CardFace.none,
+      );
+
+      final turns = generateLegalTurns(deck, hand);
+      expect(turns, hasLength(1));
+      expect(turns.first.type, TurnType.bomb);
+    });
+
+    test('phoenix cannot be played over dragon single', () {
+      final hand = [
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.two, CardColor.red),
+      ];
+      final deck = DeckState(
+        TichuTurn(TurnType.single, [Card(CardFace.dragon, CardColor.special)]),
+        CardFace.none,
+      );
+
+      final turns = generateLegalTurns(deck, hand);
+      expect(turns.where((t) => t.type == TurnType.single), isEmpty);
+    });
+  });
 }

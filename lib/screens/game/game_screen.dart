@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' hide Card;
+import 'package:tichu/game/driver_ui_projector.dart';
 import 'package:tichu/game/game_play_controller.dart';
 import 'package:tichu/game/turn_rules_adapter.dart';
 import 'package:tichu/game/player_control.dart';
@@ -30,9 +31,8 @@ class GameScreen extends StatefulWidget {
     GameBackend? backend,
     int targetScore = 1000,
     this.playerControlModes = const {},
-  })
-    : _backend = backend,
-      _targetScore = targetScore;
+  }) : _backend = backend,
+       _targetScore = targetScore;
 
   final GameBackend? _backend;
   final int _targetScore;
@@ -60,6 +60,7 @@ class _GameScreenState extends State<GameScreen>
   late final GameBackend _backend;
   @override
   final TurnRulesAdapter _turnRules = TurnRulesAdapter();
+  final DriverUiProjector _uiProjector = const DriverUiProjector();
   @override
   late final GamePlayController _playController = GamePlayController(
     turnRules: _turnRules,
@@ -106,7 +107,7 @@ class _GameScreenState extends State<GameScreen>
   @override
   String? _lastAutoPassKey;
   @override
-  double _opponentDelaySeconds = 1.0;
+  double _opponentDelaySeconds = 2.0;
   @override
   bool _autoPassEnabled = true;
   @override
@@ -188,6 +189,8 @@ class _GameScreenState extends State<GameScreen>
       _players,
       targetScore: widget._targetScore,
     );
+    final delayMs = (_opponentDelaySeconds * 1000).round();
+    await _backend.setAutomatedActionDelay(Duration(milliseconds: delayMs));
     _subscription = _backend
         .watchGame(gameId, _humanId)
         .listen(_handleSnapshot);
@@ -208,9 +211,19 @@ class _GameScreenState extends State<GameScreen>
       }
       _hand = List<Card>.from(snapshot.hand)..sort(_compareCardsForDisplay);
       _trickCards = List<Card>.from(snapshot.deck.turn.cards);
-      _pendingOpponentCards = List<Card>.from(snapshot.pendingOpponentCards);
-      _pendingOpponentPass = snapshot.pendingOpponentPass;
-      final pendingOpponentId = snapshot.pendingOpponentPlayerId;
+      final uiProjection = _uiProjector.project(
+        snapshot: snapshot,
+        humanId: _humanId,
+        isSelfManual: _isSelfManual,
+        hand: _hand,
+        currentSelectedIndexes: _selectedIndexes,
+        currentSchupfToLeft: _schupfToLeft,
+        currentSchupfToPartner: _schupfToPartner,
+        currentSchupfToRight: _schupfToRight,
+      );
+      _pendingOpponentCards = uiProjection.pendingOpponentCards;
+      _pendingOpponentPass = uiProjection.pendingOpponentPass;
+      final pendingOpponentId = uiProjection.pendingOpponentPlayerId;
       _pendingOpponentLabel = pendingOpponentId == null
           ? null
           : snapshot.players
@@ -226,12 +239,12 @@ class _GameScreenState extends State<GameScreen>
         _dragonGiveKey = dragonKey;
         _dragonGiveTurn = snapshot.lastPlayedTurn;
       }
-      if (snapshot.phase != GamePhase.schupf ||
-          snapshot.schupfCompletedPlayers.contains(_humanId)) {
-        _schupfToLeft = null;
-        _schupfToPartner = null;
-        _schupfToRight = null;
-      }
+      _schupfToLeft = uiProjection.schupfToLeft;
+      _schupfToPartner = uiProjection.schupfToPartner;
+      _schupfToRight = uiProjection.schupfToRight;
+      _selectedIndexes
+        ..clear()
+        ..addAll(uiProjection.selectedIndexes);
     });
 
     _handleTurnEffects(previousTurn, snapshot.lastPlayedTurn);
@@ -284,14 +297,17 @@ class _GameScreenState extends State<GameScreen>
         !snapshot.schupfCompletedPlayers.contains(_humanId);
     final hasSchupfReceipts =
         snapshot != null && snapshot.schupfReceipts.isNotEmpty;
+    final showTurnIndicators = !hasSchupfReceipts && !awaitingOpponentConfirm;
     final canPlayAny = snapshot != null ? _canPlayAny(snapshot) : false;
+    final canPass = snapshot != null ? _canPass(snapshot) : false;
     final passPreferred =
-      _isSelfManual &&
+        _isSelfManual &&
         isPlayPhase &&
         isLocalPlayerTurn &&
         !isSchupfActive &&
         !hasSchupfReceipts &&
         !awaitingOpponentConfirm &&
+        canPass &&
         !canPlayAny;
     final canStartRound =
         (isRoundComplete || snapshot == null) &&
@@ -370,7 +386,7 @@ class _GameScreenState extends State<GameScreen>
                 cards: _hand,
                 selectedIndexes: _selectedIndexes,
                 onCardTap: _isSelfManual ? _toggleSelect : (_) {},
-                isActive: _isSelfManual && isCurrentTurn(_humanId),
+                isActive: showTurnIndicators && isCurrentTurn(_humanId),
                 targetHeight: targetHeight,
               );
 
@@ -467,7 +483,7 @@ class _GameScreenState extends State<GameScreen>
           topOpponent: OpponentDisplay(
             name: 'Opponent 2 (Partner)',
             cardCount: snapshot?.opponentCardCounts['player-2'] ?? 0,
-            isActive: isCurrentTurn('player-2'),
+            isActive: showTurnIndicators && isCurrentTurn('player-2'),
             isFinished: isFinished('player-2'),
             tichuDeclared:
                 tichuCalls['player-2'] == TichuCall.tichu ||
@@ -488,7 +504,7 @@ class _GameScreenState extends State<GameScreen>
           leftOpponent: OpponentDisplay(
             name: 'Opponent 3',
             cardCount: snapshot?.opponentCardCounts['player-3'] ?? 0,
-            isActive: isCurrentTurn('player-3'),
+            isActive: showTurnIndicators && isCurrentTurn('player-3'),
             isFinished: isFinished('player-3'),
             tichuDeclared:
                 tichuCalls['player-3'] == TichuCall.tichu ||
@@ -509,7 +525,7 @@ class _GameScreenState extends State<GameScreen>
           rightOpponent: OpponentDisplay(
             name: 'Opponent 1',
             cardCount: snapshot?.opponentCardCounts['player-1'] ?? 0,
-            isActive: isCurrentTurn('player-1'),
+            isActive: showTurnIndicators && isCurrentTurn('player-1'),
             isFinished: isFinished('player-1'),
             tichuDeclared:
                 tichuCalls['player-1'] == TichuCall.tichu ||
@@ -532,25 +548,26 @@ class _GameScreenState extends State<GameScreen>
           handAreaMaxHeightOverride: schupfHandMaxHeight,
           actionBar: ActionBar(
             isPlayEnabled:
-              _isSelfManual &&
+                _isSelfManual &&
                 snapshot != null &&
                 _canPlaySelected(snapshot) &&
                 !isSchupfActive &&
                 !hasSchupfReceipts &&
                 !_schupfAckPending,
             isBombEnabled:
-              _isSelfManual &&
+                _isSelfManual &&
                 snapshot != null &&
                 _canEnableBomb(snapshot) &&
                 !isSchupfActive &&
                 !hasSchupfReceipts &&
                 !_schupfAckPending,
             isPassEnabled:
-              _isSelfManual &&
+                _isSelfManual &&
                 !isSchupfActive &&
                 !hasSchupfReceipts &&
                 !_schupfAckPending &&
-                isPlayPhase,
+                isPlayPhase &&
+                canPass,
             isPassPreferred: passPreferred,
             isSchupfEnabled:
                 isSchupfActive &&
@@ -559,7 +576,7 @@ class _GameScreenState extends State<GameScreen>
                 _schupfToRight != null,
             showSchupf: false,
             showDeclareTichu:
-              _isSelfManual &&
+                _isSelfManual &&
                 !isRoundComplete &&
                 isLocalPlayerTurn &&
                 (snapshot?.canCallTichu ?? false) &&
@@ -617,6 +634,10 @@ class _GameScreenState extends State<GameScreen>
                       setState(() {
                         _opponentDelaySeconds = value;
                       });
+                      final delayMs = (_opponentDelaySeconds * 1000).round();
+                      _backend.setAutomatedActionDelay(
+                        Duration(milliseconds: delayMs),
+                      );
                       dialogSetState(() {});
                     },
                   ),
@@ -833,12 +854,12 @@ class _GameScreenState extends State<GameScreen>
                     itemBuilder: (context, index) {
                       final card = available[index];
                       void onQuickAssign() {
-                        if (_schupfToLeft == null) {
-                          _setSchupfSlot(_SchupfSlot.left, card);
+                        if (_schupfToRight == null) {
+                          _setSchupfSlot(_SchupfSlot.right, card);
                         } else if (_schupfToPartner == null) {
                           _setSchupfSlot(_SchupfSlot.partner, card);
-                        } else if (_schupfToRight == null) {
-                          _setSchupfSlot(_SchupfSlot.right, card);
+                        } else if (_schupfToLeft == null) {
+                          _setSchupfSlot(_SchupfSlot.left, card);
                         }
                       }
 

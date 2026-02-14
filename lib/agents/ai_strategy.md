@@ -129,19 +129,19 @@ Code: [turn_scorer.dart](turn_scorer.dart)
 
 ## 5) Verification Map (tests)
 - Agent orchestration and tactical behavior:
-  [smart_ai_agent_test.dart](../../../test/agents/ai/smart_ai_agent_test.dart)
+  [smart_ai_agent_test.dart](../../../test/agents/smart_ai_agent_test.dart)
 - Tactical policy rules:
-  [play_tactics_policy_test.dart](../../../test/agents/ai/play_tactics_policy_test.dart)
+  [play_tactics_policy_test.dart](../../../test/agents/play_tactics_policy_test.dart)
 - Schupf rules:
-  [schupf_strategy_test.dart](../../../test/agents/ai/schupf_strategy_test.dart)
+  [schupf_strategy_test.dart](../../../test/agents/schupf_strategy_test.dart)
 - Dragon give rules:
-  [dragon_give_strategy_test.dart](../../../test/agents/ai/dragon_give_strategy_test.dart)
+  [dragon_give_strategy_test.dart](../../../test/agents/dragon_give_strategy_test.dart)
 - Wish rules:
-  [wish_strategy_test.dart](../../../test/agents/ai/wish_strategy_test.dart)
+  [wish_strategy_test.dart](../../../test/agents/wish_strategy_test.dart)
 - Tichu-call thresholds:
-  [tichu_call_strategy_test.dart](../../../test/agents/ai/tichu_call_strategy_test.dart)
+  [tichu_call_strategy_test.dart](../../../test/agents/tichu_call_strategy_test.dart)
 - Turn scoring policy:
-  [turn_scorer_test.dart](../../../test/agents/ai/turn_scorer_test.dart)
+  [turn_scorer_test.dart](../../../test/agents/turn_scorer_test.dart)
 
 ---
 

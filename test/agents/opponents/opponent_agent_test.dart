@@ -1,10 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/agents/ai/tichu_call_strategy.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/agents/opponents/default_opponent_agent.dart';
-import 'package:tichu/agents/opponents/opponent_agent.dart';
 
-import '../ai/ai_test_fixtures.dart';
+import '../ai_test_fixtures.dart';
 
 class _AlwaysCallTichuStrategy implements TichuCallStrategy {
   const _AlwaysCallTichuStrategy();

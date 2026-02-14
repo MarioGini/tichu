@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/agents/ai/wish_strategy.dart';
+import 'package:tichu/agents/wish_strategy.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'ai_test_fixtures.dart';
@@ -89,9 +89,7 @@ void main() {
         CardFace.dog,
       ];
 
-      final hand = [
-        Card(CardFace.king, CardColor.red),
-      ];
+      final hand = [Card(CardFace.king, CardColor.red)];
 
       for (final face in nonWishableFaces) {
         final wish = strategy.selectWish(

@@ -314,16 +314,16 @@ class LocalScoreTracker implements ScoreTracker {
 
     if (_finishOrder.isEmpty) return (0, 0);
 
-    final winner = _finishOrder.first;
+    final winningTeamIsOne = _isTeamOne(_finishOrder.first);
 
     for (final entry in _tichuCalls.entries) {
       final playerId = entry.key;
       final call = entry.value;
       if (call == TichuCall.none) continue;
 
-      final isWinner = playerId == winner;
+      final isCallerOnWinningTeam = _isTeamOne(playerId) == winningTeamIsOne;
       final delta = call == TichuCall.grandTichu ? 200 : 100;
-      final scoreDelta = isWinner ? delta : -delta;
+      final scoreDelta = isCallerOnWinningTeam ? delta : -delta;
 
       if (_isTeamOne(playerId)) {
         teamOneBonus += scoreDelta;

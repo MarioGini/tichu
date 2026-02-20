@@ -5,21 +5,21 @@ import 'package:tichu/game/turn/turn_handler.dart';
 void main() {
   group('validTurn', () {
     test('dragonOnSingleTest', () {
-      var deckTurn = TichuTurn(TurnType.single, [
+      final deckTurn = TichuTurn(TurnType.single, [
         Card(CardFace.ten, CardColor.red),
       ]);
-      var currentTurn = TichuTurn(TurnType.single, [
+      final currentTurn = TichuTurn(TurnType.single, [
         Card(CardFace.dragon, CardColor.special),
       ]);
 
       expect(validTurn(deckTurn, currentTurn), true);
     });
     test('bombPairTest', () {
-      var deckTurn = TichuTurn(TurnType.pair, [
+      final deckTurn = TichuTurn(TurnType.pair, [
         Card(CardFace.ten, CardColor.red),
         Card(CardFace.ten, CardColor.blue),
       ]);
-      var currentTurn = TichuTurn(TurnType.bomb, [
+      final currentTurn = TichuTurn(TurnType.bomb, [
         Card(CardFace.eight, CardColor.red),
         Card(CardFace.eight, CardColor.black),
         Card(CardFace.eight, CardColor.green),
@@ -79,7 +79,7 @@ void main() {
   group('handleTurn recognizes triplet/full house plays', () {
     test('accepts triplet on empty deck', () {
       final handler = TurnHandler();
-      final deck = DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
       final selected = <Card>[
         Card(CardFace.queen, CardColor.red),
         Card(CardFace.queen, CardColor.blue),
@@ -99,7 +99,7 @@ void main() {
 
     test('accepts full house on empty deck', () {
       final handler = TurnHandler();
-      final deck = DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
       final selected = <Card>[
         Card(CardFace.queen, CardColor.red),
         Card(CardFace.queen, CardColor.blue),
@@ -121,10 +121,10 @@ void main() {
 
     test('accepts pair with phoenix on empty deck', () {
       final handler = TurnHandler();
-      final deck = DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
       final selected = <Card>[
         Card(CardFace.queen, CardColor.red),
-        Card.phoenix(2.0),
+        const Card.phoenix(2),
       ];
 
       final updated = handler.handleTurn(

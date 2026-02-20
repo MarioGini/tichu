@@ -6,7 +6,7 @@ import 'package:tichu/game/turn/utils/full_house_utils.dart';
 import 'package:tichu/game/turn/utils/pair_straight_utils.dart';
 import 'package:tichu/game/turn/utils/straight_utils.dart';
 
-List<TichuTurn> generateLegalTurns(DeckState deck, List<Card> hand) {
+List<TichuTurn> generateLegalTurns(final DeckState deck, final List<Card> hand) {
   final turns = <TichuTurn>[];
   final handCopy = List<Card>.from(hand);
 
@@ -20,39 +20,32 @@ List<TichuTurn> generateLegalTurns(DeckState deck, List<Card> hand) {
   switch (deck.turn.type) {
     case TurnType.single:
       turns.addAll(_generateSingles(handCopy, deck));
-      break;
     case TurnType.pair:
       turns.addAll(_generatePairs(handCopy, deck));
-      break;
     case TurnType.triplet:
       turns.addAll(_generateTriplets(handCopy, deck));
-      break;
     case TurnType.straight:
       turns.addAll(
         getStraights(
           handCopy,
           deck.turn.cards.length,
-        ).where((turn) => validTurn(deck.turn, turn)),
+        ).where((final turn) => validTurn(deck.turn, turn)),
       );
-      break;
     case TurnType.pairStraight:
       turns.addAll(
         getPairStraights(
           handCopy,
           deck.turn.cards.length,
-        ).where((turn) => validTurn(deck.turn, turn)),
+        ).where((final turn) => validTurn(deck.turn, turn)),
       );
-      break;
     case TurnType.fullHouse:
       turns.addAll(
-        getFullHouses(handCopy).where((turn) => validTurn(deck.turn, turn)),
+        getFullHouses(handCopy).where((final turn) => validTurn(deck.turn, turn)),
       );
-      break;
     case TurnType.bomb:
       turns.addAll(
-        getBombs(handCopy).where((turn) => validTurn(deck.turn, turn)),
+        getBombs(handCopy).where((final turn) => validTurn(deck.turn, turn)),
       );
-      break;
     case TurnType.dog:
     case TurnType.empty:
     case TurnType.none:
@@ -68,7 +61,7 @@ List<TichuTurn> generateLegalTurns(DeckState deck, List<Card> hand) {
   return turns;
 }
 
-List<TichuTurn> _generateAnyTurns(List<Card> hand) {
+List<TichuTurn> _generateAnyTurns(final List<Card> hand) {
   final turns = <TichuTurn>[];
 
   turns.addAll(_generateSingles(hand, null));
@@ -82,7 +75,7 @@ List<TichuTurn> _generateAnyTurns(List<Card> hand) {
   return turns;
 }
 
-List<TichuTurn> _generateAnyStraights(List<Card> hand) {
+List<TichuTurn> _generateAnyStraights(final List<Card> hand) {
   final turns = <TichuTurn>[];
   final maxLength = hand.length;
   for (var length = 5; length <= maxLength; length += 1) {
@@ -91,7 +84,7 @@ List<TichuTurn> _generateAnyStraights(List<Card> hand) {
   return turns;
 }
 
-List<TichuTurn> _generateAnyPairStraights(List<Card> hand) {
+List<TichuTurn> _generateAnyPairStraights(final List<Card> hand) {
   final turns = <TichuTurn>[];
   final maxLength = hand.length;
   for (var length = 4; length <= maxLength; length += 2) {
@@ -100,11 +93,11 @@ List<TichuTurn> _generateAnyPairStraights(List<Card> hand) {
   return turns;
 }
 
-List<TichuTurn> _generateSingles(List<Card> hand, DeckState? deck) {
+List<TichuTurn> _generateSingles(final List<Card> hand, final DeckState? deck) {
   final turns = <TichuTurn>[];
-  final phoenix = hand.where((card) => card.face == CardFace.phoenix).toList();
+  final phoenix = hand.where((final card) => card.face == CardFace.phoenix).toList();
   final nonPhoenix = hand
-      .where((card) => card.face != CardFace.phoenix)
+      .where((final card) => card.face != CardFace.phoenix)
       .toList();
 
   for (final card in nonPhoenix) {
@@ -116,7 +109,7 @@ List<TichuTurn> _generateSingles(List<Card> hand, DeckState? deck) {
 
   if (phoenix.isNotEmpty) {
     if (deck == null) {
-      turns.add(TichuTurn(TurnType.single, [const Card.phoenix(1.5)]));
+      turns.add(TichuTurn(TurnType.single, const [Card.phoenix(1.5)]));
     } else if (deck.turn.cards.isNotEmpty &&
         deck.turn.cards.first.face != CardFace.dragon) {
       turns.add(
@@ -128,11 +121,11 @@ List<TichuTurn> _generateSingles(List<Card> hand, DeckState? deck) {
   return turns;
 }
 
-List<TichuTurn> _generatePairs(List<Card> hand, DeckState? deck) {
+List<TichuTurn> _generatePairs(final List<Card> hand, final DeckState? deck) {
   final turns = <TichuTurn>[];
-  final phoenixPresent = hand.any((card) => card.face == CardFace.phoenix);
+  final phoenixPresent = hand.any((final card) => card.face == CardFace.phoenix);
   final nonPhoenix = hand
-      .where((card) => card.face != CardFace.phoenix)
+      .where((final card) => card.face != CardFace.phoenix)
       .toList();
   final occurrenceCount = getOccurrenceCount(nonPhoenix);
 
@@ -144,7 +137,7 @@ List<TichuTurn> _generatePairs(List<Card> hand, DeckState? deck) {
     }
     if (count >= 2) {
       final faceCards = nonPhoenix
-          .where((card) => card.face == face)
+          .where((final card) => card.face == face)
           .toList(growable: false);
       for (var i = 0; i < faceCards.length - 1; i++) {
         for (var j = i + 1; j < faceCards.length; j++) {
@@ -157,7 +150,7 @@ List<TichuTurn> _generatePairs(List<Card> hand, DeckState? deck) {
     }
     if (phoenixPresent && count >= 1) {
       final faceCards = nonPhoenix
-          .where((card) => card.face == face)
+          .where((final card) => card.face == face)
           .toList(growable: false);
       for (final card in faceCards) {
         final turn = TichuTurn(TurnType.pair, [card, Card.phoenix(card.value)]);
@@ -171,17 +164,15 @@ List<TichuTurn> _generatePairs(List<Card> hand, DeckState? deck) {
   return turns;
 }
 
-bool _isForbiddenPairFace(CardFace face) {
-  return face == CardFace.mahJong ||
+bool _isForbiddenPairFace(final CardFace face) => face == CardFace.mahJong ||
       face == CardFace.dragon ||
       face == CardFace.dog;
-}
 
-List<TichuTurn> _generateTriplets(List<Card> hand, DeckState? deck) {
+List<TichuTurn> _generateTriplets(final List<Card> hand, final DeckState? deck) {
   final turns = <TichuTurn>[];
-  final phoenixPresent = hand.any((card) => card.face == CardFace.phoenix);
+  final phoenixPresent = hand.any((final card) => card.face == CardFace.phoenix);
   final nonPhoenix = hand
-      .where((card) => card.face != CardFace.phoenix)
+      .where((final card) => card.face != CardFace.phoenix)
       .toList();
   final occurrenceCount = getOccurrenceCount(nonPhoenix);
 
@@ -190,7 +181,7 @@ List<TichuTurn> _generateTriplets(List<Card> hand, DeckState? deck) {
     final count = entry.value;
     if (count >= 3) {
       final faceCards = nonPhoenix
-          .where((card) => card.face == face)
+          .where((final card) => card.face == face)
           .toList(growable: false);
       for (var i = 0; i < faceCards.length - 2; i++) {
         for (var j = i + 1; j < faceCards.length - 1; j++) {
@@ -209,7 +200,7 @@ List<TichuTurn> _generateTriplets(List<Card> hand, DeckState? deck) {
     }
     if (phoenixPresent && count >= 2) {
       final faceCards = nonPhoenix
-          .where((card) => card.face == face)
+          .where((final card) => card.face == face)
           .toList(growable: false);
       for (var i = 0; i < faceCards.length - 1; i++) {
         for (var j = i + 1; j < faceCards.length; j++) {

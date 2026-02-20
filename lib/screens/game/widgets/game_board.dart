@@ -21,9 +21,8 @@ class GameBoard extends StatelessWidget {
   final Widget actionBar;
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
+  Widget build(final BuildContext context) => LayoutBuilder(
+      builder: (final context, final constraints) {
         final isWide = constraints.maxWidth > 720;
         final isCompact = constraints.maxHeight < 500;
         final topMaxWidth = math.min(
@@ -36,7 +35,7 @@ class GameBoard extends StatelessWidget {
                 isWide ? 160.0 : 136.0,
                 isWide ? 240.0 : 200.0,
               );
-        final topHeight = math.min(desiredTopHeight, topMaxWidth).toDouble();
+        final topHeight = math.min(desiredTopHeight, topMaxWidth);
 
         /// Unified gap used between all board sections
         /// (top↔middle, sides↔trick, middle↔hand).
@@ -82,23 +81,23 @@ class GameBoard extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: sidePad),
                 child: LayoutBuilder(
-                  builder: (context, areaConstraints) {
+                  builder: (final context, final areaConstraints) {
                     final areaWidth = areaConstraints.maxWidth;
                     final areaHeight = areaConstraints.maxHeight;
                     final maxSideWidth = math.min(
                       areaWidth * (isWide ? 0.24 : 0.28),
                       isWide ? 260.0 : (isCompact ? 160.0 : 200.0),
                     );
-                    final sideWidth = math.max(
-                      0.0,
+                    final sideWidth = math.max<double>(
+                      0,
                       math.min(maxSideWidth, (areaWidth - boardGap * 2) / 3),
                     );
-                    final centerMaxWidth = math.max(
-                      0.0,
+                    final centerMaxWidth = math.max<double>(
+                      0,
                       areaWidth - (sideWidth * 2) - (boardGap * 2),
                     );
-                    final squareSize = math.max(
-                      0.0,
+                    final squareSize = math.max<double>(
+                      0,
                       math.min(
                             areaHeight,
                             math.min(sideWidth, centerMaxWidth),
@@ -110,7 +109,6 @@ class GameBoard extends StatelessWidget {
                       height: squareSize,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           SizedBox(
                             width: squareSize,
@@ -137,7 +135,6 @@ class GameBoard extends StatelessWidget {
               ),
               SizedBox(height: boardGap),
               Flexible(
-                fit: FlexFit.loose,
                 child: Padding(padding: handPadding, child: handArea),
               ),
               actionBar,
@@ -146,5 +143,4 @@ class GameBoard extends StatelessWidget {
         );
       },
     );
-  }
 }

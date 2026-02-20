@@ -1,4 +1,4 @@
-import '../turn/tichu_data.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
 
 class SchupfSelection {
   final Card fromLeft;

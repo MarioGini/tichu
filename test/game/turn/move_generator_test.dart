@@ -7,9 +7,9 @@ import 'package:tichu/game/turn/tichu_data.dart';
 // ---------------------------------------------------------------------------
 
 DeckState _emptyDeck() =>
-    DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+    DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
 
-DeckState _singleDeck(CardFace face) {
+DeckState _singleDeck(final CardFace face) {
   final deck = DeckState(
     TichuTurn(TurnType.single, [Card(face, CardColor.red)]),
     CardFace.none,
@@ -18,7 +18,7 @@ DeckState _singleDeck(CardFace face) {
   return deck;
 }
 
-DeckState _pairDeck(CardFace face) {
+DeckState _pairDeck(final CardFace face) {
   final deck = DeckState(
     TichuTurn(TurnType.pair, [
       Card(face, CardColor.red),
@@ -45,7 +45,7 @@ void main() {
       final hand = [Card(CardFace.five, CardColor.red)];
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
-      final singles = turns.where((t) => t.type == TurnType.single).toList();
+      final singles = turns.where((final t) => t.type == TurnType.single).toList();
       expect(singles.length, 1);
       expect(singles.first.cards.first.face, CardFace.five);
     });
@@ -57,7 +57,7 @@ void main() {
       ];
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
-      final pairs = turns.where((t) => t.type == TurnType.pair).toList();
+      final pairs = turns.where((final t) => t.type == TurnType.pair).toList();
       expect(pairs.length, 1);
       expect(pairs.first.cards.length, 2);
     });
@@ -70,7 +70,7 @@ void main() {
       ];
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
-      final triplets = turns.where((t) => t.type == TurnType.triplet).toList();
+      final triplets = turns.where((final t) => t.type == TurnType.triplet).toList();
       expect(triplets.length, 1);
       expect(triplets.first.cards.length, 3);
     });
@@ -84,7 +84,7 @@ void main() {
       ];
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
-      final bombs = turns.where((t) => t.type == TurnType.bomb).toList();
+      final bombs = turns.where((final t) => t.type == TurnType.bomb).toList();
       expect(bombs, isNotEmpty);
     });
 
@@ -99,7 +99,7 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final straights = turns
-          .where((t) => t.type == TurnType.straight)
+          .where((final t) => t.type == TurnType.straight)
           .toList();
       expect(straights, isNotEmpty);
       expect(straights.first.cards.length, 5);
@@ -119,7 +119,7 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final stairs = turns
-          .where((t) => t.type == TurnType.pairStraight && t.cards.length == 8)
+          .where((final t) => t.type == TurnType.pairStraight && t.cards.length == 8)
           .toList();
       expect(stairs, isNotEmpty);
     });
@@ -135,7 +135,7 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final straights = turns
-          .where((t) => t.type == TurnType.straight && t.cards.length == 5)
+          .where((final t) => t.type == TurnType.straight && t.cards.length == 5)
           .toList();
       expect(straights, isNotEmpty);
     });
@@ -153,7 +153,7 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final straights = turns
-          .where((t) => t.type == TurnType.straight && t.cards.length == 7)
+          .where((final t) => t.type == TurnType.straight && t.cards.length == 7)
           .toList();
       expect(straights, isNotEmpty);
     });
@@ -170,7 +170,7 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final straights = turns
-          .where((t) => t.type == TurnType.straight && t.cards.length == 6)
+          .where((final t) => t.type == TurnType.straight && t.cards.length == 6)
           .toList();
       expect(straights, isNotEmpty);
     });
@@ -183,8 +183,8 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       // Should include: single 5, single phoenix, pair (5 + phoenix)
-      final singles = turns.where((t) => t.type == TurnType.single).toList();
-      final pairs = turns.where((t) => t.type == TurnType.pair).toList();
+      final singles = turns.where((final t) => t.type == TurnType.single).toList();
+      final pairs = turns.where((final t) => t.type == TurnType.pair).toList();
       expect(singles.length, 2); // 5 and phoenix
       expect(pairs.length, 1); // 5 + phoenix pair
     });
@@ -207,7 +207,7 @@ void main() {
       }
 
       // 3 doesn't beat 5, so only 8 and king should appear as singles.
-      final singles = turns.where((t) => t.type == TurnType.single).toList();
+      final singles = turns.where((final t) => t.type == TurnType.single).toList();
       expect(singles.length, 2);
     });
 
@@ -222,7 +222,7 @@ void main() {
       final turns = generateLegalTurns(deck, hand);
 
       // Can't beat ace with any single 2, but the 4-of-a-kind bomb is valid.
-      final bombs = turns.where((t) => t.type == TurnType.bomb).toList();
+      final bombs = turns.where((final t) => t.type == TurnType.bomb).toList();
       expect(bombs, isNotEmpty);
     });
 
@@ -250,7 +250,7 @@ void main() {
       final deck = _pairDeck(CardFace.five);
       final turns = generateLegalTurns(deck, hand);
 
-      final pairs = turns.where((t) => t.type == TurnType.pair).toList();
+      final pairs = turns.where((final t) => t.type == TurnType.pair).toList();
       // Pair of 3s doesn't beat pair of 5s. Only kings should show.
       expect(pairs.length, 1);
       expect(pairs.first.cards.first.face, CardFace.king);
@@ -265,7 +265,7 @@ void main() {
       final deck = _pairDeck(CardFace.two);
       final turns = generateLegalTurns(deck, hand);
 
-      final pairs = turns.where((t) => t.type == TurnType.pair).toList();
+      final pairs = turns.where((final t) => t.type == TurnType.pair).toList();
       expect(pairs.length, 3);
     });
 
@@ -278,10 +278,10 @@ void main() {
 
       final turns = generateLegalTurns(deck, hand);
       final dragonPairs = turns.where(
-        (t) =>
+        (final t) =>
             t.type == TurnType.pair &&
-            t.cards.any((c) => c.face == CardFace.dragon) &&
-            t.cards.any((c) => c.face == CardFace.phoenix),
+            t.cards.any((final c) => c.face == CardFace.dragon) &&
+            t.cards.any((final c) => c.face == CardFace.phoenix),
       );
 
       expect(dragonPairs, isEmpty);
@@ -297,10 +297,10 @@ void main() {
 
       final turns = generateLegalTurns(deck, hand);
       final mahjongPairs = turns.where(
-        (t) =>
+        (final t) =>
             t.type == TurnType.pair &&
-            t.cards.any((c) => c.face == CardFace.mahJong) &&
-            t.cards.any((c) => c.face == CardFace.phoenix),
+            t.cards.any((final c) => c.face == CardFace.mahJong) &&
+            t.cards.any((final c) => c.face == CardFace.phoenix),
       );
 
       expect(mahjongPairs, isEmpty);
@@ -348,7 +348,7 @@ void main() {
 
       final turns = generateLegalTurns(deck, hand);
       expect(
-        turns.any((t) => t.type == TurnType.straight && t.cards.length == 5),
+        turns.any((final t) => t.type == TurnType.straight && t.cards.length == 5),
         isTrue,
       );
     });
@@ -373,7 +373,7 @@ void main() {
       );
 
       final turns = generateLegalTurns(deck, hand);
-      expect(turns.any((t) => t.type == TurnType.pairStraight), isTrue);
+      expect(turns.any((final t) => t.type == TurnType.pairStraight), isTrue);
     });
 
     test('full-house deck generates valid full-house responses', () {
@@ -396,7 +396,7 @@ void main() {
       );
 
       final turns = generateLegalTurns(deck, hand);
-      expect(turns.any((t) => t.type == TurnType.fullHouse), isTrue);
+      expect(turns.any((final t) => t.type == TurnType.fullHouse), isTrue);
     });
 
     test('bomb deck only allows stronger bombs', () {
@@ -432,7 +432,7 @@ void main() {
       );
 
       final turns = generateLegalTurns(deck, hand);
-      expect(turns.where((t) => t.type == TurnType.single), isEmpty);
+      expect(turns.where((final t) => t.type == TurnType.single), isEmpty);
     });
   });
 }

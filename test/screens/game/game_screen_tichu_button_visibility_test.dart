@@ -8,7 +8,7 @@ import '../../utils/test_game_fixtures.dart';
 
 void main() {
   testWidgets('shows and enables Tichu while eligible even off-turn', (
-    tester,
+    final tester,
   ) async {
     final backend = FakeGameBackend();
 

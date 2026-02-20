@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
-import 'package:tichu/widgets/overlapping_card_row.dart';
 import 'package:tichu/widgets/opponent_display.dart';
+import 'package:tichu/widgets/overlapping_card_row.dart';
 
 void main() {
   testWidgets('grand tichu uses badge without coloring whole player box', (
-    tester,
+    final tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: Center(
             child: SizedBox(
@@ -38,19 +38,19 @@ void main() {
     final container = tester.widget<AnimatedContainer>(
       find.byType(AnimatedContainer).first,
     );
-    final decoration = container.decoration as BoxDecoration;
+    final decoration = container.decoration! as BoxDecoration;
 
     expect(decoration.border, isNotNull);
-    expect((decoration.border as Border).top.color, Colors.white24);
-    expect((decoration.border as Border).top.width, 1);
+    expect((decoration.border! as Border).top.color, Colors.white24);
+    expect((decoration.border! as Border).top.width, 1);
     expect(decoration.boxShadow, isNull);
   });
 
   testWidgets('horizontal and vertical boxes share same inner chrome', (
-    tester,
+    final tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -106,9 +106,9 @@ void main() {
     expect(sideContainer.padding, const EdgeInsets.all(8));
   });
 
-  testWidgets('horizontal player box is always square', (tester) async {
+  testWidgets('horizontal player box is always square', (final tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: Center(
             child: SizedBox(
@@ -145,7 +145,7 @@ void main() {
   });
 
   testWidgets('horizontal pending cards fit available pending area', (
-    tester,
+    final tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -189,12 +189,12 @@ void main() {
     );
 
     expect(pendingRow.height, isNotNull);
-    expect(pendingRow.height!, greaterThanOrEqualTo(pendingCard.height));
+    expect(pendingRow.height, greaterThanOrEqualTo(pendingCard.height));
     expect(find.byType(OverflowBar), findsNothing);
   });
 
   testWidgets('horizontal pending cards stay visible in tight mobile layout', (
-    tester,
+    final tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -239,13 +239,13 @@ void main() {
     );
 
     expect(pendingRow.height, isNotNull);
-    expect(pendingRow.height!, greaterThanOrEqualTo(pendingCard.height));
+    expect(pendingRow.height, greaterThanOrEqualTo(pendingCard.height));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('pending pass does not render pass text', (tester) async {
+  testWidgets('pending pass does not render pass text', (final tester) async {
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: Scaffold(
           body: Center(
             child: SizedBox(

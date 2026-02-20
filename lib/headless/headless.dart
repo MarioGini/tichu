@@ -3,12 +3,12 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/services/local/local_backend.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/services/local/local_backend.dart';
 
 const _defaultTargetScore = 1000;
 
-Future<void> main(List<String> args) async {
+Future<void> main(final List<String> args) async {
   final config = _parseArgs(args);
   if (config.showHelp) {
     _printUsage();
@@ -68,8 +68,8 @@ class _HeadlessRunner {
 
   Future<void> run() async {
     _subscription = stream.listen(
-      (snapshot) => _handleSnapshot(snapshot),
-      onError: (Object error, StackTrace stackTrace) {
+      _handleSnapshot,
+      onError: (final Object error, final StackTrace stackTrace) {
         stderr.writeln('error,$error');
         if (!_done.isCompleted) {
           _done.completeError(error, stackTrace);
@@ -86,7 +86,7 @@ class _HeadlessRunner {
     await _subscription.cancel();
   }
 
-  void _handleSnapshot(GameSnapshot snapshot) {
+  void _handleSnapshot(final GameSnapshot snapshot) {
     if (!_headerWritten) {
       _writeHeader();
       _headerWritten = true;
@@ -112,14 +112,14 @@ class _HeadlessRunner {
     _maybeConfirmOpponentTurn(snapshot);
   }
 
-  void _emitGameStart(GameSnapshot snapshot) {
+  void _emitGameStart(final GameSnapshot snapshot) {
     final players = snapshot.players
-        .map((p) => '${p.id}:${p.seat}:${p.type.name}')
+        .map((final p) => '${p.id}:${p.seat}:${p.type.name}')
         .join('|');
     _writeRow(event: 'game_start', snapshot: snapshot, note: players);
   }
 
-  void _emitRoundStart(GameSnapshot snapshot) {
+  void _emitRoundStart(final GameSnapshot snapshot) {
     _writeRow(event: 'round_start', snapshot: snapshot);
     for (final entry in snapshot.hands.entries) {
       _writeRow(
@@ -131,7 +131,7 @@ class _HeadlessRunner {
     }
   }
 
-  void _emitGrandTichuDecisions(GameSnapshot snapshot, GameSnapshot previous) {
+  void _emitGrandTichuDecisions(final GameSnapshot snapshot, final GameSnapshot previous) {
     for (final entry in snapshot.grandTichuDecisions.entries) {
       if (previous.grandTichuDecisions.containsKey(entry.key)) {
         continue;
@@ -149,7 +149,7 @@ class _HeadlessRunner {
     }
   }
 
-  void _emitSchupfReceipts(GameSnapshot snapshot, GameSnapshot previous) {
+  void _emitSchupfReceipts(final GameSnapshot snapshot, final GameSnapshot previous) {
     if (previous.phase == GamePhase.schupf &&
         snapshot.phase == GamePhase.play) {
       for (final entry in snapshot.schupfReceipts.entries) {
@@ -169,8 +169,8 @@ class _HeadlessRunner {
   }
 
   void _emitPendingOpponentAction(
-    GameSnapshot snapshot,
-    GameSnapshot previous,
+    final GameSnapshot snapshot,
+    final GameSnapshot previous,
   ) {
     if (!snapshot.opponentAwaitingConfirmation ||
         snapshot.pendingOpponentPlayerId == null) {
@@ -195,7 +195,7 @@ class _HeadlessRunner {
     );
   }
 
-  void _emitTurnResolution(GameSnapshot snapshot, GameSnapshot previous) {
+  void _emitTurnResolution(final GameSnapshot snapshot, final GameSnapshot previous) {
     if (snapshot.lastPlayedTurn == null) {
       return;
     }
@@ -213,7 +213,7 @@ class _HeadlessRunner {
     );
   }
 
-  void _emitDragonGive(GameSnapshot snapshot, GameSnapshot previous) {
+  void _emitDragonGive(final GameSnapshot snapshot, final GameSnapshot previous) {
     if (snapshot.lastDragonGiveBy == null ||
         snapshot.lastDragonGiveTo == null) {
       return;
@@ -231,7 +231,7 @@ class _HeadlessRunner {
     );
   }
 
-  void _emitRoundEnd(GameSnapshot snapshot, GameSnapshot previous) {
+  void _emitRoundEnd(final GameSnapshot snapshot, final GameSnapshot previous) {
     if (!snapshot.scoreState.roundComplete ||
         previous.scoreState.roundComplete) {
       return;
@@ -257,7 +257,7 @@ class _HeadlessRunner {
     }
   }
 
-  void _emitGameEnd(GameSnapshot snapshot, GameSnapshot previous) {
+  void _emitGameEnd(final GameSnapshot snapshot, final GameSnapshot previous) {
     if (!snapshot.scoreState.gameComplete || previous.scoreState.gameComplete) {
       return;
     }
@@ -273,7 +273,7 @@ class _HeadlessRunner {
     }
   }
 
-  void _maybeConfirmOpponentTurn(GameSnapshot snapshot) {
+  void _maybeConfirmOpponentTurn(final GameSnapshot snapshot) {
     if (!snapshot.opponentAwaitingConfirmation) {
       return;
     }
@@ -281,10 +281,10 @@ class _HeadlessRunner {
       return;
     }
 
-    backend.submitAction(
+    unawaited(backend.submitAction(
       gameId,
       ConfirmOpponentTurnAction(playerId: snapshot.pendingOpponentPlayerId!),
-    );
+    ));
   }
 
   void _writeHeader() {
@@ -294,12 +294,12 @@ class _HeadlessRunner {
   }
 
   void _writeRow({
-    required String event,
-    required GameSnapshot snapshot,
-    String? playerId,
-    String? action,
-    List<Card>? cards,
-    String? note,
+    required final String event,
+    required final GameSnapshot snapshot,
+    final String? playerId,
+    final String? action,
+    final List<Card>? cards,
+    final String? note,
   }) {
     final row = [
       (_sequence++).toString(),
@@ -327,21 +327,21 @@ class _HeadlessRunner {
     output.writeln(row.map(_csvEscape).join(','));
   }
 
-  String _formatCards(List<Card>? cards) {
+  String _formatCards(final List<Card>? cards) {
     if (cards == null || cards.isEmpty) {
       return '';
     }
     return cards.map(_cardToken).join('|');
   }
 
-  String _cardToken(Card card) {
+  String _cardToken(final Card card) {
     if (card.face == CardFace.phoenix) {
       return 'phoenix:${card.value.toStringAsFixed(1)}';
     }
     return '${card.face.name}-${card.color.name}';
   }
 
-  String _csvEscape(String value) {
+  String _csvEscape(final String value) {
     if (value.contains(',') || value.contains('"') || value.contains('\n')) {
       final escaped = value.replaceAll('"', '""');
       return '"$escaped"';
@@ -349,7 +349,7 @@ class _HeadlessRunner {
     return value;
   }
 
-  bool _cardsEqual(List<Card> a, List<Card> b) {
+  bool _cardsEqual(final List<Card> a, final List<Card> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
       if (a[i] != b[i]) return false;
@@ -374,7 +374,7 @@ class _HeadlessConfig {
   });
 }
 
-_HeadlessConfig _parseArgs(List<String> args) {
+_HeadlessConfig _parseArgs(final List<String> args) {
   int? seed;
   var targetScore = _defaultTargetScore;
   int? rounds;
@@ -422,8 +422,7 @@ void _printUsage() {
   stdout.writeln('       [--target-score=N] [--rounds=N] [--output=game.csv]');
 }
 
-List<GamePlayer> _buildAutomatedPlayers() {
-  return const [
+List<GamePlayer> _buildAutomatedPlayers() => const [
     GamePlayer(
       id: 'auto_1',
       name: 'Opponent 1',
@@ -449,4 +448,3 @@ List<GamePlayer> _buildAutomatedPlayers() {
       type: PlayerType.automated,
     ),
   ];
-}

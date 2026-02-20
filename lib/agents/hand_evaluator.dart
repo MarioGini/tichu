@@ -13,7 +13,7 @@ import 'package:tichu/game/turn/utils/straight_utils.dart';
 /// - 70+: excellent hand, consider grand tichu
 class HandEvaluator {
   /// Evaluate a full hand (8 or 14 cards). Returns a score 0–100.
-  static double evaluate(List<Card> hand) {
+  static double evaluate(final List<Card> hand) {
     if (hand.isEmpty) return 0;
 
     var score = 0.0;
@@ -28,23 +28,21 @@ class HandEvaluator {
 
   /// Score for high-value individual cards.
   /// Dragon (15), Phoenix (10), Aces (8 each), Kings (3 each)
-  static double _highCardScore(List<Card> hand) {
+  static double _highCardScore(final List<Card> hand) {
     var score = 0.0;
 
-    if (hand.any((c) => c.face == CardFace.dragon)) score += 15;
-    if (hand.any((c) => c.face == CardFace.phoenix)) score += 10;
+    if (hand.any((final c) => c.face == CardFace.dragon)) score += 15;
+    if (hand.any((final c) => c.face == CardFace.phoenix)) score += 10;
 
-    final aces = hand.where((c) => c.face == CardFace.ace).length;
+    final aces = hand.where((final c) => c.face == CardFace.ace).length;
     score += aces * 8;
 
-    final kings = hand.where((c) => c.face == CardFace.king).length;
-    score += kings * 3;
-
-    return score;
+    final kings = hand.where((final c) => c.face == CardFace.king).length;
+    return score + kings * 3;
   }
 
   /// Score for holding bombs. A bomb is a huge advantage: +15 per bomb.
-  static double _bombScore(List<Card> hand) {
+  static double _bombScore(final List<Card> hand) {
     final handCopy = List<Card>.from(hand);
     final bombs = getBombs(handCopy);
     return bombs.length * 15.0;
@@ -52,7 +50,7 @@ class HandEvaluator {
 
   /// Score for connected cards (pairs, triplets, straights).
   /// More connected = fewer leads needed = faster out.
-  static double _connectivityScore(List<Card> hand) {
+  static double _connectivityScore(final List<Card> hand) {
     var score = 0.0;
     final handCopy = List<Card>.from(hand);
 
@@ -74,7 +72,7 @@ class HandEvaluator {
     // Check for straight potential (connected sequences).
     final normalCards = handCopy
         .where(
-          (c) =>
+          (final c) =>
               c.face != CardFace.dragon &&
               c.face != CardFace.dog &&
               c.face != CardFace.phoenix,
@@ -100,19 +98,19 @@ class HandEvaluator {
 
   /// Tempo score: estimate how quickly we can shed cards.
   /// Fewer distinct "groups" means fewer leads needed.
-  static double _tempoScore(List<Card> hand) {
+  static double _tempoScore(final List<Card> hand) {
     var score = 0.0;
     final cardCount = hand.length;
 
     if (cardCount == 0) return 0;
 
     // Dog is bad for tempo (wastes a lead, gives it to partner)
-    if (hand.any((c) => c.face == CardFace.dog)) {
+    if (hand.any((final c) => c.face == CardFace.dog)) {
       score -= 3;
     }
 
     // Mah Jong gives first lead advantage
-    if (hand.any((c) => c.face == CardFace.mahJong)) {
+    if (hand.any((final c) => c.face == CardFace.mahJong)) {
       score += 3;
     }
 
@@ -128,16 +126,16 @@ class HandEvaluator {
   }
 
   /// Count cards that don't pair with anything else in the hand.
-  static int _countSingletons(List<Card> hand) {
+  static int _countSingletons(final List<Card> hand) {
     final normalCards = hand
         .where(
-          (c) =>
+          (final c) =>
               c.face != CardFace.phoenix &&
               c.face != CardFace.dog &&
               c.face != CardFace.dragon,
         )
         .toList();
     final occurrences = getOccurrenceCount(normalCards);
-    return occurrences.values.where((v) => v == 1).length;
+    return occurrences.values.where((final v) => v == 1).length;
   }
 }

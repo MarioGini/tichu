@@ -1,12 +1,13 @@
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/wish_logic.dart';
 
 abstract class WishStrategy {
   CardFace selectWish(
-    GameSnapshot snapshot,
-    List<Card> hand,
-    DeckState deck, {
-    CardFace? preferredFace,
+    final GameSnapshot snapshot,
+    final List<Card> hand,
+    final DeckState deck, {
+    final CardFace? preferredFace,
   });
 }
 
@@ -15,12 +16,12 @@ class DefaultWishStrategy implements WishStrategy {
 
   @override
   CardFace selectWish(
-    GameSnapshot snapshot,
-    List<Card> hand,
-    DeckState deck, {
-    CardFace? preferredFace,
+    final GameSnapshot snapshot,
+    final List<Card> hand,
+    final DeckState deck, {
+    final CardFace? preferredFace,
   }) {
-    if (preferredFace != null && _isWishableFace(preferredFace)) {
+    if (preferredFace != null && isWishableFace(preferredFace)) {
       return preferredFace;
     }
 
@@ -33,32 +34,11 @@ class DefaultWishStrategy implements WishStrategy {
     ];
 
     for (final face in highCards) {
-      if (!hand.any((c) => c.face == face)) {
+      if (!hand.any((final c) => c.face == face)) {
         return face;
       }
     }
 
     return CardFace.none;
-  }
-
-  bool _isWishableFace(CardFace face) {
-    switch (face) {
-      case CardFace.two:
-      case CardFace.three:
-      case CardFace.four:
-      case CardFace.five:
-      case CardFace.six:
-      case CardFace.seven:
-      case CardFace.eight:
-      case CardFace.nine:
-      case CardFace.ten:
-      case CardFace.jack:
-      case CardFace.queen:
-      case CardFace.king:
-      case CardFace.ace:
-        return true;
-      default:
-        return false;
-    }
   }
 }

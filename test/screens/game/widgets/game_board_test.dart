@@ -4,7 +4,7 @@ import 'package:tichu/screens/game/widgets/game_board.dart';
 
 void main() {
   testWidgets('uses same square size for trick and side player areas', (
-    tester,
+    final tester,
   ) async {
     const leftKey = Key('left-area');
     const centerKey = Key('center-area');

@@ -1,75 +1,67 @@
-import '../tichu_data.dart';
-import 'card_utils.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/card_utils.dart';
 
-List<TichuTurn> getFullHouses(List<Card> cards) {
+List<TichuTurn> getFullHouses(final List<Card> cards) {
   cards.removeWhere(
-    (element) =>
+    (final element) =>
         element.face == CardFace.dragon || element.face == CardFace.dog,
   );
   if (cards.length < 5) return [];
 
-  var fullHouses = <TichuTurn>[];
+  final fullHouses = <TichuTurn>[];
   cards.sort(compareCards);
 
-  var occurrenceCount = getOccurrenceCount(cards);
+  final occurrenceCount = getOccurrenceCount(cards);
 
-  var tripledFaces = occurrenceCount.keys
-      .where((key) => occurrenceCount[key]! >= 3)
+  final tripledFaces = occurrenceCount.keys
+      .where((final key) => occurrenceCount[key]! >= 3)
       .toList();
-  var pairedFaces = occurrenceCount.keys
-      .where((key) => occurrenceCount[key] == 2)
+  final pairedFaces = occurrenceCount.keys
+      .where((final key) => occurrenceCount[key] == 2)
       .toList();
 
-  // TODO there are many full house combinations when color of card is taken
-  // into account.
+  // TODO(fullHouse): there are many full house combinations when color of
+  // card is taken into account.
   for (var i = 0; i < tripledFaces.length; ++i) {
-    var tripleFace = tripledFaces[i];
+    final tripleFace = tripledFaces[i];
 
-    var fullHouseCards = cards.where((card) {
-      return card.face == tripleFace;
-    }).toList();
+    final fullHouseCards = cards.where((final card) => card.face == tripleFace).toList();
 
-    var possiblePairs = tripledFaces
-        .where((element) => element != tripleFace)
+    final possiblePairs = tripledFaces
+        .where((final element) => element != tripleFace)
         .toList();
     possiblePairs.addAll(pairedFaces);
 
     for (var j = 0; j < possiblePairs.length; ++j) {
-      var pair = cards
-          .where((card) {
-            return card.face == possiblePairs[j];
-          })
+      final pair = cards
+          .where((final card) => card.face == possiblePairs[j])
           .toList()
           .sublist(0, 2);
       fullHouses.add(TichuTurn(TurnType.fullHouse, fullHouseCards + pair));
     }
   }
 
-  if (cards.any((element) => element.face == CardFace.phoenix)) {
+  if (cards.any((final element) => element.face == CardFace.phoenix)) {
     if (pairedFaces.isNotEmpty) {
       // We can promote any pair to a triplet and then use any of the other pair
       // to form full house.
       for (var i = 0; i < pairedFaces.length; ++i) {
-        var tripleFace = pairedFaces[i];
+        final tripleFace = pairedFaces[i];
 
-        var phoenixCards = cards
-            .where((card) {
-              return card.face == tripleFace;
-            })
+        final phoenixCards = cards
+            .where((final card) => card.face == tripleFace)
             .toList()
             .sublist(0, 2);
         phoenixCards.add(Card.phoenix(phoenixCards.first.value));
 
-        var possiblePairs = pairedFaces
-            .where((element) => element != tripleFace)
+        final possiblePairs = pairedFaces
+            .where((final element) => element != tripleFace)
             .toList();
         possiblePairs.addAll(tripledFaces);
 
         for (var j = 0; j < possiblePairs.length; ++j) {
-          var pair = cards
-              .where((card) {
-                return card.face == possiblePairs[j];
-              })
+          final pair = cards
+              .where((final card) => card.face == possiblePairs[j])
               .toList()
               .sublist(0, 2);
           fullHouses.add(TichuTurn(TurnType.fullHouse, phoenixCards + pair));
@@ -81,25 +73,23 @@ List<TichuTurn> getFullHouses(List<Card> cards) {
       // In that case, we can also form full houses by promoting single card to
       // pair.
       for (var i = 0; i < tripledFaces.length; ++i) {
-        var tripleFace = tripledFaces[i];
+        final tripleFace = tripledFaces[i];
 
-        var fullHouseCards = cards
-            .where((card) {
-              return card.face == tripleFace;
-            })
+        final fullHouseCards = cards
+            .where((final card) => card.face == tripleFace)
             .toList()
             .sublist(0, 3);
-        var availablePairs = occurrenceCount.keys
+        final availablePairs = occurrenceCount.keys
             .where(
-              (element) =>
+              (final element) =>
                   occurrenceCount[element] == 1 && element != CardFace.phoenix,
             )
             .toList();
         for (var j = 0; j < availablePairs.length; ++j) {
-          var pairCard = cards
-              .where((element) => element.face == availablePairs[j])
+          final pairCard = cards
+              .where((final element) => element.face == availablePairs[j])
               .first;
-          var phoenix = Card.phoenix(pairCard.value);
+          final phoenix = Card.phoenix(pairCard.value);
           fullHouses.add(
             TichuTurn(TurnType.fullHouse, fullHouseCards + [pairCard, phoenix]),
           );

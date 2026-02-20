@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
-import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/engine.dart';
+import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -16,9 +16,9 @@ class LocalGameBackend implements GameBackend {
   Duration _automatedActionDelay = const Duration(seconds: 1);
 
   LocalGameBackend({
-    GameEngine? engine,
-    Random? random,
-    Map<String, PlayerAgent>? automatedAgents,
+    final GameEngine? engine,
+    final Random? random,
+    final Map<String, PlayerAgent>? automatedAgents,
   }) : _engine = engine ?? GameEngineImpl(random: random) {
     if (automatedAgents != null) {
       _automatedAgents.addAll(automatedAgents);
@@ -26,22 +26,22 @@ class LocalGameBackend implements GameBackend {
   }
 
   @override
-  Stream<PlayerSnapshot> watchGame(String gameId, String playerId) {
+  Stream<PlayerSnapshot> watchGame(final String gameId, final String playerId) {
     final state = _games[gameId];
     if (state == null) {
       throw StateError('Unknown gameId: $gameId');
     }
     return state.controller.stream.map(
-      (snapshot) => _engine.buildPlayerSnapshot(snapshot, playerId),
+      (final snapshot) => _engine.buildPlayerSnapshot(snapshot, playerId),
     );
   }
 
   @override
-  Future<void> setAutomatedActionDelay(Duration delay) async {
+  Future<void> setAutomatedActionDelay(final Duration delay) async {
     _automatedActionDelay = delay;
   }
 
-  Stream<GameSnapshot> watchGameState(String gameId) {
+  Stream<GameSnapshot> watchGameState(final String gameId) {
     final state = _games[gameId];
     if (state == null) {
       throw StateError('Unknown gameId: $gameId');
@@ -51,8 +51,8 @@ class LocalGameBackend implements GameBackend {
 
   @override
   Future<String> createGame(
-    List<GamePlayer> players, {
-    int targetScore = 1000,
+    final List<GamePlayer> players, {
+    final int targetScore = 1000,
   }) async {
     final gameId = DateTime.now().millisecondsSinceEpoch.toString();
     final engineState = _engine.createGame(
@@ -70,7 +70,7 @@ class LocalGameBackend implements GameBackend {
   }
 
   @override
-  Future<void> startNewRound(String gameId) async {
+  Future<void> startNewRound(final String gameId) async {
     final state = _games[gameId];
     if (state == null) {
       throw StateError('Unknown gameId: $gameId');
@@ -83,7 +83,7 @@ class LocalGameBackend implements GameBackend {
   }
 
   @override
-  Future<void> startGame(String gameId) async {
+  Future<void> startGame(final String gameId) async {
     final state = _games[gameId];
     if (state == null) {
       throw StateError('Unknown gameId: $gameId');
@@ -95,7 +95,7 @@ class LocalGameBackend implements GameBackend {
   }
 
   @override
-  Future<void> submitAction(String gameId, GameAction action) async {
+  Future<void> submitAction(final String gameId, final GameAction action) async {
     final state = _games[gameId];
     if (state == null) {
       throw StateError('Unknown gameId: $gameId');
@@ -136,26 +136,24 @@ class LocalGameBackend implements GameBackend {
   }
 
   @override
-  Future<void> disposeGame(String gameId) async {
+  Future<void> disposeGame(final String gameId) async {
     final state = _games.remove(gameId);
     await state?.controller.close();
   }
 
-  void _emitSnapshot(_LocalGameState state) {
+  void _emitSnapshot(final _LocalGameState state) {
     state.controller.add(_buildSnapshot(state));
   }
 
-  GameSnapshot _buildSnapshot(_LocalGameState state) {
-    return _engine.buildSnapshot(
+  GameSnapshot _buildSnapshot(final _LocalGameState state) => _engine.buildSnapshot(
       state.engineState,
       pendingOpponentPlayerId: state.pendingOpponentPlayerId,
       pendingOpponentCards: state.pendingOpponentCards,
       pendingOpponentPass: state.pendingOpponentPass,
       opponentAwaitingConfirmation: state.opponentAwaitingConfirmation,
     );
-  }
 
-  void _ensureAutomatedAgents(List<GamePlayer> players) {
+  void _ensureAutomatedAgents(final List<GamePlayer> players) {
     for (final player in players) {
       if (player.type == PlayerType.automated &&
           !_automatedAgents.containsKey(player.id)) {
@@ -164,7 +162,7 @@ class LocalGameBackend implements GameBackend {
     }
   }
 
-  Future<void> _maybeRunAutomatedPlayers(_LocalGameState state) async {
+  Future<void> _maybeRunAutomatedPlayers(final _LocalGameState state) async {
     if (state.engineState.scoreTracker.state.roundComplete) {
       return;
     }
@@ -208,7 +206,7 @@ class LocalGameBackend implements GameBackend {
     if (state.engineState.pendingDragonGiveBy != null) {
       final pendingId = state.engineState.pendingDragonGiveBy!;
       final pendingPlayer = state.engineState.players.firstWhere(
-        (p) => p.id == pendingId,
+        (final p) => p.id == pendingId,
       );
       if (pendingPlayer.type == PlayerType.automated) {
         _autoResolveDragonGive(state, pendingId);
@@ -246,7 +244,7 @@ class LocalGameBackend implements GameBackend {
   }
 
   Future<void> _resolveGrandTichuForAutomatedPlayers(
-    _LocalGameState state,
+    final _LocalGameState state,
   ) async {
     while (state.engineState.phase == GamePhase.grandTichu) {
       final currentPlayer =
@@ -281,7 +279,7 @@ class LocalGameBackend implements GameBackend {
     }
   }
 
-  Future<void> _resolveSchupfForAutomatedPlayers(_LocalGameState state) async {
+  Future<void> _resolveSchupfForAutomatedPlayers(final _LocalGameState state) async {
     final snapshot = _buildSnapshot(state);
     for (final player in state.engineState.players) {
       if (state.engineState.phase != GamePhase.schupf) {
@@ -318,7 +316,7 @@ class LocalGameBackend implements GameBackend {
   }
 
   Future<bool> _resolveSchupfReceiptsForAutomatedPlayers(
-    _LocalGameState state,
+    final _LocalGameState state,
   ) async {
     var applied = false;
     for (final player in state.engineState.players) {
@@ -344,7 +342,7 @@ class LocalGameBackend implements GameBackend {
     await Future<void>.delayed(_automatedActionDelay);
   }
 
-  void _autoResolveDragonGive(_LocalGameState state, String winnerId) {
+  void _autoResolveDragonGive(final _LocalGameState state, final String winnerId) {
     final opponentIds = _engine.opponentIds(state.engineState, winnerId);
     if (opponentIds.isEmpty) {
       return;
@@ -354,9 +352,9 @@ class LocalGameBackend implements GameBackend {
     final snapshot = _buildSnapshot(state);
     final seat = agent?.selectDragonGive(snapshot);
     final target = state.engineState.players.firstWhere(
-      (player) => player.seat == seat,
+      (final player) => player.seat == seat,
       orElse: () => state.engineState.players.firstWhere(
-        (player) => opponentIds.contains(player.id),
+        (final player) => opponentIds.contains(player.id),
       ),
     );
     final targetId = opponentIds.contains(target.id)
@@ -369,7 +367,7 @@ class LocalGameBackend implements GameBackend {
     );
   }
 
-  void _clearPendingOpponentTurn(_LocalGameState state) {
+  void _clearPendingOpponentTurn(final _LocalGameState state) {
     state.pendingOpponentAction = null;
     state.pendingOpponentPlayerId = null;
     state.pendingOpponentCards.clear();

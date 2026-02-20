@@ -1,19 +1,19 @@
-import '../tichu_data.dart';
-import 'card_utils.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/card_utils.dart';
 
-List<TichuTurn> getBombs(List<Card> cards) {
-  var bombTurns = <TichuTurn>[];
+List<TichuTurn> getBombs(final List<Card> cards) {
+  final bombTurns = <TichuTurn>[];
 
   // First, look for quartet bombs.
-  var occurrenceCount = getOccurrenceCount(cards);
-  var bombFaces = occurrenceCount.keys
-      .where((element) => occurrenceCount[element] == 4)
+  final occurrenceCount = getOccurrenceCount(cards);
+  final bombFaces = occurrenceCount.keys
+      .where((final element) => occurrenceCount[element] == 4)
       .toList();
-  for (var bombFace in bombFaces) {
+  for (final bombFace in bombFaces) {
     bombTurns.add(
       TichuTurn(
         TurnType.bomb,
-        cards.where((card) => card.face == bombFace).toList(),
+        cards.where((final card) => card.face == bombFace).toList(),
       ),
     );
   }
@@ -24,19 +24,17 @@ List<TichuTurn> getBombs(List<Card> cards) {
   return bombTurns;
 }
 
-bool hasBombInHand(List<Card> cards) {
-  return getBombs(cards).isNotEmpty;
-}
+bool hasBombInHand(final List<Card> cards) => getBombs(cards).isNotEmpty;
 
-List<TichuTurn> _getStraightBombs(List<Card> cards) {
+List<TichuTurn> _getStraightBombs(final List<Card> cards) {
   final bombs = <TichuTurn>[];
   final suitedCards = cards
-      .where((card) => card.color != CardColor.special)
+      .where((final card) => card.color != CardColor.special)
       .toList();
-  final colors = CardColor.values.where((color) => color != CardColor.special);
+  final colors = CardColor.values.where((final color) => color != CardColor.special);
 
   for (final color in colors) {
-    final colorCards = suitedCards.where((card) => card.color == color).toList()
+    final colorCards = suitedCards.where((final card) => card.color == color).toList()
       ..sort(compareCards);
     if (colorCards.length < 5) continue;
 

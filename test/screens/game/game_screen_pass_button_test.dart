@@ -8,7 +8,7 @@ import '../../utils/test_game_fixtures.dart';
 
 void main() {
   testWidgets('disables pass button when active wish can be fulfilled', (
-    tester,
+    final tester,
   ) async {
     final backend = FakeGameBackend();
 

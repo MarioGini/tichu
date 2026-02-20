@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/turn/utils/pair_straight_utils.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/pair_straight_utils.dart';
 
 void main() {
   group('getPairStraights', () {
     test('removeTripleCardsTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.three, CardColor.green),
         Card(CardFace.three, CardColor.red),
         Card(CardFace.three, CardColor.black),
@@ -16,16 +16,16 @@ void main() {
         Card(CardFace.seven, CardColor.red),
         Card(CardFace.eight, CardColor.red),
       ];
-      var desiredLength = 4;
-      var turns = getPairStraights(cards, 4);
+      const desiredLength = 4;
+      final turns = getPairStraights(cards, 4);
 
       expect(turns.length, 1);
-      expect(turns.every((element) => isPairStraight(element.cards)), true);
-      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns.every((final element) => isPairStraight(element.cards)), true);
+      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.four));
     });
     test('twoSeparatedPairStraightsTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.three, CardColor.green),
         Card(CardFace.three, CardColor.red),
@@ -41,18 +41,18 @@ void main() {
         Card(CardFace.nine, CardColor.black),
         Card(CardFace.nine, CardColor.red),
       ];
-      var desiredLength = 4;
-      var turns = getPairStraights(cards, desiredLength);
+      const desiredLength = 4;
+      final turns = getPairStraights(cards, desiredLength);
 
       expect(turns.length, 3);
-      expect(turns.every((turn) => isPairStraight(turn.cards)), true);
-      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns.every((final turn) => isPairStraight(turn.cards)), true);
+      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.nine));
       expect(turns[1].value, Card.getValue(CardFace.eight));
       expect(turns[2].value, Card.getValue(CardFace.four));
     });
     test('phoenixFusionTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.three, CardColor.green),
         Card(CardFace.three, CardColor.red),
         Card(CardFace.four, CardColor.black),
@@ -60,17 +60,17 @@ void main() {
         Card(CardFace.five, CardColor.red),
         Card(CardFace.five, CardColor.black),
       ];
-      var desiredLength = 4;
-      var turns = getPairStraights(cards, desiredLength);
+      const desiredLength = 4;
+      final turns = getPairStraights(cards, desiredLength);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => isPairStraight(turn.cards)), true);
-      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns.every((final turn) => isPairStraight(turn.cards)), true);
+      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.five));
       expect(turns[1].value, Card.getValue(CardFace.four));
     });
     test('phoenixPaddingTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.three, CardColor.green),
         Card(CardFace.three, CardColor.red),
@@ -78,17 +78,17 @@ void main() {
         Card(CardFace.phoenix, CardColor.special),
         Card(CardFace.six, CardColor.red),
       ];
-      var desiredLength = 4;
-      var turns = getPairStraights(cards, desiredLength);
+      const desiredLength = 4;
+      final turns = getPairStraights(cards, desiredLength);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => isPairStraight(turn.cards)), true);
-      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns.every((final turn) => isPairStraight(turn.cards)), true);
+      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.four));
       expect(turns[1].value, Card.getValue(CardFace.three));
     });
     test('phoenixComplexTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.mahJong, CardColor.special),
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
@@ -104,13 +104,13 @@ void main() {
         Card(CardFace.seven, CardColor.red),
         Card(CardFace.nine, CardColor.black),
       ];
-      var desiredLength = 6;
-      var turns = getPairStraights(cards, desiredLength);
+      const desiredLength = 6;
+      final turns = getPairStraights(cards, desiredLength);
       turns.sort(compareTurns);
 
       expect(turns.length, 5);
-      expect(turns.every((turn) => isPairStraight(turn.cards)), true);
-      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns.every((final turn) => isPairStraight(turn.cards)), true);
+      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.seven));
       expect(turns[1].value, Card.getValue(CardFace.six));
       expect(turns[2].value, Card.getValue(CardFace.five));
@@ -119,7 +119,7 @@ void main() {
     });
 
     test('oddDesiredLengthReturnsEmpty', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
         Card(CardFace.three, CardColor.black),
@@ -128,7 +128,7 @@ void main() {
         Card(CardFace.four, CardColor.green),
       ];
 
-      var turns = getPairStraights(cards, 5);
+      final turns = getPairStraights(cards, 5);
 
       expect(turns, isEmpty);
     });
@@ -145,10 +145,10 @@ void main() {
       Card(CardFace.five, CardColor.green),
     ];
     test('standardTest', () {
-      var turns = getPairStraightPermutations(fourPairStraight);
+      final turns = getPairStraightPermutations(fourPairStraight);
 
       expect(turns.length, 6);
-      expect(turns.every((element) => isPairStraight(element.cards)), true);
+      expect(turns.every((final element) => isPairStraight(element.cards)), true);
       expect(turns[0].value, 5);
       expect(turns[0].cards.length, 8);
       expect(turns[1].value, 5);
@@ -165,7 +165,7 @@ void main() {
   });
   group('isPairStraight', () {
     test('twoPairStraightTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.five, CardColor.black),
         Card(CardFace.five, CardColor.green),
         Card(CardFace.six, CardColor.blue),
@@ -175,7 +175,7 @@ void main() {
       expect(isPairStraight(cards), true);
     });
     test('threePairStraightPhoenixTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.five, CardColor.black),
         Card(CardFace.five, CardColor.green),
         Card(CardFace.seven, CardColor.red),
@@ -187,7 +187,7 @@ void main() {
       expect(isPairStraight(cards), true);
     });
     test('pairStraightOddCardsTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.five, CardColor.black),
         Card(CardFace.five, CardColor.green),
         Card(CardFace.seven, CardColor.red),
@@ -200,7 +200,7 @@ void main() {
       expect(isPairStraight(cards), false);
     });
     test('pairStraightDogTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.five, CardColor.black),
         Card(CardFace.five, CardColor.green),
         Card(CardFace.seven, CardColor.red),

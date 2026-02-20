@@ -1,4 +1,4 @@
-// ignore_for_file: unused_element
+// ignore_for_file: unused_element, private mixin helpers used by part files
 
 part of '../game_screen.dart';
 
@@ -14,63 +14,63 @@ mixin _GameScreenBindings on State<GameScreen> {
   GamePlayController get _playController;
   AnimationController get _bombController;
   bool get _roundCompleteAcknowledged;
-  set _roundCompleteAcknowledged(bool value);
+  set _roundCompleteAcknowledged(final bool value);
 
   int get _lastDialogRoundNumber;
-  set _lastDialogRoundNumber(int value);
+  set _lastDialogRoundNumber(final int value);
 
   bool get _dragonGiveDialogOpen;
-  set _dragonGiveDialogOpen(bool value);
+  set _dragonGiveDialogOpen(final bool value);
 
   bool get _grandTichuDialogOpen;
-  set _grandTichuDialogOpen(bool value);
+  set _grandTichuDialogOpen(final bool value);
 
   bool get _wishDialogOpen;
-  set _wishDialogOpen(bool value);
+  set _wishDialogOpen(final bool value);
 
   CardFace? get _defaultWishFaceFromSchupf;
-  set _defaultWishFaceFromSchupf(CardFace? value);
+  set _defaultWishFaceFromSchupf(final CardFace? value);
 
   int get _defaultWishRoundNumber;
-  set _defaultWishRoundNumber(int value);
+  set _defaultWishRoundNumber(final int value);
 
   bool get _showBombOverlay;
-  set _showBombOverlay(bool value);
+  set _showBombOverlay(final bool value);
 
   String? get _lastAutoConfirmKey;
-  set _lastAutoConfirmKey(String? value);
+  set _lastAutoConfirmKey(final String? value);
 
   String? get _lastAutoPassKey;
-  set _lastAutoPassKey(String? value);
+  set _lastAutoPassKey(final String? value);
 
   double get _opponentDelaySeconds;
-  set _opponentDelaySeconds(double value);
+  set _opponentDelaySeconds(final double value);
 
   bool get _autoPassEnabled;
-  set _autoPassEnabled(bool value);
+  set _autoPassEnabled(final bool value);
 
   Card? get _schupfToLeft;
-  set _schupfToLeft(Card? value);
+  set _schupfToLeft(final Card? value);
 
   Card? get _schupfToPartner;
-  set _schupfToPartner(Card? value);
+  set _schupfToPartner(final Card? value);
 
   Card? get _schupfToRight;
-  set _schupfToRight(Card? value);
+  set _schupfToRight(final Card? value);
 
   Timer? get _autoConfirmTimer;
-  set _autoConfirmTimer(Timer? value);
+  set _autoConfirmTimer(final Timer? value);
 
   bool get _schupfAckPending;
-  set _schupfAckPending(bool value);
+  set _schupfAckPending(final bool value);
 
-  TichuTurn? _resolveSelectedTurn(PlayerSnapshot snapshot);
+  TichuTurn? _resolveSelectedTurn(final PlayerSnapshot snapshot);
 
-  bool _canPass(PlayerSnapshot snapshot);
+  bool _canPass(final PlayerSnapshot snapshot);
 
   void _requestKeyboardFocus();
 
-  void _showSnack(String message);
+  void _showSnack(final String message);
 
   List<Card> _selectedCards();
 
@@ -80,5 +80,5 @@ mixin _GameScreenBindings on State<GameScreen> {
 
   Future<void> _pass();
 
-  Future<CardFace?> _promptWish({CardFace? defaultWish});
+  Future<CardFace?> _promptWish({final CardFace? defaultWish});
 }

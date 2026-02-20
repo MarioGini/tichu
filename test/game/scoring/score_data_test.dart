@@ -2,19 +2,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-Card _card(CardFace face, CardColor color) => Card(face, color);
+Card _card(final CardFace face, final CardColor color) => Card(face, color);
 
 void main() {
   group('cardPoints map', () {
-    test('contains all CardFace values except none', () {
-      for (final face in CardFace.values) {
-        if (face == CardFace.none) continue;
-        expect(
-          cardPoints.containsKey(face),
-          isTrue,
-          reason: '$face should be in cardPoints',
-        );
-      }
+    test('contains entries only for faces with non-zero points', () {
+      expect(cardPoints.keys, containsAll([
+        CardFace.five,
+        CardFace.ten,
+        CardFace.king,
+        CardFace.dragon,
+        CardFace.phoenix,
+      ]));
+      // Zero-point faces should not be in the sparse map.
+      expect(cardPoints.containsKey(CardFace.two), isFalse);
+      expect(cardPoints.containsKey(CardFace.ace), isFalse);
     });
 
     test('point values sum to 100 per full deck', () {

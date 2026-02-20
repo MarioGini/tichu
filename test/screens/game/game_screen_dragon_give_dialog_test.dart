@@ -8,7 +8,7 @@ import '../../utils/test_game_fixtures.dart';
 
 void main() {
   testWidgets('shows dragon recipients as left then right from player view', (
-    tester,
+    final tester,
   ) async {
     final backend = FakeGameBackend();
 

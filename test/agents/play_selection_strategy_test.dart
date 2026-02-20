@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/turn_scorer.dart';
+import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'ai_test_fixtures.dart';
@@ -13,14 +13,12 @@ class _StubScorer extends TurnScorer {
 
   @override
   double scoreTurn(
-    GameSnapshot snapshot,
-    String playerId,
-    TichuTurn play,
-    DeckState deck,
-    List<Card> hand,
-  ) {
-    return scores[play.type] ?? 0;
-  }
+    final GameSnapshot snapshot,
+    final String playerId,
+    final TichuTurn play,
+    final DeckState deck,
+    final List<Card> hand,
+  ) => scores[play.type] ?? 0;
 }
 
 void main() {

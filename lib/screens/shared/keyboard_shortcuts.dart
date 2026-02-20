@@ -9,10 +9,10 @@ import 'package:flutter/widgets.dart';
 /// Returns [KeyEventResult.handled] when a matching key is consumed,
 /// [KeyEventResult.ignored] otherwise.
 KeyEventResult handleDirectionalEnterKeyEvent(
-  KeyEvent event, {
-  required VoidCallback onEnter,
-  required VoidCallback onLeft,
-  required VoidCallback onRight,
+  final KeyEvent event, {
+  required final VoidCallback onEnter,
+  required final VoidCallback onLeft,
+  required final VoidCallback onRight,
 }) {
   if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
     return KeyEventResult.ignored;

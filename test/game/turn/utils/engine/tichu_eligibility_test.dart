@@ -1,19 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
-import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import '../../../../utils/test_game_fixtures.dart';
 
 void main() {
   GameEngineState buildState({
-    DeckState? deck,
-    int currentPlayerIndex = 0,
-    String? lastPlayedBy,
-    List<Card>? currentTrickCards,
-    List<Card>? humanHand,
+    final DeckState? deck,
+    final int currentPlayerIndex = 0,
+    final String? lastPlayedBy,
+    final List<Card>? currentTrickCards,
+    final List<Card>? humanHand,
   }) {
     final state = GameEngineState(
       gameId: 'test-game',
@@ -30,7 +30,7 @@ void main() {
         testOpponentRightId: [Card(CardFace.seven, CardColor.black)],
       },
       reservedHands: {for (final player in testPlayers) player.id: <Card>[]},
-      deck: deck ?? DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+      deck: deck ?? DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
       currentPlayerIndex: currentPlayerIndex,
       scoreTracker: LocalScoreTracker(),
       phase: GamePhase.play,
@@ -47,7 +47,6 @@ void main() {
       final leadCard = Card(CardFace.five, CardColor.black);
       final state = buildState(
         deck: DeckState(TichuTurn(TurnType.single, [leadCard]), CardFace.none),
-        currentPlayerIndex: 0,
         lastPlayedBy: testOpponentLeftId,
         currentTrickCards: [leadCard],
       );

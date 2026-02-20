@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:tichu/game/player_control.dart';
-import '../game/game_screen.dart';
-import '../shared/keyboard_shortcuts.dart';
+import 'package:tichu/screens/game/game_screen.dart';
+import 'package:tichu/screens/shared/keyboard_shortcuts.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,14 +25,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startSinglePlayer() {
-    Navigator.of(context).push(
+    unawaited(Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => GameScreen(
           targetScore: _targetScore,
           playerControlModes: {'player-0': _selfControlMode},
         ),
       ),
-    );
+    ));
   }
 
   void _onKeyboardLeft() {
@@ -54,13 +56,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final sliderValue = _scoreOptions.indexOf(_targetScore).toDouble();
     return Scaffold(
       body: Focus(
         focusNode: _keyboardFocusNode,
         autofocus: true,
-        onKeyEvent: (node, event) => handleDirectionalEnterKeyEvent(
+        onKeyEvent: (final node, final event) => handleDirectionalEnterKeyEvent(
           event,
           onEnter: _onKeyboardEnter,
           onLeft: _onKeyboardLeft,
@@ -127,11 +129,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         Slider(
                           value: sliderValue,
-                          min: 0,
                           max: (_scoreOptions.length - 1).toDouble(),
                           divisions: _scoreOptions.length - 1,
                           label: '$_targetScore',
-                          onChanged: (value) {
+                          onChanged: (final value) {
                             setState(() {
                               _targetScore =
                                   _scoreOptions[value.round().clamp(0, 3)];
@@ -142,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: _scoreOptions
                               .map(
-                                (score) => Text(
+                                (final score) => Text(
                                   score.toString(),
                                   style: Theme.of(context).textTheme.labelSmall,
                                 ),
@@ -173,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                           selected: {_selfControlMode},
                           showSelectedIcon: false,
-                          onSelectionChanged: (selection) {
+                          onSelectionChanged: (final selection) {
                             final selected = selection.first;
                             setState(() {
                               _selfControlMode = selected;

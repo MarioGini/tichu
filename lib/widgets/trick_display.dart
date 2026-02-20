@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart' hide Card;
 
-import '../game/turn/tichu_data.dart';
-import 'card_widget.dart';
-import 'overlapping_card_row.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/widgets/card_widget.dart';
+import 'package:tichu/widgets/overlapping_card_row.dart';
 
 class TrickDisplay extends StatelessWidget {
   const TrickDisplay({
@@ -27,8 +27,7 @@ class TrickDisplay extends StatelessWidget {
   final bool pendingOpponentPass;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(final BuildContext context) => Container(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.3),
@@ -43,7 +42,7 @@ class TrickDisplay extends StatelessWidget {
         ],
       ),
       child: LayoutBuilder(
-        builder: (context, constraints) {
+        builder: (final context, final constraints) {
           final isTight = constraints.maxHeight < 170;
           final cardScale =
               ((constraints.maxHeight * (isTight ? 0.35 : 0.42)) /
@@ -115,24 +114,20 @@ class TrickDisplay extends StatelessWidget {
                   spacing: 6 * cardScale,
                   minVisible: 12 * cardScale,
                   height: rowHeight,
-                  itemBuilder: (context, index) {
-                    return CardWidget(
+                  itemBuilder: (final context, final index) => CardWidget(
                       card: cards[index],
                       isSelected: false,
                       compact: true,
                       scale: cardScale,
-                    );
-                  },
+                    ),
                 ),
             ],
           );
         },
       ),
     );
-  }
 
-  String _wishLabel(CardFace face) {
-    return switch (face) {
+  String _wishLabel(final CardFace face) => switch (face) {
       CardFace.none => 'None',
       CardFace.mahJong => 'Mah Jong',
       CardFace.dragon => 'Dragon',
@@ -152,5 +147,4 @@ class TrickDisplay extends StatelessWidget {
       CardFace.three => '3',
       CardFace.two => '2',
     };
-  }
 }

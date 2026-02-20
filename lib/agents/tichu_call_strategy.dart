@@ -5,8 +5,8 @@ import 'package:tichu/game/turn/utils/card_utils.dart';
 import 'package:tichu/game/turn/utils/straight_utils.dart';
 
 abstract class TichuCallStrategy {
-  Future<bool> shouldCallGrandTichu(GameSnapshot snapshot, String playerId);
-  Future<bool> shouldCallTichu(GameSnapshot snapshot, String playerId);
+  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot, final String playerId);
+  Future<bool> shouldCallTichu(final GameSnapshot snapshot, final String playerId);
 }
 
 class DefaultTichuCallStrategy implements TichuCallStrategy {
@@ -16,19 +16,17 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
 
   @override
   Future<bool> shouldCallGrandTichu(
-    GameSnapshot snapshot,
-    String playerId,
-  ) async {
-    return false;
-  }
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async => false;
 
   @override
-  Future<bool> shouldCallTichu(GameSnapshot snapshot, String playerId) async {
+  Future<bool> shouldCallTichu(final GameSnapshot snapshot, final String playerId) async {
     final hand = snapshot.hands[playerId] ?? const <Card>[];
     return _tichuIndex(hand) >= _tichuIndexThreshold;
   }
 
-  int _tichuIndex(List<Card> hand) {
+  int _tichuIndex(final List<Card> hand) {
     final nAce = _countFace(hand, CardFace.ace);
     final nDog = _countFace(hand, CardFace.dog);
     final nDragon = _countFace(hand, CardFace.dragon);
@@ -46,10 +44,10 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
         nSmallSingleton;
   }
 
-  int _smallSingletonCount(List<Card> hand) {
+  int _smallSingletonCount(final List<Card> hand) {
     final normalCards = hand
         .where(
-          (c) =>
+          (final c) =>
               c.face != CardFace.dragon &&
               c.face != CardFace.phoenix &&
               c.face != CardFace.dog,
@@ -69,7 +67,5 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
     return count;
   }
 
-  int _countFace(List<Card> hand, CardFace face) {
-    return hand.where((card) => card.face == face).length;
-  }
+  int _countFace(final List<Card> hand, final CardFace face) => hand.where((final card) => card.face == face).length;
 }

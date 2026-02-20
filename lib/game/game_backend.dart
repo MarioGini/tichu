@@ -217,19 +217,19 @@ class AcknowledgeSchupfAction extends GameAction {
 }
 
 abstract class GameBackend {
-  Stream<PlayerSnapshot> watchGame(String gameId, String playerId);
+  Stream<PlayerSnapshot> watchGame(final String gameId, final String playerId);
 
-  Future<void> setAutomatedActionDelay(Duration delay);
+  Future<void> setAutomatedActionDelay(final Duration delay);
 
-  Future<String> createGame(List<GamePlayer> players, {int targetScore = 1000});
+  Future<String> createGame(final List<GamePlayer> players, {final int targetScore = 1000});
 
-  Future<void> startGame(String gameId);
+  Future<void> startGame(final String gameId);
 
-  Future<void> startNewRound(String gameId);
+  Future<void> startNewRound(final String gameId);
 
-  Future<void> submitAction(String gameId, GameAction action);
+  Future<void> submitAction(final String gameId, final GameAction action);
 
-  Future<void> disposeGame(String gameId);
+  Future<void> disposeGame(final String gameId);
 }
 
 // Shared card identifiers for building full decks.

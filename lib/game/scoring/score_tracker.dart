@@ -66,21 +66,20 @@ class ScoreState {
   });
 
   ScoreState copyWith({
-    int? roundNumber,
-    int? teamOneTotal,
-    int? teamTwoTotal,
-    int? teamOneRound,
-    int? teamTwoRound,
-    Map<String, int>? playerRoundPoints,
-    bool? roundComplete,
-    int? targetScore,
-    bool? gameComplete,
-    Object? winningTeam = _unset,
-    List<String>? finishOrder,
-    List<RoundScore>? rounds,
-    Map<String, TichuCall>? tichuCalls,
-  }) {
-    return ScoreState(
+    final int? roundNumber,
+    final int? teamOneTotal,
+    final int? teamTwoTotal,
+    final int? teamOneRound,
+    final int? teamTwoRound,
+    final Map<String, int>? playerRoundPoints,
+    final bool? roundComplete,
+    final int? targetScore,
+    final bool? gameComplete,
+    final Object? winningTeam = _unset,
+    final List<String>? finishOrder,
+    final List<RoundScore>? rounds,
+    final Map<String, TichuCall>? tichuCalls,
+  }) => ScoreState(
       roundNumber: roundNumber ?? this.roundNumber,
       teamOneTotal: teamOneTotal ?? this.teamOneTotal,
       teamTwoTotal: teamTwoTotal ?? this.teamTwoTotal,
@@ -97,10 +96,8 @@ class ScoreState {
       rounds: rounds ?? this.rounds,
       tichuCalls: tichuCalls ?? this.tichuCalls,
     );
-  }
 
-  factory ScoreState.initial({int targetScore = 1000}) {
-    return ScoreState(
+  factory ScoreState.initial({final int targetScore = 1000}) => ScoreState(
       roundNumber: 1,
       teamOneTotal: 0,
       teamTwoTotal: 0,
@@ -115,21 +112,20 @@ class ScoreState {
       rounds: [],
       tichuCalls: {},
     );
-  }
 }
 
 abstract class ScoreTracker {
   ScoreState get state;
 
-  void startNewRound(List<GamePlayer> players);
+  void startNewRound(final List<GamePlayer> players);
 
-  void recordTrick(String winnerId, List<Card> cards);
+  void recordTrick(final String winnerId, final List<Card> cards);
 
-  void recordPlayerFinished(String playerId, List<Card> remainingHand);
+  void recordPlayerFinished(final String playerId, final List<Card> remainingHand);
 
-  void recordTichuCall(String playerId, {required bool isGrand});
+  void recordTichuCall(final String playerId, {required final bool isGrand});
 
-  void finalizeRound(Map<String, List<Card>> hands);
+  void finalizeRound(final Map<String, List<Card>> hands);
 }
 
 class LocalScoreTracker implements ScoreTracker {
@@ -140,33 +136,31 @@ class LocalScoreTracker implements ScoreTracker {
   final Map<String, TichuCall> _tichuCalls = {};
   final Map<String, int> _playerSeats = {};
 
-  LocalScoreTracker({int targetScore = 1000})
+  LocalScoreTracker({final int targetScore = 1000})
     : _state = ScoreState.initial(targetScore: targetScore);
 
   @override
   ScoreState get state => _state;
 
   @override
-  void startNewRound(List<GamePlayer> players) {
-    final nextRoundNumber = _state.roundComplete
-        ? _state.roundNumber + 1
-        : _state.roundNumber;
+  void startNewRound(final List<GamePlayer> players) {
     _capturedCards
       ..clear()
-      ..addEntries(players.map((player) => MapEntry(player.id, <Card>[])));
+      ..addEntries(players.map((final p) => MapEntry(p.id, <Card>[])));
     _remainingHands.clear();
     _finishOrder.clear();
     _tichuCalls.clear();
     _playerSeats
       ..clear()
-      ..addEntries(players.map((player) => MapEntry(player.id, player.seat)));
+      ..addEntries(players.map((final p) => MapEntry(p.id, p.seat)));
 
     _state = _state.copyWith(
-      roundNumber: nextRoundNumber,
+      roundNumber:
+          _state.roundComplete ? _state.roundNumber + 1 : _state.roundNumber,
       roundComplete: false,
       teamOneRound: 0,
       teamTwoRound: 0,
-      playerRoundPoints: {for (final player in players) player.id: 0},
+      playerRoundPoints: {for (final p in players) p.id: 0},
       gameComplete: false,
       winningTeam: null,
       finishOrder: const [],
@@ -175,29 +169,25 @@ class LocalScoreTracker implements ScoreTracker {
   }
 
   @override
-  void recordTrick(String winnerId, List<Card> cards) {
+  void recordTrick(final String winnerId, final List<Card> cards) {
     if (cards.isEmpty) return;
     final captured = _capturedCards[winnerId];
     if (captured == null) return;
     captured.addAll(cards);
     final delta = pointsForCards(cards);
-    final roundPoints = Map<String, int>.from(_state.playerRoundPoints);
+    final roundPoints = {..._state.playerRoundPoints};
     roundPoints[winnerId] = (roundPoints[winnerId] ?? 0) + delta;
-    if (_isTeamOne(winnerId)) {
-      _state = _state.copyWith(
-        teamOneRound: _state.teamOneRound + delta,
-        playerRoundPoints: roundPoints,
-      );
-    } else {
-      _state = _state.copyWith(
-        teamTwoRound: _state.teamTwoRound + delta,
-        playerRoundPoints: roundPoints,
-      );
-    }
+    _state = _state.copyWith(
+      teamOneRound:
+          _state.teamOneRound + (_isTeamOne(winnerId) ? delta : 0),
+      teamTwoRound:
+          _state.teamTwoRound + (_isTeamOne(winnerId) ? 0 : delta),
+      playerRoundPoints: roundPoints,
+    );
   }
 
   @override
-  void recordPlayerFinished(String playerId, List<Card> remainingHand) {
+  void recordPlayerFinished(final String playerId, final List<Card> remainingHand) {
     if (_finishOrder.contains(playerId)) return;
     _finishOrder.add(playerId);
     _remainingHands[playerId] = List<Card>.from(remainingHand);
@@ -205,7 +195,7 @@ class LocalScoreTracker implements ScoreTracker {
   }
 
   @override
-  void recordTichuCall(String playerId, {required bool isGrand}) {
+  void recordTichuCall(final String playerId, {required final bool isGrand}) {
     _tichuCalls[playerId] = isGrand ? TichuCall.grandTichu : TichuCall.tichu;
     _state = _state.copyWith(
       tichuCalls: Map<String, TichuCall>.from(_tichuCalls),
@@ -213,141 +203,109 @@ class LocalScoreTracker implements ScoreTracker {
   }
 
   @override
-  void finalizeRound(Map<String, List<Card>> hands) {
+  void finalizeRound(final Map<String, List<Card>> hands) {
     if (_state.roundComplete) return;
 
-    if (_finishOrder.length < _playerSeats.length) {
-      final remainingPlayers = _playerSeats.keys
-          .where((playerId) => !_finishOrder.contains(playerId))
-          .toList();
-      _finishOrder.addAll(remainingPlayers);
-    }
+    // Fill in any unfinished players at the end.
+    _finishOrder.addAll(
+      _playerSeats.keys.where((final id) => !_finishOrder.contains(id)),
+    );
 
     final isMatch =
         _finishOrder.length >= 2 &&
         _isTeamOne(_finishOrder[0]) == _isTeamOne(_finishOrder[1]);
-    final roundEndType = isMatch ? RoundEndType.match : RoundEndType.normal;
 
-    var teamOneCardPoints = 0;
-    var teamTwoCardPoints = 0;
-    var teamOneRound = 0;
-    var teamTwoRound = 0;
+    final (teamOneCard, teamTwoCard) = isMatch
+        ? (0, 0)
+        : _computeNormalCardPoints(hands);
+    final matchWinnerIsTeamOne =
+        isMatch && _isTeamOne(_finishOrder[0]);
+    var teamOneRound = isMatch ? (matchWinnerIsTeamOne ? 200 : 0) : teamOneCard;
+    var teamTwoRound = isMatch ? (matchWinnerIsTeamOne ? 0 : 200) : teamTwoCard;
 
-    if (isMatch) {
-      if (_isTeamOne(_finishOrder[0])) {
-        teamOneRound = 200;
-        teamTwoRound = 0;
-      } else {
-        teamOneRound = 0;
-        teamTwoRound = 200;
-      }
-    } else {
-      final firstFinisher = _finishOrder.first;
-      final lastFinisher = _finishOrder.last;
-      final lastHand = hands[lastFinisher] ?? const <Card>[];
+    final (bonusOne, bonusTwo) = _computeTichuBonuses();
+    teamOneRound += bonusOne;
+    teamTwoRound += bonusTwo;
 
-      final teamOneCards = <Card>[];
-      final teamTwoCards = <Card>[];
-
-      for (final entry in _capturedCards.entries) {
-        final playerId = entry.key;
-        final cards = entry.value;
-        if (playerId == lastFinisher) {
-          continue;
-        }
-        if (_isTeamOne(playerId)) {
-          teamOneCards.addAll(cards);
-        } else {
-          teamTwoCards.addAll(cards);
-        }
-      }
-
-      if (_isTeamOne(lastFinisher)) {
-        teamTwoCards.addAll(_capturedCards[lastFinisher] ?? const <Card>[]);
-      } else {
-        teamOneCards.addAll(_capturedCards[lastFinisher] ?? const <Card>[]);
-      }
-
-      if (_isTeamOne(firstFinisher)) {
-        teamOneCards.addAll(lastHand);
-      } else {
-        teamTwoCards.addAll(lastHand);
-      }
-
-      teamOneCardPoints = pointsForCards(teamOneCards);
-      teamTwoCardPoints = pointsForCards(teamTwoCards);
-      teamOneRound = teamOneCardPoints;
-      teamTwoRound = teamTwoCardPoints;
-    }
-
-    final tichuBonuses = _computeTichuBonuses();
-    teamOneRound += tichuBonuses.$1;
-    teamTwoRound += tichuBonuses.$2;
-
-    final roundScore = RoundScore(
-      roundNumber: _state.roundNumber,
-      teamOnePoints: teamOneRound,
-      teamTwoPoints: teamTwoRound,
-      teamOneCardPoints: teamOneCardPoints,
-      teamTwoCardPoints: teamTwoCardPoints,
-      teamOneBonusPoints: tichuBonuses.$1,
-      teamTwoBonusPoints: tichuBonuses.$2,
-      finishOrder: List<String>.from(_finishOrder),
-      roundEndType: roundEndType,
-    );
-
-    final updatedTeamOneTotal = _state.teamOneTotal + teamOneRound;
-    final updatedTeamTwoTotal = _state.teamTwoTotal + teamTwoRound;
+    final newTeamOneTotal = _state.teamOneTotal + teamOneRound;
+    final newTeamTwoTotal = _state.teamTwoTotal + teamTwoRound;
     final gameComplete =
-        updatedTeamOneTotal >= _state.targetScore ||
-        updatedTeamTwoTotal >= _state.targetScore;
-    final int? winningTeam = gameComplete
-        ? (updatedTeamOneTotal == updatedTeamTwoTotal
-              ? null
-              : (updatedTeamOneTotal > updatedTeamTwoTotal ? 0 : 1))
-        : null;
+        newTeamOneTotal >= _state.targetScore ||
+        newTeamTwoTotal >= _state.targetScore;
 
     _state = _state.copyWith(
       teamOneRound: teamOneRound,
       teamTwoRound: teamTwoRound,
-      teamOneTotal: updatedTeamOneTotal,
-      teamTwoTotal: updatedTeamTwoTotal,
-      rounds: [..._state.rounds, roundScore],
+      teamOneTotal: newTeamOneTotal,
+      teamTwoTotal: newTeamTwoTotal,
+      rounds: [
+        ..._state.rounds,
+        RoundScore(
+          roundNumber: _state.roundNumber,
+          teamOnePoints: teamOneRound,
+          teamTwoPoints: teamTwoRound,
+          teamOneCardPoints: isMatch ? 0 : teamOneCard,
+          teamTwoCardPoints: isMatch ? 0 : teamTwoCard,
+          teamOneBonusPoints: bonusOne,
+          teamTwoBonusPoints: bonusTwo,
+          finishOrder: List<String>.from(_finishOrder),
+          roundEndType: isMatch ? RoundEndType.match : RoundEndType.normal,
+        ),
+      ],
       roundComplete: true,
       gameComplete: gameComplete,
-      winningTeam: winningTeam,
+      winningTeam: gameComplete
+          ? (newTeamOneTotal == newTeamTwoTotal
+                ? null
+                : (newTeamOneTotal > newTeamTwoTotal ? 0 : 1))
+          : null,
       finishOrder: List<String>.from(_finishOrder),
     );
   }
 
-  (int, int) _computeTichuBonuses() {
-    var teamOneBonus = 0;
-    var teamTwoBonus = 0;
+  /// Sums card points per team for a normal (non-match) round.
+  /// Last finisher's tricks go to opposing team; last finisher's remaining
+  /// hand goes to first finisher's team.
+  (int, int) _computeNormalCardPoints(final Map<String, List<Card>> hands) {
+    final first = _finishOrder.first;
+    final last = _finishOrder.last;
+    var t1 = 0;
+    var t2 = 0;
 
-    if (_finishOrder.isEmpty) return (0, 0);
-
-    final firstFinisherId = _finishOrder.first;
-
-    for (final entry in _tichuCalls.entries) {
-      final playerId = entry.key;
-      final call = entry.value;
-      if (call == TichuCall.none) continue;
-
-      final callerSucceeded = playerId == firstFinisherId;
-      final delta = call == TichuCall.grandTichu ? 200 : 100;
-      final scoreDelta = callerSucceeded ? delta : -delta;
-
-      if (_isTeamOne(playerId)) {
-        teamOneBonus += scoreDelta;
+    for (final MapEntry(:key, :value) in _capturedCards.entries) {
+      final pts = pointsForCards(value);
+      if (key == last) {
+        // Last finisher's tricks go to opposing team.
+        _isTeamOne(key) ? t2 += pts : t1 += pts;
       } else {
-        teamTwoBonus += scoreDelta;
+        _isTeamOne(key) ? t1 += pts : t2 += pts;
       }
     }
 
-    return (teamOneBonus, teamTwoBonus);
+    // Last finisher's remaining hand goes to first finisher's team.
+    final handPts = pointsForCards(hands[last] ?? const <Card>[]);
+    _isTeamOne(first) ? t1 += handPts : t2 += handPts;
+
+    return (t1, t2);
   }
 
-  bool _isTeamOne(String playerId) {
+  (int, int) _computeTichuBonuses() {
+    if (_finishOrder.isEmpty) return (0, 0);
+    final firstId = _finishOrder.first;
+    var t1 = 0;
+    var t2 = 0;
+
+    for (final MapEntry(:key, :value) in _tichuCalls.entries) {
+      if (value == TichuCall.none) continue;
+      final won = key == firstId;
+      final points = value == TichuCall.grandTichu ? 200 : 100;
+      final delta = won ? points : -points;
+      _isTeamOne(key) ? t1 += delta : t2 += delta;
+    }
+    return (t1, t2);
+  }
+
+  bool _isTeamOne(final String playerId) {
     final seat = _playerSeats[playerId] ?? 0;
     return seat.isEven;
   }

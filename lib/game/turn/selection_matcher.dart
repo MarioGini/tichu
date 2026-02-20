@@ -2,7 +2,7 @@ import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/card_utils.dart';
 
-bool selectionMatchesTurn(List<Card> turnCards, List<Card> selected) {
+bool selectionMatchesTurn(final List<Card> turnCards, final List<Card> selected) {
   if (turnCards.length != selected.length) {
     return false;
   }
@@ -32,10 +32,10 @@ bool selectionMatchesTurn(List<Card> turnCards, List<Card> selected) {
   return true;
 }
 
-Map<CardFace, int> _faceCounts(List<Card> cards) {
+Map<CardFace, int> _faceCounts(final List<Card> cards) {
   final counts = <CardFace, int>{};
   for (final card in cards) {
-    counts.update(card.face, (value) => value + 1, ifAbsent: () => 1);
+    counts.update(card.face, (final value) => value + 1, ifAbsent: () => 1);
   }
   return counts;
 }

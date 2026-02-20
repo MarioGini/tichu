@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/driver_ui_projector.dart';
+import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import '../utils/test_game_fixtures.dart';
@@ -10,7 +10,6 @@ void main() {
 
   test('manual mode preserves manual selected indexes', () {
     final snapshot = buildPlayerSnapshot(
-      phase: GamePhase.play,
       currentPlayerId: testHumanId,
       hand: [
         Card(CardFace.two, CardColor.red),
@@ -35,7 +34,6 @@ void main() {
   test('ai mode mirrors pending self play cards to selected indexes', () {
     final ace = Card(CardFace.ace, CardColor.green);
     final snapshot = buildPlayerSnapshot(
-      phase: GamePhase.play,
       currentPlayerId: testHumanId,
       hand: [Card(CardFace.two, CardColor.red), ace],
       pendingOpponentPlayerId: testHumanId,

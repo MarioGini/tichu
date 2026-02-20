@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
-import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/schupf.dart';
 
 import '../../../../utils/test_game_fixtures.dart';
 
-Card _card(CardFace face, CardColor color) => Card(face, color);
+Card _card(final CardFace face, final CardColor color) => Card(face, color);
 
 GameEngineState _buildState() {
   final state = GameEngineState(
@@ -40,7 +40,7 @@ GameEngineState _buildState() {
       ],
     },
     reservedHands: {for (final player in testPlayers) player.id: <Card>[]},
-    deck: DeckState(TichuTurn(TurnType.empty, []), CardFace.ten),
+    deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.ten),
     currentPlayerIndex: 1,
     scoreTracker: LocalScoreTracker(),
     phase: GamePhase.schupf,
@@ -49,14 +49,12 @@ GameEngineState _buildState() {
   return state;
 }
 
-SchupfAction _firstThree(String playerId, List<Card> hand) {
-  return SchupfAction(
+SchupfAction _firstThree(final String playerId, final List<Card> hand) => SchupfAction(
     playerId: playerId,
     toLeft: hand[0],
     toPartner: hand[1],
     toRight: hand[2],
   );
-}
 
 void main() {
   group('applySchupfSelection', () {

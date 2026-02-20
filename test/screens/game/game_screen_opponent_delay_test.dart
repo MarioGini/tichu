@@ -9,7 +9,7 @@ import '../../utils/test_game_fixtures.dart';
 void main() {
   testWidgets(
     'defaults opponent delay to 1s for manual self when player-3 is AI',
-    (tester) async {
+    (final tester) async {
       final backend = FakeGameBackend();
 
       await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
@@ -19,7 +19,7 @@ void main() {
     },
   );
 
-  testWidgets('defaults opponent delay to 2s for AI self', (tester) async {
+  testWidgets('defaults opponent delay to 2s for AI self', (final tester) async {
     final backend = FakeGameBackend();
 
     await tester.pumpWidget(

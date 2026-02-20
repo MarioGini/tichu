@@ -39,7 +39,7 @@ class ActionBar extends StatelessWidget {
   final VoidCallback onDeclareTichu;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final screenHeight = MediaQuery.of(context).size.height;
     final isCompact = screenHeight < 500;
@@ -62,10 +62,8 @@ class ActionBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
-        bottom: true,
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Column(
+          builder: (final context, final constraints) => Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Wrap(
@@ -160,14 +158,13 @@ class ActionBar extends StatelessWidget {
                   ],
                 ),
               ],
-            );
-          },
+            ),
         ),
       ),
     );
   }
 
-  Widget _buildButton({required bool isCompact, required Widget child}) {
+  Widget _buildButton({required final bool isCompact, required final Widget child}) {
     if (!isCompact) return child;
     return SizedBox(height: 32, child: FittedBox(child: child));
   }

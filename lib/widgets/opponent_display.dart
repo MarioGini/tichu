@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart' hide Card;
 
-import '../game/turn/tichu_data.dart';
-import 'card_widget.dart';
-import 'overlapping_card_row.dart';
-import 'player_state_frame.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/widgets/card_widget.dart';
+import 'package:tichu/widgets/overlapping_card_row.dart';
+import 'package:tichu/widgets/player_state_frame.dart';
 
 enum PendingPlacement { below, left, right }
 
@@ -44,7 +44,7 @@ class OpponentDisplay extends StatelessWidget {
   final PendingPlacement pendingPlacement;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final isHorizontal = alignment == Axis.horizontal;
     final hasPending = pendingCards.isNotEmpty;
 
@@ -55,24 +55,24 @@ class OpponentDisplay extends StatelessWidget {
   }
 
   /// Horizontal layout for the top opponent (player 2 / partner).
-  Widget _buildHorizontalLayout(BuildContext context, bool hasPending) {
+  Widget _buildHorizontalLayout(final BuildContext context, final bool hasPending) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (final context, final constraints) {
         final maxWidth = constraints.maxWidth;
         final maxHeight = constraints.maxHeight;
         final gap = hasPending ? 4.0 : 0.0;
         final pendingHeight = hasPending
             ? math
                   .min(
-                    (maxHeight * 0.46).clamp(64.0, 120.0).toDouble(),
-                    math.max(0.0, maxHeight - gap - 44.0),
+                    (maxHeight * 0.46).clamp(64.0, 120.0),
+                    math.max<double>(0, maxHeight - gap - 44.0),
                   )
-                  .toDouble()
+                  
             : 0.0;
-        final boxHeight = math.max(0.0, maxHeight - pendingHeight - gap);
-        final squareSide = math.max(0.0, math.min(maxWidth, boxHeight));
+        final boxHeight = math.max<double>(0, maxHeight - pendingHeight - gap);
+        final squareSide = math.max<double>(0, math.min(maxWidth, boxHeight));
 
         final box = SizedBox.square(
           dimension: squareSide,
@@ -83,7 +83,6 @@ class OpponentDisplay extends StatelessWidget {
             decoration: _boxDecoration(colorScheme),
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.center,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -120,23 +119,23 @@ class OpponentDisplay extends StatelessWidget {
   /// Vertical layout for side opponents (players 1 & 3).
   /// The player box is forced to be square via AspectRatio.
   /// Pending cards are rendered *below* the box, outside it.
-  Widget _buildVerticalLayout(BuildContext context, bool hasPending) {
+  Widget _buildVerticalLayout(final BuildContext context, final bool hasPending) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (final context, final constraints) {
         final maxWidth = constraints.maxWidth;
         final maxHeight = constraints.maxHeight;
         final sideGap = hasPending ? 6.0 : 0.0;
         final hasSidePending =
             hasPending && pendingPlacement != PendingPlacement.below;
         final pendingWidth = hasSidePending
-            ? (maxWidth * 0.35).clamp(48.0, 96.0).toDouble()
+            ? (maxWidth * 0.35).clamp(48.0, 96.0)
             : 0.0;
         final availableWidth = hasSidePending
-            ? math.max(0.0, maxWidth - pendingWidth - sideGap)
+            ? math.max<double>(0, maxWidth - pendingWidth - sideGap)
             : maxWidth;
-        final squareSide = math.max(0.0, math.min(maxHeight, availableWidth));
+        final squareSide = math.max<double>(0, math.min(maxHeight, availableWidth));
 
         final box = SizedBox.square(
           dimension: squareSide,
@@ -147,7 +146,6 @@ class OpponentDisplay extends StatelessWidget {
             decoration: _boxDecoration(colorScheme),
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.center,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -182,7 +180,6 @@ class OpponentDisplay extends StatelessWidget {
                   alignment: Alignment.topCenter,
                   child: _pendingWidget(
                     context,
-                    alignment: Alignment.topCenter,
                   ),
                 ),
               ),
@@ -194,7 +191,6 @@ class OpponentDisplay extends StatelessWidget {
           width: pendingWidth,
           height: squareSide,
           child: Align(
-            alignment: Alignment.center,
             child: _pendingWidget(context, alignment: Alignment.center),
           ),
         );
@@ -206,7 +202,6 @@ class OpponentDisplay extends StatelessWidget {
         return Center(
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: rowChildren,
           ),
         );
@@ -216,17 +211,13 @@ class OpponentDisplay extends StatelessWidget {
 
   // ───── shared building blocks ─────
 
-  BoxDecoration _boxDecoration(ColorScheme colorScheme) {
-    return buildPlayerStateFrameDecoration(
+  BoxDecoration _boxDecoration(final ColorScheme colorScheme) => buildPlayerStateFrameDecoration(
       isActive: isActive,
       isFinished: isFinished,
       borderRadius: 12,
-      idleAlpha: 0.2,
     );
-  }
 
-  Widget _nameRow(BuildContext context, ColorScheme colorScheme) {
-    return Row(
+  Widget _nameRow(final BuildContext context, final ColorScheme colorScheme) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
@@ -243,18 +234,15 @@ class OpponentDisplay extends StatelessWidget {
         ),
       ],
     );
-  }
 
-  Widget _infoLine(BuildContext context) {
-    return Text(
+  Widget _infoLine(final BuildContext context) => Text(
       showPoints ? '$cardCount cards · $teamScore pts' : '$cardCount cards',
       style: Theme.of(
         context,
       ).textTheme.bodySmall?.copyWith(color: Colors.white70),
     );
-  }
 
-  Widget _statusPill(BuildContext context, ColorScheme colorScheme) {
+  Widget _statusPill(final BuildContext context, final ColorScheme colorScheme) {
     if (!isFinished) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -272,7 +260,7 @@ class OpponentDisplay extends StatelessWidget {
     );
   }
 
-  Widget _tichuBadge(BuildContext context, {required bool isHorizontal}) {
+  Widget _tichuBadge(final BuildContext context, {required final bool isHorizontal}) {
     if (!tichuDeclared && !grandTichuDeclared) return const SizedBox.shrink();
 
     final badgeColor = grandTichuDeclared ? Colors.deepOrange : Colors.orange;
@@ -302,19 +290,19 @@ class OpponentDisplay extends StatelessWidget {
   }
 
   Widget _pendingWidget(
-    BuildContext context, {
-    Alignment alignment = Alignment.topCenter,
+    final BuildContext context, {
+    final Alignment alignment = Alignment.topCenter,
   }) {
     if (pendingPass) {
       return const SizedBox.shrink();
     }
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (final context, final constraints) {
         final maxHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : CardWidget.compactHeight * 0.7 + 8;
         const framePadding = 6.0;
-        final safeHeight = math.max(0.0, maxHeight - framePadding);
+        final safeHeight = math.max<double>(0, maxHeight - framePadding);
         final scale = math.min(
           0.7,
           safeHeight / (CardWidget.compactHeight + 8),
@@ -335,14 +323,12 @@ class OpponentDisplay extends StatelessWidget {
               spacing: spacing,
               minVisible: 10 * scale,
               height: rowHeight,
-              itemBuilder: (context, index) {
-                return CardWidget(
+              itemBuilder: (final context, final index) => CardWidget(
                   card: pendingCards[index],
                   isSelected: true,
                   compact: true,
                   scale: scale,
-                );
-              },
+                ),
             ),
           ),
         );

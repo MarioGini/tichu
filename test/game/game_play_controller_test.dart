@@ -25,7 +25,7 @@ void main() {
       final snapshot = buildPlayerSnapshot(
         currentPlayerId: testHumanId,
         hand: [card],
-        deck: DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+        deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
       );
 
       final resolved = controller.resolveSelectedTurn(
@@ -61,7 +61,7 @@ void main() {
       final snapshot = buildPlayerSnapshot(
         currentPlayerId: testHumanId,
         hand: [card],
-        deck: DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+        deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
       );
 
       final canPlay = controller.canPlaySelected(
@@ -151,7 +151,7 @@ void main() {
       final snapshot = buildPlayerSnapshot(
         currentPlayerId: testOpponentLeftId,
         hand: bombHand,
-        deck: DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+        deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
       );
 
       final enabled = controller.canEnableBomb(
@@ -195,7 +195,7 @@ void main() {
       final snapshot = buildPlayerSnapshot(
         currentPlayerId: testHumanId,
         hand: fullHouseHand,
-        deck: DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+        deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
       );
 
       final shouldAutoSelect = controller.shouldAutoSelectFinisher(

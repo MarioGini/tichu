@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 BoxDecoration buildPlayerStateFrameDecoration({
-  required bool isActive,
-  required bool isFinished,
-  required double borderRadius,
-  double idleAlpha = 0.2,
+  required final bool isActive,
+  required final bool isFinished,
+  required final double borderRadius,
+  final double idleAlpha = 0.2,
 }) {
   final Color borderColor;
   final double borderWidth;
@@ -26,8 +26,7 @@ BoxDecoration buildPlayerStateFrameDecoration({
   );
 }
 
-Widget buildPlayerOutLabel(BuildContext context, int finishPosition) {
-  return Padding(
+Widget buildPlayerOutLabel(final BuildContext context, final int finishPosition) => Padding(
     padding: const EdgeInsets.only(top: 6),
     child: Text(
       'Out #$finishPosition',
@@ -36,4 +35,3 @@ Widget buildPlayerOutLabel(BuildContext context, int finishPosition) {
       ).textTheme.bodySmall?.copyWith(color: Colors.greenAccent),
     ),
   );
-}

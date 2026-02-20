@@ -4,8 +4,8 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 abstract class SchupfStrategy {
   Future<SchupfAction> selectSchupfCards(
-    GameSnapshot snapshot,
-    String playerId,
+    final GameSnapshot snapshot,
+    final String playerId,
   );
 }
 
@@ -14,8 +14,8 @@ class DefaultSchupfStrategy implements SchupfStrategy {
 
   @override
   Future<SchupfAction> selectSchupfCards(
-    GameSnapshot snapshot,
-    String playerId,
+    final GameSnapshot snapshot,
+    final String playerId,
   ) async {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     if (hand.length < 3) {
@@ -37,12 +37,12 @@ class DefaultSchupfStrategy implements SchupfStrategy {
   }
 
   (Card toLeft, Card toPartner, Card toRight) _selectSchupfCards(
-    GameSnapshot snapshot,
-    String playerId,
-    List<Card> hand,
+    final GameSnapshot snapshot,
+    final String playerId,
+    final List<Card> hand,
   ) {
     final remaining = List<Card>.from(hand)
-      ..sort((a, b) => a.value.compareTo(b.value));
+      ..sort((final a, final b) => a.value.compareTo(b.value));
 
     final (leftId, partnerId, rightId) = _seatIds(snapshot, playerId);
     final tichuCalls = snapshot.scoreState.tichuCalls;
@@ -61,8 +61,8 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     // If partner called Grand Tichu, keep Dog for support plays.
     if (!partnerGrand &&
         (leftGrand || rightGrand) &&
-        remaining.any((c) => c.face == CardFace.dog)) {
-      final dogIndex = remaining.indexWhere((c) => c.face == CardFace.dog);
+        remaining.any((final c) => c.face == CardFace.dog)) {
+      final dogIndex = remaining.indexWhere((final c) => c.face == CardFace.dog);
       if (dogIndex != -1) {
         final dogCard = remaining.removeAt(dogIndex);
         if (leftGrand) {
@@ -78,7 +78,7 @@ class DefaultSchupfStrategy implements SchupfStrategy {
       final pairFace = _lowestPairFace(remaining, maxValue: 7);
       if (pairFace != null) {
         final pairCards = remaining
-            .where((c) => c.face == pairFace)
+            .where((final c) => c.face == pairFace)
             .take(2)
             .toList();
         if (pairCards.length == 2) {
@@ -115,12 +115,12 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     // - Otherwise: give strongest regular card.
     Card toPartner;
     if (partnerGrand) {
-      final nonDog = remaining.where((c) => c.face != CardFace.dog).toList();
+      final nonDog = remaining.where((final c) => c.face != CardFace.dog).toList();
       if (nonDog.isNotEmpty) {
-        nonDog.sort((a, b) => b.value.compareTo(a.value));
+        nonDog.sort((final a, final b) => b.value.compareTo(a.value));
         toPartner = nonDog.first;
       } else {
-        remaining.sort((a, b) => b.value.compareTo(a.value));
+        remaining.sort((final a, final b) => b.value.compareTo(a.value));
         toPartner = remaining.first;
       }
     } else if (selfGrand) {
@@ -128,10 +128,10 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     } else {
       final partnerPool = _normalCandidates(remaining);
       if (partnerPool.isNotEmpty) {
-        partnerPool.sort((a, b) => b.value.compareTo(a.value));
+        partnerPool.sort((final a, final b) => b.value.compareTo(a.value));
         toPartner = partnerPool.first;
       } else {
-        remaining.sort((a, b) => b.value.compareTo(a.value));
+        remaining.sort((final a, final b) => b.value.compareTo(a.value));
         toPartner = remaining.first;
       }
     }
@@ -140,10 +140,10 @@ class DefaultSchupfStrategy implements SchupfStrategy {
   }
 
   (String? leftId, String? partnerId, String? rightId) _seatIds(
-    GameSnapshot snapshot,
-    String playerId,
+    final GameSnapshot snapshot,
+    final String playerId,
   ) {
-    final mySeat = snapshot.players.firstWhere((p) => p.id == playerId).seat;
+    final mySeat = snapshot.players.firstWhere((final p) => p.id == playerId).seat;
     final leftSeat = (mySeat + 1) % 4;
     final rightSeat = (mySeat + 3) % 4;
     String? leftId;
@@ -159,39 +159,37 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     return (leftId, partnerId, rightId);
   }
 
-  List<Card> _normalCandidates(List<Card> hand) {
-    return hand
+  List<Card> _normalCandidates(final List<Card> hand) => hand
         .where(
-          (c) =>
+          (final c) =>
               c.face != CardFace.dragon &&
               c.face != CardFace.phoenix &&
               c.face != CardFace.dog &&
               c.face != CardFace.mahJong,
         )
         .toList();
-  }
 
-  Card _pickLowest(List<Card> pool, {bool avoidDog = false}) {
+  Card _pickLowest(final List<Card> pool, {final bool avoidDog = false}) {
     final candidates = avoidDog
-        ? pool.where((card) => card.face != CardFace.dog).toList()
+        ? pool.where((final card) => card.face != CardFace.dog).toList()
         : List<Card>.from(pool);
     if (candidates.isEmpty) {
       candidates.addAll(pool);
     }
-    candidates.sort((a, b) => a.value.compareTo(b.value));
+    candidates.sort((final a, final b) => a.value.compareTo(b.value));
     return candidates.first;
   }
 
-  Card? _pickLowestByParity(List<Card> pool, {required bool isEven}) {
+  Card? _pickLowestByParity(final List<Card> pool, {required final bool isEven}) {
     final candidates = pool
-        .where((c) => c.value.toInt().isEven == isEven)
+        .where((final c) => c.value.toInt().isEven == isEven)
         .toList();
     if (candidates.isEmpty) return null;
-    candidates.sort((a, b) => a.value.compareTo(b.value));
+    candidates.sort((final a, final b) => a.value.compareTo(b.value));
     return candidates.first;
   }
 
-  CardFace? _lowestPairFace(List<Card> hand, {required int maxValue}) {
+  CardFace? _lowestPairFace(final List<Card> hand, {required final int maxValue}) {
     final counts = <CardFace, int>{};
     for (final card in hand) {
       if (card.face == CardFace.dragon ||
@@ -203,7 +201,7 @@ class DefaultSchupfStrategy implements SchupfStrategy {
       counts[card.face] = (counts[card.face] ?? 0) + 1;
     }
     final sortedFaces = counts.keys.toList()
-      ..sort((a, b) => Card.getValue(a).compareTo(Card.getValue(b)));
+      ..sort((final a, final b) => Card.getValue(a).compareTo(Card.getValue(b)));
     for (final face in sortedFaces) {
       if ((counts[face] ?? 0) >= 2 && Card.getValue(face) <= maxValue) {
         return face;

@@ -27,14 +27,14 @@ class DriverUiProjector {
   const DriverUiProjector();
 
   DriverUiProjection project({
-    required PlayerSnapshot snapshot,
-    required String humanId,
-    required bool isSelfManual,
-    required List<Card> hand,
-    required Set<int> currentSelectedIndexes,
-    required Card? currentSchupfToLeft,
-    required Card? currentSchupfToPartner,
-    required Card? currentSchupfToRight,
+    required final PlayerSnapshot snapshot,
+    required final String humanId,
+    required final bool isSelfManual,
+    required final List<Card> hand,
+    required final Set<int> currentSelectedIndexes,
+    required final Card? currentSchupfToLeft,
+    required final Card? currentSchupfToPartner,
+    required final Card? currentSchupfToRight,
   }) {
     // When the visible player is AI-controlled, their pending turn appears
     // as selected cards in the hand, not as a center-area overlay.
@@ -79,11 +79,11 @@ class DriverUiProjector {
   }
 
   Set<int> _projectSelectedIndexes({
-    required PlayerSnapshot snapshot,
-    required String humanId,
-    required bool isSelfManual,
-    required List<Card> hand,
-    required Set<int> currentSelectedIndexes,
+    required final PlayerSnapshot snapshot,
+    required final String humanId,
+    required final bool isSelfManual,
+    required final List<Card> hand,
+    required final Set<int> currentSelectedIndexes,
   }) {
     if (isSelfManual) {
       return Set<int>.from(currentSelectedIndexes);
@@ -102,12 +102,12 @@ class DriverUiProjector {
   }
 
   (Card?, Card?, Card?) _projectSchupfSlots({
-    required PlayerSnapshot snapshot,
-    required String humanId,
-    required bool isSelfManual,
-    required Card? currentSchupfToLeft,
-    required Card? currentSchupfToPartner,
-    required Card? currentSchupfToRight,
+    required final PlayerSnapshot snapshot,
+    required final String humanId,
+    required final bool isSelfManual,
+    required final Card? currentSchupfToLeft,
+    required final Card? currentSchupfToPartner,
+    required final Card? currentSchupfToRight,
   }) {
     final inOwnSchupfPhase =
         snapshot.phase == GamePhase.schupf &&
@@ -139,8 +139,8 @@ class DriverUiProjector {
   }
 
   Set<int> _findSelectedIndexesForCards(
-    List<Card> hand,
-    List<Card> selectedCards,
+    final List<Card> hand,
+    final List<Card> selectedCards,
   ) {
     final indexes = <int>{};
     final used = <int>{};

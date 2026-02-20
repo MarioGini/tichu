@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/turn/utils/straight_utils.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/straight_utils.dart';
 
 void main() {
   group('removeDuplicates', () {
-    List<Card> uniqueCards = [];
+    var uniqueCards = <Card>[];
     setUp(() {
       uniqueCards = [
         Card(CardFace.three, CardColor.green),
@@ -18,7 +18,7 @@ void main() {
       expect(removeDuplicates(uniqueCards), uniqueCards);
     });
     test('twoDuplicatesTest', () {
-      var duplicateCards = List<Card>.from(uniqueCards);
+      final duplicateCards = List<Card>.from(uniqueCards);
       duplicateCards.add(Card(CardFace.five, CardColor.black));
       duplicateCards.add(Card(CardFace.six, CardColor.black));
       duplicateCards.sort(compareCards);
@@ -26,7 +26,7 @@ void main() {
       expect(removeDuplicates(duplicateCards), uniqueCards);
     });
     test('threeDuplicatesTest', () {
-      var duplicateCards = List<Card>.from(uniqueCards);
+      final duplicateCards = List<Card>.from(uniqueCards);
       duplicateCards.add(Card(CardFace.five, CardColor.black));
       duplicateCards.add(Card(CardFace.five, CardColor.red));
       duplicateCards.sort(compareCards);
@@ -44,32 +44,32 @@ void main() {
       Card(CardFace.eight, CardColor.red),
     ];
     test('simpleSixStraightTest', () {
-      final desiredLength = 6;
-      var straightTurns = getStraights(sixStraight, desiredLength);
+      const desiredLength = 6;
+      final straightTurns = getStraights(sixStraight, desiredLength);
 
       expect(straightTurns.length, 1);
-      expect(straightTurns.every((turn) => isStraight(turn.cards)), true);
+      expect(straightTurns.every((final turn) => isStraight(turn.cards)), true);
       expect(
-        straightTurns.every((turn) => turn.cards.length == desiredLength),
+        straightTurns.every((final turn) => turn.cards.length == desiredLength),
         true,
       );
       expect(straightTurns[0].value, 8);
     });
     test('hiddenSixStraightTest', () {
       // Here, we also have duplicates and other cards at hand.
-      var hiddenSixStraight = List<Card>.from(sixStraight);
+      final hiddenSixStraight = List<Card>.from(sixStraight);
       hiddenSixStraight.add(Card(CardFace.king, CardColor.red));
       hiddenSixStraight.add(Card(CardFace.queen, CardColor.red));
       hiddenSixStraight.add(Card(CardFace.four, CardColor.red));
       hiddenSixStraight.add(Card(CardFace.mahJong, CardColor.special));
 
-      final desiredLength = 5;
-      var straightTurns = getStraights(hiddenSixStraight, desiredLength);
+      const desiredLength = 5;
+      final straightTurns = getStraights(hiddenSixStraight, desiredLength);
 
       expect(straightTurns.length, 2);
-      expect(straightTurns.every((turn) => isStraight(turn.cards)), true);
+      expect(straightTurns.every((final turn) => isStraight(turn.cards)), true);
       expect(
-        straightTurns.every((turn) => turn.cards.length == desiredLength),
+        straightTurns.every((final turn) => turn.cards.length == desiredLength),
         true,
       );
       expect(straightTurns[0].value, 8);
@@ -85,12 +85,12 @@ void main() {
         Card(CardFace.eight, CardColor.red),
       ];
 
-      final desiredLength = 5;
-      var turns = getStraights(phoenixStraight, desiredLength);
+      const desiredLength = 5;
+      final turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => isStraight(turn.cards)), true);
-      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns.every((final turn) => isStraight(turn.cards)), true);
+      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.eight));
       expect(turns[1].value, Card.getValue(CardFace.seven));
     });
@@ -103,8 +103,8 @@ void main() {
         Card(CardFace.ace, CardColor.red),
       ];
 
-      final desiredLength = 5;
-      var turns = getStraights(phoenixStraight, desiredLength);
+      const desiredLength = 5;
+      final turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 0);
     });
@@ -123,12 +123,12 @@ void main() {
         Card(CardFace.king, CardColor.green),
       ];
 
-      final desiredLength = 5;
-      var turns = getStraights(phoenixStraight, desiredLength);
+      const desiredLength = 5;
+      final turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => isStraight(turn.cards)), true);
-      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns.every((final turn) => isStraight(turn.cards)), true);
+      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.ace));
       expect(turns[1].value, Card.getValue(CardFace.seven));
     });
@@ -141,12 +141,12 @@ void main() {
         Card(CardFace.ace, CardColor.red),
       ];
 
-      final desiredLength = 5;
-      var turns = getStraights(phoenixStraight, desiredLength);
+      const desiredLength = 5;
+      final turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 1);
-      expect(turns.every((turn) => isStraight(turn.cards)), true);
-      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
+      expect(turns.every((final turn) => isStraight(turn.cards)), true);
+      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.ace));
     });
 
@@ -159,8 +159,8 @@ void main() {
         Card(CardFace.seven, CardColor.red),
       ];
 
-      final desiredLength = 4;
-      var turns = getStraights(straight, desiredLength);
+      const desiredLength = 4;
+      final turns = getStraights(straight, desiredLength);
 
       expect(turns, isEmpty);
     });
@@ -176,10 +176,10 @@ void main() {
       Card(CardFace.eight, CardColor.red),
     ];
     test('getPermutationTest', () {
-      var turns = getStraightPermutations(sevenStraight);
+      final turns = getStraightPermutations(sevenStraight);
 
       expect(turns.length, 6);
-      expect(turns.every((element) => isStraight(element.cards)), true);
+      expect(turns.every((final element) => isStraight(element.cards)), true);
       expect(turns[0].value, 8);
       expect(turns[0].cards.length, 7);
       expect(turns[1].cards.length, 6);
@@ -196,7 +196,7 @@ void main() {
   });
   group('isStraight', () {
     test('fiveStraightTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.five, CardColor.black),
         Card(CardFace.four, CardColor.green),
         Card(CardFace.three, CardColor.blue),
@@ -207,7 +207,7 @@ void main() {
       expect(isStraight(cards), true);
     });
     test('sevenPhoenixStraightTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.five, CardColor.black),
         Card(CardFace.six, CardColor.black),
         Card.phoenix(Card.getValue(CardFace.seven)),
@@ -219,7 +219,7 @@ void main() {
       expect(isStraight(cards), true);
     });
     test('straightDragonTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.jack, CardColor.black),
         Card(CardFace.queen, CardColor.black),
         Card(CardFace.king, CardColor.green),

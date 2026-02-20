@@ -3,10 +3,10 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 abstract class BombTimingStrategy {
   bool shouldBomb(
-    GameSnapshot snapshot,
-    DeckState deck,
-    TichuTurn bomb,
-    List<Card> hand,
+    final GameSnapshot snapshot,
+    final DeckState deck,
+    final TichuTurn bomb,
+    final List<Card> hand,
   );
 }
 
@@ -15,12 +15,11 @@ class DefaultBombTimingStrategy implements BombTimingStrategy {
 
   @override
   bool shouldBomb(
-    GameSnapshot snapshot,
-    DeckState deck,
-    TichuTurn bomb,
-    List<Card> hand,
-  ) {
+    final GameSnapshot snapshot,
+    final DeckState deck,
+    final TichuTurn bomb,
+    final List<Card> hand,
+  ) =>
     // Conservative default: allow bombs only when there are no non-bomb plays.
-    return false;
-  }
+    false;
 }

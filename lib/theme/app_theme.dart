@@ -64,7 +64,6 @@ class AppTheme {
   static ThemeData get lightTheme {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: _seed,
-      brightness: Brightness.light,
     ).copyWith(secondary: _accent, tertiary: const Color(0xFF3CB371));
 
     return ThemeData(
@@ -95,7 +94,7 @@ class AppTheme {
     );
   }
 
-  static TextTheme _baseTextTheme(Brightness brightness) {
+  static TextTheme _baseTextTheme(final Brightness brightness) {
     final isDark = brightness == Brightness.dark;
     return TextTheme(
       headlineMedium: TextStyle(

@@ -1,7 +1,7 @@
 part of '../game_screen.dart';
 
 mixin _GameScreenDialogs on _GameScreenBindings {
-  void _maybeShowRoundCompleteDialog(PlayerSnapshot snapshot) {
+  void _maybeShowRoundCompleteDialog(final PlayerSnapshot snapshot) {
     final scoreState = snapshot.scoreState;
     if (!scoreState.roundComplete) return;
     if (scoreState.roundNumber <= _lastDialogRoundNumber) return;
@@ -9,17 +9,30 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     _lastDialogRoundNumber = scoreState.roundNumber;
     _roundCompleteAcknowledged = false;
 
+    // In AI-self mode, auto-continue after a brief pause so the user can
+    // see the scoreboard without needing to click through.
+    if (!_isSelfManual && !scoreState.gameComplete) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _roundCompleteAcknowledged = true;
+        });
+        unawaited(_startRound());
+      });
+      return;
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (context) {
+        builder: (final context) {
           if (scoreState.gameComplete) {
             final winnerLabel = switch (scoreState.winningTeam) {
               0 => 'Your team wins!',
               1 => 'Other team wins!',
-              _ => 'It\'s a tie!',
+              _ => "It's a tie!",
             };
             return AlertDialog(
               title: const Text('Match complete'),
@@ -62,7 +75,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
                     _roundCompleteAcknowledged = true;
                   });
                   Navigator.of(context).pop();
-                  _startRound();
+                  unawaited(_startRound());
                 },
                 child: const Text('Start next round'),
               ),
@@ -73,7 +86,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     });
   }
 
-  Widget _buildScoreSummaryTable(BuildContext context, ScoreState scoreState) {
+  Widget _buildScoreSummaryTable(final BuildContext context, final ScoreState scoreState) {
     if (scoreState.rounds.isEmpty) {
       return const Text('No scoring data yet.');
     }
@@ -93,7 +106,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         ],
       ),
       ...scoreState.rounds.map(
-        (round) => TableRow(
+        (final round) => TableRow(
           children: [
             _ScoreSummaryCell('${round.roundNumber}', style: numberStyle),
             _ScoreSummaryCell('${round.teamOnePoints}', style: numberStyle),
@@ -126,7 +139,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     );
   }
 
-  void _maybeShowDragonGiveDialog(PlayerSnapshot snapshot) {
+  void _maybeShowDragonGiveDialog(final PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
     if (_dragonGiveDialogOpen) return;
     if (snapshot.pendingDragonGiveBy != _humanId) return;
@@ -140,21 +153,19 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       final selectedTarget = await showDialog<String>(
         context: context,
         barrierDismissible: false,
-        builder: (context) {
-          return AlertDialog(
+        builder: (final context) => AlertDialog(
             title: const Text('Who receives the dragon?'),
             actionsAlignment: MainAxisAlignment.center,
-            actions: targetIds.map((targetId) {
+            actions: targetIds.map((final targetId) {
               final name = snapshot.players
-                  .firstWhere((player) => player.id == targetId)
+                  .firstWhere((final player) => player.id == targetId)
                   .name;
               return TextButton(
                 onPressed: () => Navigator.of(context).pop(targetId),
                 child: Text(name),
               );
             }).toList(),
-          );
-        },
+          ),
       );
 
       _dragonGiveDialogOpen = false;
@@ -165,13 +176,13 @@ mixin _GameScreenDialogs on _GameScreenBindings {
           _gameId!,
           GiveDragonAction(playerId: _humanId, targetPlayerId: selectedTarget),
         );
-      } catch (error) {
+      } on Object catch (error) {
         _showSnack(error.toString());
       }
     });
   }
 
-  List<String> _orderDragonGiveTargetsForDisplay(PlayerSnapshot snapshot) {
+  List<String> _orderDragonGiveTargetsForDisplay(final PlayerSnapshot snapshot) {
     final targetIds = List<String>.from(snapshot.pendingDragonGiveTargets);
     final seatById = {
       for (final player in snapshot.players) player.id: player.seat,
@@ -182,7 +193,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       return targetIds;
     }
 
-    int displayPriority(String playerId) {
+    int displayPriority(final String playerId) {
       final seat = seatById[playerId];
       if (seat == null) return 3;
       final relativeSeat = (seat - humanSeat + playerCount) % playerCount;
@@ -191,7 +202,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       return 2;
     }
 
-    targetIds.sort((a, b) {
+    targetIds.sort((final a, final b) {
       final priorityComparison = displayPriority(
         a,
       ).compareTo(displayPriority(b));
@@ -206,7 +217,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     return targetIds;
   }
 
-  bool _shouldShowGrandTichuDecision(PlayerSnapshot snapshot) {
+  bool _shouldShowGrandTichuDecision(final PlayerSnapshot snapshot) {
     if (!_isSelfManual) return false;
     if (snapshot.phase != GamePhase.grandTichu) return false;
     if (snapshot.currentPlayerId != _humanId) return false;
@@ -215,30 +226,18 @@ mixin _GameScreenDialogs on _GameScreenBindings {
   }
 
   @override
-  Future<CardFace?> _promptWish({CardFace? defaultWish}) async {
+  Future<CardFace?> _promptWish({final CardFace? defaultWish}) async {
     if (_wishDialogOpen) return null;
     if (!mounted) return null;
 
     _wishDialogOpen = true;
 
-    const wishChoices = <CardFace>[
+    final wishChoices = <CardFace>[
       CardFace.none,
-      CardFace.two,
-      CardFace.three,
-      CardFace.four,
-      CardFace.five,
-      CardFace.six,
-      CardFace.seven,
-      CardFace.eight,
-      CardFace.nine,
-      CardFace.ten,
-      CardFace.jack,
-      CardFace.queen,
-      CardFace.king,
-      CardFace.ace,
+      ...CardFace.values.where(isWishableFace),
     ];
 
-    String labelFor(CardFace face) {
+    String labelFor(final CardFace face) {
       switch (face) {
         case CardFace.none:
           return 'No wish';
@@ -252,7 +251,18 @@ mixin _GameScreenDialogs on _GameScreenBindings {
           return 'K';
         case CardFace.ace:
           return 'A';
-        default:
+        case CardFace.mahJong:
+        case CardFace.two:
+        case CardFace.three:
+        case CardFace.four:
+        case CardFace.five:
+        case CardFace.six:
+        case CardFace.seven:
+        case CardFace.eight:
+        case CardFace.nine:
+        case CardFace.dragon:
+        case CardFace.phoenix:
+        case CardFace.dog:
           return Card.getValue(face).toInt().toString();
       }
     }
@@ -265,11 +275,10 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     final selection = await showDialog<CardFace>(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
-        CardFace selected = initialChoice;
+      builder: (final context) {
+        var selected = initialChoice;
         return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
+          builder: (final context, final setState) => AlertDialog(
               title: const Text('Declare a wish'),
               content: SizedBox(
                 width: 360,
@@ -285,7 +294,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: wishChoices.map((face) {
+                      children: wishChoices.map((final face) {
                         final isSelected = face == selected;
                         return ChoiceChip(
                           label: Text(labelFor(face)),
@@ -311,8 +320,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
                   child: const Text('Confirm'),
                 ),
               ],
-            );
-          },
+            ),
         );
       },
     );
@@ -321,7 +329,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     return selection;
   }
 
-  Future<void> _submitGrandTichuDecision(bool call) async {
+  Future<void> _submitGrandTichuDecision(final bool call) async {
     final snapshot = _snapshot;
     if (snapshot == null) return;
     if (_grandTichuDialogOpen) return;
@@ -331,7 +339,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         snapshot.gameId,
         GrandTichuDecisionAction(playerId: _humanId, call: call),
       );
-    } catch (error) {
+    } on Object catch (error) {
       _showSnack(error.toString());
     } finally {
       _grandTichuDialogOpen = false;
@@ -375,7 +383,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         _schupfToPartner = null;
         _schupfToRight = null;
       });
-    } catch (error) {
+    } on Object catch (error) {
       _showSnack(error.toString());
     }
   }
@@ -388,18 +396,8 @@ class _ScoreSummaryCell extends StatelessWidget {
   const _ScoreSummaryCell(this.text, {this.style});
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
+  Widget build(final BuildContext context) => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Text(text, style: style),
     );
-  }
-}
-
-CardFace? defaultWishFaceFromSchupf({
-  required Card? toLeft,
-  required Card? toPartner,
-  required Card? toRight,
-}) {
-  return toRight?.face;
 }

@@ -1,6 +1,6 @@
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/game_state_tracker.dart';
 import 'package:tichu/agents/table_relationships.dart';
+import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -49,11 +49,11 @@ class TurnScorer {
   const TurnScorer({this.weights = const PolicyWeights(), this.tracker});
 
   double scoreTurn(
-    GameSnapshot snapshot,
-    String playerId,
-    TichuTurn play,
-    DeckState deck,
-    List<Card> hand,
+    final GameSnapshot snapshot,
+    final String playerId,
+    final TichuTurn play,
+    final DeckState deck,
+    final List<Card> hand,
   ) {
     if (play.cards.length == hand.length) {
       return 1000;
@@ -78,7 +78,7 @@ class TurnScorer {
       deck,
     );
 
-    final maxValue = 25.0;
+    const maxValue = 25.0;
     final lowValueFactor = (maxValue - play.value) / maxValue;
 
     if (isLeading) {
@@ -100,7 +100,7 @@ class TurnScorer {
     };
 
     final controlCount = play.cards
-        .where((card) => controlCards.contains(card.face))
+        .where((final card) => controlCards.contains(card.face))
         .length;
     if (controlCount > 0) {
       score -= weights.controlPreservation * controlCount;
@@ -111,7 +111,7 @@ class TurnScorer {
       final hasLastKing = tracker?.hasLastKing(hand) ?? false;
       final allAcesKnown = tracker?.allAcesKnown ?? false;
       final pointFactor = (trickPoints / 25).clamp(0, 1).toDouble();
-      final highCount = play.cards.where((card) {
+      final highCount = play.cards.where((final card) {
         if (!highCards.contains(card.face)) return false;
         if (card.face == CardFace.ace && hasLastAce) return false;
         if (card.face == CardFace.king && allAcesKnown && hasLastKing) {
@@ -186,7 +186,7 @@ class TurnScorer {
     return score;
   }
 
-  bool _opponentLow(GameSnapshot snapshot, String playerId) {
+  bool _opponentLow(final GameSnapshot snapshot, final String playerId) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
       final count = (snapshot.hands[player.id] ?? const <Card>[]).length;
@@ -197,7 +197,7 @@ class TurnScorer {
     return false;
   }
 
-  bool _opponentAtOne(GameSnapshot snapshot, String playerId) {
+  bool _opponentAtOne(final GameSnapshot snapshot, final String playerId) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
       final count = (snapshot.hands[player.id] ?? const <Card>[]).length;
@@ -208,7 +208,7 @@ class TurnScorer {
     return false;
   }
 
-  bool _opponentTichuNearFinish(GameSnapshot snapshot, String playerId) {
+  bool _opponentTichuNearFinish(final GameSnapshot snapshot, final String playerId) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
       final call = snapshot.scoreState.tichuCalls[player.id] ?? TichuCall.none;
@@ -222,9 +222,9 @@ class TurnScorer {
   }
 
   bool _opponentTichuNearFinishWinningTrick(
-    GameSnapshot snapshot,
-    String playerId,
-    DeckState deck,
+    final GameSnapshot snapshot,
+    final String playerId,
+    final DeckState deck,
   ) {
     final table = TableRelationships(snapshot, playerId);
     final winnerId = deck.currentWinner.isNotEmpty
@@ -246,13 +246,13 @@ class TurnScorer {
     return count > 0 && count <= 2;
   }
 
-  bool _partnerCalledTichu(GameSnapshot snapshot, String playerId) {
+  bool _partnerCalledTichu(final GameSnapshot snapshot, final String playerId) {
     final partnerId = TableRelationships(snapshot, playerId).partnerId!;
     final call = snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
     return call != TichuCall.none;
   }
 
-  bool _opponentCalledTichu(GameSnapshot snapshot, String playerId) {
+  bool _opponentCalledTichu(final GameSnapshot snapshot, final String playerId) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
       final call = snapshot.scoreState.tichuCalls[player.id] ?? TichuCall.none;
@@ -263,17 +263,15 @@ class TurnScorer {
     return false;
   }
 
-  bool _isUnbeatableLine(TichuTurn play) {
-    return play.type == TurnType.straight ||
+  bool _isUnbeatableLine(final TichuTurn play) => play.type == TurnType.straight ||
         play.type == TurnType.pairStraight ||
         play.type == TurnType.fullHouse ||
         play.type == TurnType.bomb;
-  }
 
-  int _countLowSingletons(List<Card> hand) {
+  int _countLowSingletons(final List<Card> hand) {
     final normalCards = hand
         .where(
-          (c) =>
+          (final c) =>
               c.face != CardFace.phoenix &&
               c.face != CardFace.dog &&
               c.face != CardFace.dragon,
@@ -291,17 +289,17 @@ class TurnScorer {
     return count;
   }
 
-  List<Card> _removePlayedCards(List<Card> hand, List<Card> played) {
+  List<Card> _removePlayedCards(final List<Card> hand, final List<Card> played) {
     final remaining = List<Card>.from(hand);
     for (final card in played) {
       if (card.face == CardFace.phoenix) {
-        final index = remaining.indexWhere((c) => c.face == CardFace.phoenix);
+        final index = remaining.indexWhere((final c) => c.face == CardFace.phoenix);
         if (index != -1) {
           remaining.removeAt(index);
         }
         continue;
       }
-      final index = remaining.indexWhere((c) => c == card);
+      final index = remaining.indexWhere((final c) => c == card);
       if (index != -1) {
         remaining.removeAt(index);
       }

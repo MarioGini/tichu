@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart' hide Card;
 
-import '../game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
 
 class CardWidget extends StatelessWidget {
   const CardWidget({
@@ -24,7 +24,7 @@ class CardWidget extends StatelessWidget {
   final double scale;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final color = _cardColor(card.color);
     final label = _cardLabel(card);
     final background = card.color == CardColor.special
@@ -98,8 +98,7 @@ class CardWidget extends StatelessWidget {
                     height: height,
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Align(
+                    errorBuilder: (final context, final error, final stackTrace) => Align(
                         alignment: Alignment.topCenter,
                         child: Text(
                           label,
@@ -110,8 +109,7 @@ class CardWidget extends StatelessWidget {
                           ),
                           textAlign: TextAlign.center,
                         ),
-                      );
-                    },
+                      ),
                   ),
                 if (_isPhoenixWithValue)
                   Positioned(
@@ -158,18 +156,15 @@ class CardWidget extends StatelessWidget {
     return _rankLabel(v.round());
   }
 
-  String _rankLabel(int value) {
-    return switch (value) {
+  String _rankLabel(final int value) => switch (value) {
       11 => 'J',
       12 => 'Q',
       13 => 'K',
       14 => 'A',
       _ => value.toString(),
     };
-  }
 
-  String _cardLabel(Card card) {
-    return switch (card.face) {
+  String _cardLabel(final Card card) => switch (card.face) {
       CardFace.mahJong => 'MJ',
       CardFace.dragon => 'DR',
       CardFace.phoenix => 'PH',
@@ -189,9 +184,8 @@ class CardWidget extends StatelessWidget {
       CardFace.two => '2',
       CardFace.none => '?',
     };
-  }
 
-  String? _cardAssetPath(Card card) {
+  String? _cardAssetPath(final Card card) {
     if (card.face == CardFace.none) {
       return null;
     }
@@ -214,8 +208,7 @@ class CardWidget extends StatelessWidget {
     return 'assets/cards/${card.color.name}_$faceName.png';
   }
 
-  String? _cardFaceName(CardFace face) {
-    return switch (face) {
+  String? _cardFaceName(final CardFace face) => switch (face) {
       CardFace.two => '02',
       CardFace.three => '03',
       CardFace.four => '04',
@@ -231,15 +224,12 @@ class CardWidget extends StatelessWidget {
       CardFace.ace => '01',
       _ => null,
     };
-  }
 }
 
-Color _cardColor(CardColor color) {
-  return switch (color) {
+Color _cardColor(final CardColor color) => switch (color) {
     CardColor.black => const Color(0xFF2D2D2D),
     CardColor.green => const Color(0xFF2E7D32),
     CardColor.red => const Color(0xFFB71C1C),
     CardColor.blue => const Color(0xFF0D47A1),
     CardColor.special => const Color(0xFF4E4E4E),
   };
-}

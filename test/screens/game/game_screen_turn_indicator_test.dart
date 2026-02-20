@@ -13,7 +13,7 @@ import '../../utils/test_helpers.dart';
 
 void main() {
   testWidgets('keeps self turn indicator visible in AI self mode', (
-    tester,
+    final tester,
   ) async {
     final backend = FakeGameBackend();
 
@@ -34,7 +34,7 @@ void main() {
   });
 
   testWidgets('keeps self turn indicator when AI self pending move is staged', (
-    tester,
+    final tester,
   ) async {
     final backend = FakeGameBackend();
 
@@ -61,7 +61,7 @@ void main() {
   });
 
   testWidgets('shows AI self pending play cards as selected in hand', (
-    tester,
+    final tester,
   ) async {
     final backend = FakeGameBackend();
     final ace = Card(CardFace.ace, CardColor.green);
@@ -106,7 +106,7 @@ void main() {
   });
 
   testWidgets('shows AI self schupf cards in schupf target slots', (
-    tester,
+    final tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -151,19 +151,19 @@ void main() {
 
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is CardWidget && widget.card == toLeft,
+        (final widget) => widget is CardWidget && widget.card == toLeft,
       ),
       findsOneWidget,
     );
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is CardWidget && widget.card == toPartner,
+        (final widget) => widget is CardWidget && widget.card == toPartner,
       ),
       findsOneWidget,
     );
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is CardWidget && widget.card == toRight,
+        (final widget) => widget is CardWidget && widget.card == toRight,
       ),
       findsOneWidget,
     );

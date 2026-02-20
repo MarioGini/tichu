@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -20,8 +21,8 @@ class SoundEffects {
   }
 
   static Future<void> _playAsset(
-    String assetPath,
-    SystemSoundType fallback,
+    final String assetPath,
+    final SystemSoundType fallback,
   ) async {
     final assetKey = assetPath.replaceFirst('assets/', '');
     try {
@@ -31,14 +32,14 @@ class SoundEffects {
         await _player.play(AssetSource(assetKey));
         return;
       }
-    } catch (_) {
+    } on Exception catch (_) {
       // Ignore and fall back to system sound.
     }
 
-    SystemSound.play(fallback);
+    unawaited(SystemSound.play(fallback));
   }
 
-  static Future<bool> _assetExists(String assetPath) async {
+  static Future<bool> _assetExists(final String assetPath) async {
     if (_assetManifest == null) {
       final manifestString = await rootBundle.loadString('AssetManifest.json');
       _assetManifest = json.decode(manifestString) as Map<String, dynamic>;

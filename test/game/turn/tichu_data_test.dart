@@ -3,7 +3,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 void main() {
   test('Sorting test', () {
-    var testCards = <Card>[
+    final testCards = <Card>[
       Card(CardFace.dog, CardColor.special),
       Card(CardFace.ten, CardColor.black),
       Card(CardFace.eight, CardColor.red),
@@ -11,7 +11,7 @@ void main() {
     ];
     testCards.sort(compareCards);
 
-    var expectedOrder = <Card>[
+    final expectedOrder = <Card>[
       Card(CardFace.ten, CardColor.black),
       Card(CardFace.eight, CardColor.red),
       Card(CardFace.dog, CardColor.special),

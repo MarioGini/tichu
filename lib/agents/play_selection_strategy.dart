@@ -1,28 +1,28 @@
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/turn_scorer.dart';
+import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 abstract class PlaySelectionStrategy {
   TichuTurn selectPlay(
-    GameSnapshot snapshot,
-    List<TichuTurn> plays,
-    DeckState deck,
-    List<Card> hand,
+    final GameSnapshot snapshot,
+    final List<TichuTurn> plays,
+    final DeckState deck,
+    final List<Card> hand,
   );
 }
 
 class DefaultPlaySelectionStrategy implements PlaySelectionStrategy {
   final TurnScorer turnScorer;
 
-  const DefaultPlaySelectionStrategy({TurnScorer? turnScorer})
+  const DefaultPlaySelectionStrategy({final TurnScorer? turnScorer})
     : turnScorer = turnScorer ?? const TurnScorer();
 
   @override
   TichuTurn selectPlay(
-    GameSnapshot snapshot,
-    List<TichuTurn> plays,
-    DeckState deck,
-    List<Card> hand,
+    final GameSnapshot snapshot,
+    final List<TichuTurn> plays,
+    final DeckState deck,
+    final List<Card> hand,
   ) {
     TichuTurn? bestPlay;
     var bestScore = double.negativeInfinity;

@@ -4,18 +4,18 @@ import 'package:tichu/game/turn/wish_logic.dart';
 
 class TurnHandler {
   DeckState handleTurn(
-    DeckState currentDeck,
-    List<Card> selectedCards,
-    CardFace inputWish, {
-    List<Card>? hand,
+    final DeckState currentDeck,
+    final List<Card> selectedCards,
+    final CardFace inputWish, {
+    final List<Card>? hand,
   }) {
     final normalizedCards = _normalizePhoenixSingle(currentDeck, selectedCards);
-    var currentTurn = getTurn(normalizedCards);
+    final currentTurn = getTurn(normalizedCards);
     final handCards = hand ?? selectedCards;
 
     // Selected cards must form a valid turn.
     if (currentTurn == TichuTurn.InvalidTurn()) {
-      return DeckState.Invalid(); // TODO inform user
+      return DeckState.Invalid(); // TODO(turnHandler): inform user
     }
 
     // When mah jong is not obeyed, turn is invalid.
@@ -36,8 +36,8 @@ class TurnHandler {
 }
 
 List<Card> _normalizePhoenixSingle(
-  DeckState currentDeck,
-  List<Card> selectedCards,
+  final DeckState currentDeck,
+  final List<Card> selectedCards,
 ) {
   if (selectedCards.length != 1) {
     return selectedCards;
@@ -66,7 +66,7 @@ List<Card> _normalizePhoenixSingle(
   return [Card.phoenix(phoenixValue)];
 }
 
-bool validTurn(TichuTurn deck, TichuTurn turn) {
+bool validTurn(final TichuTurn deck, final TichuTurn turn) {
   // We can play any turn on an empty deck or dog.
   if (deck.type == TurnType.empty || deck.type == TurnType.dog) {
     return true;

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
+import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 
 import 'ai_test_fixtures.dart';
@@ -11,12 +11,12 @@ class _AlwaysCallTichuStrategy implements TichuCallStrategy {
 
   @override
   Future<bool> shouldCallGrandTichu(
-    GameSnapshot snapshot,
-    String playerId,
+    final GameSnapshot snapshot,
+    final String playerId,
   ) async => false;
 
   @override
-  Future<bool> shouldCallTichu(GameSnapshot snapshot, String playerId) async =>
+  Future<bool> shouldCallTichu(final GameSnapshot snapshot, final String playerId) async =>
       true;
 }
 
@@ -25,12 +25,12 @@ class _NeverCallTichuStrategy implements TichuCallStrategy {
 
   @override
   Future<bool> shouldCallGrandTichu(
-    GameSnapshot snapshot,
-    String playerId,
+    final GameSnapshot snapshot,
+    final String playerId,
   ) async => false;
 
   @override
-  Future<bool> shouldCallTichu(GameSnapshot snapshot, String playerId) async =>
+  Future<bool> shouldCallTichu(final GameSnapshot snapshot, final String playerId) async =>
       false;
 }
 

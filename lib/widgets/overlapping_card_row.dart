@@ -25,7 +25,7 @@ class OverlappingCardRow extends StatelessWidget {
   final bool center;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final contentHeight = height ?? cardHeight;
 
     if (itemCount == 0) {
@@ -33,7 +33,7 @@ class OverlappingCardRow extends StatelessWidget {
     }
 
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (final context, final constraints) {
         final availWidth = constraints.maxWidth;
         final naturalStep = cardWidth + spacing;
         final totalNatural =

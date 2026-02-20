@@ -56,7 +56,7 @@ void main() {
         Card(CardFace.five, CardColor.blue),
         Card(CardFace.four, CardColor.red),
         Card(CardFace.three, CardColor.green),
-        const Card.phoenix(2.0),
+        const Card.phoenix(2),
       ];
       final selected = [
         Card(CardFace.six, CardColor.black),

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import "package:tichu/game/turn/utils/card_utils.dart";
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/card_utils.dart';
 
 void main() {
   group('occurrences', () {
@@ -27,10 +27,10 @@ void main() {
         Card(CardFace.three, CardColor.black),
         Card(CardFace.four, CardColor.red),
       ];
-      var occurrences = getOccurrenceCount(cards);
+      final occurrences = getOccurrenceCount(cards);
       expect(occurrences.keys.length, 2);
       expect(
-        occurrences.values.fold(0, (prev, element) => prev + element),
+        occurrences.values.fold(0, (final prev, final element) => prev + element),
         cards.length,
       );
       expect(occurrences[CardFace.three], 2);
@@ -38,13 +38,13 @@ void main() {
     });
 
     test('emptyListTest', () {
-      var occurrences = getOccurrenceCount([]);
+      final occurrences = getOccurrenceCount([]);
       expect(occurrences, isEmpty);
     });
   });
   group('uniformColor', () {
     test('uniformColorTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.five, CardColor.red),
         Card(CardFace.jack, CardColor.red),
         Card(CardFace.king, CardColor.red),
@@ -53,7 +53,7 @@ void main() {
       expect(uniformColor(cards), true);
     });
     test('nonUniformColorsTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.five, CardColor.red),
         Card(CardFace.jack, CardColor.red),
         Card(CardFace.dog, CardColor.special),
@@ -81,12 +81,12 @@ void main() {
         Card(CardFace.king, CardColor.red),
       ];
 
-      var expected = <ConnectedCards>[
-        ConnectedCards(0, 0),
-        ConnectedCards(1, 2),
-        ConnectedCards(3, 5),
+      final expected = <ConnectedCards>[
+        const ConnectedCards(0, 0),
+        const ConnectedCards(1, 2),
+        const ConnectedCards(3, 5),
       ];
-      var connectedCards = findConnectedCards(cards);
+      final connectedCards = findConnectedCards(cards);
 
       expect(connectedCards.first.beginIdx, 0);
       expect(connectedCards.last.endIdx, cards.indexOf(cards.last));
@@ -99,7 +99,7 @@ void main() {
 
     test('singleCardProducesSingleSegment', () {
       final cards = [Card(CardFace.three, CardColor.green)];
-      expect(findConnectedCards(cards), [ConnectedCards(0, 0)]);
+      expect(findConnectedCards(cards), [const ConnectedCards(0, 0)]);
     });
   });
 }

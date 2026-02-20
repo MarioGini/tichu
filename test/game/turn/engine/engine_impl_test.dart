@@ -1,19 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
-import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import '../../../utils/test_game_fixtures.dart';
 
-Card _card(CardFace face, CardColor color) => Card(face, color);
+Card _card(final CardFace face, final CardColor color) => Card(face, color);
 
 GameEngineState _state({
-  required GamePhase phase,
-  int currentPlayerIndex = 0,
-  Map<String, List<Card>>? hands,
-  DeckState? deck,
+  required final GamePhase phase,
+  final int currentPlayerIndex = 0,
+  final Map<String, List<Card>>? hands,
+  final DeckState? deck,
 }) {
   final state = GameEngineState(
     gameId: 'g1',
@@ -27,7 +27,7 @@ GameEngineState _state({
           testOpponentRightId: [_card(CardFace.five, CardColor.red)],
         },
     reservedHands: {for (final player in testPlayers) player.id: <Card>[]},
-    deck: deck ?? DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+    deck: deck ?? DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
     currentPlayerIndex: currentPlayerIndex,
     scoreTracker: LocalScoreTracker(),
     phase: phase,
@@ -65,7 +65,7 @@ void main() {
 
     test('rejects out-of-turn grand tichu decision', () {
       final engine = GameEngineImpl();
-      final state = _state(phase: GamePhase.grandTichu, currentPlayerIndex: 0);
+      final state = _state(phase: GamePhase.grandTichu);
 
       expect(
         () => engine.applyAction(
@@ -120,7 +120,6 @@ void main() {
       final engine = GameEngineImpl();
       final state = _state(
         phase: GamePhase.play,
-        currentPlayerIndex: 0,
         deck: DeckState(
           TichuTurn(TurnType.single, [_card(CardFace.five, CardColor.black)]),
           CardFace.none,
@@ -181,7 +180,6 @@ void main() {
       final engine = GameEngineImpl();
       final state = _state(
         phase: GamePhase.play,
-        currentPlayerIndex: 0,
         deck: DeckState(
           TichuTurn(TurnType.single, [_card(CardFace.five, CardColor.black)]),
           CardFace.none,

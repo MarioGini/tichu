@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/agents/table_relationships.dart';
+import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -45,13 +45,13 @@ final _players = [
 ];
 
 GameSnapshot _snapshot({
-  required List<Card> myHand,
-  DeckState? deck,
-  Map<String, List<Card>>? otherHands,
-  Map<String, TichuCall>? tichuCalls,
-  String? lastPlayedBy,
-  TichuTurn? lastPlayedTurn,
-  CardFace? activeWish,
+  required final List<Card> myHand,
+  final DeckState? deck,
+  final Map<String, List<Card>>? otherHands,
+  final Map<String, TichuCall>? tichuCalls,
+  final String? lastPlayedBy,
+  final TichuTurn? lastPlayedTurn,
+  final CardFace? activeWish,
 }) {
   final hands = <String, List<Card>>{
     _aiId: myHand,
@@ -90,7 +90,7 @@ GameSnapshot _snapshot({
 }
 
 DeckState _emptyDeck() =>
-    DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+    DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
 
 List<Card> _defaultHand() => [
   Card(CardFace.two, CardColor.red),
@@ -113,16 +113,14 @@ class _FixedSchupfStrategy implements SchupfStrategy {
 
   @override
   Future<SchupfAction> selectSchupfCards(
-    GameSnapshot snapshot,
-    String playerId,
-  ) async {
-    return SchupfAction(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async => SchupfAction(
       playerId: playerId,
       toLeft: toLeft,
       toPartner: toPartner,
       toRight: toRight,
     );
-  }
 }
 
 class _ForceEmptyValidPlaysPolicy extends PlayTacticsPolicy {
@@ -130,52 +128,42 @@ class _ForceEmptyValidPlaysPolicy extends PlayTacticsPolicy {
 
   @override
   PassAction? selectPartnerSupportPass({
-    required String playerId,
-    required GameSnapshot snapshot,
-    required DeckState deck,
-    required List<Card> hand,
-    required TableRelationships table,
-  }) {
-    return null;
-  }
+    required final String playerId,
+    required final GameSnapshot snapshot,
+    required final DeckState deck,
+    required final List<Card> hand,
+    required final TableRelationships table,
+  }) => null;
 
   @override
   TichuTurn? selectPartnerFinishLead({
-    required GameSnapshot snapshot,
-    required List<TichuTurn> legalTurns,
-    required bool isLeading,
-    required TableRelationships table,
-  }) {
-    return null;
-  }
+    required final GameSnapshot snapshot,
+    required final List<TichuTurn> legalTurns,
+    required final bool isLeading,
+    required final TableRelationships table,
+  }) => null;
 
   @override
   TichuTurn? selectMahjongLeadTurn({
-    required List<TichuTurn> legalTurns,
-    required DeckState deck,
-    required List<Card> hand,
-    required bool isLeading,
-    required TichuTurn Function(List<TichuTurn>) selectPlay,
-  }) {
-    return null;
-  }
+    required final List<TichuTurn> legalTurns,
+    required final DeckState deck,
+    required final List<Card> hand,
+    required final bool isLeading,
+    required final TichuTurn Function(List<TichuTurn>) selectPlay,
+  }) => null;
 
   @override
   List<TichuTurn> wishPreferredTurns({
-    required List<TichuTurn> legalTurns,
-    required DeckState deck,
-  }) {
-    return const <TichuTurn>[];
-  }
+    required final List<TichuTurn> legalTurns,
+    required final DeckState deck,
+  }) => const <TichuTurn>[];
 
   @override
   List<TichuTurn> filterWishValidPlays({
-    required DeckState deck,
-    required List<TichuTurn> legalTurns,
-    required List<Card> hand,
-  }) {
-    return const <TichuTurn>[];
-  }
+    required final DeckState deck,
+    required final List<TichuTurn> legalTurns,
+    required final List<Card> hand,
+  }) => const <TichuTurn>[];
 }
 
 // ---------------------------------------------------------------------------
@@ -382,7 +370,7 @@ void main() {
       // Must be a card from the hand.
       for (final c in play.cards) {
         expect(
-          hand.any((h) => h.face == c.face),
+          hand.any((final h) => h.face == c.face),
           true,
           reason: 'played card ${c.face} should be from hand',
         );
@@ -573,7 +561,7 @@ void main() {
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
 
-      final playedFaces = play.cards.map((c) => c.face).toSet();
+      final playedFaces = play.cards.map((final c) => c.face).toSet();
       expect(playedFaces.contains(CardFace.ace), false);
       expect(playedFaces.contains(CardFace.king), false);
     });
@@ -591,11 +579,11 @@ void main() {
         myHand: hand,
         deck: _emptyDeck(),
         otherHands: {
-          _leftId: List.generate(4, (i) => Card(CardFace.two, CardColor.red)),
+          _leftId: List.generate(4, (final i) => Card(CardFace.two, CardColor.red)),
           _partnerId: _defaultHand(),
           _rightId: List.generate(
             6,
-            (i) => Card(CardFace.three, CardColor.blue),
+            (final i) => Card(CardFace.three, CardColor.blue),
           ),
         },
       );
@@ -623,7 +611,7 @@ void main() {
           _partnerId: _defaultHand(),
           _rightId: List.generate(
             6,
-            (i) => Card(CardFace.three, CardColor.blue),
+            (final i) => Card(CardFace.three, CardColor.blue),
           ),
         },
       );
@@ -818,7 +806,7 @@ void main() {
         final action = await agent.selectTurn(snapshot);
         expect(action, isA<PlayTurnAction>());
         final play = action as PlayTurnAction;
-        expect(play.cards.any((c) => c.face == CardFace.mahJong), isTrue);
+        expect(play.cards.any((final c) => c.face == CardFace.mahJong), isTrue);
         expect(getTurn(play.cards).type, isNot(TurnType.dog));
       },
     );
@@ -840,7 +828,7 @@ void main() {
         final action = await agent.selectTurn(snapshot);
         expect(action, isA<PlayTurnAction>());
         final play = action as PlayTurnAction;
-        expect(play.cards.any((c) => c.face == CardFace.mahJong), isTrue);
+        expect(play.cards.any((final c) => c.face == CardFace.mahJong), isTrue);
         expect(getTurn(play.cards).type, TurnType.straight);
       },
     );
@@ -915,7 +903,7 @@ void main() {
       final action = await agent.selectTurn(snapshot);
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
-      expect(play.cards.any((c) => c.face == CardFace.seven), true);
+      expect(play.cards.any((final c) => c.face == CardFace.seven), true);
     });
 
     test(
@@ -950,7 +938,7 @@ void main() {
         final action = await agent.selectTurn(snapshot);
         expect(action, isA<PlayTurnAction>());
         final play = action as PlayTurnAction;
-        expect(play.cards.any((c) => c.face == CardFace.seven), isTrue);
+        expect(play.cards.any((final c) => c.face == CardFace.seven), isTrue);
       },
     );
   });
@@ -993,7 +981,7 @@ void main() {
       final action = await schupfAgent.selectTurn(playSnapshot);
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
-      if (play.cards.any((c) => c.face == CardFace.mahJong)) {
+      if (play.cards.any((final c) => c.face == CardFace.mahJong)) {
         expect(play.inputWish, CardFace.seven);
       }
     });
@@ -1010,7 +998,7 @@ void main() {
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
       // The agent should wish for a high card it doesn't hold.
-      if (play.cards.any((c) => c.face == CardFace.mahJong)) {
+      if (play.cards.any((final c) => c.face == CardFace.mahJong)) {
         expect(
           play.inputWish,
           isIn([
@@ -1038,7 +1026,7 @@ void main() {
       final action = await agent.selectTurn(snapshot);
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
-      if (play.cards.any((c) => c.face == CardFace.mahJong)) {
+      if (play.cards.any((final c) => c.face == CardFace.mahJong)) {
         expect(play.inputWish, CardFace.none);
       }
     });
@@ -1055,9 +1043,9 @@ void main() {
       final snapshot = _snapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(6, (i) => Card(CardFace.two, CardColor.red)),
+          _leftId: List.generate(6, (final i) => Card(CardFace.two, CardColor.red)),
           _partnerId: _defaultHand(),
-          _rightId: List.generate(2, (i) => Card(CardFace.two, CardColor.blue)),
+          _rightId: List.generate(2, (final i) => Card(CardFace.two, CardColor.blue)),
         },
         tichuCalls: {_leftId: TichuCall.tichu},
       );
@@ -1074,9 +1062,9 @@ void main() {
       final snapshot = _snapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(8, (i) => Card(CardFace.two, CardColor.red)),
+          _leftId: List.generate(8, (final i) => Card(CardFace.two, CardColor.red)),
           _partnerId: _defaultHand(),
-          _rightId: List.generate(3, (i) => Card(CardFace.two, CardColor.blue)),
+          _rightId: List.generate(3, (final i) => Card(CardFace.two, CardColor.blue)),
         },
       );
 
@@ -1091,11 +1079,11 @@ void main() {
       final snapshot = _snapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(2, (i) => Card(CardFace.two, CardColor.red)),
+          _leftId: List.generate(2, (final i) => Card(CardFace.two, CardColor.red)),
           _partnerId: _defaultHand(),
           _rightId: List.generate(
             10,
-            (i) => Card(CardFace.two, CardColor.blue),
+            (final i) => Card(CardFace.two, CardColor.blue),
           ),
         },
       );

@@ -8,7 +8,7 @@ import '../../utils/test_game_fixtures.dart';
 
 void main() {
   testWidgets('places Opponent 3 on left and Opponent 1 on right', (
-    tester,
+    final tester,
   ) async {
     final backend = FakeGameBackend();
 
@@ -23,57 +23,29 @@ void main() {
     expect(opponent3Center.dx, lessThan(opponent1Center.dx));
   });
 
-  testWidgets('highlights Opponent 1 when it is the current player', (
-    tester,
-  ) async {
+  testWidgets('highlights only the current player', (final tester) async {
     final backend = FakeGameBackend();
 
     await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
 
+    OpponentDisplay opponentByName(final String name) =>
+        tester.widget<OpponentDisplay>(
+          find.ancestor(
+            of: find.text(name),
+            matching: find.byType(OpponentDisplay),
+          ),
+        );
+
+    // Opponent 1 is current → only Opponent 1 highlighted.
     backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentLeftId));
     await tester.pump();
+    expect(opponentByName('Opponent 1').isActive, isTrue);
+    expect(opponentByName('Opponent 3').isActive, isFalse);
 
-    // Active player gets yellow border highlight; no 'Their turn' text needed.
-    final opponent1Box = tester.widget<OpponentDisplay>(
-      find.ancestor(
-        of: find.text('Opponent 1'),
-        matching: find.byType(OpponentDisplay),
-      ),
-    );
-    final opponent3Box = tester.widget<OpponentDisplay>(
-      find.ancestor(
-        of: find.text('Opponent 3'),
-        matching: find.byType(OpponentDisplay),
-      ),
-    );
-    expect(opponent1Box.isActive, isTrue);
-    expect(opponent3Box.isActive, isFalse);
-  });
-
-  testWidgets('highlights Opponent 3 when it is the current player', (
-    tester,
-  ) async {
-    final backend = FakeGameBackend();
-
-    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
-
+    // Opponent 3 is current → only Opponent 3 highlighted.
     backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentRightId));
     await tester.pump();
-
-    // Active player gets yellow border highlight; no 'Their turn' text needed.
-    final opponent3Box = tester.widget<OpponentDisplay>(
-      find.ancestor(
-        of: find.text('Opponent 3'),
-        matching: find.byType(OpponentDisplay),
-      ),
-    );
-    final opponent1Box = tester.widget<OpponentDisplay>(
-      find.ancestor(
-        of: find.text('Opponent 1'),
-        matching: find.byType(OpponentDisplay),
-      ),
-    );
-    expect(opponent3Box.isActive, isTrue);
-    expect(opponent1Box.isActive, isFalse);
+    expect(opponentByName('Opponent 3').isActive, isTrue);
+    expect(opponentByName('Opponent 1').isActive, isFalse);
   });
 }

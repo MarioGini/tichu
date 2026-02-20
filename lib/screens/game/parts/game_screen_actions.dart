@@ -1,7 +1,7 @@
 part of '../game_screen.dart';
 
 mixin _GameScreenActions on _GameScreenBindings {
-  void _toggleSelect(int index) {
+  void _toggleSelect(final int index) {
     if (!_isSelfManual) return;
     setState(() {
       if (_selectedIndexes.contains(index)) {
@@ -22,25 +22,7 @@ mixin _GameScreenActions on _GameScreenBindings {
   Future<void> _playSelected() async {
     if (!_isSelfManual) return;
     final snapshot = _snapshot;
-    if (snapshot == null || _selectedIndexes.isEmpty) {
-      return;
-    }
-
-    if (snapshot.schupfReceipts.isNotEmpty || _schupfAckPending) {
-      return;
-    }
-
-    if (snapshot.phase != GamePhase.play) {
-      return;
-    }
-
-    if (snapshot.pendingDragonGiveBy == _humanId) {
-      return;
-    }
-
-    if (snapshot.currentPlayerId != _humanId) {
-      return;
-    }
+    if (snapshot == null || _selectedIndexes.isEmpty) return;
 
     final selectedTurn = _resolveSelectedTurn(snapshot);
     if (selectedTurn == null) {
@@ -48,12 +30,12 @@ mixin _GameScreenActions on _GameScreenBindings {
       return;
     }
 
-    CardFace inputWish = CardFace.none;
-    if (selectedTurn.cards.any((card) => card.face == CardFace.mahJong)) {
+    var inputWish = CardFace.none;
+    if (_playController.requiresWishInput(selectedTurn)) {
       CardFace? defaultWish;
       if (_defaultWishRoundNumber == snapshot.scoreState.roundNumber) {
         final schupfWish = _defaultWishFaceFromSchupf;
-        if (schupfWish != null && _isWishableFace(schupfWish)) {
+        if (schupfWish != null && isWishableFace(schupfWish)) {
           defaultWish = schupfWish;
         }
       }
@@ -75,7 +57,7 @@ mixin _GameScreenActions on _GameScreenBindings {
       setState(() {
         _selectedIndexes.clear();
       });
-    } catch (error) {
+    } on Object catch (error) {
       _showSnack(error.toString());
     }
   }
@@ -89,10 +71,6 @@ mixin _GameScreenActions on _GameScreenBindings {
     if (snapshot.phase != GamePhase.play) return;
     if (snapshot.pendingDragonGiveBy == _humanId) return;
 
-    // Find all bombs in the hand and pick the first one that can be played.
-    final bombs = _turnRules.bombsInHand(_hand);
-    if (bombs.isEmpty) return;
-
     final playableBomb = _turnRules.firstPlayableBomb(snapshot.deck, _hand);
 
     if (playableBomb == null) {
@@ -100,22 +78,10 @@ mixin _GameScreenActions on _GameScreenBindings {
       return;
     }
 
-    // Auto-select the bomb cards in the hand display.
-    final indices = <int>{};
-    final used = <int>{};
-    for (final card in playableBomb.cards) {
-      for (var i = 0; i < _hand.length; i++) {
-        if (!used.contains(i) && _hand[i] == card) {
-          indices.add(i);
-          used.add(i);
-          break;
-        }
-      }
-    }
     setState(() {
       _selectedIndexes
         ..clear()
-        ..addAll(indices);
+        ..addAll(_playController.cardIndicesInHand(_hand, playableBomb.cards));
     });
 
     try {
@@ -124,13 +90,12 @@ mixin _GameScreenActions on _GameScreenBindings {
         PlayTurnAction(
           playerId: _humanId,
           cards: playableBomb.cards,
-          inputWish: CardFace.none,
         ),
       );
       setState(() {
         _selectedIndexes.clear();
       });
-    } catch (error) {
+    } on Object catch (error) {
       _showSnack(error.toString());
     }
   }
@@ -147,7 +112,7 @@ mixin _GameScreenActions on _GameScreenBindings {
         snapshot.gameId,
         ConfirmOpponentTurnAction(playerId: _humanId),
       );
-    } catch (error) {
+    } on Object catch (error) {
       _showSnack(error.toString());
     }
   }
@@ -156,19 +121,8 @@ mixin _GameScreenActions on _GameScreenBindings {
   Future<void> _pass() async {
     if (!_isSelfManual) return;
     final snapshot = _snapshot;
-    if (snapshot == null || snapshot.currentPlayerId != _humanId) {
-      return;
-    }
-    if (snapshot.schupfReceipts.isNotEmpty || _schupfAckPending) {
-      return;
-    }
-    if (snapshot.phase != GamePhase.play) return;
-    if (snapshot.pendingDragonGiveBy == _humanId) {
-      return;
-    }
-    if (!_canPass(snapshot)) {
-      return;
-    }
+    if (snapshot == null) return;
+    if (!_canPass(snapshot)) return;
     try {
       await _backend.submitAction(
         snapshot.gameId,
@@ -177,7 +131,7 @@ mixin _GameScreenActions on _GameScreenBindings {
       setState(() {
         _selectedIndexes.clear();
       });
-    } catch (error) {
+    } on Object catch (error) {
       _showSnack(error.toString());
     }
   }
@@ -194,7 +148,7 @@ mixin _GameScreenActions on _GameScreenBindings {
         snapshot.gameId,
         const CallTichuAction(playerId: 'player-0'),
       );
-    } catch (error) {
+    } on Object catch (error) {
       _showSnack(error.toString());
     }
   }
@@ -211,7 +165,7 @@ mixin _GameScreenActions on _GameScreenBindings {
         snapshot.gameId,
         const AcknowledgeSchupfAction(playerId: 'player-0'),
       );
-    } catch (error) {
+    } on Object catch (error) {
       if (mounted) {
         setState(() {
           _schupfAckPending = false;
@@ -219,26 +173,5 @@ mixin _GameScreenActions on _GameScreenBindings {
       }
       _showSnack(error.toString());
     }
-  }
-}
-
-bool _isWishableFace(CardFace face) {
-  switch (face) {
-    case CardFace.two:
-    case CardFace.three:
-    case CardFace.four:
-    case CardFace.five:
-    case CardFace.six:
-    case CardFace.seven:
-    case CardFace.eight:
-    case CardFace.nine:
-    case CardFace.ten:
-    case CardFace.jack:
-    case CardFace.queen:
-    case CardFace.king:
-    case CardFace.ace:
-      return true;
-    default:
-      return false;
   }
 }

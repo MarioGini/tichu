@@ -2,10 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart' hide Card;
 
-import '../game/turn/tichu_data.dart';
-import 'card_widget.dart';
-import 'overlapping_card_row.dart';
-import 'player_state_frame.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/widgets/card_widget.dart';
+import 'package:tichu/widgets/overlapping_card_row.dart';
+import 'package:tichu/widgets/player_state_frame.dart';
 
 class HandDisplay extends StatelessWidget {
   const HandDisplay({
@@ -30,7 +30,7 @@ class HandDisplay extends StatelessWidget {
   final Widget? header;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(final BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final resolvedHeight =
         targetHeight ?? (screenHeight * 0.18).clamp(80.0, 160.0);
@@ -49,7 +49,6 @@ class HandDisplay extends StatelessWidget {
                 isActive: isActive,
                 isFinished: isFinished,
                 borderRadius: 16,
-                idleAlpha: 0.2,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -67,7 +66,7 @@ class HandDisplay extends StatelessWidget {
     }
 
     return LayoutBuilder(
-      builder: (context, outerConstraints) {
+      builder: (final context, final outerConstraints) {
         final n = cards.length;
         final cardW = CardWidget.normalWidth * scale;
         final cardH = CardWidget.normalHeight * scale;
@@ -89,7 +88,6 @@ class HandDisplay extends StatelessWidget {
               isActive: isActive,
               isFinished: isFinished,
               borderRadius: 16,
-              idleAlpha: 0.2,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -104,16 +102,13 @@ class HandDisplay extends StatelessWidget {
                     cardWidth: cardW,
                     cardHeight: cardH,
                     spacing: marginR,
-                    minVisible: 18.0,
                     height: cardH,
-                    itemBuilder: (context, index) {
-                      return CardWidget(
+                    itemBuilder: (final context, final index) => CardWidget(
                         card: cards[index],
                         isSelected: selectedIndexes.contains(index),
                         onTap: () => onCardTap(index),
                         scale: scale,
-                      );
-                    },
+                      ),
                   ),
                 ),
               ],

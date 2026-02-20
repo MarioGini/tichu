@@ -35,17 +35,15 @@ final _players = <GamePlayer>[
   ),
 ];
 
-Card _card(CardFace face, CardColor color) => Card(face, color);
+Card _card(final CardFace face, final CardColor color) => Card(face, color);
 
-Map<String, List<Card>> _handsWithLast(String lastId, List<Card> lastHand) {
-  return {
+Map<String, List<Card>> _handsWithLast(final String lastId, final List<Card> lastHand) => {
     _playerOneId: const <Card>[],
     _playerTwoId: const <Card>[],
     _playerThreeId: const <Card>[],
     _playerFourId: const <Card>[],
     lastId: lastHand,
   };
-}
 
 void main() {
   group('LocalScoreTracker', () {

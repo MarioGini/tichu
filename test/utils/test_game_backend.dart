@@ -8,43 +8,39 @@ class FakeGameBackend implements GameBackend {
   final List<GameAction> actions = [];
   Duration? automatedActionDelay;
 
-  void emit(PlayerSnapshot snapshot) => _controller.add(snapshot);
+  void emit(final PlayerSnapshot snapshot) => _controller.add(snapshot);
 
   Future<void> close() async {
     await _controller.close();
   }
 
   @override
-  Future<void> setAutomatedActionDelay(Duration delay) async {
+  Future<void> setAutomatedActionDelay(final Duration delay) async {
     automatedActionDelay = delay;
   }
 
   @override
-  Stream<PlayerSnapshot> watchGame(String gameId, String playerId) {
-    return _controller.stream;
-  }
+  Stream<PlayerSnapshot> watchGame(final String gameId, final String playerId) => _controller.stream;
 
   @override
   Future<String> createGame(
-    List<GamePlayer> players, {
-    int targetScore = 1000,
-  }) async {
-    return 'test-game';
-  }
+    final List<GamePlayer> players, {
+    final int targetScore = 1000,
+  }) async => 'test-game';
 
   @override
-  Future<void> startGame(String gameId) async {}
+  Future<void> startGame(final String gameId) async {}
 
   @override
-  Future<void> startNewRound(String gameId) async {}
+  Future<void> startNewRound(final String gameId) async {}
 
   @override
-  Future<void> submitAction(String gameId, GameAction action) async {
+  Future<void> submitAction(final String gameId, final GameAction action) async {
     actions.add(action);
   }
 
   @override
-  Future<void> disposeGame(String gameId) async {
+  Future<void> disposeGame(final String gameId) async {
     await close();
   }
 }

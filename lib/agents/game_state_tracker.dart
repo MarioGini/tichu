@@ -13,7 +13,7 @@ class GameStateTracker {
     _lastPlayedTurn = null;
   }
 
-  void update(GameSnapshot snapshot, String playerId) {
+  void update(final GameSnapshot snapshot, final String playerId) {
     if (_lastRoundNumber != snapshot.scoreState.roundNumber) {
       _lastRoundNumber = snapshot.scoreState.roundNumber;
       reset();
@@ -24,7 +24,7 @@ class GameStateTracker {
 
     final receipts =
         snapshot.schupfReceipts[playerId] ?? const <SchupfReceipt>[];
-    _addCards(receipts.map((r) => r.card));
+    _addCards(receipts.map((final r) => r.card));
 
     final lastTurn = snapshot.lastPlayedTurn;
     if (lastTurn != null &&
@@ -40,19 +40,13 @@ class GameStateTracker {
 
   bool get allKingsKnown => _knownCount(CardFace.king) >= 4;
 
-  bool hasLastAce(List<Card> hand) {
-    return allAcesKnown && hand.any((c) => c.face == CardFace.ace);
-  }
+  bool hasLastAce(final List<Card> hand) => allAcesKnown && hand.any((final c) => c.face == CardFace.ace);
 
-  bool hasLastKing(List<Card> hand) {
-    return allKingsKnown && hand.any((c) => c.face == CardFace.king);
-  }
+  bool hasLastKing(final List<Card> hand) => allKingsKnown && hand.any((final c) => c.face == CardFace.king);
 
-  int _knownCount(CardFace face) {
-    return _seenCards.where((key) => key.startsWith('${face.name}:')).length;
-  }
+  int _knownCount(final CardFace face) => _seenCards.where((final key) => key.startsWith('${face.name}:')).length;
 
-  void _addCards(Iterable<Card> cards) {
+  void _addCards(final Iterable<Card> cards) {
     for (final card in cards) {
       _seenCards.add('${card.face.name}:${card.color.name}');
     }

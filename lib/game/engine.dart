@@ -1,35 +1,35 @@
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/engine_state.dart';
+import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 export 'engine_state.dart';
 
 abstract class GameEngine {
   GameEngineState createGame({
-    required String gameId,
-    required List<GamePlayer> players,
-    int targetScore = 1000,
+    required final String gameId,
+    required final List<GamePlayer> players,
+    final int targetScore = 1000,
   });
 
-  void startNewRound(GameEngineState state);
+  void startNewRound(final GameEngineState state);
 
-  void startGame(GameEngineState state);
+  void startGame(final GameEngineState state);
 
-  void applyAction(GameEngineState state, GameAction action);
+  void applyAction(final GameEngineState state, final GameAction action);
 
   GameSnapshot buildSnapshot(
-    GameEngineState state, {
-    String? pendingOpponentPlayerId,
-    List<Card>? pendingOpponentCards,
-    bool pendingOpponentPass = false,
-    bool opponentAwaitingConfirmation = false,
+    final GameEngineState state, {
+    final String? pendingOpponentPlayerId,
+    final List<Card>? pendingOpponentCards,
+    final bool pendingOpponentPass = false,
+    final bool opponentAwaitingConfirmation = false,
   });
 
-  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId);
+  PlayerSnapshot buildPlayerSnapshot(final GameSnapshot snapshot, final String playerId);
 
-  bool hasPendingHumanSchupfReceipts(GameEngineState state);
+  bool hasPendingHumanSchupfReceipts(final GameEngineState state);
 
-  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId);
+  bool shouldPauseForAutomatedOpponent(final GameEngineState state, final String actorId);
 
-  List<String> opponentIds(GameEngineState state, String playerId);
+  List<String> opponentIds(final GameEngineState state, final String playerId);
 }

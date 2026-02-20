@@ -8,7 +8,7 @@ import '../../utils/test_game_fixtures.dart';
 import '../../utils/test_helpers.dart';
 
 void main() {
-  testWidgets('hides action bar during schupf phase', (tester) async {
+  testWidgets('hides action bar during schupf phase', (final tester) async {
     final oldHandler = FlutterError.onError;
     suppressOverflowErrors(oldHandler);
     addTearDown(() => FlutterError.onError = oldHandler);
@@ -29,12 +29,12 @@ void main() {
     expect(find.text('PLAY'), findsNothing);
   });
 
-  testWidgets('shows action bar during play phase', (tester) async {
+  testWidgets('shows action bar during play phase', (final tester) async {
     final backend = FakeGameBackend();
     await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
 
     backend.emit(
-      buildPlayerSnapshot(phase: GamePhase.play, currentPlayerId: testHumanId),
+      buildPlayerSnapshot(currentPlayerId: testHumanId),
     );
     await tester.pump();
 

@@ -1,14 +1,14 @@
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/dragon_give_strategy.dart';
 import 'package:tichu/agents/game_state_tracker.dart';
-import 'package:tichu/agents/play_tactics_policy.dart';
-import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
+import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/agents/turn_scorer.dart';
 import 'package:tichu/agents/wish_strategy.dart';
+import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -34,13 +34,13 @@ class SmartAiAgent extends PlayerAgent {
 
   SmartAiAgent(
     this.playerId, {
-    GameStateTracker? gameStateTracker,
-    TichuCallStrategy? tichuCallStrategy,
-    SchupfStrategy? schupfStrategy,
-    PlaySelectionStrategy? playSelectionStrategy,
-    PlayTacticsPolicy? playTacticsPolicy,
-    WishStrategy? wishStrategy,
-    DragonGiveStrategy? dragonGiveStrategy,
+    final GameStateTracker? gameStateTracker,
+    final TichuCallStrategy? tichuCallStrategy,
+    final SchupfStrategy? schupfStrategy,
+    final PlaySelectionStrategy? playSelectionStrategy,
+    final PlayTacticsPolicy? playTacticsPolicy,
+    final WishStrategy? wishStrategy,
+    final DragonGiveStrategy? dragonGiveStrategy,
   }) : gameStateTracker = gameStateTracker ?? GameStateTracker(),
        tichuCallStrategy =
            tichuCallStrategy ?? const DefaultTichuCallStrategy(),
@@ -61,17 +61,15 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<bool> shouldCallGrandTichu(GameSnapshot snapshot) async {
-    return false;
-  }
+  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async => false;
 
   @override
-  Future<bool> shouldCallTichu(GameSnapshot snapshot) async {
+  Future<bool> shouldCallTichu(final GameSnapshot snapshot) async {
     if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallTichu(snapshot, playerId);
   }
 
-  bool _partnerAlreadyCalled(GameSnapshot snapshot) {
+  bool _partnerAlreadyCalled(final GameSnapshot snapshot) {
     final table = TableRelationships(snapshot, playerId);
     final partnerId = table.partnerId;
     if (partnerId == null) return false;
@@ -85,7 +83,7 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<SchupfAction> selectSchupfCards(GameSnapshot snapshot) async {
+  Future<SchupfAction> selectSchupfCards(final GameSnapshot snapshot) async {
     _syncRound(snapshot);
     final action = await schupfStrategy.selectSchupfCards(snapshot, playerId);
     _lastSchupfedNextFace = action.toLeft.face;
@@ -97,7 +95,7 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<GameAction> selectTurn(GameSnapshot snapshot) async {
+  Future<GameAction> selectTurn(final GameSnapshot snapshot) async {
     _syncRound(snapshot);
     gameStateTracker.update(snapshot, playerId);
     final hand = List<Card>.from(snapshot.hands[playerId] ?? []);
@@ -114,7 +112,7 @@ class SmartAiAgent extends PlayerAgent {
     }
 
     final finishingTurns = legalTurns
-        .where((turn) => turn.cards.length == hand.length)
+        .where((final turn) => turn.cards.length == hand.length)
         .toList();
     if (finishingTurns.isNotEmpty) {
       final selected = playSelectionStrategy.selectPlay(
@@ -151,7 +149,7 @@ class SmartAiAgent extends PlayerAgent {
       deck: deck,
       hand: hand,
       isLeading: isLeading && isGameOpeningLead,
-      selectPlay: (options) =>
+      selectPlay: (final options) =>
           playSelectionStrategy.selectPlay(snapshot, options, deck, hand),
     );
     if (mahjongLead != null) {
@@ -251,15 +249,15 @@ class SmartAiAgent extends PlayerAgent {
   /// Build a [PlayTurnAction] from the selected turn, adding wish/phoenix
   /// metadata as needed.
   PlayTurnAction _buildPlayAction(
-    GameSnapshot snapshot,
-    TichuTurn turn,
-    DeckState deck,
-    List<Card> hand, {
-    bool suppressWish = false,
+    final GameSnapshot snapshot,
+    final TichuTurn turn,
+    final DeckState deck,
+    final List<Card> hand, {
+    final bool suppressWish = false,
   }) {
     // Determine wish if we're playing the Mah Jong.
     var wish = CardFace.none;
-    if (turn.cards.any((c) => c.face == CardFace.mahJong)) {
+    if (turn.cards.any((final c) => c.face == CardFace.mahJong)) {
       if (!suppressWish) {
         wish = _selectMahjongWish(snapshot, hand, deck);
       }
@@ -273,8 +271,8 @@ class SmartAiAgent extends PlayerAgent {
   }
 
   List<TichuTurn> _filterLowSinglePhoenixResponses(
-    DeckState deck,
-    List<TichuTurn> plays,
+    final DeckState deck,
+    final List<TichuTurn> plays,
   ) {
     if (deck.turn.type != TurnType.single) {
       return plays;
@@ -285,11 +283,11 @@ class SmartAiAgent extends PlayerAgent {
       return plays;
     }
 
-    return plays.where((turn) {
+    return plays.where((final turn) {
       if (turn.type != TurnType.single) {
         return true;
       }
-      return !turn.cards.any((card) => card.face == CardFace.phoenix);
+      return !turn.cards.any((final card) => card.face == CardFace.phoenix);
     }).toList();
   }
 
@@ -300,9 +298,9 @@ class SmartAiAgent extends PlayerAgent {
   /// Select phoenix value for a play. The move generator already assigns
   /// appropriate phoenix values (deck.value + 0.5 for singles, matching value
   /// for combos), so this is mainly for the interface contract.
-  double selectPhoenixValue(DeckState deck, List<Card> selectedCards) {
+  double selectPhoenixValue(final DeckState deck, final List<Card> selectedCards) {
     final phoenix = selectedCards
-        .where((c) => c.face == CardFace.phoenix)
+        .where((final c) => c.face == CardFace.phoenix)
         .toList();
     if (phoenix.isEmpty) return 0;
     return phoenix.first.value;
@@ -313,15 +311,15 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  int selectDragonGive(GameSnapshot snapshot) {
+  int selectDragonGive(final GameSnapshot snapshot) {
     gameStateTracker.update(snapshot, playerId);
     return dragonGiveStrategy.selectDragonGive(snapshot, playerId);
   }
 
   CardFace _selectMahjongWish(
-    GameSnapshot snapshot,
-    List<Card> hand,
-    DeckState deck,
+    final GameSnapshot snapshot,
+    final List<Card> hand,
+    final DeckState deck,
   ) {
     final preferredWish = _lastSchupfedNextFace;
 
@@ -333,7 +331,7 @@ class SmartAiAgent extends PlayerAgent {
     );
   }
 
-  void _syncRound(GameSnapshot snapshot) {
+  void _syncRound(final GameSnapshot snapshot) {
     if (_lastSchupfRoundNumber != snapshot.scoreState.roundNumber) {
       _lastSchupfRoundNumber = snapshot.scoreState.roundNumber;
       _lastSchupfedNextFace = null;

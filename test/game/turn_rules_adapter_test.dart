@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/turn_rules_adapter.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn_rules_adapter.dart';
 
 void main() {
   group('TurnRulesAdapter', () {
@@ -17,7 +17,7 @@ void main() {
     });
 
     test('tryApplyTurn returns valid deck for legal single on empty trick', () {
-      final deck = DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
       final card = Card(CardFace.nine, CardColor.black);
 
       final updated = adapter.tryApplyTurn(
@@ -31,7 +31,7 @@ void main() {
     });
 
     test('legalTurns returns playable options when turn is empty', () {
-      final deck = DeckState(TichuTurn(TurnType.empty, []), CardFace.none);
+      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
       final hand = [
         Card(CardFace.ace, CardColor.green),
         Card(CardFace.king, CardColor.red),
@@ -40,7 +40,7 @@ void main() {
       final legal = adapter.legalTurns(deck, hand);
 
       expect(legal, isNotEmpty);
-      expect(legal.any((turn) => turn.type == TurnType.single), isTrue);
+      expect(legal.any((final turn) => turn.type == TurnType.single), isTrue);
     });
 
     test('hasBomb identifies quartet bomb in hand', () {

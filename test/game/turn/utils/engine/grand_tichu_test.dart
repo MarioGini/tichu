@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
-import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/grand_tichu.dart';
 
@@ -19,7 +19,7 @@ GameEngineState _buildState() {
       for (final player in testPlayers)
         player.id: [Card(CardFace.three, CardColor.blue)],
     },
-    deck: DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+    deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
     currentPlayerIndex: 0,
     scoreTracker: LocalScoreTracker(),
     phase: GamePhase.grandTichu,

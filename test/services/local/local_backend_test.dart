@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/player_agent.dart';
-import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/engine.dart';
+import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/services/local/local_backend.dart';
 
-Card _card(CardFace face, CardColor color) => Card(face, color);
+Card _card(final CardFace face, final CardColor color) => Card(face, color);
 
 class _FakePlayerAgent extends PlayerAgent {
   @override
@@ -20,27 +20,28 @@ class _FakePlayerAgent extends PlayerAgent {
     required this.playerId,
     required this.action,
     required this.schupfAction,
-    this.dragonSeat = 1,
+    // ignore: unused_element_parameter, required by PlayerAgent interface
+    this.dragonSeat = 0,
   });
 
   @override
-  Future<GameAction> selectAction(GameSnapshot snapshot) async => action;
+  Future<GameAction> selectAction(final GameSnapshot snapshot) async => action;
 
   @override
-  int selectDragonGive(GameSnapshot snapshot) => dragonSeat;
+  int selectDragonGive(final GameSnapshot snapshot) => dragonSeat;
 
   @override
-  Future<SchupfAction> selectSchupfCards(GameSnapshot snapshot) async =>
+  Future<SchupfAction> selectSchupfCards(final GameSnapshot snapshot) async =>
       schupfAction;
 
   @override
-  Future<GameAction> selectTurn(GameSnapshot snapshot) async => action;
+  Future<GameAction> selectTurn(final GameSnapshot snapshot) async => action;
 
   @override
-  Future<bool> shouldCallGrandTichu(GameSnapshot snapshot) async => false;
+  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async => false;
 
   @override
-  Future<bool> shouldCallTichu(GameSnapshot snapshot) async => false;
+  Future<bool> shouldCallTichu(final GameSnapshot snapshot) async => false;
 }
 
 class _FakeEngine implements GameEngine {
@@ -50,7 +51,7 @@ class _FakeEngine implements GameEngine {
   List<String> opponentIdsResult = const <String>[];
   String? initialPendingDragonBy;
 
-  GameEngineState _buildState(String gameId, List<GamePlayer> players) {
+  GameEngineState _buildState(final String gameId, final List<GamePlayer> players) {
     final score = LocalScoreTracker();
     score.startNewRound(players);
     final state = GameEngineState(
@@ -61,7 +62,7 @@ class _FakeEngine implements GameEngine {
           player.id: [_card(CardFace.two, CardColor.red)],
       },
       reservedHands: {for (final player in players) player.id: <Card>[]},
-      deck: DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+      deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
       currentPlayerIndex: 0,
       scoreTracker: score,
       phase: GamePhase.play,
@@ -78,15 +79,13 @@ class _FakeEngine implements GameEngine {
 
   @override
   GameEngineState createGame({
-    required String gameId,
-    required List<GamePlayer> players,
-    int targetScore = 1000,
-  }) {
-    return _buildState(gameId, players);
-  }
+    required final String gameId,
+    required final List<GamePlayer> players,
+    final int targetScore = 1000,
+  }) => _buildState(gameId, players);
 
   @override
-  void applyAction(GameEngineState state, GameAction action) {
+  void applyAction(final GameEngineState state, final GameAction action) {
     appliedActions.add(action);
     if (action is PassAction || action is PlayTurnAction) {
       state.currentPlayerIndex =
@@ -101,13 +100,12 @@ class _FakeEngine implements GameEngine {
 
   @override
   GameSnapshot buildSnapshot(
-    GameEngineState state, {
-    String? pendingOpponentPlayerId,
-    List<Card>? pendingOpponentCards,
-    bool pendingOpponentPass = false,
-    bool opponentAwaitingConfirmation = false,
-  }) {
-    return GameSnapshot(
+    final GameEngineState state, {
+    final String? pendingOpponentPlayerId,
+    final List<Card>? pendingOpponentCards,
+    final bool pendingOpponentPass = false,
+    final bool opponentAwaitingConfirmation = false,
+  }) => GameSnapshot(
       gameId: state.gameId,
       players: state.players,
       hands: state.hands,
@@ -132,16 +130,13 @@ class _FakeEngine implements GameEngine {
       scoreState: state.scoreTracker.state,
       opponentAwaitingConfirmation: opponentAwaitingConfirmation,
       phase: state.phase,
-      canCallTichuByPlayer: const {},
       grandTichuDecisions: const {},
       schupfCompletedPlayers: const [],
       schupfReceipts: const {},
     );
-  }
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId) {
-    return PlayerSnapshot(
+  PlayerSnapshot buildPlayerSnapshot(final GameSnapshot snapshot, final String playerId) => PlayerSnapshot(
       gameId: snapshot.gameId,
       players: snapshot.players,
       hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
@@ -171,25 +166,24 @@ class _FakeEngine implements GameEngine {
       schupfCompletedPlayers: const [],
       schupfReceipts: const [],
     );
-  }
 
   @override
-  bool hasPendingHumanSchupfReceipts(GameEngineState state) =>
+  bool hasPendingHumanSchupfReceipts(final GameEngineState state) =>
       hasPendingHumanReceipts;
 
   @override
-  List<String> opponentIds(GameEngineState state, String playerId) =>
+  List<String> opponentIds(final GameEngineState state, final String playerId) =>
       opponentIdsResult;
 
   @override
-  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId) =>
+  bool shouldPauseForAutomatedOpponent(final GameEngineState state, final String actorId) =>
       shouldPause;
 
   @override
-  void startGame(GameEngineState state) {}
+  void startGame(final GameEngineState state) {}
 
   @override
-  void startNewRound(GameEngineState state) {}
+  void startNewRound(final GameEngineState state) {}
 }
 
 class _SchupfFlowEngine implements GameEngine {
@@ -197,9 +191,9 @@ class _SchupfFlowEngine implements GameEngine {
 
   @override
   GameEngineState createGame({
-    required String gameId,
-    required List<GamePlayer> players,
-    int targetScore = 1000,
+    required final String gameId,
+    required final List<GamePlayer> players,
+    final int targetScore = 1000,
   }) {
     final score = LocalScoreTracker();
     score.startNewRound(players);
@@ -215,7 +209,7 @@ class _SchupfFlowEngine implements GameEngine {
           ],
       },
       reservedHands: {for (final player in players) player.id: <Card>[]},
-      deck: DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+      deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
       currentPlayerIndex: 0,
       scoreTracker: score,
       phase: GamePhase.schupf,
@@ -223,7 +217,7 @@ class _SchupfFlowEngine implements GameEngine {
   }
 
   @override
-  void applyAction(GameEngineState state, GameAction action) {
+  void applyAction(final GameEngineState state, final GameAction action) {
     appliedActions.add(action);
     if (action is SchupfAction) {
       state.schupfSelections[action.playerId] = action;
@@ -244,13 +238,12 @@ class _SchupfFlowEngine implements GameEngine {
 
   @override
   GameSnapshot buildSnapshot(
-    GameEngineState state, {
-    String? pendingOpponentPlayerId,
-    List<Card>? pendingOpponentCards,
-    bool pendingOpponentPass = false,
-    bool opponentAwaitingConfirmation = false,
-  }) {
-    return GameSnapshot(
+    final GameEngineState state, {
+    final String? pendingOpponentPlayerId,
+    final List<Card>? pendingOpponentCards,
+    final bool pendingOpponentPass = false,
+    final bool opponentAwaitingConfirmation = false,
+  }) => GameSnapshot(
       gameId: state.gameId,
       players: state.players,
       hands: state.hands,
@@ -275,18 +268,15 @@ class _SchupfFlowEngine implements GameEngine {
       scoreState: state.scoreTracker.state,
       opponentAwaitingConfirmation: opponentAwaitingConfirmation,
       phase: state.phase,
-      canCallTichuByPlayer: const {},
       grandTichuDecisions: const {},
       schupfCompletedPlayers: List<String>.from(state.schupfSelections.keys),
       schupfReceipts: Map<String, List<SchupfReceipt>>.from(
         state.schupfReceipts,
       ),
     );
-  }
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId) {
-    return PlayerSnapshot(
+  PlayerSnapshot buildPlayerSnapshot(final GameSnapshot snapshot, final String playerId) => PlayerSnapshot(
       gameId: snapshot.gameId,
       players: snapshot.players,
       hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
@@ -318,24 +308,23 @@ class _SchupfFlowEngine implements GameEngine {
         snapshot.schupfReceipts[playerId] ?? const <SchupfReceipt>[],
       ),
     );
-  }
 
   @override
-  bool hasPendingHumanSchupfReceipts(GameEngineState state) => false;
+  bool hasPendingHumanSchupfReceipts(final GameEngineState state) => false;
 
   @override
-  List<String> opponentIds(GameEngineState state, String playerId) =>
+  List<String> opponentIds(final GameEngineState state, final String playerId) =>
       const <String>[];
 
   @override
-  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId) =>
+  bool shouldPauseForAutomatedOpponent(final GameEngineState state, final String actorId) =>
       false;
 
   @override
-  void startGame(GameEngineState state) {}
+  void startGame(final GameEngineState state) {}
 
   @override
-  void startNewRound(GameEngineState state) {}
+  void startNewRound(final GameEngineState state) {}
 }
 
 final _players = <GamePlayer>[
@@ -452,7 +441,6 @@ void main() {
           toPartner: Card(CardFace.three, CardColor.red),
           toRight: Card(CardFace.four, CardColor.red),
         ),
-        dragonSeat: 1,
       );
       final backend = LocalGameBackend(
         engine: engine,

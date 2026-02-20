@@ -9,7 +9,6 @@ Domain and runtime seam for game progression: engine contracts, backend APIs, pl
 - `game_play_controller.dart`: orchestrates play flow between UI and backend.
 - `driver_ui_projector.dart`: normalizes backend/driver state for UI consumption.
 - `player_control.dart`: user action/control abstractions.
-- `opponent_agent.dart`: opponent action driver (AI-controlled seat agent).
 - `player_agent.dart`: player decision-driver contract (AI or manual).
 - `turn_rules_adapter.dart`: adapter from runtime actions to turn-rule system.
 

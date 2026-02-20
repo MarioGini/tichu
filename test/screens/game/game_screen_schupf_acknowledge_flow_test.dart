@@ -10,7 +10,7 @@ import '../../utils/test_helpers.dart';
 
 void main() {
   testWidgets('PLAY on schupf receipts hides panel immediately', (
-    tester,
+    final tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));

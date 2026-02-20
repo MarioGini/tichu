@@ -12,7 +12,7 @@ void main() {
 
     try {
       await headless.main(['--help', '--output=${outputFile.path}']);
-      expect(await outputFile.exists(), isFalse);
+      expect(outputFile.existsSync(), isFalse);
     } finally {
       await tempDir.delete(recursive: true);
     }
@@ -46,9 +46,9 @@ void main() {
 
       final roundEndRows = lines
           .skip(1)
-          .map((line) => line.split(','))
+          .map((final line) => line.split(','))
           .where(
-            (columns) =>
+            (final columns) =>
                 columns.length > teamTwoRoundIndex &&
                 columns[eventIndex] == 'round_end',
           )
@@ -94,9 +94,9 @@ void main() {
 
       final roundEndCount = lines
           .skip(1)
-          .map((line) => line.split(','))
+          .map((final line) => line.split(','))
           .where(
-            (columns) =>
+            (final columns) =>
                 columns.length > eventIndex &&
                 columns[eventIndex] == 'round_end',
           )

@@ -37,8 +37,7 @@ class Card {
     : face = CardFace.phoenix,
       color = CardColor.special;
 
-  static double getValue(CardFace cardFace) {
-    return switch (cardFace) {
+  static double getValue(final CardFace cardFace) => switch (cardFace) {
       CardFace.mahJong => 1.0,
       CardFace.two => 2.0,
       CardFace.three => 3.0,
@@ -58,24 +57,19 @@ class Card {
       CardFace.dog => -2.0,
       CardFace.none => 0.0,
     };
-  }
 
   @override
-  bool operator ==(Object other) {
-    return other is Card &&
+  bool operator ==(final Object other) => other is Card &&
         color == other.color &&
         face == other.face &&
         value == other.value;
-  }
 
   @override
-  int get hashCode {
-    return face.index + 5 * color.index + value.toInt() * 17;
-  }
+  int get hashCode => face.index + 5 * color.index + value.toInt() * 17;
 }
 
 // Cards are sorted based on their value. This sorts in descending order.
-int compareCards(Card a, Card b) {
+int compareCards(final Card a, final Card b) {
   final valueComparison = b.value.compareTo(a.value);
   if (valueComparison != 0) {
     return valueComparison;
@@ -86,6 +80,27 @@ int compareCards(Card a, Card b) {
     return colorComparison;
   }
 
+  return b.face.index.compareTo(a.face.index);
+}
+
+/// Display rank for hand ordering — specials get fixed positions so the
+/// player sees them in a consistent, intuitive spot (dragon/phoenix high,
+/// mahjong low, dog lowest).
+int displayRank(final Card card) => switch (card.face) {
+    CardFace.dragon => 1000,
+    CardFace.phoenix => 900,
+    CardFace.mahJong => 0,
+    CardFace.dog => -100,
+    _ => 100 + Card.getValue(card.face).toInt(),
+  };
+
+/// Sort comparator for hand display (descending by display rank, then color,
+/// then face). Use with [List.sort].
+int compareCardsForDisplay(final Card a, final Card b) {
+  final rankCmp = displayRank(b).compareTo(displayRank(a));
+  if (rankCmp != 0) return rankCmp;
+  final colorCmp = b.color.index.compareTo(a.color.index);
+  if (colorCmp != 0) return colorCmp;
   return b.face.index.compareTo(a.face.index);
 }
 
@@ -113,12 +128,10 @@ class TichuTurn {
 
   TichuTurn(this.type, this.cards) : value = getValue(type, cards);
 
-  // ignore: non_constant_identifier_names
-  static TichuTurn InvalidTurn() {
-    return TichuTurn(TurnType.none, []);
-  }
+  // ignore: non_constant_identifier_names, prefer_constructors_over_static_methods, legacy sentinel API
+  static TichuTurn InvalidTurn() => TichuTurn(TurnType.none, const []);
 
-  static double getValue(TurnType type, List<Card> cards) {
+  static double getValue(final TurnType type, final List<Card> cards) {
     cards.sort(compareCards);
 
     return switch (type) {
@@ -131,7 +144,7 @@ class TichuTurn {
         cards.length == 4 ? cards.first.value : 20 + cards.first.value,
       TurnType.fullHouse => () {
         final firstValueCount = cards
-            .where((card) => card.value == cards.first.value)
+            .where((final card) => card.value == cards.first.value)
             .length;
         return firstValueCount == 3 ? cards.first.value : cards.last.value;
       }(),
@@ -141,7 +154,7 @@ class TichuTurn {
   }
 
   @override
-  bool operator ==(Object other) {
+  bool operator ==(final Object other) {
     cards.sort(compareCards);
     if (other is TichuTurn) other.cards.sort(compareCards);
 
@@ -152,12 +165,10 @@ class TichuTurn {
   }
 
   @override
-  int get hashCode {
-    return type.index + value.toInt() * 10;
-  }
+  int get hashCode => type.index + value.toInt() * 10;
 }
 
-bool _listEquals<T>(List<T> a, List<T> b) {
+bool _listEquals<T>(final List<T> a, final List<T> b) {
   if (identical(a, b)) return true;
   if (a.length != b.length) return false;
   for (var i = 0; i < a.length; i++) {
@@ -166,7 +177,7 @@ bool _listEquals<T>(List<T> a, List<T> b) {
   return true;
 }
 
-int compareTurns(TichuTurn a, TichuTurn b) {
+int compareTurns(final TichuTurn a, final TichuTurn b) {
   if (a.value == b.value) {
     return 0;
   } else if (a.value > b.value) {
@@ -186,8 +197,6 @@ class DeckState {
 
   DeckState(this.turn, this.wish);
 
-  // ignore: non_constant_identifier_names
-  static DeckState Invalid() {
-    return DeckState(TichuTurn.InvalidTurn(), CardFace.none);
-  }
+  // ignore: non_constant_identifier_names, prefer_constructors_over_static_methods, legacy sentinel API
+  static DeckState Invalid() => DeckState(TichuTurn.InvalidTurn(), CardFace.none);
 }

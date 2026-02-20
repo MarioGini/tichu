@@ -1,15 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
-import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/trick_resolution.dart';
 
 import '../../utils/test_game_fixtures.dart';
 
 void main() {
-  GameEngineState buildState() {
-    return GameEngineState(
+  GameEngineState buildState() => GameEngineState(
         gameId: 'test-game',
         players: testPlayers,
         hands: {for (final player in testPlayers) player.id: <Card>[]},
@@ -29,7 +28,6 @@ void main() {
         Card(CardFace.dragon, CardColor.special),
       ])
       ..currentTrickCards.add(Card(CardFace.dragon, CardColor.special));
-  }
 
   group('trick completion on lead return', () {
     test('awards trick when pass returns turn to active trick leader', () {

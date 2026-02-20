@@ -7,40 +7,30 @@ import 'package:tichu/game/turn/utils/bomb_utils.dart';
 class TurnRulesAdapter {
   final TurnHandler _turnHandler;
 
-  TurnRulesAdapter({TurnHandler? turnHandler})
+  TurnRulesAdapter({final TurnHandler? turnHandler})
     : _turnHandler = turnHandler ?? TurnHandler();
 
-  TichuTurn detectTurn(List<Card> cards) {
-    return getTurn(List<Card>.from(cards));
-  }
+  TichuTurn detectTurn(final List<Card> cards) => getTurn(List<Card>.from(cards));
 
   DeckState tryApplyTurn(
-    DeckState deck,
-    List<Card> cards,
-    CardFace inputWish, {
-    List<Card>? hand,
-  }) {
-    return _turnHandler.handleTurn(
+    final DeckState deck,
+    final List<Card> cards,
+    final CardFace inputWish, {
+    final List<Card>? hand,
+  }) => _turnHandler.handleTurn(
       deck,
       List<Card>.from(cards),
       inputWish,
       hand: hand,
     );
-  }
 
-  List<TichuTurn> legalTurns(DeckState deck, List<Card> hand) {
-    return generateLegalTurns(deck, List<Card>.from(hand));
-  }
+  List<TichuTurn> legalTurns(final DeckState deck, final List<Card> hand) => generateLegalTurns(deck, List<Card>.from(hand));
 
-  List<TichuTurn> bombsInHand(List<Card> hand) {
-    return getBombs(List<Card>.from(hand));
-  }
+  List<TichuTurn> bombsInHand(final List<Card> hand) => getBombs(List<Card>.from(hand));
 
-  bool hasBomb(List<Card> hand) {
-    return hasBombInHand(hand);
-  }
+  bool hasBomb(final List<Card> hand) => hasBombInHand(hand);
 
-  TichuTurn? firstPlayableBomb(DeckState deck, List<Card> hand) {
+  TichuTurn? firstPlayableBomb(final DeckState deck, final List<Card> hand) {
     for (final bomb in bombsInHand(hand)) {
       final updated = tryApplyTurn(deck, bomb.cards, CardFace.none, hand: hand);
       if (updated.turn != TichuTurn.InvalidTurn()) {

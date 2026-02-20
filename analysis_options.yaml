@@ -14,4 +14,127 @@ analyzer:
 
 linter:
   rules:
-    public_member_api_docs: false
+    # ── Disabled ──
+    public_member_api_docs: false        # too noisy for app code
+    cascade_invocations: false           # fights sequential state mutation
+    use_late_for_private_fields_and_variables: false # override fields with defaults
+    prefer_final_parameters: false       # VGA chose avoid_final_parameters; we pick neither extreme
+    always_put_required_named_parameters_first: false # clashes with logical param grouping
+    sort_constructors_first: false        # too much churn for little benefit
+
+    # ── Imports & directives ──
+    always_use_package_imports: true
+    directives_ordering: true
+    combinators_ordering: true
+
+    # ── Immutability & const ──
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_final_locals: true
+    prefer_final_in_for_each: true
+
+    # ── Style & brevity ──
+    always_declare_return_types: true
+    avoid_escaping_inner_quotes: true
+    avoid_redundant_argument_values: true
+    avoid_types_on_closure_parameters: true
+    eol_at_end_of_file: true
+    join_return_with_assignment: true
+    no_literal_bool_comparisons: true
+    omit_local_variable_types: true
+    prefer_expression_function_bodies: true
+    prefer_if_elements_to_conditional_expressions: true
+    prefer_int_literals: true
+    prefer_null_aware_method_calls: true
+    prefer_single_quotes: true
+    unnecessary_await_in_return: true
+    unnecessary_breaks: true
+    unnecessary_lambdas: true
+    unnecessary_library_directive: true
+    unnecessary_null_checks: true
+    unnecessary_parenthesis: true
+    unnecessary_raw_strings: true
+    unnecessary_statements: true
+    unnecessary_unawaited: true
+    use_is_even_rather_than_modulo: true
+    use_named_constants: true
+    use_to_and_as_if_applicable: true
+
+    # ── Error prevention ──
+    avoid_bool_literals_in_conditional_expressions: true
+    avoid_catches_without_on_clauses: true
+    avoid_catching_errors: true
+    avoid_double_and_int_checks: true
+    avoid_dynamic_calls: true
+    avoid_equals_and_hash_code_on_mutable_classes: true
+    avoid_field_initializers_in_const_classes: true
+    avoid_js_rounded_ints: true
+    avoid_returning_this: true
+    avoid_setters_without_getters: true
+    avoid_slow_async_io: true
+    avoid_type_to_string: true
+    avoid_void_async: true
+    cancel_subscriptions: true
+    cast_nullable_to_non_nullable: true
+    close_sinks: true
+    comment_references: true
+    conditional_uri_does_not_exist: true
+    deprecated_consistency: true
+    deprecated_member_use_from_same_package: true
+    discarded_futures: true
+    do_not_use_environment: true
+    document_ignores: true
+    literal_only_boolean_expressions: true
+    missing_whitespace_between_adjacent_strings: true
+    no_adjacent_strings_in_list: true
+    no_default_cases: true
+    no_runtimeType_toString: true
+    no_self_assignments: true
+    noop_primitive_operations: true
+    only_throw_errors: true
+    parameter_assignments: true
+    prefer_asserts_with_message: true
+    prefer_void_to_null: true
+    test_types_in_equals: true
+    throw_in_finally: true
+    type_annotate_public_apis: true
+    unawaited_futures: true
+    unnecessary_ignore: true
+    use_if_null_to_convert_nulls_to_bools: true
+    unnecessary_null_aware_operator_on_extension_on_nullable: true
+
+    # ── Flutter-specific ──
+    require_trailing_commas: true
+    sized_box_shrink_expand: true
+    use_colored_box: true
+    use_decorated_box: true
+
+    # ── Modern Dart ──
+    avoid_multiple_declarations_per_line: true
+    avoid_positional_boolean_parameters: true
+    avoid_private_typedef_functions: true
+    avoid_unused_constructor_parameters: true
+    flutter_style_todos: true
+    implicit_reopen: true
+    invalid_case_patterns: true
+    leading_newlines_in_multiline_strings: true
+    matching_super_parameters: true
+    missing_code_block_language_in_doc_comment: true
+    prefer_asserts_in_initializer_lists: true
+    prefer_constructors_over_static_methods: true
+    prefer_foreach: true
+    prefer_mixin: true
+    simplify_variable_pattern: true
+    sort_pub_dependencies: true
+    sort_unnamed_constructors_first: true
+    specify_nonobvious_property_types: true
+    switch_on_type: true
+    tighten_type_of_initializing_formals: true
+    unreachable_from_main: true
+    use_enums: true
+    use_raw_strings: true
+    use_setters_to_change_properties: true
+    use_string_buffers: true
+    use_test_throws_matchers: true
+    use_truncating_division: true

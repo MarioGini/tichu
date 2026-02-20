@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
-import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/turn_handler.dart';
 import 'package:tichu/game/turn/utils/engine/trick_resolution.dart';
 
 import '../../../../utils/test_game_fixtures.dart';
 
-Card _card(CardFace face, CardColor color) => Card(face, color);
+Card _card(final CardFace face, final CardColor color) => Card(face, color);
 
 class _FakeTurnHandler extends TurnHandler {
   final DeckState Function(DeckState, List<Card>, CardFace) builder;
@@ -17,19 +17,17 @@ class _FakeTurnHandler extends TurnHandler {
 
   @override
   DeckState handleTurn(
-    DeckState currentDeck,
-    List<Card> selectedCards,
-    CardFace inputWish, {
-    List<Card>? hand,
-  }) {
-    return builder(currentDeck, selectedCards, inputWish);
-  }
+    final DeckState currentDeck,
+    final List<Card> selectedCards,
+    final CardFace inputWish, {
+    final List<Card>? hand,
+  }) => builder(currentDeck, selectedCards, inputWish);
 }
 
 GameEngineState _buildState({
-  DeckState? deck,
-  int currentPlayerIndex = 0,
-  List<Card>? hand,
+  final DeckState? deck,
+  final int currentPlayerIndex = 0,
+  final List<Card>? hand,
 }) {
   final state = GameEngineState(
     gameId: 'g1',
@@ -46,7 +44,7 @@ GameEngineState _buildState({
       testOpponentRightId: [_card(CardFace.seven, CardColor.blue)],
     },
     reservedHands: {for (final player in testPlayers) player.id: <Card>[]},
-    deck: deck ?? DeckState(TichuTurn(TurnType.empty, []), CardFace.none),
+    deck: deck ?? DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
     currentPlayerIndex: currentPlayerIndex,
     scoreTracker: LocalScoreTracker(),
     phase: GamePhase.play,
@@ -60,7 +58,7 @@ void main() {
     test('throws when cards are not in hand', () {
       final state = _buildState();
       final handler = _FakeTurnHandler(
-        (deck, cards, wish) =>
+        (final deck, final cards, final wish) =>
             DeckState(TichuTurn(TurnType.single, cards), wish),
       );
 
@@ -80,7 +78,7 @@ void main() {
     test('throws when turn handler returns invalid turn', () {
       final state = _buildState();
       final handler = _FakeTurnHandler(
-        (deck, cards, wish) => DeckState.Invalid(),
+        (final deck, final cards, final wish) => DeckState.Invalid(),
       );
 
       expect(
@@ -102,7 +100,7 @@ void main() {
         hand: [dog, _card(CardFace.five, CardColor.red)],
       );
       final handler = _FakeTurnHandler(
-        (deck, cards, wish) => DeckState(TichuTurn(TurnType.dog, cards), wish),
+        (final deck, final cards, final wish) => DeckState(TichuTurn(TurnType.dog, cards), wish),
       );
 
       applyPlayAction(

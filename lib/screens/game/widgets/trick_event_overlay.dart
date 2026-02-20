@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../widgets/trick_display.dart';
+import 'package:tichu/widgets/trick_display.dart';
 
 extension BombOverlayExtension on TrickDisplay {
   Widget withBombOverlay({
-    required bool showOverlay,
-    required Animation<Offset> slide,
-    required Animation<double> scale,
-  }) {
-    return Stack(
+    required final bool showOverlay,
+    required final Animation<Offset> slide,
+    required final Animation<double> scale,
+  }) => Stack(
       fit: StackFit.expand,
       alignment: Alignment.center,
       children: [
@@ -22,7 +21,6 @@ extension BombOverlayExtension on TrickDisplay {
         ),
       ],
     );
-  }
 }
 
 class BombSlamOverlay extends StatelessWidget {
@@ -32,8 +30,7 @@ class BombSlamOverlay extends StatelessWidget {
   final Animation<double> scale;
 
   @override
-  Widget build(BuildContext context) {
-    return SlideTransition(
+  Widget build(final BuildContext context) => SlideTransition(
       position: slide,
       child: ScaleTransition(
         scale: scale,
@@ -81,5 +78,4 @@ class BombSlamOverlay extends StatelessWidget {
         ),
       ),
     );
-  }
 }

@@ -1,17 +1,17 @@
 part of '../game_screen.dart';
 
 mixin _GameScreenHelpers on _GameScreenBindings {
-  void _handleTurnEffects(TichuTurn? previous, TichuTurn? current) {
+  void _handleTurnEffects(final TichuTurn? previous, final TichuTurn? current) {
     if (current == null || previous == current) return;
     if (current.type == TurnType.dog) {
-      SoundEffects.playDog();
+      unawaited(SoundEffects.playDog());
     } else if (current.type == TurnType.bomb) {
-      SoundEffects.playBomb();
+      unawaited(SoundEffects.playBomb());
       _triggerBombAnimation();
     }
   }
 
-  void _maybeAutoConfirmOpponentTurn(PlayerSnapshot snapshot) {
+  void _maybeAutoConfirmOpponentTurn(final PlayerSnapshot snapshot) {
     if (!snapshot.opponentAwaitingConfirmation) return;
     final pendingPlayer = snapshot.pendingOpponentPlayerId;
     if (pendingPlayer == null) return;
@@ -21,7 +21,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
       snapshot.gameId,
       pendingPlayer,
       snapshot.pendingOpponentPass.toString(),
-      snapshot.pendingOpponentCards.map((card) => card.hashCode).join(','),
+      snapshot.pendingOpponentCards.map((final card) => card.hashCode).join(','),
     ].join('|');
 
     if (_lastAutoConfirmKey == pendingKey) return;
@@ -32,11 +32,11 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     _autoConfirmTimer = Timer(Duration(milliseconds: delayMs), () {
       if (!mounted) return;
       if (_snapshot?.opponentAwaitingConfirmation != true) return;
-      _confirmOpponentTurn();
+      unawaited(_confirmOpponentTurn());
     });
   }
 
-  void _maybeAutoPass(PlayerSnapshot snapshot) {
+  void _maybeAutoPass(final PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
     if (!_autoPassEnabled) return;
     if (snapshot.phase != GamePhase.play) return;
@@ -61,11 +61,11 @@ mixin _GameScreenHelpers on _GameScreenBindings {
       if (current.phase != GamePhase.play) return;
       if (current.currentPlayerId != _humanId) return;
       if (_canPlayAny(current)) return;
-      _pass();
+      unawaited(_pass());
     });
   }
 
-  void _maybeAutoSelectFinisher(PlayerSnapshot snapshot) {
+  void _maybeAutoSelectFinisher(final PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
     final shouldAutoSelect = _playController.shouldAutoSelectFinisher(
       snapshot: snapshot,
@@ -81,7 +81,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     setState(() {
       _selectedIndexes
         ..clear()
-        ..addAll(List<int>.generate(_hand.length, (index) => index));
+        ..addAll(List<int>.generate(_hand.length, (final index) => index));
     });
   }
 
@@ -89,7 +89,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     setState(() {
       _showBombOverlay = true;
     });
-    _bombController.forward(from: 0);
+    unawaited(_bombController.forward(from: 0));
   }
 
   @override
@@ -103,85 +103,44 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     return selected;
   }
 
-  int _compareCardsForDisplay(Card a, Card b) {
-    final rankA = _displayRank(a);
-    final rankB = _displayRank(b);
-    final rankComparison = rankB.compareTo(rankA);
-    if (rankComparison != 0) {
-      return rankComparison;
-    }
-
-    final colorComparison = b.color.index.compareTo(a.color.index);
-    if (colorComparison != 0) {
-      return colorComparison;
-    }
-
-    return b.face.index.compareTo(a.face.index);
-  }
-
-  int _displayRank(Card card) {
-    switch (card.face) {
-      case CardFace.dragon:
-        return 1000;
-      case CardFace.phoenix:
-        return 900;
-      case CardFace.mahJong:
-        return 0;
-      case CardFace.dog:
-        return -100;
-      default:
-        return 100 + Card.getValue(card.face).toInt();
-    }
-  }
-
   @override
-  TichuTurn? _resolveSelectedTurn(PlayerSnapshot snapshot) {
-    return _playController.resolveSelectedTurn(
+  TichuTurn? _resolveSelectedTurn(final PlayerSnapshot snapshot) => _playController.resolveSelectedTurn(
       snapshot: snapshot,
       selectedCards: _selectedCards(),
       hand: _hand,
     );
-  }
 
-  bool _canPlaySelected(PlayerSnapshot snapshot) {
-    return _playController.canPlaySelected(
+  bool _canPlaySelected(final PlayerSnapshot snapshot) => _playController.canPlaySelected(
       snapshot: snapshot,
       humanId: _humanId,
       hand: _hand,
       selectedCards: _selectedCards(),
       schupfAckPending: _schupfAckPending,
     );
-  }
 
-  bool _canPlayAny(PlayerSnapshot snapshot) {
-    return _playController.canPlayAny(
+  bool _canPlayAny(final PlayerSnapshot snapshot) => _playController.canPlayAny(
       snapshot: snapshot,
       humanId: _humanId,
       hand: _hand,
       schupfAckPending: _schupfAckPending,
     );
-  }
 
   @override
-  bool _canPass(PlayerSnapshot snapshot) {
-    return _playController.canPass(
+  bool _canPass(final PlayerSnapshot snapshot) => _playController.canPass(
       snapshot: snapshot,
       humanId: _humanId,
       hand: _hand,
       schupfAckPending: _schupfAckPending,
     );
-  }
 
-  bool _canEnableBomb(PlayerSnapshot snapshot) {
-    return _playController.canEnableBomb(
+  bool _canEnableBomb(final PlayerSnapshot snapshot) => _playController.canEnableBomb(
       snapshot: snapshot,
       humanId: _humanId,
       hand: _hand,
     );
-  }
 
   @override
-  void _showSnack(String message) {
+  void _showSnack(final String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,

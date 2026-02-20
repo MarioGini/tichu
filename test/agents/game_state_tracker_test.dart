@@ -33,7 +33,6 @@ void main() {
             Card(CardFace.king, CardColor.green),
             Card(CardFace.king, CardColor.black),
           ],
-          roundNumber: 1,
         ),
         aiTestSelfId,
       );

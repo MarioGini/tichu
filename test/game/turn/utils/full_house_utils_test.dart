@@ -5,20 +5,20 @@ import 'package:tichu/game/turn/utils/full_house_utils.dart';
 void main() {
   group('getFullHouses', () {
     test('returnsEmptyWhenLessThanFiveCards', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
         Card(CardFace.five, CardColor.black),
         Card(CardFace.five, CardColor.green),
       ];
 
-      var turns = getFullHouses(cards);
+      final turns = getFullHouses(cards);
 
       expect(turns, isEmpty);
     });
 
     test('ignoresDragonAndDogCards', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
         Card(CardFace.two, CardColor.red),
@@ -28,20 +28,20 @@ void main() {
         Card(CardFace.dog, CardColor.special),
       ];
 
-      var turns = getFullHouses(cards);
+      final turns = getFullHouses(cards);
 
       expect(turns.length, 1);
       expect(turns.first.type, TurnType.fullHouse);
       expect(
         turns.first.cards.any(
-          (card) => card.face == CardFace.dragon || card.face == CardFace.dog,
+          (final card) => card.face == CardFace.dragon || card.face == CardFace.dog,
         ),
         false,
       );
     });
 
     test('twoTripletsTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
         Card(CardFace.two, CardColor.red),
@@ -50,21 +50,21 @@ void main() {
         Card(CardFace.five, CardColor.red),
       ];
 
-      var turns = getFullHouses(cards);
+      final turns = getFullHouses(cards);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
+      expect(turns.every((final turn) => turn.type == TurnType.fullHouse), true);
       expect(
-        turns.any((turn) => turn.value == Card.getValue(CardFace.two)),
+        turns.any((final turn) => turn.value == Card.getValue(CardFace.two)),
         true,
       );
       expect(
-        turns.any((turn) => turn.value == Card.getValue(CardFace.five)),
+        turns.any((final turn) => turn.value == Card.getValue(CardFace.five)),
         true,
       );
     });
     test('twoPairsTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
         Card(CardFace.two, CardColor.red),
@@ -74,29 +74,29 @@ void main() {
         Card(CardFace.seven, CardColor.black),
       ];
 
-      var turns = getFullHouses(cards);
+      final turns = getFullHouses(cards);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
+      expect(turns.every((final turn) => turn.type == TurnType.fullHouse), true);
       expect(
-        turns.every((turn) => turn.value == Card.getValue(CardFace.two)),
+        turns.every((final turn) => turn.value == Card.getValue(CardFace.two)),
         true,
       );
       expect(
         turns.any(
-          (turn) => turn.cards.any((card) => card.face == CardFace.five),
+          (final turn) => turn.cards.any((final card) => card.face == CardFace.five),
         ),
         true,
       );
       expect(
         turns.any(
-          (turn) => turn.cards.any((card) => card.face == CardFace.seven),
+          (final turn) => turn.cards.any((final card) => card.face == CardFace.seven),
         ),
         true,
       );
     });
     test('twoPairsPhoenixTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
         Card(CardFace.five, CardColor.black),
@@ -106,25 +106,25 @@ void main() {
         Card(CardFace.seven, CardColor.black),
       ];
 
-      var turns = getFullHouses(cards);
+      final turns = getFullHouses(cards);
 
       expect(turns.length, 6);
-      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
-      var sevenFullHouseCount = turns
-          .where((element) => element.value == Card.getValue(CardFace.seven))
+      expect(turns.every((final turn) => turn.type == TurnType.fullHouse), true);
+      final sevenFullHouseCount = turns
+          .where((final element) => element.value == Card.getValue(CardFace.seven))
           .length;
-      var fiveFullHouseCount = turns
-          .where((element) => element.value == Card.getValue(CardFace.five))
+      final fiveFullHouseCount = turns
+          .where((final element) => element.value == Card.getValue(CardFace.five))
           .length;
-      var twoFullHouseCount = turns
-          .where((element) => element.value == Card.getValue(CardFace.two))
+      final twoFullHouseCount = turns
+          .where((final element) => element.value == Card.getValue(CardFace.two))
           .length;
       expect(sevenFullHouseCount, 2);
       expect(fiveFullHouseCount, 2);
       expect(twoFullHouseCount, 2);
     });
     test('tripletPhoenixTest', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
         Card(CardFace.two, CardColor.red),
@@ -134,22 +134,22 @@ void main() {
         Card(CardFace.seven, CardColor.black),
       ];
 
-      var turns = getFullHouses(cards);
+      final turns = getFullHouses(cards);
 
       expect(turns.length, 3);
-      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
-      var fiveFullHouseCount = turns
-          .where((element) => element.value == Card.getValue(CardFace.five))
+      expect(turns.every((final turn) => turn.type == TurnType.fullHouse), true);
+      final fiveFullHouseCount = turns
+          .where((final element) => element.value == Card.getValue(CardFace.five))
           .length;
-      var twoFullHouseCount = turns
-          .where((element) => element.value == Card.getValue(CardFace.two))
+      final twoFullHouseCount = turns
+          .where((final element) => element.value == Card.getValue(CardFace.two))
           .length;
       expect(fiveFullHouseCount, 1);
       expect(twoFullHouseCount, 2);
     });
 
     test('phoenixPromotesSingleToPair', () {
-      var cards = <Card>[
+      final cards = <Card>[
         Card(CardFace.two, CardColor.black),
         Card(CardFace.two, CardColor.green),
         Card(CardFace.two, CardColor.red),
@@ -158,27 +158,27 @@ void main() {
         Card(CardFace.phoenix, CardColor.special),
       ];
 
-      var turns = getFullHouses(cards);
+      final turns = getFullHouses(cards);
 
       expect(turns.length, 2);
-      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
+      expect(turns.every((final turn) => turn.type == TurnType.fullHouse), true);
       expect(
-        turns.every((turn) => turn.value == Card.getValue(CardFace.two)),
+        turns.every((final turn) => turn.value == Card.getValue(CardFace.two)),
         true,
       );
       expect(
         turns.any(
-          (turn) =>
-              turn.cards.any((card) => card.face == CardFace.phoenix) &&
-              turn.cards.any((card) => card.face == CardFace.five),
+          (final turn) =>
+              turn.cards.any((final card) => card.face == CardFace.phoenix) &&
+              turn.cards.any((final card) => card.face == CardFace.five),
         ),
         true,
       );
       expect(
         turns.any(
-          (turn) =>
-              turn.cards.any((card) => card.face == CardFace.phoenix) &&
-              turn.cards.any((card) => card.face == CardFace.seven),
+          (final turn) =>
+              turn.cards.any((final card) => card.face == CardFace.phoenix) &&
+              turn.cards.any((final card) => card.face == CardFace.seven),
         ),
         true,
       );

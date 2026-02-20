@@ -2,6 +2,7 @@ import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/card_utils.dart';
 import 'package:tichu/game/turn/wish_logic.dart';
 
 class PlayTacticsPolicy {
@@ -33,39 +34,48 @@ class PlayTacticsPolicy {
       return null;
     }
 
-    if (partnerCall != TichuCall.none &&
-        selfCall == TichuCall.none &&
-        partnerCards > 0 &&
-        canPass) {
-      return PassAction(playerId: playerId);
+    if (partnerCall == TichuCall.none ||
+        selfCall != TichuCall.none ||
+        partnerCards <= 0 ||
+        !canPass) {
+      return null;
     }
 
-    final partnerWinning =
-        snapshot.lastPlayedBy == partnerId || deck.currentWinner == partnerId;
-    if (partnerWinning &&
-        isHighWinningTrick(deck.turn) &&
-        hand.length > 1 &&
-        deck.turn.type != TurnType.empty &&
-        deck.turn.type != TurnType.none &&
-        !opponentTichuNearFinishWinning(
-          playerId: playerId,
-          snapshot: snapshot,
-          deck: deck,
-          table: table,
-        )) {
-      return PassAction(playerId: playerId);
+    final winnerId = deck.currentWinner.isNotEmpty
+        ? deck.currentWinner
+        : snapshot.lastPlayedBy;
+    final partnerWinning = winnerId == partnerId;
+    if (!partnerWinning) {
+      return null;
     }
 
-    if (partnerCall != TichuCall.none &&
-        snapshot.lastPlayedBy == partnerId &&
-        partnerCards <= 5 &&
-        hand.length > 1 &&
-        deck.turn.type != TurnType.empty &&
-        deck.turn.type != TurnType.none) {
-      return PassAction(playerId: playerId);
+    if (!_isPartnerSupportPassTurn(deck.turn)) {
+      return null;
     }
 
-    return null;
+    if (opponentTichuNearFinishWinning(
+      playerId: playerId,
+      snapshot: snapshot,
+      deck: deck,
+      table: table,
+    )) {
+      return null;
+    }
+
+    return PassAction(playerId: playerId);
+  }
+
+  bool _isPartnerSupportPassTurn(TichuTurn turn) {
+    if (turn.type == TurnType.single) {
+      return turn.value >= Card.getValue(CardFace.king);
+    }
+
+    return turn.type == TurnType.pair ||
+        turn.type == TurnType.triplet ||
+        turn.type == TurnType.fullHouse ||
+        turn.type == TurnType.straight ||
+        turn.type == TurnType.pairStraight ||
+        turn.type == TurnType.bomb;
   }
 
   TichuTurn? selectPartnerFinishLead({
@@ -102,6 +112,24 @@ class PlayTacticsPolicy {
       (turn) => !turn.cards.any((c) => c.face == CardFace.dragon),
     );
     return nonDragon.isNotEmpty ? nonDragon.first : singles.first;
+  }
+
+  TichuTurn? selectEarlyDogLead({
+    required List<TichuTurn> legalTurns,
+    required bool isLeading,
+  }) {
+    if (!isLeading) {
+      return null;
+    }
+
+    for (final turn in legalTurns) {
+      if (turn.type == TurnType.dog ||
+          turn.cards.any((card) => card.face == CardFace.dog)) {
+        return turn;
+      }
+    }
+
+    return null;
   }
 
   TichuTurn? selectPartnerGrandTichuDogLead({
@@ -223,5 +251,50 @@ class PlayTacticsPolicy {
     }
     final cardsLeft = (snapshot.hands[winnerId] ?? const <Card>[]).length;
     return cardsLeft > 0 && cardsLeft <= 2;
+  }
+
+  /// When responding to a single on the deck, prefer playing a card whose face
+  /// appears only once in the hand (a true singleton) so that pairs and larger
+  /// combos are preserved.  Returns the lowest such singleton, or `null` if
+  /// none exists (in which case the caller falls through to the scorer).
+  TichuTurn? selectSingletonResponse({
+    required List<TichuTurn> legalTurns,
+    required DeckState deck,
+    required List<Card> hand,
+  }) {
+    if (deck.turn.type != TurnType.single) return null;
+
+    final singles = legalTurns.where((t) => t.type == TurnType.single).toList();
+    if (singles.isEmpty) return null;
+
+    // Count how many times each face appears in the hand (ignoring specials
+    // like phoenix which can substitute for anything).
+    final normalCards = hand
+        .where(
+          (c) =>
+              c.face != CardFace.phoenix &&
+              c.face != CardFace.dog &&
+              c.face != CardFace.dragon,
+        )
+        .toList();
+    final occurrences = getOccurrenceCount(normalCards);
+
+    // Filter to singles whose face is a true singleton in the hand.
+    final singletonPlays = singles.where((t) {
+      final face = t.cards.first.face;
+      // Phoenix play and dragon/dog are always fine to play.
+      if (face == CardFace.phoenix ||
+          face == CardFace.dragon ||
+          face == CardFace.dog) {
+        return true;
+      }
+      return (occurrences[face] ?? 0) == 1;
+    }).toList();
+
+    if (singletonPlays.isEmpty) return null;
+
+    // Pick the lowest-value singleton.
+    singletonPlays.sort((a, b) => a.value.compareTo(b.value));
+    return singletonPlays.first;
   }
 }

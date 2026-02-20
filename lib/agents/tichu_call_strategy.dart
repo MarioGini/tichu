@@ -10,7 +10,6 @@ abstract class TichuCallStrategy {
 }
 
 class DefaultTichuCallStrategy implements TichuCallStrategy {
-  static const int _grandIndexThreshold = 2;
   static const int _tichuIndexThreshold = 7;
 
   const DefaultTichuCallStrategy();
@@ -20,24 +19,13 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
     GameSnapshot snapshot,
     String playerId,
   ) async {
-    final hand = snapshot.hands[playerId] ?? const <Card>[];
-    final firstEight = hand.take(8).toList();
-    return _grandTichuIndex(firstEight) >= _grandIndexThreshold;
+    return false;
   }
 
   @override
   Future<bool> shouldCallTichu(GameSnapshot snapshot, String playerId) async {
     final hand = snapshot.hands[playerId] ?? const <Card>[];
     return _tichuIndex(hand) >= _tichuIndexThreshold;
-  }
-
-  int _grandTichuIndex(List<Card> hand) {
-    final nAce = _countFace(hand, CardFace.ace);
-    final nDragon = _countFace(hand, CardFace.dragon);
-    final nPhoenix = _countFace(hand, CardFace.phoenix);
-    final nBomb = getBombs(List<Card>.from(hand)).length;
-
-    return nAce + 3 * nDragon + 3 * nPhoenix + 3 * nBomb;
   }
 
   int _tichuIndex(List<Card> hand) {

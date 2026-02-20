@@ -97,7 +97,7 @@ void main() {
 
       expect(mahJong(deck, selectedTurn, cards), false);
     });
-    test('wishCardNotAvailableTest', () {
+    test('wishFulfilledBySelectedTurn', () {
       var deck = DeckState(deckTurn, CardFace.ace);
       var selectedTurn = TichuTurn(TurnType.single, [
         Card(CardFace.ace, CardColor.black),
@@ -314,7 +314,7 @@ void main() {
       Card(CardFace.six, CardColor.black),
       Card(CardFace.six, CardColor.green),
     ]);
-    test('cannotPlayTest', () {
+    test('canPlayWithPhoenixPairStraight', () {
       const wish = CardFace.eight;
       final cards = <Card>[
         Card(CardFace.eight, CardColor.red),

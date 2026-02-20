@@ -6,11 +6,16 @@ import 'package:tichu/screens/game/game_screen.dart';
 
 import '../../utils/test_game_backend.dart';
 import '../../utils/test_game_fixtures.dart';
+import '../../utils/test_helpers.dart';
 
 void main() {
-  testWidgets('match round requires continue before showing scoreboard', (
+  testWidgets('match round shows scoreboard directly without gate dialog', (
     tester,
   ) async {
+    final oldHandler = FlutterError.onError;
+    suppressOverflowErrors(oldHandler);
+    addTearDown(() => FlutterError.onError = oldHandler);
+
     final backend = FakeGameBackend();
 
     await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
@@ -67,14 +72,9 @@ void main() {
     );
 
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Continue'), findsOneWidget);
-    expect(find.text('Round 1 complete'), findsNothing);
-
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
+    // Round complete dialog should show directly without a gate dialog
     expect(find.text('Round 1 complete'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 500));

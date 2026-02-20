@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Card;
 import '../game/turn/tichu_data.dart';
 import 'card_widget.dart';
 import 'overlapping_card_row.dart';
+import 'player_state_frame.dart';
 
 enum PendingPlacement { below, left, right }
 
@@ -91,7 +92,8 @@ class OpponentDisplay extends StatelessWidget {
                   _infoLine(context),
                   const SizedBox(height: 4),
                   _statusPill(context, colorScheme),
-                  if (finishPosition != null) _finishLabel(context),
+                  if (finishPosition != null)
+                    buildPlayerOutLabel(context, finishPosition!),
                   _tichuBadge(context, isHorizontal: false),
                 ],
               ),
@@ -154,7 +156,8 @@ class OpponentDisplay extends StatelessWidget {
                   _infoLine(context),
                   const SizedBox(height: 4),
                   _statusPill(context, colorScheme),
-                  if (finishPosition != null) _finishLabel(context),
+                  if (finishPosition != null)
+                    buildPlayerOutLabel(context, finishPosition!),
                   _tichuBadge(context, isHorizontal: false),
                 ],
               ),
@@ -214,35 +217,11 @@ class OpponentDisplay extends StatelessWidget {
   // ───── shared building blocks ─────
 
   BoxDecoration _boxDecoration(ColorScheme colorScheme) {
-    final Color borderColor;
-    final double borderWidth;
-    if (isFinished) {
-      borderColor = Colors.greenAccent;
-      borderWidth = 2.5;
-    } else if (tichuDeclared && !grandTichuDeclared) {
-      borderColor = Colors.orange;
-      borderWidth = 2.5;
-    } else if (isActive) {
-      borderColor = Colors.amber;
-      borderWidth = 2;
-    } else {
-      borderColor = Colors.white24;
-      borderWidth = 1;
-    }
-
-    return BoxDecoration(
-      color: Colors.black.withValues(alpha: isActive ? 0.35 : 0.2),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: borderColor, width: borderWidth),
-      boxShadow: (tichuDeclared && !grandTichuDeclared)
-          ? [
-              BoxShadow(
-                color: Colors.orange.withValues(alpha: 0.35),
-                blurRadius: 10,
-                spreadRadius: 1,
-              ),
-            ]
-          : null,
+    return buildPlayerStateFrameDecoration(
+      isActive: isActive,
+      isFinished: isFinished,
+      borderRadius: 12,
+      idleAlpha: 0.2,
     );
   }
 
@@ -276,57 +255,19 @@ class OpponentDisplay extends StatelessWidget {
   }
 
   Widget _statusPill(BuildContext context, ColorScheme colorScheme) {
-    final String label;
-    final Color accent;
-    if (pendingPass) {
-      label = 'Pass';
-      accent = Colors.white70;
-    } else if (isFinished) {
-      label = 'Out';
-      accent = Colors.greenAccent;
-    } else if (isActive) {
-      label = 'Their turn';
-      accent = colorScheme.secondary;
-    } else {
-      label = 'Waiting';
-      accent = Colors.white70;
-    }
+    if (!isFinished) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: pendingPass
-            ? Colors.white10
-            : isFinished
-            ? Colors.greenAccent.withValues(alpha: 0.18)
-            : isActive
-            ? colorScheme.secondary.withValues(alpha: 0.18)
-            : Colors.white10,
+        color: Colors.greenAccent.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: pendingPass
-              ? Colors.white24
-              : isFinished
-              ? Colors.greenAccent
-              : isActive
-              ? colorScheme.secondary
-              : Colors.white24,
-        ),
+        border: Border.all(color: Colors.greenAccent),
       ),
       child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: accent),
-      ),
-    );
-  }
-
-  Widget _finishLabel(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Text(
-        'Out #$finishPosition',
+        'Out',
         style: Theme.of(
           context,
-        ).textTheme.bodySmall?.copyWith(color: Colors.greenAccent),
+        ).textTheme.labelSmall?.copyWith(color: Colors.greenAccent),
       ),
     );
   }
@@ -365,22 +306,7 @@ class OpponentDisplay extends StatelessWidget {
     Alignment alignment = Alignment.topCenter,
   }) {
     if (pendingPass) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white10,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Text(
-          'PASS',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Colors.white70,
-            letterSpacing: 1.6,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      );
+      return const SizedBox.shrink();
     }
     return LayoutBuilder(
       builder: (context, constraints) {

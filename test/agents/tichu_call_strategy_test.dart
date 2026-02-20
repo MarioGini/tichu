@@ -7,64 +7,25 @@ import 'ai_test_fixtures.dart';
 void main() {
   const strategy = DefaultTichuCallStrategy();
 
-  test('grand tichu follows paper index threshold (Ig >= 2)', () async {
-    final belowThreshold = aiSnapshot(
+  test('grand tichu always returns false', () async {
+    final snapshot = aiSnapshot(
       myHand: [
-        Card(CardFace.ace, CardColor.red),
-        Card(CardFace.two, CardColor.blue),
-        Card(CardFace.four, CardColor.green),
-        Card(CardFace.six, CardColor.black),
-        Card(CardFace.eight, CardColor.red),
-        Card(CardFace.ten, CardColor.blue),
-        Card(CardFace.queen, CardColor.green),
-        Card(CardFace.king, CardColor.black),
-      ],
-    );
-    final atThreshold = aiSnapshot(
-      myHand: [
+        Card(CardFace.dragon, CardColor.special),
+        Card(CardFace.phoenix, CardColor.special),
         Card(CardFace.ace, CardColor.red),
         Card(CardFace.ace, CardColor.blue),
-        Card(CardFace.four, CardColor.green),
-        Card(CardFace.six, CardColor.black),
-        Card(CardFace.eight, CardColor.red),
-        Card(CardFace.ten, CardColor.blue),
-        Card(CardFace.queen, CardColor.green),
-        Card(CardFace.king, CardColor.black),
+        Card(CardFace.ace, CardColor.green),
+        Card(CardFace.ace, CardColor.black),
+        Card(CardFace.king, CardColor.red),
+        Card(CardFace.king, CardColor.blue),
       ],
     );
 
     expect(
-      await strategy.shouldCallGrandTichu(belowThreshold, aiTestSelfId),
+      await strategy.shouldCallGrandTichu(snapshot, aiTestSelfId),
       isFalse,
     );
-    expect(
-      await strategy.shouldCallGrandTichu(atThreshold, aiTestSelfId),
-      isTrue,
-    );
   });
-
-  test(
-    'grand tichu calls with dragon in first eight cards (Ig high)',
-    () async {
-      final snapshot = aiSnapshot(
-        myHand: [
-          Card(CardFace.dragon, CardColor.special),
-          Card(CardFace.two, CardColor.red),
-          Card(CardFace.three, CardColor.blue),
-          Card(CardFace.four, CardColor.green),
-          Card(CardFace.five, CardColor.black),
-          Card(CardFace.six, CardColor.red),
-          Card(CardFace.seven, CardColor.blue),
-          Card(CardFace.eight, CardColor.green),
-        ],
-      );
-
-      expect(
-        await strategy.shouldCallGrandTichu(snapshot, aiTestSelfId),
-        isTrue,
-      );
-    },
-  );
 
   test('tichu follows paper index threshold (It >= 7)', () async {
     final belowThreshold = aiSnapshot(

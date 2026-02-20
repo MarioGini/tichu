@@ -90,6 +90,16 @@ void main() {
       );
     });
 
+    test('allows tichu call during schupf phase', () {
+      final engine = GameEngineImpl();
+      final state = _state(phase: GamePhase.schupf);
+
+      engine.applyAction(state, const CallTichuAction(playerId: testHumanId));
+
+      final tichuCall = state.scoreTracker.state.tichuCalls[testHumanId];
+      expect(tichuCall, TichuCall.tichu);
+    });
+
     test('blocks non dragon action while dragon give is pending', () {
       final engine = GameEngineImpl();
       final state = _state(phase: GamePhase.play);

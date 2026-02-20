@@ -9,6 +9,7 @@ import 'package:tichu/widgets/hand_display.dart';
 
 import '../../utils/test_game_backend.dart';
 import '../../utils/test_game_fixtures.dart';
+import '../../utils/test_helpers.dart';
 
 void main() {
   testWidgets('keeps self turn indicator visible in AI self mode', (
@@ -111,16 +112,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final previousOnError = FlutterError.onError;
-    FlutterError.onError = (details) {
-      final message = details.exceptionAsString();
-      if (message.contains('A RenderFlex overflowed')) {
-        return;
-      }
-      previousOnError?.call(details);
-    };
-    addTearDown(() {
-      FlutterError.onError = previousOnError;
-    });
+    suppressOverflowErrors(previousOnError);
+    addTearDown(() => FlutterError.onError = previousOnError);
 
     final backend = FakeGameBackend();
     final toLeft = Card(CardFace.ace, CardColor.green);

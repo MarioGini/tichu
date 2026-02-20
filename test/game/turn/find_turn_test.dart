@@ -276,7 +276,7 @@ void main() {
       ];
       expect(getTurn(cards), TichuTurn(TurnType.pairStraight, cards));
     });
-    test('invalidTripletTest', () {
+    test('phoenixMismatchedValueStillFormsTriplet', () {
       var cards = <Card>[
         Card(CardFace.four, CardColor.blue),
         Card(CardFace.four, CardColor.green),

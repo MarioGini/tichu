@@ -8,4 +8,5 @@ Reusable, cross-screen UI components for card game presentation and interaction.
 - `hand_display.dart`: player hand presentation and selection UI.
 - `opponent_display.dart`: opponent seat/hand status display.
 - `overlapping_card_row.dart`: overlapping card-row renderer.
+- `player_state_frame.dart`: bordered frame indicating active/finished player state.
 - `trick_display.dart`: central trick/pile display.

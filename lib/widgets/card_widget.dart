@@ -49,6 +49,7 @@ class CardWidget extends StatelessWidget {
       ),
       child: InkWell(
         onTap: onTap,
+        canRequestFocus: false,
         borderRadius: BorderRadius.circular(cornerRadius),
         child: Container(
           width: width,
@@ -75,8 +76,10 @@ class CardWidget extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(innerRadius),
-            child: assetPath == null
-                ? Align(
+            child: Stack(
+              children: [
+                if (assetPath == null)
+                  Align(
                     alignment: Alignment.topCenter,
                     child: Text(
                       label,
@@ -88,7 +91,8 @@ class CardWidget extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                   )
-                : Image.asset(
+                else
+                  Image.asset(
                     assetPath,
                     width: width,
                     height: height,
@@ -109,10 +113,59 @@ class CardWidget extends StatelessWidget {
                       );
                     },
                   ),
+                if (_isPhoenixWithValue)
+                  Positioned(
+                    bottom: 4 * sizeScale,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6 * sizeScale,
+                          vertical: 2 * sizeScale,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(6 * sizeScale),
+                        ),
+                        child: Text(
+                          _phoenixValueLabel,
+                          style: TextStyle(
+                            color: Colors.orangeAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: fontSize * 0.85,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  bool get _isPhoenixWithValue =>
+      card.face == CardFace.phoenix && card.value > 0;
+
+  String get _phoenixValueLabel {
+    final v = card.value;
+    if (v % 1 == 0.5) {
+      return '${_rankLabel(v.floor())}+';
+    }
+    return _rankLabel(v.round());
+  }
+
+  String _rankLabel(int value) {
+    return switch (value) {
+      11 => 'J',
+      12 => 'Q',
+      13 => 'K',
+      14 => 'A',
+      _ => value.toString(),
+    };
   }
 
   String _cardLabel(Card card) {

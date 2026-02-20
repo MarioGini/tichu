@@ -52,6 +52,7 @@
 ## Testing and Quality
 - Mirror `lib/` structure under `test/` for new coverage.
 - Favor targeted tests first, then broader runs.
+- Run only the minimal set of test files affected by your change — never a whole suite. Other agents may be working concurrently and broad test runs cause conflicts and waste time.
 - Coverage workflow: run full coverage once, inspect `coverage/lcov.info`, avoid repeated micro-runs unless debugging.
 
 ## Operations Quick Reference
@@ -60,11 +61,12 @@
 - Run app (Web): `flutter run -d chrome`
 - Headless simulation: `dart run lib/headless/headless.dart --seed=42 --target-score=1000`
 
+## Learnings
+- Never pipe `flutter test` or build commands through `Select-Object`, `Out-String`, or other filters. Run them bare so the user sees streaming output in real time.
+- Tests run in parallel via `dart_test.yaml` (`concurrency: 8`). Always use `flutter test` (no extra flags needed) — the config file handles parallelism.
+
 ## Integration and Security Notes
 - Audio path: `lib/services/sound_effects.dart` (`audioplayers`).
 - Firebase deps exist; gameplay is currently local-first via `LocalGameBackend`.
 - Local IDs are timestamp-derived (not secure identifiers).
 - Headless output paths are caller-provided; avoid untrusted paths.
-
-## Learnings
-- If `dart format --set-exit-if-changed .` keeps rewriting the same file, run `dart format <that-file>` in a background terminal, then rerun step 1.

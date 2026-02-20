@@ -6,6 +6,7 @@ import 'package:tichu/screens/game/game_screen.dart';
 
 import '../../utils/test_game_backend.dart';
 import '../../utils/test_game_fixtures.dart';
+import '../../utils/test_helpers.dart';
 
 void main() {
   testWidgets('PLAY on schupf receipts hides panel immediately', (
@@ -15,16 +16,8 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
     final previousOnError = FlutterError.onError;
-    FlutterError.onError = (details) {
-      final message = details.exceptionAsString();
-      if (message.contains('A RenderFlex overflowed')) {
-        return;
-      }
-      previousOnError?.call(details);
-    };
-    addTearDown(() {
-      FlutterError.onError = previousOnError;
-    });
+    suppressOverflowErrors(previousOnError);
+    addTearDown(() => FlutterError.onError = previousOnError);
 
     final backend = FakeGameBackend();
 

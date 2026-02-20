@@ -17,6 +17,7 @@ import '../../widgets/hand_display.dart';
 import '../../widgets/opponent_display.dart';
 import '../../widgets/overlapping_card_row.dart';
 import '../../widgets/trick_display.dart';
+import '../shared/keyboard_shortcuts.dart';
 import 'widgets/trick_event_overlay.dart';
 import 'widgets/game_board.dart';
 
@@ -94,14 +95,6 @@ class _GameScreenState extends State<GameScreen>
   late final Animation<Offset> _bombSlide;
   late final Animation<double> _bombScale;
   @override
-  bool _showMatchOverlay = false;
-  @override
-  late final AnimationController _matchController;
-  late final Animation<Offset> _matchSlide;
-  late final Animation<double> _matchScale;
-  @override
-  int _lastMatchCelebrationRound = 0;
-  @override
   bool _dragonGiveDialogOpen = false;
   @override
   bool _grandTichuDialogOpen = false;
@@ -130,6 +123,10 @@ class _GameScreenState extends State<GameScreen>
   @override
   bool _schupfAckPending = false;
 
+  bool _grandTichuSelectNo = true;
+  int? _schupfCursorIndex;
+  final FocusNode _schupfFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
@@ -151,27 +148,6 @@ class _GameScreenState extends State<GameScreen>
           if (!mounted) return;
           setState(() {
             _showBombOverlay = false;
-          });
-        });
-      }
-    });
-    _matchController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 780),
-    );
-    _matchSlide = Tween<Offset>(begin: const Offset(0, -1.8), end: Offset.zero)
-        .animate(
-          CurvedAnimation(parent: _matchController, curve: Curves.easeOutCubic),
-        );
-    _matchScale = Tween<double>(begin: 0.78, end: 1.0).animate(
-      CurvedAnimation(parent: _matchController, curve: Curves.easeOutBack),
-    );
-    _matchController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        Future.delayed(const Duration(milliseconds: 420), () {
-          if (!mounted) return;
-          setState(() {
-            _showMatchOverlay = false;
           });
         });
       }
@@ -201,7 +177,7 @@ class _GameScreenState extends State<GameScreen>
       ),
       GamePlayer(
         id: 'player-2',
-        name: 'Opponent 2 (Partner)',
+        name: 'Opponent 2',
         seat: 2,
         type: _toPlayerType(_resolvedPlayerControls['player-2']),
       ),
@@ -234,7 +210,8 @@ class _GameScreenState extends State<GameScreen>
 
   void _handleSnapshot(PlayerSnapshot snapshot) {
     final previousTurn = _snapshot?.lastPlayedTurn;
-    final previousScoreState = _snapshot?.scoreState;
+    final wasShowingGrandTichuDecision =
+        _snapshot != null && _shouldShowGrandTichuDecision(_snapshot!);
     if (!mounted) return;
     if (!snapshot.opponentAwaitingConfirmation) {
       _lastAutoConfirmKey = null;
@@ -285,16 +262,36 @@ class _GameScreenState extends State<GameScreen>
       _selectedIndexes
         ..clear()
         ..addAll(uiProjection.selectedIndexes);
+
+      // Initialize / reset schupf keyboard cursor.
+      final isSchupfActive =
+          snapshot.phase == GamePhase.schupf &&
+          !snapshot.schupfCompletedPlayers.contains(_humanId);
+      if (isSchupfActive && _schupfCursorIndex == null) {
+        _syncSchupfCursor(defaultToRightMost: true);
+      } else if (!isSchupfActive) {
+        _schupfCursorIndex = null;
+      }
+
+      final isShowingGrandTichuDecision = _shouldShowGrandTichuDecision(
+        snapshot,
+      );
+      if (isShowingGrandTichuDecision && !wasShowingGrandTichuDecision) {
+        _grandTichuSelectNo = true;
+      }
     });
 
     _handleTurnEffects(previousTurn, snapshot.lastPlayedTurn);
-    _handleRoundEffects(previousScoreState, snapshot.scoreState);
     _maybeShowDragonGiveDialog(snapshot);
     _maybeShowRoundCompleteDialog(snapshot);
-    _maybeShowGrandTichuDialog(snapshot);
     _maybeAutoConfirmOpponentTurn(snapshot);
     _maybeAutoPass(snapshot);
     _maybeAutoSelectFinisher(snapshot);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _schupfFocusNode.requestFocus();
+    });
   }
 
   @override
@@ -345,7 +342,7 @@ class _GameScreenState extends State<GameScreen>
     final pendingReceipts =
         _schupfAckPending ||
         (snapshot != null && snapshot.schupfReceipts.isNotEmpty);
-    final showTurnIndicators = isPlayPhase;
+    final showTurnIndicators = isPlayPhase && !pendingReceipts;
     final showTurnActions = isPlayPhase && !pendingReceipts;
     final canPlayAny = snapshot != null ? _canPlayAny(snapshot) : false;
     final canPass = snapshot != null ? _canPass(snapshot) : false;
@@ -402,10 +399,8 @@ class _GameScreenState extends State<GameScreen>
           showOverlay: _showBombOverlay,
           slide: _bombSlide,
           scale: _bombScale,
-          showMatchOverlay: _showMatchOverlay,
-          matchSlide: _matchSlide,
-          matchScale: _matchScale,
         );
+    final showOpponentPendingCards = isPlayPhase;
     final screenHeight = MediaQuery.of(context).size.height;
     final isCompact = screenHeight < 500;
     final humanTichuCall = tichuCalls['player-0'];
@@ -413,6 +408,9 @@ class _GameScreenState extends State<GameScreen>
         humanTichuCall == TichuCall.tichu ||
         humanTichuCall == TichuCall.grandTichu;
     final humanGrandTichu = humanTichuCall == TichuCall.grandTichu;
+    final showGrandTichuDecision =
+        snapshot != null && _shouldShowGrandTichuDecision(snapshot);
+    final grandTichuDecisionPending = _grandTichuDialogOpen;
     final handArea = LayoutBuilder(
       builder: (context, constraints) {
         final maxHeight = constraints.maxHeight.isFinite
@@ -486,18 +484,156 @@ class _GameScreenState extends State<GameScreen>
               )
             : null;
 
-        final content = isSchupfActive
+        final handDisplay = HandDisplay(
+          cards: _hand,
+          selectedIndexes: _selectedIndexes,
+          onCardTap: _isSelfManual ? _toggleSelect : (_) {},
+          isActive: showTurnIndicators && isCurrentTurn(_humanId),
+          isFinished: isFinished(_humanId),
+          finishPosition: finishPositionFor(_humanId),
+          targetHeight: targetHeight,
+          header: headerWidget,
+        );
+
+        final baseContent = isSchupfActive
             ? _buildSchupfPanel()
             : hasSchupfReceipts
-            ? _buildSchupfReceiptPanel(snapshot)
-            : HandDisplay(
-                cards: _hand,
-                selectedIndexes: _selectedIndexes,
-                onCardTap: _isSelfManual ? _toggleSelect : (_) {},
-                isActive: showTurnIndicators && isCurrentTurn(_humanId),
-                targetHeight: targetHeight,
-                header: headerWidget,
-              );
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSchupfReceiptPanel(snapshot),
+                  const SizedBox(height: 8),
+                  HandDisplay(
+                    cards: _hand,
+                    selectedIndexes: _selectedIndexes,
+                    onCardTap: _isSelfManual ? _toggleSelect : (_) {},
+                    isActive: showTurnIndicators && isCurrentTurn(_humanId),
+                    isFinished: isFinished(_humanId),
+                    finishPosition: finishPositionFor(_humanId),
+                    targetHeight: targetHeight,
+                    header: null,
+                  ),
+                ],
+              )
+            : handDisplay;
+
+        final winningTeam = scoreState?.winningTeam;
+        final showMatchPanel = isGameComplete && winningTeam != null;
+        final content = showGrandTichuDecision
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  baseContent,
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Grand Tichu?',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.white),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: 64,
+                            child: _grandTichuSelectNo
+                                ? ElevatedButton(
+                                    onPressed: grandTichuDecisionPending
+                                        ? null
+                                        : () =>
+                                              _submitGrandTichuDecision(false),
+                                    child: const Text('No'),
+                                  )
+                                : TextButton(
+                                    onPressed: grandTichuDecisionPending
+                                        ? null
+                                        : () {
+                                            setState(() {
+                                              _grandTichuSelectNo = true;
+                                            });
+                                          },
+                                    child: const Text('No'),
+                                  ),
+                          ),
+                          const SizedBox(width: 4),
+                          SizedBox(
+                            width: 64,
+                            child: !_grandTichuSelectNo
+                                ? ElevatedButton(
+                                    onPressed: grandTichuDecisionPending
+                                        ? null
+                                        : () => _submitGrandTichuDecision(true),
+                                    child: const Text('Yes'),
+                                  )
+                                : TextButton(
+                                    onPressed: grandTichuDecisionPending
+                                        ? null
+                                        : () {
+                                            setState(() {
+                                              _grandTichuSelectNo = false;
+                                            });
+                                          },
+                                    child: const Text('Yes'),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : baseContent;
+
+        final handContent = showMatchPanel
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  content,
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '\u{1F3C6} ${winningTeam == 0 ? 'Your team wins!' : 'Other team wins!'}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: Colors.white),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: const Text('Continue'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : content;
 
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -507,11 +643,12 @@ class _GameScreenState extends State<GameScreen>
                 padding: const EdgeInsets.only(bottom: 4),
                 child: headerWidget!,
               ),
-            content,
+            handContent,
           ],
         );
       },
     );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tichu — Single Player Mode'),
@@ -521,113 +658,133 @@ class _GameScreenState extends State<GameScreen>
             onPressed: _showOptionsDialog,
             icon: const Icon(Icons.settings),
           ),
-          IconButton(
-            tooltip: 'New round',
-            onPressed: canStartRound ? _startRound : null,
-            icon: const Icon(Icons.restart_alt),
-          ),
         ],
       ),
-      body: SafeArea(
-        child: GameBoard(
-          topOpponent: OpponentDisplay(
-            name: 'Opponent 2 (Partner)',
-            cardCount: snapshot?.opponentCardCounts['player-2'] ?? 0,
-            isActive: showTurnIndicators && isCurrentTurn('player-2'),
-            isFinished: isFinished('player-2'),
-            tichuDeclared:
-                tichuCalls['player-2'] == TichuCall.tichu ||
-                tichuCalls['player-2'] == TichuCall.grandTichu,
-            grandTichuDeclared: tichuCalls['player-2'] == TichuCall.grandTichu,
-            finishPosition: finishPositionFor('player-2'),
-            alignment: Axis.horizontal,
-            icon: Icons.psychology_alt,
-            pendingCards: _pendingOpponentPlayerId == 'player-2'
-                ? _pendingOpponentCards
-                : const [],
-            pendingPass:
-                _pendingOpponentPlayerId == 'player-2' && _pendingOpponentPass,
-            pendingPlacement: PendingPlacement.below,
-            teamScore: displayPartnerScore,
-            showPoints: isPlayPhase,
-          ),
-          leftOpponent: OpponentDisplay(
-            name: 'Opponent 3',
-            cardCount: snapshot?.opponentCardCounts['player-3'] ?? 0,
-            isActive: showTurnIndicators && isCurrentTurn('player-3'),
-            isFinished: isFinished('player-3'),
-            tichuDeclared:
-                tichuCalls['player-3'] == TichuCall.tichu ||
-                tichuCalls['player-3'] == TichuCall.grandTichu,
-            grandTichuDeclared: tichuCalls['player-3'] == TichuCall.grandTichu,
-            finishPosition: finishPositionFor('player-3'),
-            alignment: Axis.vertical,
-            icon: Icons.memory,
-            pendingCards: _pendingOpponentPlayerId == 'player-3'
-                ? _pendingOpponentCards
-                : const [],
-            pendingPass:
-                _pendingOpponentPlayerId == 'player-3' && _pendingOpponentPass,
-            pendingPlacement: PendingPlacement.right,
-            teamScore: displayLeftScore,
-            showPoints: isPlayPhase,
-          ),
-          rightOpponent: OpponentDisplay(
-            name: 'Opponent 1',
-            cardCount: snapshot?.opponentCardCounts['player-1'] ?? 0,
-            isActive: showTurnIndicators && isCurrentTurn('player-1'),
-            isFinished: isFinished('player-1'),
-            tichuDeclared:
-                tichuCalls['player-1'] == TichuCall.tichu ||
-                tichuCalls['player-1'] == TichuCall.grandTichu,
-            grandTichuDeclared: tichuCalls['player-1'] == TichuCall.grandTichu,
-            finishPosition: finishPositionFor('player-1'),
-            alignment: Axis.vertical,
-            icon: Icons.smart_toy_outlined,
-            pendingCards: _pendingOpponentPlayerId == 'player-1'
-                ? _pendingOpponentCards
-                : const [],
-            pendingPass:
-                _pendingOpponentPlayerId == 'player-1' && _pendingOpponentPass,
-            pendingPlacement: PendingPlacement.left,
-            teamScore: displayRightScore,
-            showPoints: isPlayPhase,
-          ),
-          trickArea: centerArea,
-          handArea: handArea,
-          actionBar: ActionBar(
-            showTurnActions: showTurnActions,
-            isPlayEnabled:
-                _isSelfManual &&
-                snapshot != null &&
-                _canPlaySelected(snapshot) &&
-                !pendingReceipts,
-            isBombEnabled:
-                _isSelfManual &&
-                snapshot != null &&
-                _canEnableBomb(snapshot) &&
-                !pendingReceipts,
-            isPassEnabled:
-                _isSelfManual && isPlayPhase && !pendingReceipts && canPass,
-            isPassPreferred: passPreferred,
-            isSchupfEnabled:
-                isSchupfActive &&
-                _schupfToLeft != null &&
-                _schupfToPartner != null &&
-                _schupfToRight != null,
-            showSchupf: false,
-            showDeclareTichu:
-                _isSelfManual &&
-                !isRoundComplete &&
-                (snapshot?.canCallTichu ?? false) &&
-                !humanTichu,
-            showStartRound: canStartRound,
-            onStartRound: _startRound,
-            onPlay: _playSelected,
-            onBomb: _playBomb,
-            onPass: _pass,
-            onSchupf: _submitSchupf,
-            onDeclareTichu: _declareTichu,
+      body: Focus(
+        focusNode: _schupfFocusNode,
+        autofocus: true,
+        onKeyEvent: (node, event) => handleDirectionalEnterKeyEvent(
+          event,
+          onEnter: _handleShortcutEnter,
+          onLeft: _handleShortcutLeft,
+          onRight: _handleShortcutRight,
+        ),
+        child: SafeArea(
+          child: GameBoard(
+            topOpponent: OpponentDisplay(
+              name: 'Opponent 2',
+              cardCount: snapshot?.opponentCardCounts['player-2'] ?? 0,
+              isActive: showTurnIndicators && isCurrentTurn('player-2'),
+              isFinished: isFinished('player-2'),
+              tichuDeclared:
+                  tichuCalls['player-2'] == TichuCall.tichu ||
+                  tichuCalls['player-2'] == TichuCall.grandTichu,
+              grandTichuDeclared:
+                  tichuCalls['player-2'] == TichuCall.grandTichu,
+              finishPosition: finishPositionFor('player-2'),
+              alignment: Axis.horizontal,
+              icon: Icons.psychology_alt,
+              pendingCards:
+                  showOpponentPendingCards &&
+                      _pendingOpponentPlayerId == 'player-2'
+                  ? _pendingOpponentCards
+                  : const [],
+              pendingPass:
+                  showOpponentPendingCards &&
+                  _pendingOpponentPlayerId == 'player-2' &&
+                  _pendingOpponentPass,
+              pendingPlacement: PendingPlacement.below,
+              teamScore: displayPartnerScore,
+              showPoints: isPlayPhase,
+            ),
+            leftOpponent: OpponentDisplay(
+              name: 'Opponent 3',
+              cardCount: snapshot?.opponentCardCounts['player-3'] ?? 0,
+              isActive: showTurnIndicators && isCurrentTurn('player-3'),
+              isFinished: isFinished('player-3'),
+              tichuDeclared:
+                  tichuCalls['player-3'] == TichuCall.tichu ||
+                  tichuCalls['player-3'] == TichuCall.grandTichu,
+              grandTichuDeclared:
+                  tichuCalls['player-3'] == TichuCall.grandTichu,
+              finishPosition: finishPositionFor('player-3'),
+              alignment: Axis.vertical,
+              icon: Icons.memory,
+              pendingCards:
+                  showOpponentPendingCards &&
+                      _pendingOpponentPlayerId == 'player-3'
+                  ? _pendingOpponentCards
+                  : const [],
+              pendingPass:
+                  showOpponentPendingCards &&
+                  _pendingOpponentPlayerId == 'player-3' &&
+                  _pendingOpponentPass,
+              pendingPlacement: PendingPlacement.right,
+              teamScore: displayLeftScore,
+              showPoints: isPlayPhase,
+            ),
+            rightOpponent: OpponentDisplay(
+              name: 'Opponent 1',
+              cardCount: snapshot?.opponentCardCounts['player-1'] ?? 0,
+              isActive: showTurnIndicators && isCurrentTurn('player-1'),
+              isFinished: isFinished('player-1'),
+              tichuDeclared:
+                  tichuCalls['player-1'] == TichuCall.tichu ||
+                  tichuCalls['player-1'] == TichuCall.grandTichu,
+              grandTichuDeclared:
+                  tichuCalls['player-1'] == TichuCall.grandTichu,
+              finishPosition: finishPositionFor('player-1'),
+              alignment: Axis.vertical,
+              icon: Icons.smart_toy_outlined,
+              pendingCards:
+                  showOpponentPendingCards &&
+                      _pendingOpponentPlayerId == 'player-1'
+                  ? _pendingOpponentCards
+                  : const [],
+              pendingPass:
+                  showOpponentPendingCards &&
+                  _pendingOpponentPlayerId == 'player-1' &&
+                  _pendingOpponentPass,
+              pendingPlacement: PendingPlacement.left,
+              teamScore: displayRightScore,
+              showPoints: isPlayPhase,
+            ),
+            trickArea: centerArea,
+            handArea: handArea,
+            actionBar: ActionBar(
+              showTurnActions: showTurnActions,
+              isPlayEnabled:
+                  _isSelfManual &&
+                  snapshot != null &&
+                  _canPlaySelected(snapshot) &&
+                  !pendingReceipts,
+              isBombEnabled:
+                  _isSelfManual &&
+                  snapshot != null &&
+                  _canEnableBomb(snapshot) &&
+                  !pendingReceipts,
+              isPassEnabled:
+                  _isSelfManual && isPlayPhase && !pendingReceipts && canPass,
+              isPassPreferred: passPreferred,
+              isSchupfEnabled:
+                  isSchupfActive &&
+                  _schupfToLeft != null &&
+                  _schupfToPartner != null &&
+                  _schupfToRight != null,
+              showSchupf: false,
+              showDeclareTichu:
+                  _isSelfManual &&
+                  !isRoundComplete &&
+                  (snapshot?.canCallTichu ?? false) &&
+                  !humanTichu,
+              showStartRound: canStartRound,
+              onStartRound: _startRound,
+              onPlay: _playSelected,
+              onBomb: _playBomb,
+              onPass: _pass,
+              onSchupf: _submitSchupf,
+              onDeclareTichu: _declareTichu,
+            ),
           ),
         ),
       ),
@@ -639,6 +796,138 @@ class _GameScreenState extends State<GameScreen>
       return PlayerType.automated;
     }
     return PlayerType.human;
+  }
+
+  @override
+  void _requestKeyboardFocus() {
+    if (!mounted) return;
+    _schupfFocusNode.requestFocus();
+  }
+
+  void _handleShortcutEnter() {
+    final snapshot = _snapshot;
+    if (snapshot == null) return;
+
+    if (_shouldShowGrandTichuDecision(snapshot)) {
+      _submitGrandTichuDecision(!_grandTichuSelectNo);
+      return;
+    }
+
+    final isSchupfActive =
+        snapshot.phase == GamePhase.schupf &&
+        !snapshot.schupfCompletedPlayers.contains(_humanId);
+    if (isSchupfActive) {
+      final canSubmit =
+          _schupfToLeft != null &&
+          _schupfToPartner != null &&
+          _schupfToRight != null;
+      if (canSubmit) {
+        _submitSchupf();
+        return;
+      }
+
+      final selectedCards = <Card>{
+        ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
+      };
+      final available = _hand.where((c) => !selectedCards.contains(c)).toList();
+      if (available.isEmpty) return;
+      final cursor = (_schupfCursorIndex ?? (available.length - 1)).clamp(
+        0,
+        available.length - 1,
+      );
+      final card = available[cursor];
+      if (_schupfToRight == null) {
+        _setSchupfSlot(_SchupfSlot.right, card);
+      } else if (_schupfToPartner == null) {
+        _setSchupfSlot(_SchupfSlot.partner, card);
+      } else if (_schupfToLeft == null) {
+        _setSchupfSlot(_SchupfSlot.left, card);
+      }
+      return;
+    }
+
+    // Acknowledge schupf receipts with Enter.
+    if (snapshot.schupfReceipts.isNotEmpty && !_schupfAckPending) {
+      _acknowledgeSchupfReceipts();
+      return;
+    }
+
+    if (!_isSelfManual || snapshot.phase != GamePhase.play) {
+      return;
+    }
+    final pendingReceipts =
+        _schupfAckPending || snapshot.schupfReceipts.isNotEmpty;
+    final canPlay = !pendingReceipts && _canPlaySelected(snapshot);
+    if (!canPlay) return;
+    _playSelected();
+  }
+
+  void _handleShortcutLeft() {
+    final snapshot = _snapshot;
+    if (snapshot == null) return;
+
+    if (_shouldShowGrandTichuDecision(snapshot)) {
+      setState(() {
+        _grandTichuSelectNo = true;
+      });
+      return;
+    }
+
+    final isSchupfActive =
+        snapshot.phase == GamePhase.schupf &&
+        !snapshot.schupfCompletedPlayers.contains(_humanId);
+    if (!isSchupfActive) return;
+
+    final canSubmit =
+        _schupfToLeft != null &&
+        _schupfToPartner != null &&
+        _schupfToRight != null;
+    if (canSubmit) return;
+
+    final selectedCards = <Card>{
+      ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
+    };
+    final available = _hand.where((c) => !selectedCards.contains(c)).toList();
+    if (available.isEmpty) return;
+
+    final cursor = _schupfCursorIndex ?? (available.length - 1);
+    setState(() {
+      _schupfCursorIndex = (cursor - 1).clamp(0, available.length - 1);
+    });
+  }
+
+  void _handleShortcutRight() {
+    final snapshot = _snapshot;
+    if (snapshot == null) return;
+
+    if (_shouldShowGrandTichuDecision(snapshot)) {
+      setState(() {
+        _grandTichuSelectNo = false;
+      });
+      return;
+    }
+
+    final isSchupfActive =
+        snapshot.phase == GamePhase.schupf &&
+        !snapshot.schupfCompletedPlayers.contains(_humanId);
+    if (!isSchupfActive) return;
+
+    final canSubmit =
+        _schupfToLeft != null &&
+        _schupfToPartner != null &&
+        _schupfToRight != null;
+    if (canSubmit) return;
+
+    final selectedCards = <Card>{
+      ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
+    };
+    final available = _hand.where((c) => !selectedCards.contains(c)).toList();
+    if (available.isEmpty) return;
+
+    final cursor = _schupfCursorIndex ?? (available.length - 1);
+    setState(() {
+      _schupfCursorIndex = (cursor + 1).clamp(0, available.length - 1);
+    });
   }
 
   Future<void> _showOptionsDialog() async {
@@ -714,7 +1003,7 @@ class _GameScreenState extends State<GameScreen>
     }
     _autoConfirmTimer?.cancel();
     _bombController.dispose();
-    _matchController.dispose();
+    _schupfFocusNode.dispose();
     super.dispose();
   }
 
@@ -806,8 +1095,7 @@ class _GameScreenState extends State<GameScreen>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: tightGap),
-            SizedBox(height: looseGap),
+            SizedBox(height: tightGap + looseGap),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -877,12 +1165,14 @@ class _GameScreenState extends State<GameScreen>
                         }
                       }
 
+                      final isCursor = _schupfCursorIndex == index;
+
                       Widget buildCard() {
                         return GestureDetector(
                           onDoubleTap: onQuickAssign,
                           child: CardWidget(
                             card: card,
-                            isSelected: false,
+                            isSelected: isCursor,
                             compact: true,
                             scale: scale,
                           ),
@@ -1103,6 +1393,7 @@ class _GameScreenState extends State<GameScreen>
         case _SchupfSlot.right:
           _schupfToRight = card;
       }
+      _syncSchupfCursor(defaultToRightMost: true);
     });
   }
 
@@ -1116,7 +1407,34 @@ class _GameScreenState extends State<GameScreen>
         case _SchupfSlot.right:
           _schupfToRight = null;
       }
+      _syncSchupfCursor(defaultToRightMost: true);
     });
+  }
+
+  void _syncSchupfCursor({required bool defaultToRightMost}) {
+    final canSubmit =
+        _schupfToLeft != null &&
+        _schupfToPartner != null &&
+        _schupfToRight != null;
+    if (canSubmit) {
+      _schupfCursorIndex = null;
+      return;
+    }
+
+    final selectedCards = <Card>{
+      ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
+    };
+    final available = _hand.where((c) => !selectedCards.contains(c)).length;
+    if (available == 0) {
+      _schupfCursorIndex = null;
+      return;
+    }
+
+    if (_schupfCursorIndex == null) {
+      _schupfCursorIndex = defaultToRightMost ? available - 1 : 0;
+      return;
+    }
+    _schupfCursorIndex = _schupfCursorIndex!.clamp(0, available - 1);
   }
 }
 

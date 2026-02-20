@@ -51,6 +51,7 @@ void main() {
             Card(CardFace.ten, CardColor.blue),
           ],
           deck: deck,
+          tichuCalls: {aiTestPartnerId: TichuCall.tichu},
           lastPlayedBy: aiTestPartnerId,
           lastPlayedTurn: deckTurn,
         );
@@ -67,8 +68,37 @@ void main() {
       },
     );
 
+    test('selectPartnerSupportPass returns pass on partner winning combo', () {
+      final deckTurn = TichuTurn(TurnType.pair, [
+        Card(CardFace.ten, CardColor.red),
+        Card(CardFace.ten, CardColor.blue),
+      ]);
+      final deck = DeckState(deckTurn, CardFace.none)
+        ..currentWinner = aiTestPartnerId;
+      final snapshot = aiSnapshot(
+        myHand: [
+          Card(CardFace.ace, CardColor.red),
+          Card(CardFace.jack, CardColor.green),
+        ],
+        deck: deck,
+        tichuCalls: {aiTestPartnerId: TichuCall.tichu},
+        lastPlayedBy: aiTestPartnerId,
+        lastPlayedTurn: deckTurn,
+      );
+
+      final pass = policy.selectPartnerSupportPass(
+        playerId: aiTestSelfId,
+        snapshot: snapshot,
+        deck: deck,
+        hand: snapshot.hands[aiTestSelfId]!,
+        table: TableRelationships(snapshot, aiTestSelfId),
+      );
+
+      expect(pass, isA<PassAction>());
+    });
+
     test(
-      'selectPartnerSupportPass returns pass whenever partner grand tichu is active',
+      'selectPartnerSupportPass returns null when partner called but opponent is leading',
       () {
         final deckTurn = TichuTurn(TurnType.single, [
           Card(CardFace.five, CardColor.red),
@@ -96,7 +126,7 @@ void main() {
           table: TableRelationships(snapshot, aiTestSelfId),
         );
 
-        expect(pass, isA<PassAction>());
+        expect(pass, isNull);
       },
     );
 
@@ -230,6 +260,49 @@ void main() {
         expect(selected!.type, TurnType.dog);
       },
     );
+
+    test('selectEarlyDogLead returns dog when leading', () {
+      final legalTurns = [
+        TichuTurn(TurnType.dog, [Card(CardFace.dog, CardColor.special)]),
+        TichuTurn(TurnType.single, [Card(CardFace.five, CardColor.red)]),
+      ];
+
+      final selected = policy.selectEarlyDogLead(
+        legalTurns: legalTurns,
+        isLeading: true,
+      );
+
+      expect(selected, isNotNull);
+      expect(selected!.type, TurnType.dog);
+    });
+
+    test('selectSingletonResponse prefers lowest true singleton', () {
+      final hand = [
+        Card(CardFace.five, CardColor.red),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.eight, CardColor.blue),
+        Card(CardFace.king, CardColor.green),
+      ];
+      final deck = DeckState(
+        TichuTurn(TurnType.single, [Card(CardFace.three, CardColor.black)]),
+        CardFace.none,
+      );
+      final legalTurns = [
+        TichuTurn(TurnType.single, [Card(CardFace.five, CardColor.red)]),
+        TichuTurn(TurnType.single, [Card(CardFace.eight, CardColor.red)]),
+        TichuTurn(TurnType.single, [Card(CardFace.eight, CardColor.blue)]),
+        TichuTurn(TurnType.single, [Card(CardFace.king, CardColor.green)]),
+      ];
+
+      final selected = policy.selectSingletonResponse(
+        legalTurns: legalTurns,
+        deck: deck,
+        hand: hand,
+      );
+
+      expect(selected, isNotNull);
+      expect(selected!.cards.first.face, CardFace.five);
+    });
 
     test('filterWishValidPlays enforces mahjong wish constraint', () {
       final deck = DeckState(

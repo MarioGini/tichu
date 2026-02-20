@@ -45,27 +45,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
   });
 
-  testWidgets('shows PASS for pending opponent pass', (tester) async {
-    final backend = FakeGameBackend();
-
-    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
-
-    backend.emit(
-      buildPlayerSnapshot(
-        pendingOpponentPlayerId: testOpponentLeftId,
-        pendingOpponentCards: const [],
-        pendingOpponentPass: true,
-        opponentAwaitingConfirmation: true,
-      ),
-    );
-
-    await tester.pump();
-
-    expect(find.text('Pass'), findsWidgets);
-
-    await tester.pump(const Duration(milliseconds: 700));
-  });
-
   testWidgets('auto-confirms repeated identical pending passes', (
     tester,
   ) async {

@@ -62,8 +62,7 @@ class SmartAiAgent extends PlayerAgent {
 
   @override
   Future<bool> shouldCallGrandTichu(GameSnapshot snapshot) async {
-    if (_partnerAlreadyCalled(snapshot)) return false;
-    return tichuCallStrategy.shouldCallGrandTichu(snapshot, playerId);
+    return false;
   }
 
   @override
@@ -114,10 +113,27 @@ class SmartAiAgent extends PlayerAgent {
       return PassAction(playerId: playerId);
     }
 
+    final finishingTurns = legalTurns
+        .where((turn) => turn.cards.length == hand.length)
+        .toList();
+    if (finishingTurns.isNotEmpty) {
+      final selected = playSelectionStrategy.selectPlay(
+        snapshot,
+        finishingTurns,
+        deck,
+        hand,
+      );
+      return _buildPlayAction(snapshot, selected, deck, hand);
+    }
+
     final isLeading =
         deck.turn.type == TurnType.empty ||
         deck.turn.type == TurnType.none ||
         deck.turn.type == TurnType.dog;
+    final isGameOpeningLead =
+        snapshot.scoreState.roundNumber == 1 &&
+        snapshot.lastPlayedBy == null &&
+        snapshot.lastPlayedTurn == null;
 
     final partnerPass = playTacticsPolicy.selectPartnerSupportPass(
       playerId: playerId,
@@ -130,6 +146,24 @@ class SmartAiAgent extends PlayerAgent {
       return partnerPass;
     }
 
+    final mahjongLead = playTacticsPolicy.selectMahjongLeadTurn(
+      legalTurns: legalTurns,
+      deck: deck,
+      hand: hand,
+      isLeading: isLeading && isGameOpeningLead,
+      selectPlay: (options) =>
+          playSelectionStrategy.selectPlay(snapshot, options, deck, hand),
+    );
+    if (mahjongLead != null) {
+      return _buildPlayAction(
+        snapshot,
+        mahjongLead,
+        deck,
+        hand,
+        suppressWish: mahjongLead.type == TurnType.straight,
+      );
+    }
+
     final partnerLead = playTacticsPolicy.selectPartnerFinishLead(
       snapshot: snapshot,
       legalTurns: legalTurns,
@@ -138,6 +172,14 @@ class SmartAiAgent extends PlayerAgent {
     );
     if (partnerLead != null) {
       return _buildPlayAction(snapshot, partnerLead, deck, hand);
+    }
+
+    final earlyDog = playTacticsPolicy.selectEarlyDogLead(
+      legalTurns: legalTurns,
+      isLeading: isLeading,
+    );
+    if (earlyDog != null) {
+      return _buildPlayAction(snapshot, earlyDog, deck, hand);
     }
 
     final partnerGrandDogLead = playTacticsPolicy
@@ -150,24 +192,6 @@ class SmartAiAgent extends PlayerAgent {
         );
     if (partnerGrandDogLead != null) {
       return _buildPlayAction(snapshot, partnerGrandDogLead, deck, hand);
-    }
-
-    final mahjongLead = playTacticsPolicy.selectMahjongLeadTurn(
-      legalTurns: legalTurns,
-      deck: deck,
-      hand: hand,
-      isLeading: isLeading,
-      selectPlay: (options) =>
-          playSelectionStrategy.selectPlay(snapshot, options, deck, hand),
-    );
-    if (mahjongLead != null) {
-      return _buildPlayAction(
-        snapshot,
-        mahjongLead,
-        deck,
-        hand,
-        suppressWish: mahjongLead.type == TurnType.straight,
-      );
     }
 
     final wishPreferredTurns = playTacticsPolicy.wishPreferredTurns(
@@ -184,14 +208,34 @@ class SmartAiAgent extends PlayerAgent {
       return _buildPlayAction(snapshot, selected, deck, hand);
     }
 
-    final validPlays = playTacticsPolicy.filterWishValidPlays(
+    var validPlays = playTacticsPolicy.filterWishValidPlays(
       deck: deck,
       legalTurns: legalTurns,
       hand: hand,
     );
 
+    validPlays = _filterLowSinglePhoenixResponses(deck, validPlays);
+
     if (validPlays.isEmpty) {
       return PassAction(playerId: playerId);
+    }
+
+    final opponentThreatWinning = playTacticsPolicy
+        .opponentTichuNearFinishWinning(
+          playerId: playerId,
+          snapshot: snapshot,
+          deck: deck,
+          table: table,
+        );
+    if (!opponentThreatWinning) {
+      final singletonResponse = playTacticsPolicy.selectSingletonResponse(
+        legalTurns: validPlays,
+        deck: deck,
+        hand: hand,
+      );
+      if (singletonResponse != null) {
+        return _buildPlayAction(snapshot, singletonResponse, deck, hand);
+      }
     }
 
     // --- Strategic play selection
@@ -228,6 +272,27 @@ class SmartAiAgent extends PlayerAgent {
     );
   }
 
+  List<TichuTurn> _filterLowSinglePhoenixResponses(
+    DeckState deck,
+    List<TichuTurn> plays,
+  ) {
+    if (deck.turn.type != TurnType.single) {
+      return plays;
+    }
+
+    final kingValue = Card.getValue(CardFace.king);
+    if (deck.turn.value >= kingValue) {
+      return plays;
+    }
+
+    return plays.where((turn) {
+      if (turn.type != TurnType.single) {
+        return true;
+      }
+      return !turn.cards.any((card) => card.face == CardFace.phoenix);
+    }).toList();
+  }
+
   // ---------------------------------------------------------------------------
   // Phoenix value
   // ---------------------------------------------------------------------------
@@ -260,17 +325,12 @@ class SmartAiAgent extends PlayerAgent {
   ) {
     final preferredWish = _lastSchupfedNextFace;
 
-    final wish = wishStrategy.selectWish(
+    return wishStrategy.selectWish(
       snapshot,
       hand,
       deck,
       preferredFace: preferredWish,
     );
-    if (wish != CardFace.none) {
-      return wish;
-    }
-
-    return CardFace.none;
   }
 
   void _syncRound(GameSnapshot snapshot) {

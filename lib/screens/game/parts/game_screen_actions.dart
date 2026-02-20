@@ -10,6 +10,7 @@ mixin _GameScreenActions on _GameScreenBindings {
         _selectedIndexes.add(index);
       }
     });
+    _requestKeyboardFocus();
   }
 
   @override
@@ -188,16 +189,6 @@ mixin _GameScreenActions on _GameScreenBindings {
       return;
     }
     if (!snapshot.canCallTichu) return;
-    if (snapshot.schupfReceipts.isNotEmpty || _schupfAckPending) {
-      return;
-    }
-    if (snapshot.phase != GamePhase.play &&
-        snapshot.phase != GamePhase.schupf) {
-      return;
-    }
-    if (snapshot.pendingDragonGiveBy == _humanId) {
-      return;
-    }
     try {
       await _backend.submitAction(
         snapshot.gameId,

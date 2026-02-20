@@ -5,22 +5,12 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     final scoreState = snapshot.scoreState;
     if (!scoreState.roundComplete) return;
     if (scoreState.roundNumber <= _lastDialogRoundNumber) return;
-    final latestRound = scoreState.rounds.isEmpty
-        ? null
-        : scoreState.rounds.last;
-    final isMatchRound = latestRound?.isMatch ?? false;
 
     _lastDialogRoundNumber = scoreState.roundNumber;
     _roundCompleteAcknowledged = false;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      if (isMatchRound) {
-        await Future<void>.delayed(const Duration(milliseconds: 650));
-        if (!mounted) return;
-        await _showMatchCelebrationGateDialog();
-        if (!mounted) return;
-      }
       await showDialog<void>(
         context: context,
         barrierDismissible: false,
@@ -81,35 +71,6 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         },
       );
     });
-  }
-
-  Future<void> _showMatchCelebrationGateDialog() {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        final colorScheme = Theme.of(context).colorScheme;
-        return AlertDialog(
-          title: const Text('Match!'),
-          content: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.celebration, color: colorScheme.primary),
-              const SizedBox(width: 10),
-              const Flexible(
-                child: Text('Great finish — continue to the score board.'),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Continue'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Widget _buildScoreSummaryTable(BuildContext context, ScoreState scoreState) {
@@ -245,42 +206,12 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     return targetIds;
   }
 
-  void _maybeShowGrandTichuDialog(PlayerSnapshot snapshot) {
-    if (!_isSelfManual) return;
-    if (_grandTichuDialogOpen) return;
-    if (snapshot.phase != GamePhase.grandTichu) return;
-    if (snapshot.currentPlayerId != _humanId) return;
-    if (snapshot.grandTichuDecisions.containsKey(_humanId)) return;
-
-    _grandTichuDialogOpen = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final call = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Call Grand Tichu?'),
-            content: const Text(
-              'Decide now before receiving the remaining cards.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('No'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Yes'),
-              ),
-            ],
-          );
-        },
-      );
-      _grandTichuDialogOpen = false;
-      if (!mounted || call == null) return;
-      await _submitGrandTichuDecision(call);
-    });
+  bool _shouldShowGrandTichuDecision(PlayerSnapshot snapshot) {
+    if (!_isSelfManual) return false;
+    if (snapshot.phase != GamePhase.grandTichu) return false;
+    if (snapshot.currentPlayerId != _humanId) return false;
+    if (snapshot.grandTichuDecisions.containsKey(_humanId)) return false;
+    return true;
   }
 
   @override
@@ -393,6 +324,8 @@ mixin _GameScreenDialogs on _GameScreenBindings {
   Future<void> _submitGrandTichuDecision(bool call) async {
     final snapshot = _snapshot;
     if (snapshot == null) return;
+    if (_grandTichuDialogOpen) return;
+    _grandTichuDialogOpen = true;
     try {
       await _backend.submitAction(
         snapshot.gameId,
@@ -400,6 +333,8 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       );
     } catch (error) {
       _showSnack(error.toString());
+    } finally {
+      _grandTichuDialogOpen = false;
     }
   }
 

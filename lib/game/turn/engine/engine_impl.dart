@@ -133,11 +133,20 @@ class GameEngineImpl implements GameEngine {
     }
 
     if (state.phase == GamePhase.schupf) {
-      if (action is! SchupfAction) {
-        throw StateError('Schupfen required before play.');
+      if (action is SchupfAction) {
+        applySchupfSelection(state, action);
+        return;
       }
-      applySchupfSelection(state, action);
-      return;
+      if (action is CallTichuAction) {
+        if (!_canPlayerCallTichu(state, action.playerId)) {
+          throw StateError(
+            'Tichu can only be called before playing your first card.',
+          );
+        }
+        state.scoreTracker.recordTichuCall(action.playerId, isGrand: false);
+        return;
+      }
+      throw StateError('Schupfen required before play.');
     }
 
     if (state.pendingDragonGiveBy != null) {

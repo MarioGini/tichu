@@ -11,21 +11,6 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     }
   }
 
-  void _handleRoundEffects(ScoreState? previous, ScoreState current) {
-    if (!current.roundComplete) return;
-    if (current.rounds.isEmpty) return;
-
-    final previousRoundCount = previous?.rounds.length ?? 0;
-    if (current.rounds.length <= previousRoundCount) return;
-
-    final latestRound = current.rounds.last;
-    if (!latestRound.isMatch) return;
-    if (_lastMatchCelebrationRound == latestRound.roundNumber) return;
-
-    _lastMatchCelebrationRound = latestRound.roundNumber;
-    _triggerMatchAnimation();
-  }
-
   void _maybeAutoConfirmOpponentTurn(PlayerSnapshot snapshot) {
     if (!snapshot.opponentAwaitingConfirmation) return;
     final pendingPlayer = snapshot.pendingOpponentPlayerId;
@@ -105,13 +90,6 @@ mixin _GameScreenHelpers on _GameScreenBindings {
       _showBombOverlay = true;
     });
     _bombController.forward(from: 0);
-  }
-
-  void _triggerMatchAnimation() {
-    setState(() {
-      _showMatchOverlay = true;
-    });
-    _matchController.forward(from: 0);
   }
 
   @override

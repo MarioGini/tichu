@@ -243,9 +243,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('pending pass styling is neutral when opponent is not active', (
-    tester,
-  ) async {
+  testWidgets('pending pass does not render pass text', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -272,9 +270,8 @@ void main() {
       ),
     );
 
-    final statusText = tester.widget<Text>(find.text('Pass'));
-    expect(statusText.style?.color, Colors.white70);
-
+    expect(find.text('Pass'), findsNothing);
+    expect(find.text('PASS'), findsNothing);
     expect(find.text('Their turn'), findsNothing);
   });
 }

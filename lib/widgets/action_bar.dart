@@ -103,7 +103,6 @@ class ActionBar extends StatelessWidget {
                           isCompact: isCompact,
                           child: ElevatedButton.icon(
                             onPressed: isPassEnabled ? onPass : null,
-                            autofocus: isPassEnabled,
                             icon: const Icon(Icons.not_interested),
                             label: const Text('Pass'),
                           ),

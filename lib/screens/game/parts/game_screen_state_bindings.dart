@@ -13,8 +13,6 @@ mixin _GameScreenBindings on State<GameScreen> {
   TurnRulesAdapter get _turnRules;
   GamePlayController get _playController;
   AnimationController get _bombController;
-  AnimationController get _matchController;
-
   bool get _roundCompleteAcknowledged;
   set _roundCompleteAcknowledged(bool value);
 
@@ -38,12 +36,6 @@ mixin _GameScreenBindings on State<GameScreen> {
 
   bool get _showBombOverlay;
   set _showBombOverlay(bool value);
-
-  bool get _showMatchOverlay;
-  set _showMatchOverlay(bool value);
-
-  int get _lastMatchCelebrationRound;
-  set _lastMatchCelebrationRound(int value);
 
   String? get _lastAutoConfirmKey;
   set _lastAutoConfirmKey(String? value);
@@ -75,6 +67,8 @@ mixin _GameScreenBindings on State<GameScreen> {
   TichuTurn? _resolveSelectedTurn(PlayerSnapshot snapshot);
 
   bool _canPass(PlayerSnapshot snapshot);
+
+  void _requestKeyboardFocus();
 
   void _showSnack(String message);
 

@@ -144,7 +144,7 @@ void main() {
     expect(boxSize.width, closeTo(boxSize.height, 0.001));
   });
 
-  testWidgets('vertical player box keeps same size when side pending appears', (
+  testWidgets('vertical box shrinks to make room for side pending cards', (
     final tester,
   ) async {
     Finder playerBoxFinder() {
@@ -156,46 +156,75 @@ void main() {
       return candidates.first;
     }
 
-    Widget build(final List<Card> pendingCards) => MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: SizedBox(
-            width: 260,
-            height: 260,
-            child: OpponentDisplay(
-              name: 'Opponent Side',
-              cardCount: 8,
-              isActive: false,
-              isFinished: false,
-              tichuDeclared: false,
-              grandTichuDeclared: false,
-              finishPosition: null,
-              alignment: Axis.vertical,
-              icon: Icons.memory,
-              teamScore: 0,
-              pendingPlacement: PendingPlacement.left,
-              pendingCards: pendingCards,
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 260,
+              height: 260,
+              child: OpponentDisplay(
+                name: 'Opponent Side',
+                cardCount: 8,
+                isActive: false,
+                isFinished: false,
+                tichuDeclared: false,
+                grandTichuDeclared: false,
+                finishPosition: null,
+                alignment: Axis.vertical,
+                icon: Icons.memory,
+                teamScore: 0,
+                pendingPlacement: PendingPlacement.left,
+              ),
             ),
           ),
         ),
       ),
     );
 
-    await tester.pumpWidget(build(const []));
+    // Without pending cards the box fills the available space.
     final sizeWithoutPending = tester.getSize(playerBoxFinder());
+    expect(sizeWithoutPending.width, closeTo(260, 0.001));
 
     await tester.pumpWidget(
-      build([
-        Card(CardFace.ace, CardColor.blue),
-        Card(CardFace.king, CardColor.red),
-      ]),
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 260,
+              height: 260,
+              child: OpponentDisplay(
+                name: 'Opponent Side',
+                cardCount: 8,
+                isActive: false,
+                isFinished: false,
+                tichuDeclared: false,
+                grandTichuDeclared: false,
+                finishPosition: null,
+                alignment: Axis.vertical,
+                icon: Icons.memory,
+                teamScore: 0,
+                pendingPlacement: PendingPlacement.left,
+                pendingCards: [
+                  Card(CardFace.ace, CardColor.blue),
+                  Card(CardFace.king, CardColor.red),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
     await tester.pump();
 
     final sizeWithPending = tester.getSize(playerBoxFinder());
 
-    expect(sizeWithPending.width, closeTo(sizeWithoutPending.width, 0.001));
-    expect(sizeWithPending.height, closeTo(sizeWithoutPending.height, 0.001));
+    // Box shrinks to make room for the pending lane.
+    expect(sizeWithPending.width, lessThan(sizeWithoutPending.width));
+    // Box remains square (height == width).
+    expect(sizeWithPending.width, closeTo(sizeWithPending.height, 0.001));
+    // Pending card row is rendered alongside.
+    expect(find.byType(OverlappingCardRow), findsOneWidget);
   });
 
   testWidgets('horizontal pending cards fit available pending area', (

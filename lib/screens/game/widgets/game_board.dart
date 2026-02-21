@@ -25,6 +25,9 @@ class GameBoard extends StatelessWidget {
     builder: (final context, final constraints) {
       final isWide = constraints.maxWidth > 720;
       final isCompact = constraints.maxHeight < 500;
+      final isPortraitMobile =
+          constraints.maxHeight > constraints.maxWidth &&
+          constraints.maxWidth < 600;
 
       /// Unified gap used between all board sections
       /// (top↔middle, sides↔trick, middle↔hand).
@@ -36,22 +39,23 @@ class GameBoard extends StatelessWidget {
       final handPadding = isCompact
           ? const EdgeInsets.fromLTRB(8, 0, 8, 2)
           : const EdgeInsets.fromLTRB(12, 0, 12, 6);
-      final sideToCenterGap = isCompact ? 14.0 : (isWide ? 26.0 : 20.0);
+      final trickToHandGap = isPortraitMobile ? 2.0 : (isCompact ? 4.0 : 6.0);
+      final sideToCenterGap = isCompact ? 12.0 : (isWide ? 30.0 : 22.0);
       final areaWidth = math.max<double>(
         0,
         constraints.maxWidth - (sidePad * 2),
       );
       final maxSideWidth = math.min(
-        areaWidth * (isWide ? 0.2 : 0.24),
-        isWide ? 220.0 : (isCompact ? 148.0 : 184.0),
+        areaWidth * (isWide ? 0.18 : 0.22),
+        isWide ? 240.0 : (isCompact ? 142.0 : 186.0),
       );
       final sideWidth = math.max<double>(
         0,
         math.min(maxSideWidth, (areaWidth - sideToCenterGap * 2) / 3),
       );
-      final sharedOpponentSize = (sideWidth * 0.9).clamp(
-        0.0,
-        isWide ? 210.0 : 180.0,
+      final sharedOpponentSize = math.min(
+        sideWidth,
+        constraints.maxHeight * (isCompact ? 0.17 : 0.23),
       );
       const topPendingGap = 6.0;
       final topPendingLaneHeight = (sharedOpponentSize * 0.28).clamp(
@@ -90,72 +94,97 @@ class GameBoard extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: topToMiddleGap),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: sidePad),
-              child: LayoutBuilder(
-                builder: (final context, final areaConstraints) {
-                  final areaWidth = areaConstraints.maxWidth;
-                  final areaHeight = areaConstraints.maxHeight;
-                  final maxSideWidth = math.min(
-                    areaWidth * (isWide ? 0.2 : 0.24),
-                    isWide ? 220.0 : (isCompact ? 148.0 : 184.0),
-                  );
-                  final sideWidth = math.max<double>(
-                    0,
-                    math.min(
-                      maxSideWidth,
-                      (areaWidth - sideToCenterGap * 2) / 3,
-                    ),
-                  );
-                  final centerMaxWidth = math.max<double>(
-                    0,
-                    areaWidth - (sideWidth * 2) - (sideToCenterGap * 2),
-                  );
-                  final opponentSquareSize = math.max<double>(
-                    0,
-                    math.min(areaHeight, sideWidth) * 0.9,
-                  );
-                  final centerSquareSize = math.max<double>(
-                    0,
-                    math.min(
-                          areaHeight,
-                          math.min(centerMaxWidth, sideWidth * 1.08),
-                        ) *
-                        0.94,
-                  );
-
-                  return SizedBox(
-                    height: math.max(opponentSquareSize, centerSquareSize),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: opponentSquareSize,
-                          height: opponentSquareSize,
-                          child: leftOpponent,
-                        ),
-                        SizedBox(width: sideToCenterGap),
-                        SizedBox(
-                          width: centerSquareSize,
-                          height: centerSquareSize,
-                          child: trickArea,
-                        ),
-                        SizedBox(width: sideToCenterGap),
-                        SizedBox(
-                          width: opponentSquareSize,
-                          height: opponentSquareSize,
-                          child: rightOpponent,
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
             SizedBox(height: boardGap),
-            Flexible(
-              child: Padding(padding: handPadding, child: handArea),
+            Expanded(
+              child: Column(
+                children: [
+                  Expanded(
+                    flex: isPortraitMobile ? 6 : (isCompact ? 7 : 6),
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        sidePad,
+                        topToMiddleGap,
+                        sidePad,
+                        0,
+                      ),
+                      child: LayoutBuilder(
+                        builder: (final context, final areaConstraints) {
+                          final areaWidth = areaConstraints.maxWidth;
+                          final areaHeight = areaConstraints.maxHeight;
+                          final centerMaxWidth = math.max<double>(
+                            0,
+                            areaWidth -
+                                (sharedOpponentSize * 2) -
+                                (sideToCenterGap * 2),
+                          );
+                          final opponentSquareSize = math.max<double>(
+                            0,
+                            math.min(areaHeight, sharedOpponentSize),
+                          );
+                          final centerSquareSize = math.max<double>(
+                            0,
+                            math.min(
+                              areaHeight,
+                              math.max(
+                                opponentSquareSize * (isWide ? 1.22 : 1.08),
+                                centerMaxWidth,
+                              ),
+                            ),
+                          );
+
+                          return SizedBox(
+                            height: math.max(
+                              opponentSquareSize,
+                              centerSquareSize,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: opponentSquareSize,
+                                  height: opponentSquareSize,
+                                  child: leftOpponent,
+                                ),
+                                SizedBox(width: sideToCenterGap),
+                                SizedBox(
+                                  width: centerSquareSize,
+                                  height: centerSquareSize,
+                                  child: Center(
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: centerSquareSize,
+                                        maxHeight: centerSquareSize,
+                                      ),
+                                      child: trickArea,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: sideToCenterGap),
+                                SizedBox(
+                                  width: opponentSquareSize,
+                                  height: opponentSquareSize,
+                                  child: rightOpponent,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: trickToHandGap),
+                  Expanded(
+                    flex: isPortraitMobile ? 5 : (isCompact ? 4 : 5),
+                    child: Padding(
+                      padding: handPadding,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: handArea,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             actionBar,
           ],

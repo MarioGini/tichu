@@ -49,6 +49,9 @@ mixin _GameScreenBindings on State<GameScreen> {
   bool get _autoPassEnabled;
   set _autoPassEnabled(final bool value);
 
+  bool get _soundEnabled;
+  set _soundEnabled(final bool value);
+
   Card? get _schupfToLeft;
   set _schupfToLeft(final Card? value);
 

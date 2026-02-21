@@ -40,4 +40,22 @@ void main() {
     expect(find.byType(CardValueChip), findsOneWidget);
     expect(find.text('A'), findsOneWidget);
   });
+
+  testWidgets('does not duplicate wish card when trick already has Mahjong', (
+    final tester,
+  ) async {
+    await tester.pumpWidget(
+      buildWidget(
+        TrickDisplay(
+          cards: [Card(CardFace.mahJong, CardColor.special)],
+          currentWinnerLabel: '',
+          activeWish: CardFace.nine,
+        ),
+      ),
+    );
+
+    expect(find.byType(CardWidget), findsOneWidget);
+    expect(find.byType(CardValueChip), findsOneWidget);
+    expect(find.text('9'), findsOneWidget);
+  });
 }

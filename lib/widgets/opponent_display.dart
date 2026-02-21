@@ -137,10 +137,10 @@ class OpponentDisplay extends StatelessWidget {
         final maxWidth = constraints.maxWidth;
         final maxHeight = constraints.maxHeight;
         final reservesSidePendingLane =
-            pendingPlacement != PendingPlacement.below;
+            hasPending && pendingPlacement != PendingPlacement.below;
         final sideGap = reservesSidePendingLane ? 6.0 : 0.0;
         final pendingWidth = reservesSidePendingLane
-            ? (maxWidth * 0.22).clamp(24.0, 56.0)
+            ? (maxWidth * 0.44).clamp(62.0, 150.0)
             : 0.0;
         final availableWidth = reservesSidePendingLane
             ? math.max<double>(0, maxWidth - pendingWidth - sideGap)
@@ -198,12 +198,14 @@ class OpponentDisplay extends StatelessWidget {
           );
         }
 
+        if (!reservesSidePendingLane) {
+          return Center(child: box);
+        }
+
         final pendingBox = SizedBox(
           width: pendingWidth,
           height: squareSide,
-          child: hasPending
-              ? _pendingWidget(context, alignment: Alignment.center)
-              : const SizedBox.shrink(),
+          child: _pendingWidget(context, alignment: Alignment.center),
         );
 
         final rowChildren = pendingPlacement == PendingPlacement.left
@@ -314,18 +316,26 @@ class OpponentDisplay extends StatelessWidget {
     }
     return LayoutBuilder(
       builder: (final context, final constraints) {
+        final pendingCount = pendingCards.length;
         final maxHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
-            : CardWidget.compactHeight * 0.7 + 8;
+            : CardWidget.normalHeight * 0.55 + 8;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : CardWidget.normalWidth;
         const framePadding = 6.0;
+        const desiredMinVisible = 18.0;
         final safeHeight = math.max<double>(0, maxHeight - framePadding);
-        final scale = math.min(
-          0.7,
-          safeHeight / (CardWidget.compactHeight + 8),
-        );
-        final cardW = CardWidget.compactWidth * scale;
-        final cardH = CardWidget.compactHeight * scale;
+        final scaleByHeight = safeHeight / CardWidget.normalHeight;
+        final widthDenominator =
+            CardWidget.normalWidth +
+            math.max(0, pendingCount - 1) * desiredMinVisible;
+        final scaleByWidth = maxWidth / widthDenominator;
+        final scale = math.min(scaleByHeight, scaleByWidth).clamp(0.35, 1.25);
+        final cardW = CardWidget.normalWidth * scale;
+        final cardH = CardWidget.normalHeight * scale;
         final spacing = 6 * scale;
+        final minVisible = (desiredMinVisible * scale).clamp(6.0, 24.0);
         final rowHeight = math.min(maxHeight, cardH);
 
         return SizedBox.expand(
@@ -337,12 +347,11 @@ class OpponentDisplay extends StatelessWidget {
                 cardWidth: cardW,
                 cardHeight: cardH,
                 spacing: spacing,
-                minVisible: 10 * scale,
+                minVisible: minVisible,
                 height: rowHeight,
                 itemBuilder: (final context, final index) => CardWidget(
                   card: pendingCards[index],
                   isSelected: false,
-                  compact: true,
                   scale: scale,
                 ),
               ),

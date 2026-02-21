@@ -45,83 +45,101 @@ class TrickDisplay extends StatelessWidget {
       builder: (final context, final constraints) {
         final isTight = constraints.maxHeight < 170;
         final cardScale =
-            ((constraints.maxHeight * (isTight ? 0.35 : 0.42)) /
-                    CardWidget.compactHeight)
-                .clamp(0.3, 1.35);
-        final cardW = CardWidget.compactWidth * cardScale;
-        final cardH = CardWidget.compactHeight * cardScale;
+            ((constraints.maxHeight * (isTight ? 0.48 : 0.62)) /
+                    CardWidget.normalHeight)
+                .clamp(0.45, 1.25);
+        final cardW = CardWidget.normalWidth * cardScale;
+        final cardH = CardWidget.normalHeight * cardScale;
         final rowHeight = cardH + 8;
         final labelGap = isTight ? 1.0 : 4.0;
         final blockGap = isTight ? 4.0 : 8.0;
         final wishScale = isTight ? cardScale * 0.42 : cardScale * 0.55;
         final cardsGap = cards.isEmpty ? 0.0 : blockGap;
+        final hasMahjongInTrick = cards.any(
+          (final card) => card.face == CardFace.mahJong,
+        );
+        final showStandaloneWishCard =
+            activeWish != CardFace.none && !hasMahjongInTrick;
 
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (currentWinnerLabel.isNotEmpty) ...[
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  currentWinnerLabel,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(color: Colors.white),
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (currentWinnerLabel.isNotEmpty) ...[
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    currentWinnerLabel,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleSmall?.copyWith(color: Colors.white),
+                  ),
                 ),
-              ),
-              SizedBox(height: labelGap),
-            ],
-            if (dragonGiveLabel.isNotEmpty) ...[
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  dragonGiveLabel,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: Colors.amber),
-                  textAlign: TextAlign.center,
+                SizedBox(height: labelGap),
+              ],
+              if (dragonGiveLabel.isNotEmpty) ...[
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    dragonGiveLabel,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: Colors.amber),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-              SizedBox(height: labelGap),
-            ],
-            if (activeWish != CardFace.none) ...[
-              CardWidget(
-                card: Card(CardFace.mahJong, CardColor.special),
-                isSelected: false,
-                compact: true,
-                scale: wishScale,
-                overlayChipText: _wishLabel(activeWish),
-              ),
-              SizedBox(height: isTight ? 2 : 4),
-            ],
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                'Trick points: $trickPoints',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
-              ),
-            ),
-            SizedBox(height: cardsGap),
-            if (cards.isEmpty)
-              const SizedBox.shrink()
-            else
-              OverlappingCardRow(
-                itemCount: cards.length,
-                cardWidth: cardW,
-                cardHeight: cardH,
-                spacing: 6 * cardScale,
-                minVisible: 12 * cardScale,
-                height: rowHeight,
-                itemBuilder: (final context, final index) => CardWidget(
-                  card: cards[index],
+                SizedBox(height: labelGap),
+              ],
+              if (showStandaloneWishCard) ...[
+                CardWidget(
+                  card: Card(CardFace.mahJong, CardColor.special),
                   isSelected: false,
                   compact: true,
-                  scale: cardScale,
+                  scale: wishScale,
+                  overlayChipText: _wishLabel(activeWish),
+                ),
+                SizedBox(height: isTight ? 2 : 4),
+              ],
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Trick points: $trickPoints',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.white70),
                 ),
               ),
-          ],
+              SizedBox(height: cardsGap),
+              if (cards.isEmpty)
+                const SizedBox.shrink()
+              else
+                OverlappingCardRow(
+                  itemCount: cards.length,
+                  cardWidth: cardW,
+                  cardHeight: cardH,
+                  spacing: 6 * cardScale,
+                  minVisible: 12 * cardScale,
+                  height: rowHeight,
+                  itemBuilder: (final context, final index) {
+                    final card = cards[index];
+                    final wishOverlay =
+                        activeWish != CardFace.none &&
+                            card.face == CardFace.mahJong
+                        ? _wishLabel(activeWish)
+                        : null;
+
+                    return CardWidget(
+                      card: card,
+                      isSelected: false,
+                      scale: cardScale,
+                      overlayChipText: wishOverlay,
+                    );
+                  },
+                ),
+            ],
+          ),
         );
       },
     ),

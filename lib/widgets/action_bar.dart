@@ -12,9 +12,7 @@ class ActionBar extends StatelessWidget {
     required this.isSchupfEnabled,
     required this.showSchupf,
     required this.showDeclareTichu,
-    required this.showStartRound,
     this.schupfLabel = 'Schupf',
-    required this.onStartRound,
     required this.onPlay,
     required this.onBomb,
     required this.onPass,
@@ -31,9 +29,7 @@ class ActionBar extends StatelessWidget {
   final bool isSchupfEnabled;
   final bool showSchupf;
   final bool showDeclareTichu;
-  final bool showStartRound;
   final String schupfLabel;
-  final VoidCallback onStartRound;
   final VoidCallback onPlay;
   final VoidCallback onBomb;
   final VoidCallback onPass;
@@ -81,16 +77,7 @@ class ActionBar extends StatelessWidget {
                   spacing: buttonSpacing,
                   runSpacing: buttonSpacing,
                   children: [
-                    if (showStartRound)
-                      _buildButton(
-                        isCompact: isCompact,
-                        child: ElevatedButton.icon(
-                          onPressed: onStartRound,
-                          icon: const Icon(Icons.play_circle_fill),
-                          label: const Text('Start Round'),
-                        ),
-                      )
-                    else if (showTurnActions) ...[
+                    if (showTurnActions) ...[
                       if (showBomb)
                         _buildButton(
                           isCompact: isCompact,

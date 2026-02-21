@@ -1,6 +1,79 @@
 part of '../game_screen.dart';
 
 mixin _GameScreenDialogs on _GameScreenBindings {
+  Future<void> _showOptionsDialog() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (final context) => StatefulBuilder(
+        builder: (final context, final dialogSetState) => AlertDialog(
+          title: const Text('Options'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Opponent delay ${_opponentDelaySeconds.toStringAsFixed(0)}s',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ),
+                ],
+              ),
+              Slider(
+                value: _opponentDelaySeconds,
+                min: 1,
+                max: 5,
+                divisions: 4,
+                label: '${_opponentDelaySeconds.toStringAsFixed(0)}s',
+                onChanged: (final value) {
+                  setState(() {
+                    _opponentDelaySeconds = value;
+                  });
+                  final delayMs = (_opponentDelaySeconds * 1000).round();
+                  unawaited(
+                    _backend.setAutomatedActionDelay(
+                      Duration(milliseconds: delayMs),
+                    ),
+                  );
+                  dialogSetState(() {});
+                },
+              ),
+              SwitchListTile(
+                value: _autoPassEnabled,
+                onChanged: (final value) {
+                  setState(() {
+                    _autoPassEnabled = value;
+                  });
+                  dialogSetState(() {});
+                },
+                title: const Text('Auto-pass when no legal move'),
+              ),
+              SwitchListTile(
+                value: _soundEnabled,
+                onChanged: (final value) {
+                  setState(() {
+                    _soundEnabled = value;
+                  });
+                  SoundEffects.setEnabled(value);
+                  dialogSetState(() {});
+                },
+                title: const Text('Sound effects'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _maybeShowRoundCompleteDialog(final PlayerSnapshot snapshot) {
     final scoreState = snapshot.scoreState;
     if (!scoreState.roundComplete) return;

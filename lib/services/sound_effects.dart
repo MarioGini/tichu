@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 
@@ -8,6 +10,17 @@ class SoundEffects {
   static AudioPlayer? _player;
   static Set<String>? _assetManifest;
   static bool _audioSupported = true;
+  static bool _enabled = true;
+
+  static bool get enabled => _enabled;
+
+  // ignore: avoid_positional_boolean_parameters, simple toggle API
+  static void setEnabled(final bool value) {
+    _enabled = value;
+    if (!value) {
+      unawaited(_player?.stop());
+    }
+  }
 
   static Future<void> playDog() async {
     await _playAsset(_dogAsset, SystemSoundType.click);
@@ -21,6 +34,10 @@ class SoundEffects {
     final String assetPath,
     final SystemSoundType fallback,
   ) async {
+    if (!_enabled) {
+      return;
+    }
+
     final relativeAssetPath = assetPath.startsWith('assets/')
         ? assetPath.substring('assets/'.length)
         : assetPath;

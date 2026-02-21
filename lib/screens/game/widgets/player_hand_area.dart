@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart' hide Card;
 
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/screens/game/widgets/match_end_banner.dart';
+import 'package:tichu/screens/game/widgets/schupf_layout.dart';
 import 'package:tichu/screens/game/widgets/schupf_panel.dart';
 import 'package:tichu/widgets/hand_display.dart';
 
@@ -162,24 +163,28 @@ class PlayerHandArea extends StatelessWidget {
       final baseContent = isSchupfActive
           ? SchupfPanel(
               hand: hand,
-              schupfToLeft: schupfToLeft,
-              schupfToPartner: schupfToPartner,
-              schupfToRight: schupfToRight,
-              onSetSlot: onSetSchupfSlot,
-              onClearSlot: onClearSchupfSlot,
-              onSubmit: onSubmitSchupf,
               header: headerWidget,
-              schupfCursorIndex: schupfCursorIndex,
-              desktopSchupfHelperEnabled: desktopSchupfHelperEnabled,
+              mode: SchupfSelectionMode(
+                schupfToLeft: schupfToLeft,
+                schupfToPartner: schupfToPartner,
+                schupfToRight: schupfToRight,
+                onSetSlot: onSetSchupfSlot,
+                onClearSlot: onClearSchupfSlot,
+                onSubmit: onSubmitSchupf,
+                schupfCursorIndex: schupfCursorIndex,
+                desktopSchupfHelperEnabled: desktopSchupfHelperEnabled,
+              ),
             )
           : hasSchupfReceipts
-          ? SchupfReceiptPanel(
+          ? SchupfPanel(
               hand: hand,
-              schupfSentCards: schupfSentCards,
-              receipts: schupfReceipts,
-              onAcknowledge: onAcknowledgeSchupf,
-              schupfAckPending: schupfAckPending,
               header: headerWidget,
+              mode: SchupfReceiptMode(
+                schupfSentCards: schupfSentCards,
+                receipts: schupfReceipts,
+                onAcknowledge: onAcknowledgeSchupf,
+                schupfAckPending: schupfAckPending,
+              ),
             )
           : handDisplay;
 

@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/card_identifiers.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/dealing.dart';
 

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/table_relationships.dart';
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 

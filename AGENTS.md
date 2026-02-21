@@ -51,9 +51,6 @@
 
 ## Testing and Quality
 - Mirror `lib/` structure under `test/` for new coverage.
-- Favor targeted tests first, then broader runs.
-- Run only the minimal set of test files affected by your change — never a whole suite. Other agents may be working concurrently and broad test runs cause conflicts and waste time.
-- Coverage workflow: run full coverage once, inspect `coverage/lcov.info`, avoid repeated micro-runs unless debugging.
 
 ## Operations Quick Reference
 - Install deps: `flutter pub get`
@@ -64,6 +61,7 @@
 ## Learnings
 - Never pipe `flutter test` or build commands through `Select-Object`, `Out-String`, or other filters. Run them bare so the user sees streaming output in real time.
 - Tests run in parallel via `dart_test.yaml` (`concurrency: 8`). Always use `flutter test` (no extra flags needed) — the config file handles parallelism.
+- When splitting a class, never duplicate object creation in an initializer list (e.g. `engine ?? Impl()` repeated for two fields). Assign once, then pass the reference to avoid hidden duplicate instances.
 
 ## Integration and Security Notes
 - Audio path: `lib/services/sound_effects.dart` (`audioplayers`).

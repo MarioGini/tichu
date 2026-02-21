@@ -1,4 +1,5 @@
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_snapshot.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 class GameStateTracker {

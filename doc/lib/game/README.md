@@ -3,10 +3,14 @@
 Domain and runtime seam for game progression: engine contracts, backend APIs, player/opponent interfaces, and UI projection.
 
 ## Implemented Here
+- `card_identifiers.dart`: shared card-identifier map for building full 56-card Tichu decks.
 - `engine.dart`: main engine contract used by controller/backend.
 - `engine_state.dart`: engine state shapes/snapshots.
-- `game_backend.dart`: runtime backend boundary exposed to UI/controller.
+- `game_actions.dart`: `GameAction` abstract class + all concrete action subclasses (PlayTurnAction, PassAction, etc.).
+- `game_backend.dart`: abstract `GameBackend` interface (runtime backend boundary exposed to UI/controller).
 - `game_play_controller.dart`: orchestrates play flow between UI and backend.
+- `game_snapshot.dart`: `GameSnapshot` and `PlayerSnapshot` — immutable state snapshots for UI and backend communication.
+- `game_types.dart`: core domain enums and simple types (`PlayerType`, `GamePhase`, `SchupfDirection`, `SchupfReceipt`, `GamePlayer`).
 - `driver_ui_projector.dart`: normalizes backend/driver state for UI consumption.
 - `player_control.dart`: user action/control abstractions.
 - `player_agent.dart`: player decision-driver contract (AI or manual).

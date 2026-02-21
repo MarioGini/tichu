@@ -5,71 +5,30 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     if (!mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (final context) => StatefulBuilder(
-        builder: (final context, final dialogSetState) => AlertDialog(
-          title: const Text('Options'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Opponent delay ${_opponentDelaySeconds.toStringAsFixed(0)}s',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                  ),
-                ],
-              ),
-              Slider(
-                value: _opponentDelaySeconds,
-                min: 1,
-                max: 5,
-                divisions: 4,
-                label: '${_opponentDelaySeconds.toStringAsFixed(0)}s',
-                onChanged: (final value) {
-                  setState(() {
-                    _opponentDelaySeconds = value;
-                  });
-                  final delayMs = (_opponentDelaySeconds * 1000).round();
-                  unawaited(
-                    _backend.setAutomatedActionDelay(
-                      Duration(milliseconds: delayMs),
-                    ),
-                  );
-                  dialogSetState(() {});
-                },
-              ),
-              SwitchListTile(
-                value: _autoPassEnabled,
-                onChanged: (final value) {
-                  setState(() {
-                    _autoPassEnabled = value;
-                  });
-                  dialogSetState(() {});
-                },
-                title: const Text('Auto-pass when no legal move'),
-              ),
-              SwitchListTile(
-                value: _soundEnabled,
-                onChanged: (final value) {
-                  setState(() {
-                    _soundEnabled = value;
-                  });
-                  SoundEffects.setEnabled(value);
-                  dialogSetState(() {});
-                },
-                title: const Text('Sound effects'),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
+      builder: (final context) => OptionsDialog(
+        opponentDelay: _opponentDelaySeconds,
+        autoPassEnabled: _autoPassEnabled,
+        soundEnabled: _soundEnabled,
+        onOpponentDelayChanged: (final value) {
+          setState(() {
+            _opponentDelaySeconds = value;
+          });
+          final delayMs = (value * 1000).round();
+          unawaited(
+            _backend.setAutomatedActionDelay(Duration(milliseconds: delayMs)),
+          );
+        },
+        onAutoPassChanged: (final value) {
+          setState(() {
+            _autoPassEnabled = value;
+          });
+        },
+        onSoundChanged: (final value) {
+          setState(() {
+            _soundEnabled = value;
+          });
+          SoundEffects.setEnabled(value);
+        },
       ),
     );
   }
@@ -123,7 +82,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         reverseTransitionDuration: Duration.zero,
         pageBuilder:
             (final context, final animation, final secondaryAnimation) =>
-                _PreRoundTichuCelebration(message: message),
+                TichuCelebrationOverlay(message: message),
       ),
     );
   }
@@ -248,110 +207,11 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     if (!mounted) return null;
 
     _wishDialogOpen = true;
-
-    final wishChoices = <CardFace>[
-      CardFace.none,
-      ...CardFace.values.where(isWishableFace),
-    ];
-
-    String labelFor(final CardFace face) {
-      switch (face) {
-        case CardFace.none:
-          return 'No wish';
-        case CardFace.ten:
-          return '10';
-        case CardFace.jack:
-          return 'J';
-        case CardFace.queen:
-          return 'Q';
-        case CardFace.king:
-          return 'K';
-        case CardFace.ace:
-          return 'A';
-        case CardFace.mahJong:
-        case CardFace.two:
-        case CardFace.three:
-        case CardFace.four:
-        case CardFace.five:
-        case CardFace.six:
-        case CardFace.seven:
-        case CardFace.eight:
-        case CardFace.nine:
-        case CardFace.dragon:
-        case CardFace.phoenix:
-        case CardFace.dog:
-          return Card.getValue(face).toInt().toString();
-      }
-    }
-
-    final initialChoice =
-        (defaultWish != null && wishChoices.contains(defaultWish))
-        ? defaultWish
-        : CardFace.none;
-
     final selection = await showDialog<CardFace>(
       context: context,
       barrierDismissible: false,
-      builder: (final context) {
-        var selected = initialChoice;
-        return StatefulBuilder(
-          builder: (final context, final setState) => Focus(
-            autofocus: true,
-            onKeyEvent: (final node, final event) =>
-                handleDirectionalEnterKeyEvent(
-                  event,
-                  onEnter: () => Navigator.of(context).pop(selected),
-                  onLeft: () {},
-                  onRight: () {},
-                ),
-            child: AlertDialog(
-              title: const Text('Declare a wish'),
-              content: SizedBox(
-                width: 360,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Wish: ${labelFor(selected)}',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: wishChoices.map((final face) {
-                        final isSelected = face == selected;
-                        return ChoiceChip(
-                          label: Text(labelFor(face)),
-                          selected: isSelected,
-                          onSelected: (_) {
-                            setState(() {
-                              selected = face;
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(selected),
-                  child: const Text('Confirm'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (final context) => WishDialog(defaultWish: defaultWish),
     );
-
     _wishDialogOpen = false;
     return selection;
   }
@@ -419,92 +279,4 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       _showSnack(error.toString());
     }
   }
-}
-
-class _PreRoundTichuCelebration extends StatefulWidget {
-  const _PreRoundTichuCelebration({required this.message});
-
-  final String message;
-
-  @override
-  State<_PreRoundTichuCelebration> createState() =>
-      _PreRoundTichuCelebrationState();
-}
-
-class _PreRoundTichuCelebrationState extends State<_PreRoundTichuCelebration>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<Offset> _slide;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 560),
-      reverseDuration: const Duration(milliseconds: 300),
-    );
-    _slide = Tween<Offset>(begin: const Offset(0, -1.6), end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _controller,
-            curve: Curves.easeInCubic,
-            reverseCurve: Curves.easeIn,
-          ),
-        );
-    _scale = Tween<double>(begin: 0.9, end: 1).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutBack,
-        reverseCurve: Curves.easeIn,
-      ),
-    );
-    unawaited(_runSequence());
-  }
-
-  Future<void> _runSequence() async {
-    await _controller.forward();
-    await Future<void>.delayed(const Duration(milliseconds: 1700));
-    if (!mounted) return;
-    await _controller.reverse();
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(final BuildContext context) => Material(
-    color: Colors.transparent,
-    child: SafeArea(
-      child: Center(
-        child: IgnorePointer(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              EventSlamOverlay(
-                slide: _slide,
-                scale: _scale,
-                icon: Icons.emoji_events,
-                label: 'TICHU',
-              ),
-              const SizedBox(height: 6),
-              Text(
-                widget.message,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(color: Colors.white),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }

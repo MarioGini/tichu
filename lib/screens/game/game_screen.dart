@@ -4,21 +4,25 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Card;
 import 'package:tichu/game/driver_ui_projector.dart';
+import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/game_play_controller.dart';
-import 'package:tichu/game/player_control.dart';
+import 'package:tichu/game/game_snapshot.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/wish_logic.dart';
-import 'package:tichu/game/turn_rules_adapter.dart';
 import 'package:tichu/screens/game/round_summary_screen.dart';
 import 'package:tichu/screens/game/widgets/game_board.dart';
 import 'package:tichu/screens/game/widgets/grand_tichu_banner.dart';
+import 'package:tichu/screens/game/widgets/options_dialog.dart';
 import 'package:tichu/screens/game/widgets/player_hand_area.dart';
-import 'package:tichu/screens/game/widgets/schupf_panel.dart';
+import 'package:tichu/screens/game/widgets/schupf_layout.dart';
+import 'package:tichu/screens/game/widgets/tichu_celebration_overlay.dart';
 import 'package:tichu/screens/game/widgets/trick_event_overlay.dart';
+import 'package:tichu/screens/game/widgets/wish_dialog.dart';
 import 'package:tichu/screens/shared/keyboard_shortcuts.dart';
-import 'package:tichu/services/local/local_backend.dart';
+import 'package:tichu/screens/shared/player_control.dart';
 import 'package:tichu/services/sound_effects.dart';
 import 'package:tichu/widgets/action_bar.dart';
 import 'package:tichu/widgets/card_widget.dart';
@@ -33,13 +37,12 @@ part 'parts/game_screen_state_bindings.dart';
 class GameScreen extends StatefulWidget {
   const GameScreen({
     super.key,
-    final GameBackend? backend,
+    required final GameBackend backend,
     final int targetScore = 1000,
     this.playerControlModes = const {},
   }) : _backend = backend,
        _targetScore = targetScore;
-
-  final GameBackend? _backend;
+  final GameBackend _backend;
   final int _targetScore;
   final Map<String, PlayerControlMode> playerControlModes;
 
@@ -63,13 +66,9 @@ class _GameScreenState extends State<GameScreen>
   bool get _isSelfManual => _selfControlMode == PlayerControlMode.manual;
   @override
   late final GameBackend _backend;
-  @override
-  final TurnRulesAdapter _turnRules = TurnRulesAdapter();
   final DriverUiProjector _uiProjector = const DriverUiProjector();
   @override
-  late final GamePlayController _playController = GamePlayController(
-    turnRules: _turnRules,
-  );
+  late final GamePlayController _playController = GamePlayController();
   late final List<GamePlayer> _players;
   StreamSubscription<PlayerSnapshot>? _subscription;
   @override
@@ -138,7 +137,7 @@ class _GameScreenState extends State<GameScreen>
   @override
   void initState() {
     super.initState();
-    _backend = widget._backend ?? LocalGameBackend();
+    _backend = widget._backend;
     _bombController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 650),
@@ -481,82 +480,43 @@ class _GameScreenState extends State<GameScreen>
         ),
         child: SafeArea(
           child: GameBoard(
-            topOpponent: OpponentDisplay(
+            topOpponent: _buildOpponent(
+              playerId: 'player-2',
               name: 'Opponent 2',
-              cardCount: snapshot?.opponentCardCounts['player-2'] ?? 0,
-              isActive: showTurnIndicators && isCurrentTurn('player-2'),
-              isFinished: isFinished('player-2'),
-              tichuDeclared:
-                  tichuCalls['player-2'] == TichuCall.tichu ||
-                  tichuCalls['player-2'] == TichuCall.grandTichu,
-              grandTichuDeclared:
-                  tichuCalls['player-2'] == TichuCall.grandTichu,
-              finishPosition: finishPositionFor('player-2'),
               alignment: Axis.horizontal,
               icon: Icons.psychology_alt,
-              pendingCards:
-                  showOpponentPendingCards &&
-                      _pendingOpponentPlayerId == 'player-2'
-                  ? _pendingOpponentCards
-                  : const [],
-              pendingPass:
-                  showOpponentPendingCards &&
-                  _pendingOpponentPlayerId == 'player-2' &&
-                  _pendingOpponentPass,
-              teamScore: displayPartnerScore,
+              snapshot: snapshot,
+              tichuCalls: tichuCalls,
+              showTurnIndicators: showTurnIndicators,
+              showOpponentPendingCards: showOpponentPendingCards,
               showPoints: showPoints,
+              teamScore: displayPartnerScore,
             ),
-            leftOpponent: OpponentDisplay(
+            leftOpponent: _buildOpponent(
+              playerId: 'player-3',
               name: 'Opponent 3',
-              cardCount: snapshot?.opponentCardCounts['player-3'] ?? 0,
-              isActive: showTurnIndicators && isCurrentTurn('player-3'),
-              isFinished: isFinished('player-3'),
-              tichuDeclared:
-                  tichuCalls['player-3'] == TichuCall.tichu ||
-                  tichuCalls['player-3'] == TichuCall.grandTichu,
-              grandTichuDeclared:
-                  tichuCalls['player-3'] == TichuCall.grandTichu,
-              finishPosition: finishPositionFor('player-3'),
               alignment: Axis.vertical,
               icon: Icons.memory,
-              pendingCards:
-                  showOpponentPendingCards &&
-                      _pendingOpponentPlayerId == 'player-3'
-                  ? _pendingOpponentCards
-                  : const [],
-              pendingPass:
-                  showOpponentPendingCards &&
-                  _pendingOpponentPlayerId == 'player-3' &&
-                  _pendingOpponentPass,
               pendingPlacement: PendingPlacement.right,
-              teamScore: displayLeftScore,
+              snapshot: snapshot,
+              tichuCalls: tichuCalls,
+              showTurnIndicators: showTurnIndicators,
+              showOpponentPendingCards: showOpponentPendingCards,
               showPoints: showPoints,
+              teamScore: displayLeftScore,
             ),
-            rightOpponent: OpponentDisplay(
+            rightOpponent: _buildOpponent(
+              playerId: 'player-1',
               name: 'Opponent 1',
-              cardCount: snapshot?.opponentCardCounts['player-1'] ?? 0,
-              isActive: showTurnIndicators && isCurrentTurn('player-1'),
-              isFinished: isFinished('player-1'),
-              tichuDeclared:
-                  tichuCalls['player-1'] == TichuCall.tichu ||
-                  tichuCalls['player-1'] == TichuCall.grandTichu,
-              grandTichuDeclared:
-                  tichuCalls['player-1'] == TichuCall.grandTichu,
-              finishPosition: finishPositionFor('player-1'),
               alignment: Axis.vertical,
               icon: Icons.smart_toy_outlined,
-              pendingCards:
-                  showOpponentPendingCards &&
-                      _pendingOpponentPlayerId == 'player-1'
-                  ? _pendingOpponentCards
-                  : const [],
-              pendingPass:
-                  showOpponentPendingCards &&
-                  _pendingOpponentPlayerId == 'player-1' &&
-                  _pendingOpponentPass,
               pendingPlacement: PendingPlacement.left,
-              teamScore: displayRightScore,
+              snapshot: snapshot,
+              tichuCalls: tichuCalls,
+              showTurnIndicators: showTurnIndicators,
+              showOpponentPendingCards: showOpponentPendingCards,
               showPoints: showPoints,
+              teamScore: displayRightScore,
             ),
             trickArea: centerArea,
             handArea: handArea,
@@ -630,6 +590,52 @@ class _GameScreenState extends State<GameScreen>
     return PlayerType.human;
   }
 
+  OpponentDisplay _buildOpponent({
+    required final String playerId,
+    required final String name,
+    required final Axis alignment,
+    required final IconData icon,
+    required final PlayerSnapshot? snapshot,
+    required final Map<String, TichuCall> tichuCalls,
+    required final bool showTurnIndicators,
+    required final bool showOpponentPendingCards,
+    required final bool showPoints,
+    required final int teamScore,
+    final PendingPlacement? pendingPlacement,
+  }) {
+    final cardCount = snapshot?.opponentCardCounts[playerId] ?? 0;
+    final finishOrder = snapshot?.scoreState.finishOrder ?? const <String>[];
+    final finishIndex = finishOrder.indexOf(playerId);
+    final finishPosition = finishIndex == -1 ? null : finishIndex + 1;
+    final cardsLeft = snapshot?.opponentCardCounts[playerId];
+    final isFinished =
+        (cardsLeft != null && cardsLeft == 0) || finishPosition != null;
+    final call = tichuCalls[playerId];
+
+    return OpponentDisplay(
+      name: name,
+      cardCount: cardCount,
+      isActive: showTurnIndicators && snapshot?.currentPlayerId == playerId,
+      isFinished: isFinished,
+      tichuDeclared: call == TichuCall.tichu || call == TichuCall.grandTichu,
+      grandTichuDeclared: call == TichuCall.grandTichu,
+      finishPosition: finishPosition,
+      alignment: alignment,
+      icon: icon,
+      pendingCards:
+          showOpponentPendingCards && _pendingOpponentPlayerId == playerId
+          ? _pendingOpponentCards
+          : const [],
+      pendingPass:
+          showOpponentPendingCards &&
+          _pendingOpponentPlayerId == playerId &&
+          _pendingOpponentPass,
+      pendingPlacement: pendingPlacement ?? PendingPlacement.below,
+      teamScore: teamScore,
+      showPoints: showPoints,
+    );
+  }
+
   @override
   void _requestKeyboardFocus() {
     if (!mounted) return;
@@ -645,43 +651,7 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
 
-    final isSchupfActive =
-        snapshot.phase == GamePhase.schupf &&
-        !snapshot.schupfCompletedPlayers.contains(_humanId);
-    if (isSchupfActive) {
-      if (!_isDesktopSchupfHelperEnabled) {
-        return;
-      }
-      final canSubmit =
-          _schupfToLeft != null &&
-          _schupfToPartner != null &&
-          _schupfToRight != null;
-      if (canSubmit) {
-        unawaited(_submitSchupf());
-        return;
-      }
-
-      final selectedCards = <Card>{
-        ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
-      };
-      final available = _hand
-          .where((final c) => !selectedCards.contains(c))
-          .toList();
-      if (available.isEmpty) return;
-      final cursor = (_schupfCursorIndex ?? (available.length - 1)).clamp(
-        0,
-        available.length - 1,
-      );
-      final card = available[cursor];
-      if (_schupfToRight == null) {
-        _setSchupfSlot(SchupfSlot.right, card);
-      } else if (_schupfToPartner == null) {
-        _setSchupfSlot(SchupfSlot.partner, card);
-      } else if (_schupfToLeft == null) {
-        _setSchupfSlot(SchupfSlot.left, card);
-      }
-      return;
-    }
+    if (_trySchupfCursorAssign(snapshot)) return;
 
     // Acknowledge schupf receipts with Enter.
     if (snapshot.schupfReceipts.isNotEmpty && !_schupfAckPending) {
@@ -710,30 +680,7 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
 
-    final isSchupfActive =
-        snapshot.phase == GamePhase.schupf &&
-        !snapshot.schupfCompletedPlayers.contains(_humanId);
-    if (!isSchupfActive) return;
-    if (!_isDesktopSchupfHelperEnabled) return;
-
-    final canSubmit =
-        _schupfToLeft != null &&
-        _schupfToPartner != null &&
-        _schupfToRight != null;
-    if (canSubmit) return;
-
-    final selectedCards = <Card>{
-      ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
-    };
-    final available = _hand
-        .where((final c) => !selectedCards.contains(c))
-        .toList();
-    if (available.isEmpty) return;
-
-    final cursor = _schupfCursorIndex ?? (available.length - 1);
-    setState(() {
-      _schupfCursorIndex = (cursor - 1).clamp(0, available.length - 1);
-    });
+    _moveSchupfCursor(snapshot, -1);
   }
 
   void _handleShortcutRight() {
@@ -747,17 +694,23 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
 
+    _moveSchupfCursor(snapshot, 1);
+  }
+
+  /// Returns the list of hand cards not yet assigned to a schupf slot,
+  /// or `null` if schupf cursor navigation is not applicable.
+  List<Card>? _schupfAvailableCards(final PlayerSnapshot snapshot) {
     final isSchupfActive =
         snapshot.phase == GamePhase.schupf &&
         !snapshot.schupfCompletedPlayers.contains(_humanId);
-    if (!isSchupfActive) return;
-    if (!_isDesktopSchupfHelperEnabled) return;
+    if (!isSchupfActive) return null;
+    if (!_isDesktopSchupfHelperEnabled) return null;
 
     final canSubmit =
         _schupfToLeft != null &&
         _schupfToPartner != null &&
         _schupfToRight != null;
-    if (canSubmit) return;
+    if (canSubmit) return null;
 
     final selectedCards = <Card>{
       ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
@@ -765,11 +718,53 @@ class _GameScreenState extends State<GameScreen>
     final available = _hand
         .where((final c) => !selectedCards.contains(c))
         .toList();
-    if (available.isEmpty) return;
+    return available.isEmpty ? null : available;
+  }
+
+  /// Assigns the card under the schupf cursor to the next empty slot.
+  /// Returns `true` if the event was handled.
+  bool _trySchupfCursorAssign(final PlayerSnapshot snapshot) {
+    final isSchupfActive =
+        snapshot.phase == GamePhase.schupf &&
+        !snapshot.schupfCompletedPlayers.contains(_humanId);
+    if (!isSchupfActive) return false;
+    if (!_isDesktopSchupfHelperEnabled) return false;
+
+    final canSubmit =
+        _schupfToLeft != null &&
+        _schupfToPartner != null &&
+        _schupfToRight != null;
+    if (canSubmit) {
+      unawaited(_submitSchupf());
+      return true;
+    }
+
+    final available = _schupfAvailableCards(snapshot);
+    if (available == null) return true;
+
+    final cursor = (_schupfCursorIndex ?? (available.length - 1)).clamp(
+      0,
+      available.length - 1,
+    );
+    final card = available[cursor];
+    if (_schupfToRight == null) {
+      _setSchupfSlot(SchupfSlot.right, card);
+    } else if (_schupfToPartner == null) {
+      _setSchupfSlot(SchupfSlot.partner, card);
+    } else if (_schupfToLeft == null) {
+      _setSchupfSlot(SchupfSlot.left, card);
+    }
+    return true;
+  }
+
+  /// Moves the schupf cursor by [delta] (-1 = left, +1 = right).
+  void _moveSchupfCursor(final PlayerSnapshot snapshot, final int delta) {
+    final available = _schupfAvailableCards(snapshot);
+    if (available == null) return;
 
     final cursor = _schupfCursorIndex ?? (available.length - 1);
     setState(() {
-      _schupfCursorIndex = (cursor + 1).clamp(0, available.length - 1);
+      _schupfCursorIndex = (cursor + delta).clamp(0, available.length - 1);
     });
   }
 

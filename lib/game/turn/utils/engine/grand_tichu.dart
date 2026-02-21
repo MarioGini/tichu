@@ -1,5 +1,6 @@
 import 'package:tichu/game/engine_state.dart';
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 
 void applyGrandTichuDecision(

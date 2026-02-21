@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 
 import 'ai_test_fixtures.dart';

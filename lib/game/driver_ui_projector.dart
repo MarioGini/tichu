@@ -1,5 +1,6 @@
-import 'package:flutter/foundation.dart';
-import 'package:tichu/game/game_backend.dart';
+import 'package:meta/meta.dart';
+import 'package:tichu/game/game_snapshot.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 @immutable

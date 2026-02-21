@@ -1,5 +1,5 @@
 import 'package:tichu/agents/turn_scorer.dart';
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 abstract class PlaySelectionStrategy {

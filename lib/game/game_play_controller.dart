@@ -1,4 +1,5 @@
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_snapshot.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/wish_logic.dart';
 import 'package:tichu/game/turn_rules_adapter.dart';
@@ -165,6 +166,11 @@ class GamePlayController {
     }
     return indices;
   }
+
+  /// Returns the first bomb in [hand] that can beat the current [deck], or
+  /// `null` if none exists.
+  TichuTurn? firstPlayableBomb(final DeckState deck, final List<Card> hand) =>
+      _turnRules.firstPlayableBomb(deck, hand);
 
   bool _isPlayTurnForHuman(
     final PlayerSnapshot snapshot,

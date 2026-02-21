@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/game_backend.dart';
-import 'package:tichu/game/player_control.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/screens/game/game_screen.dart';
+import 'package:tichu/screens/shared/player_control.dart';
 import 'package:tichu/widgets/card_widget.dart';
 import 'package:tichu/widgets/hand_display.dart';
 

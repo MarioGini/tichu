@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:tichu/game/player_control.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/screens/shared/keyboard_shortcuts.dart';
+import 'package:tichu/screens/shared/player_control.dart';
+import 'package:tichu/services/local/local_backend.dart';
 
 enum _HomeKeyboardSection { matchLength, playerControl }
 
@@ -32,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => GameScreen(
+            backend: LocalGameBackend(),
             targetScore: _targetScore,
             playerControlModes: {'player-0': _selfControlMode},
           ),

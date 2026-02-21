@@ -71,7 +71,10 @@ mixin _GameScreenActions on _GameScreenBindings {
     if (snapshot.phase != GamePhase.play) return;
     if (snapshot.pendingDragonGiveBy == _humanId) return;
 
-    final playableBomb = _turnRules.firstPlayableBomb(snapshot.deck, _hand);
+    final playableBomb = _playController.firstPlayableBomb(
+      snapshot.deck,
+      _hand,
+    );
 
     if (playableBomb == null) {
       _showSnack('No bomb can beat the current play.');

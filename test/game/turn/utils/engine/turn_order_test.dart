@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/engine_state.dart';
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/turn_order.dart';

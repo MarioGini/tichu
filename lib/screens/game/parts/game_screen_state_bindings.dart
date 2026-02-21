@@ -10,7 +10,6 @@ mixin _GameScreenBindings on State<GameScreen> {
   PlayerSnapshot? get _snapshot;
   List<Card> get _hand;
   Set<int> get _selectedIndexes;
-  TurnRulesAdapter get _turnRules;
   GamePlayController get _playController;
   AnimationController get _bombController;
   bool get _roundCompleteAcknowledged;

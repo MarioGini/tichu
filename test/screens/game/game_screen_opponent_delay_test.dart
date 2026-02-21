@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/game/player_control.dart';
 import 'package:tichu/screens/game/game_screen.dart';
+import 'package:tichu/screens/shared/player_control.dart';
 
 import '../../utils/test_game_backend.dart';
 import '../../utils/test_game_fixtures.dart';

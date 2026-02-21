@@ -1,6 +1,7 @@
 import 'dart:math';
 
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/card_identifiers.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 (Map<String, List<Card>> hands, Map<String, List<Card>> reserved)

@@ -45,7 +45,9 @@ void main() {
       final hand = [Card(CardFace.five, CardColor.red)];
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
-      final singles = turns.where((final t) => t.type == TurnType.single).toList();
+      final singles = turns
+          .where((final t) => t.type == TurnType.single)
+          .toList();
       expect(singles.length, 1);
       expect(singles.first.cards.first.face, CardFace.five);
     });
@@ -70,7 +72,9 @@ void main() {
       ];
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
-      final triplets = turns.where((final t) => t.type == TurnType.triplet).toList();
+      final triplets = turns
+          .where((final t) => t.type == TurnType.triplet)
+          .toList();
       expect(triplets.length, 1);
       expect(triplets.first.cards.length, 3);
     });
@@ -119,7 +123,9 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final stairs = turns
-          .where((final t) => t.type == TurnType.pairStraight && t.cards.length == 8)
+          .where(
+            (final t) => t.type == TurnType.pairStraight && t.cards.length == 8,
+          )
           .toList();
       expect(stairs, isNotEmpty);
     });
@@ -135,7 +141,9 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final straights = turns
-          .where((final t) => t.type == TurnType.straight && t.cards.length == 5)
+          .where(
+            (final t) => t.type == TurnType.straight && t.cards.length == 5,
+          )
           .toList();
       expect(straights, isNotEmpty);
     });
@@ -153,7 +161,9 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final straights = turns
-          .where((final t) => t.type == TurnType.straight && t.cards.length == 7)
+          .where(
+            (final t) => t.type == TurnType.straight && t.cards.length == 7,
+          )
           .toList();
       expect(straights, isNotEmpty);
     });
@@ -170,7 +180,9 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       final straights = turns
-          .where((final t) => t.type == TurnType.straight && t.cards.length == 6)
+          .where(
+            (final t) => t.type == TurnType.straight && t.cards.length == 6,
+          )
           .toList();
       expect(straights, isNotEmpty);
     });
@@ -183,7 +195,9 @@ void main() {
       final turns = generateLegalTurns(_emptyDeck(), hand);
 
       // Should include: single 5, single phoenix, pair (5 + phoenix)
-      final singles = turns.where((final t) => t.type == TurnType.single).toList();
+      final singles = turns
+          .where((final t) => t.type == TurnType.single)
+          .toList();
       final pairs = turns.where((final t) => t.type == TurnType.pair).toList();
       expect(singles.length, 2); // 5 and phoenix
       expect(pairs.length, 1); // 5 + phoenix pair
@@ -207,7 +221,9 @@ void main() {
       }
 
       // 3 doesn't beat 5, so only 8 and king should appear as singles.
-      final singles = turns.where((final t) => t.type == TurnType.single).toList();
+      final singles = turns
+          .where((final t) => t.type == TurnType.single)
+          .toList();
       expect(singles.length, 2);
     });
 
@@ -348,7 +364,9 @@ void main() {
 
       final turns = generateLegalTurns(deck, hand);
       expect(
-        turns.any((final t) => t.type == TurnType.straight && t.cards.length == 5),
+        turns.any(
+          (final t) => t.type == TurnType.straight && t.cards.length == 5,
+        ),
         isTrue,
       );
     });

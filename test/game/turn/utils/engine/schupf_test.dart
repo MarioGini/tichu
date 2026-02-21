@@ -49,12 +49,13 @@ GameEngineState _buildState() {
   return state;
 }
 
-SchupfAction _firstThree(final String playerId, final List<Card> hand) => SchupfAction(
-    playerId: playerId,
-    toLeft: hand[0],
-    toPartner: hand[1],
-    toRight: hand[2],
-  );
+SchupfAction _firstThree(final String playerId, final List<Card> hand) =>
+    SchupfAction(
+      playerId: playerId,
+      toLeft: hand[0],
+      toPartner: hand[1],
+      toRight: hand[2],
+    );
 
 void main() {
   group('applySchupfSelection', () {
@@ -118,6 +119,7 @@ void main() {
 
     test('finalizes schupf after all players select', () {
       final state = _buildState();
+      final initialHandLength = state.hands[testHumanId]!.length;
 
       for (final player in testPlayers) {
         applySchupfSelection(
@@ -130,7 +132,9 @@ void main() {
       expect(state.schupfSelections, isEmpty);
       expect(state.schupfReceipts.keys, hasLength(4));
       expect(state.schupfReceipts[testHumanId], hasLength(3));
-      expect(state.currentPlayerIndex, 1);
+      expect(state.schupfPendingAdditions[testHumanId], hasLength(3));
+      expect(state.hands[testHumanId], hasLength(initialHandLength - 3));
+      expect(state.currentPlayerIndex, 0);
       expect(state.deck.turn.type, TurnType.empty);
       expect(state.deck.wish, CardFace.ten);
       expect(state.lastPlayedBy, isNull);
@@ -167,6 +171,7 @@ void main() {
 
     test('acknowledgement removes player receipts', () {
       final state = _buildState();
+      final addedCard = _card(CardFace.king, CardColor.blue);
       state.schupfReceipts[testHumanId] = [
         SchupfReceipt(
           card: _card(CardFace.five, CardColor.red),
@@ -174,6 +179,8 @@ void main() {
           direction: SchupfDirection.left,
         ),
       ];
+      state.schupfPendingAdditions[testHumanId] = [addedCard];
+      final previousLength = state.hands[testHumanId]!.length;
 
       applyAcknowledgeSchupf(
         state,
@@ -181,6 +188,9 @@ void main() {
       );
 
       expect(state.schupfReceipts.containsKey(testHumanId), isFalse);
+      expect(state.schupfPendingAdditions.containsKey(testHumanId), isFalse);
+      expect(state.hands[testHumanId], hasLength(previousLength + 1));
+      expect(state.hands[testHumanId], contains(addedCard));
       expect(hasPendingHumanSchupfReceipts(state), isFalse);
     });
   });

@@ -25,7 +25,9 @@ List<TichuTurn> getFullHouses(final List<Card> cards) {
   for (var i = 0; i < tripledFaces.length; ++i) {
     final tripleFace = tripledFaces[i];
 
-    final fullHouseCards = cards.where((final card) => card.face == tripleFace).toList();
+    final fullHouseCards = cards
+        .where((final card) => card.face == tripleFace)
+        .toList();
 
     final possiblePairs = tripledFaces
         .where((final element) => element != tripleFace)

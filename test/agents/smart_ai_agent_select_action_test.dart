@@ -16,8 +16,10 @@ class _AlwaysCallTichuStrategy implements TichuCallStrategy {
   ) async => false;
 
   @override
-  Future<bool> shouldCallTichu(final GameSnapshot snapshot, final String playerId) async =>
-      true;
+  Future<bool> shouldCallTichu(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async => true;
 }
 
 class _NeverCallTichuStrategy implements TichuCallStrategy {
@@ -30,8 +32,10 @@ class _NeverCallTichuStrategy implements TichuCallStrategy {
   ) async => false;
 
   @override
-  Future<bool> shouldCallTichu(final GameSnapshot snapshot, final String playerId) async =>
-      false;
+  Future<bool> shouldCallTichu(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async => false;
 }
 
 void main() {

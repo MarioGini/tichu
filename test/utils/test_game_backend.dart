@@ -20,7 +20,10 @@ class FakeGameBackend implements GameBackend {
   }
 
   @override
-  Stream<PlayerSnapshot> watchGame(final String gameId, final String playerId) => _controller.stream;
+  Stream<PlayerSnapshot> watchGame(
+    final String gameId,
+    final String playerId,
+  ) => _controller.stream;
 
   @override
   Future<String> createGame(
@@ -35,7 +38,10 @@ class FakeGameBackend implements GameBackend {
   Future<void> startNewRound(final String gameId) async {}
 
   @override
-  Future<void> submitAction(final String gameId, final GameAction action) async {
+  Future<void> submitAction(
+    final String gameId,
+    final GameAction action,
+  ) async {
     actions.add(action);
   }
 

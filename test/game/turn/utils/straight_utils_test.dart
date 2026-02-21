@@ -90,7 +90,10 @@ void main() {
 
       expect(turns.length, 2);
       expect(turns.every((final turn) => isStraight(turn.cards)), true);
-      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
+      expect(
+        turns.every((final turn) => turn.cards.length == desiredLength),
+        true,
+      );
       expect(turns[0].value, Card.getValue(CardFace.eight));
       expect(turns[1].value, Card.getValue(CardFace.seven));
     });
@@ -128,7 +131,10 @@ void main() {
 
       expect(turns.length, 2);
       expect(turns.every((final turn) => isStraight(turn.cards)), true);
-      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
+      expect(
+        turns.every((final turn) => turn.cards.length == desiredLength),
+        true,
+      );
       expect(turns[0].value, Card.getValue(CardFace.ace));
       expect(turns[1].value, Card.getValue(CardFace.seven));
     });
@@ -146,7 +152,10 @@ void main() {
 
       expect(turns.length, 1);
       expect(turns.every((final turn) => isStraight(turn.cards)), true);
-      expect(turns.every((final turn) => turn.cards.length == desiredLength), true);
+      expect(
+        turns.every((final turn) => turn.cards.length == desiredLength),
+        true,
+      );
       expect(turns[0].value, Card.getValue(CardFace.ace));
     });
 

@@ -144,6 +144,60 @@ void main() {
     expect(boxSize.width, closeTo(boxSize.height, 0.001));
   });
 
+  testWidgets('vertical player box keeps same size when side pending appears', (
+    final tester,
+  ) async {
+    Finder playerBoxFinder() {
+      final candidates = find.byWidgetPredicate((final widget) {
+        if (widget is! AnimatedContainer) return false;
+        return widget.margin == const EdgeInsets.all(6) &&
+            widget.padding == const EdgeInsets.all(8);
+      });
+      return candidates.first;
+    }
+
+    Widget build(final List<Card> pendingCards) => MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 260,
+            height: 260,
+            child: OpponentDisplay(
+              name: 'Opponent Side',
+              cardCount: 8,
+              isActive: false,
+              isFinished: false,
+              tichuDeclared: false,
+              grandTichuDeclared: false,
+              finishPosition: null,
+              alignment: Axis.vertical,
+              icon: Icons.memory,
+              teamScore: 0,
+              pendingPlacement: PendingPlacement.left,
+              pendingCards: pendingCards,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(build(const []));
+    final sizeWithoutPending = tester.getSize(playerBoxFinder());
+
+    await tester.pumpWidget(
+      build([
+        Card(CardFace.ace, CardColor.blue),
+        Card(CardFace.king, CardColor.red),
+      ]),
+    );
+    await tester.pump();
+
+    final sizeWithPending = tester.getSize(playerBoxFinder());
+
+    expect(sizeWithPending.width, closeTo(sizeWithoutPending.width, 0.001));
+    expect(sizeWithPending.height, closeTo(sizeWithoutPending.height, 0.001));
+  });
+
   testWidgets('horizontal pending cards fit available pending area', (
     final tester,
   ) async {

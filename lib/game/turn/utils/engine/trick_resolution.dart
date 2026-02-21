@@ -49,7 +49,10 @@ void applyPlayAction(
   if (state.deck.turn.type == TurnType.dog) {
     state.currentTrickCards.clear();
     state.lastPlayedBy = null;
-    state.deck = DeckState(TichuTurn(TurnType.empty, const []), state.deck.wish);
+    state.deck = DeckState(
+      TichuTurn(TurnType.empty, const []),
+      state.deck.wish,
+    );
     state.currentPlayerIndex = partnerIndex(state.currentPlayerIndex);
     if (state.finishedPlayers.contains(
       state.players[state.currentPlayerIndex].id,
@@ -147,9 +150,17 @@ bool _isMatchFinish(final GameEngineState state) {
   return _sameTeam(state, finishOrder[0], finishOrder[1]);
 }
 
-bool _sameTeam(final GameEngineState state, final String playerAId, final String playerBId) {
-  final playerA = state.players.firstWhere((final player) => player.id == playerAId);
-  final playerB = state.players.firstWhere((final player) => player.id == playerBId);
+bool _sameTeam(
+  final GameEngineState state,
+  final String playerAId,
+  final String playerBId,
+) {
+  final playerA = state.players.firstWhere(
+    (final player) => player.id == playerAId,
+  );
+  final playerB = state.players.firstWhere(
+    (final player) => player.id == playerBId,
+  );
   return playerA.seat % 2 == playerB.seat % 2;
 }
 
@@ -183,7 +194,10 @@ bool maybeAwardTrick(
   return false;
 }
 
-void applyGiveDragonAction(final GameEngineState state, final GiveDragonAction action) {
+void applyGiveDragonAction(
+  final GameEngineState state,
+  final GiveDragonAction action,
+) {
   if (state.pendingDragonGiveBy == null) {
     throw StateError('No dragon trick to give.');
   }

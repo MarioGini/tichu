@@ -41,25 +41,46 @@ class HandDisplay extends StatelessWidget {
 
     if (cards.isEmpty) {
       if (header != null || finishPosition != null) {
-        return Center(
-          child: IntrinsicWidth(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: buildPlayerStateFrameDecoration(
-                isActive: isActive,
-                isFinished: isFinished,
-                borderRadius: 16,
+        return LayoutBuilder(
+          builder: (final context, final constraints) {
+            final maxHeight = constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : resolvedHeight + 28;
+            final squareSide = math.max<double>(
+              72,
+              math.min(constraints.maxWidth, maxHeight),
+            );
+
+            return Center(
+              child: SizedBox.square(
+                dimension: squareSide,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  decoration: buildPlayerStateFrameDecoration(
+                    isActive: isActive,
+                    isFinished: isFinished,
+                    borderRadius: 16,
+                  ),
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ?header,
+                          if (finishPosition != null)
+                            buildPlayerOutLabel(context, finishPosition!),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ?header,
-                  if (finishPosition != null)
-                    buildPlayerOutLabel(context, finishPosition!),
-                ],
-              ),
-            ),
-          ),
+            );
+          },
         );
       }
       return const SizedBox.shrink();
@@ -104,11 +125,11 @@ class HandDisplay extends StatelessWidget {
                     spacing: marginR,
                     height: cardH,
                     itemBuilder: (final context, final index) => CardWidget(
-                        card: cards[index],
-                        isSelected: selectedIndexes.contains(index),
-                        onTap: () => onCardTap(index),
-                        scale: scale,
-                      ),
+                      card: cards[index],
+                      isSelected: selectedIndexes.contains(index),
+                      onTap: () => onCardTap(index),
+                      scale: scale,
+                    ),
                   ),
                 ),
               ],

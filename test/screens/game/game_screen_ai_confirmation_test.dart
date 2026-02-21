@@ -67,11 +67,7 @@ void main() {
 
     expect(backend.actions.whereType<ConfirmOpponentTurnAction>().length, 1);
 
-    backend.emit(
-      buildPlayerSnapshot(
-        currentPlayerId: testHumanId,
-      ),
-    );
+    backend.emit(buildPlayerSnapshot(currentPlayerId: testHumanId));
     await tester.pump();
 
     backend.emit(

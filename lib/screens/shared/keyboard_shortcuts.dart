@@ -13,6 +13,8 @@ KeyEventResult handleDirectionalEnterKeyEvent(
   required final VoidCallback onEnter,
   required final VoidCallback onLeft,
   required final VoidCallback onRight,
+  final VoidCallback? onUp,
+  final VoidCallback? onDown,
 }) {
   if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
     return KeyEventResult.ignored;
@@ -29,6 +31,14 @@ KeyEventResult handleDirectionalEnterKeyEvent(
   }
   if (key == LogicalKeyboardKey.arrowRight) {
     onRight();
+    return KeyEventResult.handled;
+  }
+  if (key == LogicalKeyboardKey.arrowUp && onUp != null) {
+    onUp();
+    return KeyEventResult.handled;
+  }
+  if (key == LogicalKeyboardKey.arrowDown && onDown != null) {
+    onDown();
     return KeyEventResult.handled;
   }
   return KeyEventResult.ignored;

@@ -147,7 +147,8 @@ class GamePlayController {
   }
 
   /// Whether the given turn contains Mah Jong and thus requires a wish input.
-  bool requiresWishInput(final TichuTurn turn) => turn.cards.any((final card) => card.face == CardFace.mahJong);
+  bool requiresWishInput(final TichuTurn turn) =>
+      turn.cards.any((final card) => card.face == CardFace.mahJong);
 
   /// Maps cards to their hand indices (first match, no duplicates).
   Set<int> cardIndicesInHand(final List<Card> hand, final List<Card> cards) {

@@ -21,7 +21,9 @@ mixin _GameScreenHelpers on _GameScreenBindings {
       snapshot.gameId,
       pendingPlayer,
       snapshot.pendingOpponentPass.toString(),
-      snapshot.pendingOpponentCards.map((final card) => card.hashCode).join(','),
+      snapshot.pendingOpponentCards
+          .map((final card) => card.hashCode)
+          .join(','),
     ].join('|');
 
     if (_lastAutoConfirmKey == pendingKey) return;
@@ -104,40 +106,36 @@ mixin _GameScreenHelpers on _GameScreenBindings {
   }
 
   @override
-  TichuTurn? _resolveSelectedTurn(final PlayerSnapshot snapshot) => _playController.resolveSelectedTurn(
-      snapshot: snapshot,
-      selectedCards: _selectedCards(),
-      hand: _hand,
-    );
+  TichuTurn? _resolveSelectedTurn(final PlayerSnapshot snapshot) =>
+      _playController.resolveSelectedTurn(
+        snapshot: snapshot,
+        selectedCards: _selectedCards(),
+        hand: _hand,
+      );
 
-  bool _canPlaySelected(final PlayerSnapshot snapshot) => _playController.canPlaySelected(
-      snapshot: snapshot,
-      humanId: _humanId,
-      hand: _hand,
-      selectedCards: _selectedCards(),
-      schupfAckPending: _schupfAckPending,
-    );
+  bool _canPlaySelected(final PlayerSnapshot snapshot) =>
+      _playController.canPlaySelected(
+        snapshot: snapshot,
+        humanId: _humanId,
+        hand: _hand,
+        selectedCards: _selectedCards(),
+        schupfAckPending: _schupfAckPending,
+      );
 
   bool _canPlayAny(final PlayerSnapshot snapshot) => _playController.canPlayAny(
-      snapshot: snapshot,
-      humanId: _humanId,
-      hand: _hand,
-      schupfAckPending: _schupfAckPending,
-    );
+    snapshot: snapshot,
+    humanId: _humanId,
+    hand: _hand,
+    schupfAckPending: _schupfAckPending,
+  );
 
   @override
   bool _canPass(final PlayerSnapshot snapshot) => _playController.canPass(
-      snapshot: snapshot,
-      humanId: _humanId,
-      hand: _hand,
-      schupfAckPending: _schupfAckPending,
-    );
-
-  bool _canEnableBomb(final PlayerSnapshot snapshot) => _playController.canEnableBomb(
-      snapshot: snapshot,
-      humanId: _humanId,
-      hand: _hand,
-    );
+    snapshot: snapshot,
+    humanId: _humanId,
+    hand: _hand,
+    schupfAckPending: _schupfAckPending,
+  );
 
   @override
   void _showSnack(final String message) {

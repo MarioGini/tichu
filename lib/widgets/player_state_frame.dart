@@ -26,12 +26,15 @@ BoxDecoration buildPlayerStateFrameDecoration({
   );
 }
 
-Widget buildPlayerOutLabel(final BuildContext context, final int finishPosition) => Padding(
-    padding: const EdgeInsets.only(top: 6),
-    child: Text(
-      'Out #$finishPosition',
-      style: Theme.of(
-        context,
-      ).textTheme.bodySmall?.copyWith(color: Colors.greenAccent),
-    ),
-  );
+Widget buildPlayerOutLabel(
+  final BuildContext context,
+  final int finishPosition,
+) => Padding(
+  padding: const EdgeInsets.only(top: 6),
+  child: Text(
+    'Out #$finishPosition',
+    style: Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: Colors.greenAccent),
+  ),
+);

@@ -19,7 +19,9 @@ void main() {
     },
   );
 
-  testWidgets('defaults opponent delay to 2s for AI self', (final tester) async {
+  testWidgets('defaults opponent delay to 1s for AI self', (
+    final tester,
+  ) async {
     final backend = FakeGameBackend();
 
     await tester.pumpWidget(
@@ -32,6 +34,6 @@ void main() {
     );
     await tester.pump();
 
-    expect(backend.automatedActionDelay, const Duration(seconds: 2));
+    expect(backend.automatedActionDelay, const Duration(seconds: 1));
   });
 }

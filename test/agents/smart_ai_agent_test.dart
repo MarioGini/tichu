@@ -116,11 +116,11 @@ class _FixedSchupfStrategy implements SchupfStrategy {
     final GameSnapshot snapshot,
     final String playerId,
   ) async => SchupfAction(
-      playerId: playerId,
-      toLeft: toLeft,
-      toPartner: toPartner,
-      toRight: toRight,
-    );
+    playerId: playerId,
+    toLeft: toLeft,
+    toPartner: toPartner,
+    toRight: toRight,
+  );
 }
 
 class _ForceEmptyValidPlaysPolicy extends PlayTacticsPolicy {
@@ -579,7 +579,10 @@ void main() {
         myHand: hand,
         deck: _emptyDeck(),
         otherHands: {
-          _leftId: List.generate(4, (final i) => Card(CardFace.two, CardColor.red)),
+          _leftId: List.generate(
+            4,
+            (final i) => Card(CardFace.two, CardColor.red),
+          ),
           _partnerId: _defaultHand(),
           _rightId: List.generate(
             6,
@@ -1043,9 +1046,15 @@ void main() {
       final snapshot = _snapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(6, (final i) => Card(CardFace.two, CardColor.red)),
+          _leftId: List.generate(
+            6,
+            (final i) => Card(CardFace.two, CardColor.red),
+          ),
           _partnerId: _defaultHand(),
-          _rightId: List.generate(2, (final i) => Card(CardFace.two, CardColor.blue)),
+          _rightId: List.generate(
+            2,
+            (final i) => Card(CardFace.two, CardColor.blue),
+          ),
         },
         tichuCalls: {_leftId: TichuCall.tichu},
       );
@@ -1062,9 +1071,15 @@ void main() {
       final snapshot = _snapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(8, (final i) => Card(CardFace.two, CardColor.red)),
+          _leftId: List.generate(
+            8,
+            (final i) => Card(CardFace.two, CardColor.red),
+          ),
           _partnerId: _defaultHand(),
-          _rightId: List.generate(3, (final i) => Card(CardFace.two, CardColor.blue)),
+          _rightId: List.generate(
+            3,
+            (final i) => Card(CardFace.two, CardColor.blue),
+          ),
         },
       );
 
@@ -1079,7 +1094,10 @@ void main() {
       final snapshot = _snapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(2, (final i) => Card(CardFace.two, CardColor.red)),
+          _leftId: List.generate(
+            2,
+            (final i) => Card(CardFace.two, CardColor.red),
+          ),
           _partnerId: _defaultHand(),
           _rightId: List.generate(
             10,

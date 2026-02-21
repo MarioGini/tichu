@@ -9,15 +9,15 @@ import '../../../../utils/test_game_fixtures.dart';
 
 void main() {
   GameEngineState buildState() => GameEngineState(
-      gameId: 'test-game',
-      players: testPlayers,
-      hands: {for (final player in testPlayers) player.id: <Card>[]},
-      reservedHands: {for (final player in testPlayers) player.id: <Card>[]},
-      deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
-      currentPlayerIndex: 0,
-      scoreTracker: LocalScoreTracker(),
-      phase: GamePhase.play,
-    );
+    gameId: 'test-game',
+    players: testPlayers,
+    hands: {for (final player in testPlayers) player.id: <Card>[]},
+    reservedHands: {for (final player in testPlayers) player.id: <Card>[]},
+    deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
+    currentPlayerIndex: 0,
+    scoreTracker: LocalScoreTracker(),
+    phase: GamePhase.play,
+  );
 
   group('turn order', () {
     test('advances by seat index 0 -> 1 -> 2 -> 3 -> 0', () {

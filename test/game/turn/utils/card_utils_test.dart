@@ -30,7 +30,10 @@ void main() {
       final occurrences = getOccurrenceCount(cards);
       expect(occurrences.keys.length, 2);
       expect(
-        occurrences.values.fold(0, (final prev, final element) => prev + element),
+        occurrences.values.fold(
+          0,
+          (final prev, final element) => prev + element,
+        ),
         cards.length,
       );
       expect(occurrences[CardFace.three], 2);

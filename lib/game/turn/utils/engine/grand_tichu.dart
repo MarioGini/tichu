@@ -11,7 +11,9 @@ void applyGrandTichuDecision(
   }
 
   final canCallGrand =
-      action.call && !_partnerAlreadyCalledGrandTichu(state, action.playerId);
+      action.call &&
+      !_partnerAlreadyCalledGrandTichu(state, action.playerId) &&
+      !_playerAlreadyCalledAnyTichu(state, action.playerId);
 
   state.grandTichuDecisions[action.playerId] = canCallGrand;
   if (canCallGrand) {
@@ -27,7 +29,10 @@ void applyGrandTichuDecision(
       (state.currentPlayerIndex + 1) % state.players.length;
 }
 
-bool _partnerAlreadyCalledGrandTichu(final GameEngineState state, final String playerId) {
+bool _partnerAlreadyCalledGrandTichu(
+  final GameEngineState state,
+  final String playerId,
+) {
   final player = _playerById(state, playerId);
   if (player == null) {
     return false;
@@ -49,6 +54,14 @@ bool _partnerAlreadyCalledGrandTichu(final GameEngineState state, final String p
   return false;
 }
 
+bool _playerAlreadyCalledAnyTichu(
+  final GameEngineState state,
+  final String playerId,
+) {
+  final call = state.scoreTracker.state.tichuCalls[playerId];
+  return call != null && call != TichuCall.none;
+}
+
 GamePlayer? _playerById(final GameEngineState state, final String playerId) {
   for (final player in state.players) {
     if (player.id == playerId) {
@@ -58,7 +71,8 @@ GamePlayer? _playerById(final GameEngineState state, final String playerId) {
   return null;
 }
 
-bool _allPlayersDecided(final GameEngineState state) => state.grandTichuDecisions.length >= state.players.length;
+bool _allPlayersDecided(final GameEngineState state) =>
+    state.grandTichuDecisions.length >= state.players.length;
 
 void _maybeFinalizeGrandTichu(final GameEngineState state) {
   if (!_allPlayersDecided(state)) {

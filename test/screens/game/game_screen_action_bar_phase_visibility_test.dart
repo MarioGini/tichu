@@ -33,12 +33,10 @@ void main() {
     final backend = FakeGameBackend();
     await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
 
-    backend.emit(
-      buildPlayerSnapshot(currentPlayerId: testHumanId),
-    );
+    backend.emit(buildPlayerSnapshot(currentPlayerId: testHumanId));
     await tester.pump();
 
-    expect(find.text('Bomb'), findsOneWidget);
+    expect(find.text('Bomb'), findsNothing);
     expect(find.text('Pass'), findsOneWidget);
     expect(find.text('PLAY'), findsOneWidget);
   });

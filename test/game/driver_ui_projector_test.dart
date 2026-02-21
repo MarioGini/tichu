@@ -56,7 +56,7 @@ void main() {
     expect(snapshot.hand.elementAt(projection.selectedIndexes.first), ace);
   });
 
-  test('ai schupf maps pending self cards into schupf slots', () {
+  test('ai schupf maps pending self cards into mirrored schupf slots', () {
     final toLeft = Card(CardFace.ace, CardColor.green);
     final toPartner = Card(CardFace.king, CardColor.red);
     final toRight = Card(CardFace.queen, CardColor.blue);
@@ -80,9 +80,38 @@ void main() {
       currentSchupfToRight: null,
     );
 
-    expect(projection.schupfToLeft, toLeft);
+    expect(projection.schupfToLeft, toRight);
     expect(projection.schupfToPartner, toPartner);
-    expect(projection.schupfToRight, toRight);
+    expect(projection.schupfToRight, toLeft);
     expect(projection.pendingOpponentCards, isEmpty);
+  });
+
+  test('ai schupf preview still maps when completed flag already set', () {
+    final toLeft = Card(CardFace.ten, CardColor.green);
+    final toPartner = Card(CardFace.jack, CardColor.red);
+    final toRight = Card(CardFace.queen, CardColor.black);
+    final snapshot = buildPlayerSnapshot(
+      phase: GamePhase.schupf,
+      currentPlayerId: testOpponentLeftId,
+      hand: [toLeft, toPartner, toRight],
+      schupfCompletedPlayers: const <String>[testHumanId],
+      pendingOpponentPlayerId: testHumanId,
+      pendingOpponentCards: [toLeft, toPartner, toRight],
+    );
+
+    final projection = projector.project(
+      snapshot: snapshot,
+      humanId: testHumanId,
+      isSelfManual: false,
+      hand: snapshot.hand,
+      currentSelectedIndexes: const <int>{},
+      currentSchupfToLeft: null,
+      currentSchupfToPartner: null,
+      currentSchupfToRight: null,
+    );
+
+    expect(projection.schupfToLeft, toRight);
+    expect(projection.schupfToPartner, toPartner);
+    expect(projection.schupfToRight, toLeft);
   });
 }

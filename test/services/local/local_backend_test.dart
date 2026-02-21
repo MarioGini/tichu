@@ -51,7 +51,10 @@ class _FakeEngine implements GameEngine {
   List<String> opponentIdsResult = const <String>[];
   String? initialPendingDragonBy;
 
-  GameEngineState _buildState(final String gameId, final List<GamePlayer> players) {
+  GameEngineState _buildState(
+    final String gameId,
+    final List<GamePlayer> players,
+  ) {
     final score = LocalScoreTracker();
     score.startNewRound(players);
     final state = GameEngineState(
@@ -106,78 +109,83 @@ class _FakeEngine implements GameEngine {
     final bool pendingOpponentPass = false,
     final bool opponentAwaitingConfirmation = false,
   }) => GameSnapshot(
-      gameId: state.gameId,
-      players: state.players,
-      hands: state.hands,
-      deck: state.deck,
-      trickPoints: 0,
-      activeWish: state.deck.wish,
-      currentPlayerId: state.players[state.currentPlayerIndex].id,
-      consecutivePasses: state.consecutivePasses,
-      lastPlayedBy: state.lastPlayedBy,
-      lastPlayedTurn: state.lastPlayedTurn,
-      lastDragonGiveBy: state.lastDragonGiveBy,
-      lastDragonGiveTo: state.lastDragonGiveTo,
-      pendingDragonGiveBy: state.pendingDragonGiveBy,
-      pendingDragonGiveTargets: List<String>.from(
-        state.pendingDragonGiveTargets,
-      ),
-      pendingOpponentPlayerId: pendingOpponentPlayerId,
-      pendingOpponentCards: List<Card>.from(
-        pendingOpponentCards ?? const <Card>[],
-      ),
-      pendingOpponentPass: pendingOpponentPass,
-      scoreState: state.scoreTracker.state,
-      opponentAwaitingConfirmation: opponentAwaitingConfirmation,
-      phase: state.phase,
-      grandTichuDecisions: const {},
-      schupfCompletedPlayers: const [],
-      schupfReceipts: const {},
-    );
+    gameId: state.gameId,
+    players: state.players,
+    hands: state.hands,
+    deck: state.deck,
+    trickPoints: 0,
+    activeWish: state.deck.wish,
+    currentPlayerId: state.players[state.currentPlayerIndex].id,
+    consecutivePasses: state.consecutivePasses,
+    lastPlayedBy: state.lastPlayedBy,
+    lastPlayedTurn: state.lastPlayedTurn,
+    lastDragonGiveBy: state.lastDragonGiveBy,
+    lastDragonGiveTo: state.lastDragonGiveTo,
+    pendingDragonGiveBy: state.pendingDragonGiveBy,
+    pendingDragonGiveTargets: List<String>.from(state.pendingDragonGiveTargets),
+    pendingOpponentPlayerId: pendingOpponentPlayerId,
+    pendingOpponentCards: List<Card>.from(
+      pendingOpponentCards ?? const <Card>[],
+    ),
+    pendingOpponentPass: pendingOpponentPass,
+    scoreState: state.scoreTracker.state,
+    opponentAwaitingConfirmation: opponentAwaitingConfirmation,
+    phase: state.phase,
+    grandTichuDecisions: const {},
+    schupfCompletedPlayers: const [],
+    schupfReceipts: const {},
+  );
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(final GameSnapshot snapshot, final String playerId) => PlayerSnapshot(
-      gameId: snapshot.gameId,
-      players: snapshot.players,
-      hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
-      opponentCardCounts: {
-        for (final p in snapshot.players)
-          if (p.id != playerId)
-            p.id: (snapshot.hands[p.id] ?? const <Card>[]).length,
-      },
-      deck: snapshot.deck,
-      trickPoints: snapshot.trickPoints,
-      activeWish: snapshot.activeWish,
-      currentPlayerId: snapshot.currentPlayerId,
-      consecutivePasses: snapshot.consecutivePasses,
-      lastPlayedBy: snapshot.lastPlayedBy,
-      lastPlayedTurn: snapshot.lastPlayedTurn,
-      lastDragonGiveBy: snapshot.lastDragonGiveBy,
-      lastDragonGiveTo: snapshot.lastDragonGiveTo,
-      pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
-      pendingDragonGiveTargets: snapshot.pendingDragonGiveTargets,
-      pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
-      pendingOpponentCards: snapshot.pendingOpponentCards,
-      pendingOpponentPass: snapshot.pendingOpponentPass,
-      scoreState: snapshot.scoreState,
-      opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
-      phase: snapshot.phase,
-      grandTichuDecisions: const {},
-      schupfCompletedPlayers: const [],
-      schupfReceipts: const [],
-    );
+  PlayerSnapshot buildPlayerSnapshot(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) => PlayerSnapshot(
+    gameId: snapshot.gameId,
+    players: snapshot.players,
+    hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
+    opponentCardCounts: {
+      for (final p in snapshot.players)
+        if (p.id != playerId)
+          p.id: (snapshot.hands[p.id] ?? const <Card>[]).length,
+    },
+    deck: snapshot.deck,
+    trickPoints: snapshot.trickPoints,
+    activeWish: snapshot.activeWish,
+    currentPlayerId: snapshot.currentPlayerId,
+    consecutivePasses: snapshot.consecutivePasses,
+    lastPlayedBy: snapshot.lastPlayedBy,
+    lastPlayedTurn: snapshot.lastPlayedTurn,
+    lastDragonGiveBy: snapshot.lastDragonGiveBy,
+    lastDragonGiveTo: snapshot.lastDragonGiveTo,
+    pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
+    pendingDragonGiveTargets: snapshot.pendingDragonGiveTargets,
+    pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
+    pendingOpponentCards: snapshot.pendingOpponentCards,
+    pendingOpponentPass: snapshot.pendingOpponentPass,
+    scoreState: snapshot.scoreState,
+    opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
+    phase: snapshot.phase,
+    grandTichuDecisions: const {},
+    schupfCompletedPlayers: const [],
+    schupfReceipts: const [],
+  );
 
   @override
   bool hasPendingHumanSchupfReceipts(final GameEngineState state) =>
       hasPendingHumanReceipts;
 
   @override
-  List<String> opponentIds(final GameEngineState state, final String playerId) =>
-      opponentIdsResult;
+  List<String> opponentIds(
+    final GameEngineState state,
+    final String playerId,
+  ) => opponentIdsResult;
 
   @override
-  bool shouldPauseForAutomatedOpponent(final GameEngineState state, final String actorId) =>
-      shouldPause;
+  bool shouldPauseForAutomatedOpponent(
+    final GameEngineState state,
+    final String actorId,
+  ) => shouldPause;
 
   @override
   void startGame(final GameEngineState state) {}
@@ -244,81 +252,84 @@ class _SchupfFlowEngine implements GameEngine {
     final bool pendingOpponentPass = false,
     final bool opponentAwaitingConfirmation = false,
   }) => GameSnapshot(
-      gameId: state.gameId,
-      players: state.players,
-      hands: state.hands,
-      deck: state.deck,
-      trickPoints: 0,
-      activeWish: state.deck.wish,
-      currentPlayerId: state.players[state.currentPlayerIndex].id,
-      consecutivePasses: state.consecutivePasses,
-      lastPlayedBy: state.lastPlayedBy,
-      lastPlayedTurn: state.lastPlayedTurn,
-      lastDragonGiveBy: state.lastDragonGiveBy,
-      lastDragonGiveTo: state.lastDragonGiveTo,
-      pendingDragonGiveBy: state.pendingDragonGiveBy,
-      pendingDragonGiveTargets: List<String>.from(
-        state.pendingDragonGiveTargets,
-      ),
-      pendingOpponentPlayerId: pendingOpponentPlayerId,
-      pendingOpponentCards: List<Card>.from(
-        pendingOpponentCards ?? const <Card>[],
-      ),
-      pendingOpponentPass: pendingOpponentPass,
-      scoreState: state.scoreTracker.state,
-      opponentAwaitingConfirmation: opponentAwaitingConfirmation,
-      phase: state.phase,
-      grandTichuDecisions: const {},
-      schupfCompletedPlayers: List<String>.from(state.schupfSelections.keys),
-      schupfReceipts: Map<String, List<SchupfReceipt>>.from(
-        state.schupfReceipts,
-      ),
-    );
+    gameId: state.gameId,
+    players: state.players,
+    hands: state.hands,
+    deck: state.deck,
+    trickPoints: 0,
+    activeWish: state.deck.wish,
+    currentPlayerId: state.players[state.currentPlayerIndex].id,
+    consecutivePasses: state.consecutivePasses,
+    lastPlayedBy: state.lastPlayedBy,
+    lastPlayedTurn: state.lastPlayedTurn,
+    lastDragonGiveBy: state.lastDragonGiveBy,
+    lastDragonGiveTo: state.lastDragonGiveTo,
+    pendingDragonGiveBy: state.pendingDragonGiveBy,
+    pendingDragonGiveTargets: List<String>.from(state.pendingDragonGiveTargets),
+    pendingOpponentPlayerId: pendingOpponentPlayerId,
+    pendingOpponentCards: List<Card>.from(
+      pendingOpponentCards ?? const <Card>[],
+    ),
+    pendingOpponentPass: pendingOpponentPass,
+    scoreState: state.scoreTracker.state,
+    opponentAwaitingConfirmation: opponentAwaitingConfirmation,
+    phase: state.phase,
+    grandTichuDecisions: const {},
+    schupfCompletedPlayers: List<String>.from(state.schupfSelections.keys),
+    schupfReceipts: Map<String, List<SchupfReceipt>>.from(state.schupfReceipts),
+  );
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(final GameSnapshot snapshot, final String playerId) => PlayerSnapshot(
-      gameId: snapshot.gameId,
-      players: snapshot.players,
-      hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
-      opponentCardCounts: {
-        for (final p in snapshot.players)
-          if (p.id != playerId)
-            p.id: (snapshot.hands[p.id] ?? const <Card>[]).length,
-      },
-      deck: snapshot.deck,
-      trickPoints: snapshot.trickPoints,
-      activeWish: snapshot.activeWish,
-      currentPlayerId: snapshot.currentPlayerId,
-      consecutivePasses: snapshot.consecutivePasses,
-      lastPlayedBy: snapshot.lastPlayedBy,
-      lastPlayedTurn: snapshot.lastPlayedTurn,
-      lastDragonGiveBy: snapshot.lastDragonGiveBy,
-      lastDragonGiveTo: snapshot.lastDragonGiveTo,
-      pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
-      pendingDragonGiveTargets: snapshot.pendingDragonGiveTargets,
-      pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
-      pendingOpponentCards: snapshot.pendingOpponentCards,
-      pendingOpponentPass: snapshot.pendingOpponentPass,
-      scoreState: snapshot.scoreState,
-      opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
-      phase: snapshot.phase,
-      grandTichuDecisions: const {},
-      schupfCompletedPlayers: snapshot.schupfCompletedPlayers,
-      schupfReceipts: List<SchupfReceipt>.from(
-        snapshot.schupfReceipts[playerId] ?? const <SchupfReceipt>[],
-      ),
-    );
+  PlayerSnapshot buildPlayerSnapshot(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) => PlayerSnapshot(
+    gameId: snapshot.gameId,
+    players: snapshot.players,
+    hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
+    opponentCardCounts: {
+      for (final p in snapshot.players)
+        if (p.id != playerId)
+          p.id: (snapshot.hands[p.id] ?? const <Card>[]).length,
+    },
+    deck: snapshot.deck,
+    trickPoints: snapshot.trickPoints,
+    activeWish: snapshot.activeWish,
+    currentPlayerId: snapshot.currentPlayerId,
+    consecutivePasses: snapshot.consecutivePasses,
+    lastPlayedBy: snapshot.lastPlayedBy,
+    lastPlayedTurn: snapshot.lastPlayedTurn,
+    lastDragonGiveBy: snapshot.lastDragonGiveBy,
+    lastDragonGiveTo: snapshot.lastDragonGiveTo,
+    pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
+    pendingDragonGiveTargets: snapshot.pendingDragonGiveTargets,
+    pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
+    pendingOpponentCards: snapshot.pendingOpponentCards,
+    pendingOpponentPass: snapshot.pendingOpponentPass,
+    scoreState: snapshot.scoreState,
+    opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
+    phase: snapshot.phase,
+    grandTichuDecisions: const {},
+    schupfCompletedPlayers: snapshot.schupfCompletedPlayers,
+    schupfReceipts: List<SchupfReceipt>.from(
+      snapshot.schupfReceipts[playerId] ?? const <SchupfReceipt>[],
+    ),
+  );
 
   @override
   bool hasPendingHumanSchupfReceipts(final GameEngineState state) => false;
 
   @override
-  List<String> opponentIds(final GameEngineState state, final String playerId) =>
-      const <String>[];
+  List<String> opponentIds(
+    final GameEngineState state,
+    final String playerId,
+  ) => const <String>[];
 
   @override
-  bool shouldPauseForAutomatedOpponent(final GameEngineState state, final String actorId) =>
-      false;
+  bool shouldPauseForAutomatedOpponent(
+    final GameEngineState state,
+    final String actorId,
+  ) => false;
 
   @override
   void startGame(final GameEngineState state) {}

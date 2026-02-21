@@ -79,7 +79,9 @@ void main() {
 
         final action = await strategy.selectSchupfCards(snapshot, aiTestSelfId);
         final opponentFaces = [action.toLeft.face, action.toRight.face]
-          ..sort((final a, final b) => Card.getValue(a).compareTo(Card.getValue(b)));
+          ..sort(
+            (final a, final b) => Card.getValue(a).compareTo(Card.getValue(b)),
+          );
         expect(opponentFaces, [CardFace.two, CardFace.three]);
         expect(action.toPartner.face, CardFace.king);
       },

@@ -55,24 +55,19 @@ class OpponentDisplay extends StatelessWidget {
   }
 
   /// Horizontal layout for the top opponent (player 2 / partner).
-  Widget _buildHorizontalLayout(final BuildContext context, final bool hasPending) {
+  Widget _buildHorizontalLayout(
+    final BuildContext context,
+    final bool hasPending,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return LayoutBuilder(
       builder: (final context, final constraints) {
         final maxWidth = constraints.maxWidth;
         final maxHeight = constraints.maxHeight;
-        final gap = hasPending ? 4.0 : 0.0;
-        final pendingHeight = hasPending
-            ? math
-                  .min(
-                    (maxHeight * 0.46).clamp(64.0, 120.0),
-                    math.max<double>(0, maxHeight - gap - 44.0),
-                  )
-                  
-            : 0.0;
-        final boxHeight = math.max<double>(0, maxHeight - pendingHeight - gap);
-        final squareSide = math.max<double>(0, math.min(maxWidth, boxHeight));
+        const gap = 6.0;
+        final squareSide = math.max<double>(0, math.min(maxWidth, maxHeight));
+        final pendingHeight = (squareSide * 0.28).clamp(34.0, 64.0);
 
         final box = SizedBox.square(
           dimension: squareSide,
@@ -104,13 +99,25 @@ class OpponentDisplay extends StatelessWidget {
           return Center(child: box);
         }
 
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            box,
-            SizedBox(height: gap),
-            SizedBox(height: pendingHeight, child: _pendingWidget(context)),
-          ],
+        return SizedBox(
+          width: maxWidth,
+          height: maxHeight,
+          child: Stack(
+            alignment: Alignment.topCenter,
+            clipBehavior: Clip.none,
+            children: [
+              box,
+              Positioned(
+                top: squareSide + gap,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  height: pendingHeight,
+                  child: _pendingWidget(context, alignment: Alignment.center),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -119,23 +126,29 @@ class OpponentDisplay extends StatelessWidget {
   /// Vertical layout for side opponents (players 1 & 3).
   /// The player box is forced to be square via AspectRatio.
   /// Pending cards are rendered *below* the box, outside it.
-  Widget _buildVerticalLayout(final BuildContext context, final bool hasPending) {
+  Widget _buildVerticalLayout(
+    final BuildContext context,
+    final bool hasPending,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return LayoutBuilder(
       builder: (final context, final constraints) {
         final maxWidth = constraints.maxWidth;
         final maxHeight = constraints.maxHeight;
-        final sideGap = hasPending ? 6.0 : 0.0;
-        final hasSidePending =
-            hasPending && pendingPlacement != PendingPlacement.below;
-        final pendingWidth = hasSidePending
-            ? (maxWidth * 0.35).clamp(48.0, 96.0)
+        final reservesSidePendingLane =
+            pendingPlacement != PendingPlacement.below;
+        final sideGap = reservesSidePendingLane ? 6.0 : 0.0;
+        final pendingWidth = reservesSidePendingLane
+            ? (maxWidth * 0.22).clamp(24.0, 56.0)
             : 0.0;
-        final availableWidth = hasSidePending
+        final availableWidth = reservesSidePendingLane
             ? math.max<double>(0, maxWidth - pendingWidth - sideGap)
             : maxWidth;
-        final squareSide = math.max<double>(0, math.min(maxHeight, availableWidth));
+        final squareSide = math.max<double>(
+          0,
+          math.min(maxHeight, availableWidth),
+        );
 
         final box = SizedBox.square(
           dimension: squareSide,
@@ -163,11 +176,11 @@ class OpponentDisplay extends StatelessWidget {
           ),
         );
 
-        if (!hasPending) {
-          return Center(child: box);
-        }
-
         if (pendingPlacement == PendingPlacement.below) {
+          if (!hasPending) {
+            return Center(child: box);
+          }
+
           final pendingHeight = (squareSide * 0.35).clamp(48.0, 110.0);
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -178,9 +191,7 @@ class OpponentDisplay extends StatelessWidget {
                 height: pendingHeight,
                 child: Align(
                   alignment: Alignment.topCenter,
-                  child: _pendingWidget(
-                    context,
-                  ),
+                  child: _pendingWidget(context),
                 ),
               ),
             ],
@@ -190,9 +201,9 @@ class OpponentDisplay extends StatelessWidget {
         final pendingBox = SizedBox(
           width: pendingWidth,
           height: squareSide,
-          child: Align(
-            child: _pendingWidget(context, alignment: Alignment.center),
-          ),
+          child: hasPending
+              ? _pendingWidget(context, alignment: Alignment.center)
+              : const SizedBox.shrink(),
         );
 
         final rowChildren = pendingPlacement == PendingPlacement.left
@@ -200,10 +211,7 @@ class OpponentDisplay extends StatelessWidget {
             : [box, SizedBox(width: sideGap), pendingBox];
 
         return Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: rowChildren,
-          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: rowChildren),
         );
       },
     );
@@ -211,38 +219,43 @@ class OpponentDisplay extends StatelessWidget {
 
   // ───── shared building blocks ─────
 
-  BoxDecoration _boxDecoration(final ColorScheme colorScheme) => buildPlayerStateFrameDecoration(
-      isActive: isActive,
-      isFinished: isFinished,
-      borderRadius: 12,
-    );
+  BoxDecoration _boxDecoration(final ColorScheme colorScheme) =>
+      buildPlayerStateFrameDecoration(
+        isActive: isActive,
+        isFinished: isFinished,
+        borderRadius: 12,
+      );
 
-  Widget _nameRow(final BuildContext context, final ColorScheme colorScheme) => Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: colorScheme.onSurface.withValues(alpha: 0.9),
-          size: 22,
-        ),
-        const SizedBox(width: 6),
-        Text(
-          name,
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(color: Colors.white),
-        ),
-      ],
-    );
+  Widget _nameRow(final BuildContext context, final ColorScheme colorScheme) =>
+      Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: colorScheme.onSurface.withValues(alpha: 0.9),
+            size: 22,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            name,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(color: Colors.white),
+          ),
+        ],
+      );
 
   Widget _infoLine(final BuildContext context) => Text(
-      showPoints ? '$cardCount cards · $teamScore pts' : '$cardCount cards',
-      style: Theme.of(
-        context,
-      ).textTheme.bodySmall?.copyWith(color: Colors.white70),
-    );
+    showPoints ? '$cardCount cards · $teamScore pts' : '$cardCount cards',
+    style: Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+  );
 
-  Widget _statusPill(final BuildContext context, final ColorScheme colorScheme) {
+  Widget _statusPill(
+    final BuildContext context,
+    final ColorScheme colorScheme,
+  ) {
     if (!isFinished) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -260,7 +273,10 @@ class OpponentDisplay extends StatelessWidget {
     );
   }
 
-  Widget _tichuBadge(final BuildContext context, {required final bool isHorizontal}) {
+  Widget _tichuBadge(
+    final BuildContext context, {
+    required final bool isHorizontal,
+  }) {
     if (!tichuDeclared && !grandTichuDeclared) return const SizedBox.shrink();
 
     final badgeColor = grandTichuDeclared ? Colors.deepOrange : Colors.orange;
@@ -310,25 +326,26 @@ class OpponentDisplay extends StatelessWidget {
         final cardW = CardWidget.compactWidth * scale;
         final cardH = CardWidget.compactHeight * scale;
         final spacing = 6 * scale;
-        final selectedInset = 8 * scale;
-        final rowHeight = math.min(maxHeight, cardH + selectedInset + 6);
+        final rowHeight = math.min(maxHeight, cardH);
 
-        return ClipRect(
-          child: Align(
-            alignment: alignment,
-            child: OverlappingCardRow(
-              itemCount: pendingCards.length,
-              cardWidth: cardW,
-              cardHeight: cardH,
-              spacing: spacing,
-              minVisible: 10 * scale,
-              height: rowHeight,
-              itemBuilder: (final context, final index) => CardWidget(
+        return SizedBox.expand(
+          child: ClipRect(
+            child: Align(
+              alignment: alignment,
+              child: OverlappingCardRow(
+                itemCount: pendingCards.length,
+                cardWidth: cardW,
+                cardHeight: cardH,
+                spacing: spacing,
+                minVisible: 10 * scale,
+                height: rowHeight,
+                itemBuilder: (final context, final index) => CardWidget(
                   card: pendingCards[index],
-                  isSelected: true,
+                  isSelected: false,
                   compact: true,
                   scale: scale,
                 ),
+              ),
             ),
           ),
         );

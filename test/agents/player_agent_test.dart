@@ -29,7 +29,8 @@ class _FakeAgent extends PlayerAgent {
   }
 
   @override
-  Future<GameAction> selectTurn(final GameSnapshot snapshot) async => PassAction(playerId: playerId);
+  Future<GameAction> selectTurn(final GameSnapshot snapshot) async =>
+      PassAction(playerId: playerId);
 
   @override
   int selectDragonGive(final GameSnapshot snapshot) => 1;

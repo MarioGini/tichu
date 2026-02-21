@@ -31,11 +31,14 @@ List<TichuTurn> _getStraightBombs(final List<Card> cards) {
   final suitedCards = cards
       .where((final card) => card.color != CardColor.special)
       .toList();
-  final colors = CardColor.values.where((final color) => color != CardColor.special);
+  final colors = CardColor.values.where(
+    (final color) => color != CardColor.special,
+  );
 
   for (final color in colors) {
-    final colorCards = suitedCards.where((final card) => card.color == color).toList()
-      ..sort(compareCards);
+    final colorCards =
+        suitedCards.where((final card) => card.color == color).toList()
+          ..sort(compareCards);
     if (colorCards.length < 5) continue;
 
     var start = 0;

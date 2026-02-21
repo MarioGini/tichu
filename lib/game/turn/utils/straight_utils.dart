@@ -62,10 +62,15 @@ List<TichuTurn> getStraights(List<Card> cards, final int desiredLength) {
           sequence.beginIdx,
           sequence.endIdx + 1,
         );
-        if (uniqueCards[sequence.beginIdx].value != Card.getValue(CardFace.ace)) {
-          phoenixCards.add(Card.phoenix(uniqueCards[sequence.beginIdx].value + 1));
+        if (uniqueCards[sequence.beginIdx].value !=
+            Card.getValue(CardFace.ace)) {
+          phoenixCards.add(
+            Card.phoenix(uniqueCards[sequence.beginIdx].value + 1),
+          );
         } else {
-          phoenixCards.add(Card.phoenix(uniqueCards[sequence.endIdx].value - 1));
+          phoenixCards.add(
+            Card.phoenix(uniqueCards[sequence.endIdx].value - 1),
+          );
         }
         phoenixStraights.add(TichuTurn(TurnType.straight, phoenixCards));
       }
@@ -84,7 +89,9 @@ List<TichuTurn> getStraights(List<Card> cards, final int desiredLength) {
           connected[i - 1].beginIdx,
           connected[i].endIdx + 1,
         );
-        phoenixCards.add(Card.phoenix(uniqueCards[connected[i].beginIdx].value + 1));
+        phoenixCards.add(
+          Card.phoenix(uniqueCards[connected[i].beginIdx].value + 1),
+        );
         phoenixStraights.add(TichuTurn(TurnType.straight, phoenixCards));
       }
     }
@@ -98,7 +105,9 @@ List<TichuTurn> getStraights(List<Card> cards, final int desiredLength) {
     allStraights.addAll(getStraightPermutations(straight.cards));
   }
 
-  allStraights.retainWhere((final element) => element.cards.length == desiredLength);
+  allStraights.retainWhere(
+    (final element) => element.cards.length == desiredLength,
+  );
 
   // When having combinations of "pure" straights and phoenix straights, the
   // permutation logic will result in duplicated straights which are removed

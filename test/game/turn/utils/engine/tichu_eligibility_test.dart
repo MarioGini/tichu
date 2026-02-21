@@ -30,7 +30,8 @@ void main() {
         testOpponentRightId: [Card(CardFace.seven, CardColor.black)],
       },
       reservedHands: {for (final player in testPlayers) player.id: <Card>[]},
-      deck: deck ?? DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
+      deck:
+          deck ?? DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
       currentPlayerIndex: currentPlayerIndex,
       scoreTracker: LocalScoreTracker(),
       phase: GamePhase.play,

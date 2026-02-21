@@ -37,13 +37,16 @@ final _players = <GamePlayer>[
 
 Card _card(final CardFace face, final CardColor color) => Card(face, color);
 
-Map<String, List<Card>> _handsWithLast(final String lastId, final List<Card> lastHand) => {
-    _playerOneId: const <Card>[],
-    _playerTwoId: const <Card>[],
-    _playerThreeId: const <Card>[],
-    _playerFourId: const <Card>[],
-    lastId: lastHand,
-  };
+Map<String, List<Card>> _handsWithLast(
+  final String lastId,
+  final List<Card> lastHand,
+) => {
+  _playerOneId: const <Card>[],
+  _playerTwoId: const <Card>[],
+  _playerThreeId: const <Card>[],
+  _playerFourId: const <Card>[],
+  lastId: lastHand,
+};
 
 void main() {
   group('LocalScoreTracker', () {

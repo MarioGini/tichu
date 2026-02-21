@@ -26,6 +26,7 @@ class GameEngineState {
   final Map<String, bool> grandTichuDecisions = {};
   final Map<String, SchupfAction> schupfSelections = {};
   final Map<String, List<SchupfReceipt>> schupfReceipts = {};
+  final Map<String, List<Card>> schupfPendingAdditions = {};
 
   GameEngineState({
     required this.gameId,

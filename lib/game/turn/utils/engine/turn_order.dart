@@ -18,9 +18,13 @@ int nextActiveIndex(final GameEngineState state, final int startIndex) {
 
 int partnerIndex(final int index) => (index + 2) % 4;
 
-int playerIndexById(final GameEngineState state, final String playerId) => state.players.indexWhere((final player) => player.id == playerId);
+int playerIndexById(final GameEngineState state, final String playerId) =>
+    state.players.indexWhere((final player) => player.id == playerId);
 
-List<String> opponentIdsForPlayer(final GameEngineState state, final String playerId) {
+List<String> opponentIdsForPlayer(
+  final GameEngineState state,
+  final String playerId,
+) {
   final player = state.players.firstWhere((final p) => p.id == playerId);
   return state.players
       .where((final p) => p.id != playerId && (p.seat % 2 != player.seat % 2))

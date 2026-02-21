@@ -208,7 +208,10 @@ class TurnScorer {
     return false;
   }
 
-  bool _opponentTichuNearFinish(final GameSnapshot snapshot, final String playerId) {
+  bool _opponentTichuNearFinish(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
       final call = snapshot.scoreState.tichuCalls[player.id] ?? TichuCall.none;
@@ -252,7 +255,10 @@ class TurnScorer {
     return call != TichuCall.none;
   }
 
-  bool _opponentCalledTichu(final GameSnapshot snapshot, final String playerId) {
+  bool _opponentCalledTichu(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
       final call = snapshot.scoreState.tichuCalls[player.id] ?? TichuCall.none;
@@ -263,10 +269,11 @@ class TurnScorer {
     return false;
   }
 
-  bool _isUnbeatableLine(final TichuTurn play) => play.type == TurnType.straight ||
-        play.type == TurnType.pairStraight ||
-        play.type == TurnType.fullHouse ||
-        play.type == TurnType.bomb;
+  bool _isUnbeatableLine(final TichuTurn play) =>
+      play.type == TurnType.straight ||
+      play.type == TurnType.pairStraight ||
+      play.type == TurnType.fullHouse ||
+      play.type == TurnType.bomb;
 
   int _countLowSingletons(final List<Card> hand) {
     final normalCards = hand
@@ -289,11 +296,16 @@ class TurnScorer {
     return count;
   }
 
-  List<Card> _removePlayedCards(final List<Card> hand, final List<Card> played) {
+  List<Card> _removePlayedCards(
+    final List<Card> hand,
+    final List<Card> played,
+  ) {
     final remaining = List<Card>.from(hand);
     for (final card in played) {
       if (card.face == CardFace.phoenix) {
-        final index = remaining.indexWhere((final c) => c.face == CardFace.phoenix);
+        final index = remaining.indexWhere(
+          (final c) => c.face == CardFace.phoenix,
+        );
         if (index != -1) {
           remaining.removeAt(index);
         }

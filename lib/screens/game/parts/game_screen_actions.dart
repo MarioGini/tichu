@@ -87,10 +87,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     try {
       await _backend.submitAction(
         snapshot.gameId,
-        PlayTurnAction(
-          playerId: _humanId,
-          cards: playableBomb.cards,
-        ),
+        PlayTurnAction(playerId: _humanId, cards: playableBomb.cards),
       );
       setState(() {
         _selectedIndexes.clear();
@@ -142,7 +139,8 @@ mixin _GameScreenActions on _GameScreenBindings {
     if (snapshot == null) {
       return;
     }
-    if (!snapshot.canCallTichu) return;
+    final canDeclarePrePlay = snapshot.phase != GamePhase.play;
+    if (!snapshot.canCallTichu && !canDeclarePrePlay) return;
     try {
       await _backend.submitAction(
         snapshot.gameId,

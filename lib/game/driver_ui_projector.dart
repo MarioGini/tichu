@@ -109,9 +109,13 @@ class DriverUiProjector {
     required final Card? currentSchupfToPartner,
     required final Card? currentSchupfToRight,
   }) {
+    final isPendingSelfSchupf =
+        snapshot.pendingOpponentPlayerId == humanId &&
+        snapshot.pendingOpponentCards.length == 3;
     final inOwnSchupfPhase =
         snapshot.phase == GamePhase.schupf &&
-        !snapshot.schupfCompletedPlayers.contains(humanId);
+        (!snapshot.schupfCompletedPlayers.contains(humanId) ||
+            isPendingSelfSchupf);
     if (!inOwnSchupfPhase) {
       return (null, null, null);
     }
@@ -124,14 +128,13 @@ class DriverUiProjector {
       );
     }
 
-    final isPendingSelfSchupf =
-        snapshot.pendingOpponentPlayerId == humanId &&
-        snapshot.pendingOpponentCards.length == 3;
     if (isPendingSelfSchupf) {
+      // UI labels map mirrored for the bottom player:
+      // Left label reads schupfToRight, Right label reads schupfToLeft.
       return (
-        snapshot.pendingOpponentCards[0],
-        snapshot.pendingOpponentCards[1],
         snapshot.pendingOpponentCards[2],
+        snapshot.pendingOpponentCards[1],
+        snapshot.pendingOpponentCards[0],
       );
     }
 

@@ -101,5 +101,18 @@ void main() {
         isNull,
       );
     });
+
+    test('suppresses grand tichu when player already called normal tichu', () {
+      final state = _buildState();
+      state.scoreTracker.recordTichuCall(testHumanId, isGrand: false);
+
+      applyGrandTichuDecision(
+        state,
+        const GrandTichuDecisionAction(playerId: testHumanId, call: true),
+      );
+
+      expect(state.grandTichuDecisions[testHumanId], isFalse);
+      expect(state.scoreTracker.state.tichuCalls[testHumanId], TichuCall.tichu);
+    });
   });
 }

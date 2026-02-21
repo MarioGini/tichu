@@ -5,8 +5,14 @@ import 'package:tichu/game/turn/utils/card_utils.dart';
 import 'package:tichu/game/turn/utils/straight_utils.dart';
 
 abstract class TichuCallStrategy {
-  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot, final String playerId);
-  Future<bool> shouldCallTichu(final GameSnapshot snapshot, final String playerId);
+  Future<bool> shouldCallGrandTichu(
+    final GameSnapshot snapshot,
+    final String playerId,
+  );
+  Future<bool> shouldCallTichu(
+    final GameSnapshot snapshot,
+    final String playerId,
+  );
 }
 
 class DefaultTichuCallStrategy implements TichuCallStrategy {
@@ -21,7 +27,10 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
   ) async => false;
 
   @override
-  Future<bool> shouldCallTichu(final GameSnapshot snapshot, final String playerId) async {
+  Future<bool> shouldCallTichu(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async {
     final hand = snapshot.hands[playerId] ?? const <Card>[];
     return _tichuIndex(hand) >= _tichuIndexThreshold;
   }
@@ -67,5 +76,6 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
     return count;
   }
 
-  int _countFace(final List<Card> hand, final CardFace face) => hand.where((final card) => card.face == face).length;
+  int _countFace(final List<Card> hand, final CardFace face) =>
+      hand.where((final card) => card.face == face).length;
 }

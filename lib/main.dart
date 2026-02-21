@@ -10,11 +10,11 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => MaterialApp(
-      title: 'Tichu',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark,
-      home: const HomeScreen(),
-    );
+    title: 'Tichu',
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.lightTheme,
+    darkTheme: AppTheme.darkTheme,
+    themeMode: ThemeMode.dark,
+    home: const HomeScreen(),
+  );
 }

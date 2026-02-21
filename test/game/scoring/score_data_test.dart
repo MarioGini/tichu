@@ -7,13 +7,16 @@ Card _card(final CardFace face, final CardColor color) => Card(face, color);
 void main() {
   group('cardPoints map', () {
     test('contains entries only for faces with non-zero points', () {
-      expect(cardPoints.keys, containsAll([
-        CardFace.five,
-        CardFace.ten,
-        CardFace.king,
-        CardFace.dragon,
-        CardFace.phoenix,
-      ]));
+      expect(
+        cardPoints.keys,
+        containsAll([
+          CardFace.five,
+          CardFace.ten,
+          CardFace.king,
+          CardFace.dragon,
+          CardFace.phoenix,
+        ]),
+      );
       // Zero-point faces should not be in the sparse map.
       expect(cardPoints.containsKey(CardFace.two), isFalse);
       expect(cardPoints.containsKey(CardFace.ace), isFalse);

@@ -8,26 +8,29 @@ import 'package:tichu/game/turn/utils/engine/trick_resolution.dart';
 import '../../utils/test_game_fixtures.dart';
 
 void main() {
-  GameEngineState buildState() => GameEngineState(
-        gameId: 'test-game',
-        players: testPlayers,
-        hands: {for (final player in testPlayers) player.id: <Card>[]},
-        reservedHands: {for (final player in testPlayers) player.id: <Card>[]},
-        deck: DeckState(
-          TichuTurn(TurnType.single, [
-            Card(CardFace.dragon, CardColor.special),
-          ]),
-          CardFace.none,
-        ),
-        currentPlayerIndex: 1,
-        scoreTracker: LocalScoreTracker(),
-        phase: GamePhase.play,
-      )
-      ..lastPlayedBy = testHumanId
-      ..lastPlayedTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.dragon, CardColor.special),
-      ])
-      ..currentTrickCards.add(Card(CardFace.dragon, CardColor.special));
+  GameEngineState buildState() =>
+      GameEngineState(
+          gameId: 'test-game',
+          players: testPlayers,
+          hands: {for (final player in testPlayers) player.id: <Card>[]},
+          reservedHands: {
+            for (final player in testPlayers) player.id: <Card>[],
+          },
+          deck: DeckState(
+            TichuTurn(TurnType.single, [
+              Card(CardFace.dragon, CardColor.special),
+            ]),
+            CardFace.none,
+          ),
+          currentPlayerIndex: 1,
+          scoreTracker: LocalScoreTracker(),
+          phase: GamePhase.play,
+        )
+        ..lastPlayedBy = testHumanId
+        ..lastPlayedTurn = TichuTurn(TurnType.single, [
+          Card(CardFace.dragon, CardColor.special),
+        ])
+        ..currentTrickCards.add(Card(CardFace.dragon, CardColor.special));
 
   group('trick completion on lead return', () {
     test('awards trick when pass returns turn to active trick leader', () {

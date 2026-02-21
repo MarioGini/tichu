@@ -80,38 +80,38 @@ class ScoreState {
     final List<RoundScore>? rounds,
     final Map<String, TichuCall>? tichuCalls,
   }) => ScoreState(
-      roundNumber: roundNumber ?? this.roundNumber,
-      teamOneTotal: teamOneTotal ?? this.teamOneTotal,
-      teamTwoTotal: teamTwoTotal ?? this.teamTwoTotal,
-      teamOneRound: teamOneRound ?? this.teamOneRound,
-      teamTwoRound: teamTwoRound ?? this.teamTwoRound,
-      playerRoundPoints: playerRoundPoints ?? this.playerRoundPoints,
-      roundComplete: roundComplete ?? this.roundComplete,
-      targetScore: targetScore ?? this.targetScore,
-      gameComplete: gameComplete ?? this.gameComplete,
-      winningTeam: identical(winningTeam, _unset)
-          ? this.winningTeam
-          : winningTeam as int?,
-      finishOrder: finishOrder ?? this.finishOrder,
-      rounds: rounds ?? this.rounds,
-      tichuCalls: tichuCalls ?? this.tichuCalls,
-    );
+    roundNumber: roundNumber ?? this.roundNumber,
+    teamOneTotal: teamOneTotal ?? this.teamOneTotal,
+    teamTwoTotal: teamTwoTotal ?? this.teamTwoTotal,
+    teamOneRound: teamOneRound ?? this.teamOneRound,
+    teamTwoRound: teamTwoRound ?? this.teamTwoRound,
+    playerRoundPoints: playerRoundPoints ?? this.playerRoundPoints,
+    roundComplete: roundComplete ?? this.roundComplete,
+    targetScore: targetScore ?? this.targetScore,
+    gameComplete: gameComplete ?? this.gameComplete,
+    winningTeam: identical(winningTeam, _unset)
+        ? this.winningTeam
+        : winningTeam as int?,
+    finishOrder: finishOrder ?? this.finishOrder,
+    rounds: rounds ?? this.rounds,
+    tichuCalls: tichuCalls ?? this.tichuCalls,
+  );
 
   factory ScoreState.initial({final int targetScore = 1000}) => ScoreState(
-      roundNumber: 1,
-      teamOneTotal: 0,
-      teamTwoTotal: 0,
-      teamOneRound: 0,
-      teamTwoRound: 0,
-      playerRoundPoints: const {},
-      roundComplete: false,
-      targetScore: targetScore,
-      gameComplete: false,
-      winningTeam: null,
-      finishOrder: [],
-      rounds: [],
-      tichuCalls: {},
-    );
+    roundNumber: 1,
+    teamOneTotal: 0,
+    teamTwoTotal: 0,
+    teamOneRound: 0,
+    teamTwoRound: 0,
+    playerRoundPoints: const {},
+    roundComplete: false,
+    targetScore: targetScore,
+    gameComplete: false,
+    winningTeam: null,
+    finishOrder: [],
+    rounds: [],
+    tichuCalls: {},
+  );
 }
 
 abstract class ScoreTracker {
@@ -121,7 +121,10 @@ abstract class ScoreTracker {
 
   void recordTrick(final String winnerId, final List<Card> cards);
 
-  void recordPlayerFinished(final String playerId, final List<Card> remainingHand);
+  void recordPlayerFinished(
+    final String playerId,
+    final List<Card> remainingHand,
+  );
 
   void recordTichuCall(final String playerId, {required final bool isGrand});
 
@@ -155,8 +158,9 @@ class LocalScoreTracker implements ScoreTracker {
       ..addEntries(players.map((final p) => MapEntry(p.id, p.seat)));
 
     _state = _state.copyWith(
-      roundNumber:
-          _state.roundComplete ? _state.roundNumber + 1 : _state.roundNumber,
+      roundNumber: _state.roundComplete
+          ? _state.roundNumber + 1
+          : _state.roundNumber,
       roundComplete: false,
       teamOneRound: 0,
       teamTwoRound: 0,
@@ -178,16 +182,17 @@ class LocalScoreTracker implements ScoreTracker {
     final roundPoints = {..._state.playerRoundPoints};
     roundPoints[winnerId] = (roundPoints[winnerId] ?? 0) + delta;
     _state = _state.copyWith(
-      teamOneRound:
-          _state.teamOneRound + (_isTeamOne(winnerId) ? delta : 0),
-      teamTwoRound:
-          _state.teamTwoRound + (_isTeamOne(winnerId) ? 0 : delta),
+      teamOneRound: _state.teamOneRound + (_isTeamOne(winnerId) ? delta : 0),
+      teamTwoRound: _state.teamTwoRound + (_isTeamOne(winnerId) ? 0 : delta),
       playerRoundPoints: roundPoints,
     );
   }
 
   @override
-  void recordPlayerFinished(final String playerId, final List<Card> remainingHand) {
+  void recordPlayerFinished(
+    final String playerId,
+    final List<Card> remainingHand,
+  ) {
     if (_finishOrder.contains(playerId)) return;
     _finishOrder.add(playerId);
     _remainingHands[playerId] = List<Card>.from(remainingHand);
@@ -218,8 +223,7 @@ class LocalScoreTracker implements ScoreTracker {
     final (teamOneCard, teamTwoCard) = isMatch
         ? (0, 0)
         : _computeNormalCardPoints(hands);
-    final matchWinnerIsTeamOne =
-        isMatch && _isTeamOne(_finishOrder[0]);
+    final matchWinnerIsTeamOne = isMatch && _isTeamOne(_finishOrder[0]);
     var teamOneRound = isMatch ? (matchWinnerIsTeamOne ? 200 : 0) : teamOneCard;
     var teamTwoRound = isMatch ? (matchWinnerIsTeamOne ? 0 : 200) : teamTwoCard;
 

@@ -15,7 +15,11 @@ int occurrences(final CardFace face, final List<Card> cards) {
 Map<CardFace, int> getOccurrenceCount(final List<Card> cards) {
   final occurrenceCount = <CardFace, int>{};
   for (final card in cards) {
-    occurrenceCount.update(card.face, (final value) => value + 1, ifAbsent: () => 1);
+    occurrenceCount.update(
+      card.face,
+      (final value) => value + 1,
+      ifAbsent: () => 1,
+    );
   }
   return occurrenceCount;
 }
@@ -44,9 +48,10 @@ class ConnectedCards {
 
   // Override to allow testing
   @override
-  bool operator ==(final Object other) => other is ConnectedCards &&
-        beginIdx == other.beginIdx &&
-        endIdx == other.endIdx;
+  bool operator ==(final Object other) =>
+      other is ConnectedCards &&
+      beginIdx == other.beginIdx &&
+      endIdx == other.endIdx;
 
   @override
   int get hashCode => beginIdx + 5 * endIdx;

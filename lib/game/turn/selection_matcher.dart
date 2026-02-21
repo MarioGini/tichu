@@ -2,7 +2,10 @@ import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/card_utils.dart';
 
-bool selectionMatchesTurn(final List<Card> turnCards, final List<Card> selected) {
+bool selectionMatchesTurn(
+  final List<Card> turnCards,
+  final List<Card> selected,
+) {
   if (turnCards.length != selected.length) {
     return false;
   }

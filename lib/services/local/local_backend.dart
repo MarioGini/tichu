@@ -95,7 +95,10 @@ class LocalGameBackend implements GameBackend {
   }
 
   @override
-  Future<void> submitAction(final String gameId, final GameAction action) async {
+  Future<void> submitAction(
+    final String gameId,
+    final GameAction action,
+  ) async {
     final state = _games[gameId];
     if (state == null) {
       throw StateError('Unknown gameId: $gameId');
@@ -145,13 +148,14 @@ class LocalGameBackend implements GameBackend {
     state.controller.add(_buildSnapshot(state));
   }
 
-  GameSnapshot _buildSnapshot(final _LocalGameState state) => _engine.buildSnapshot(
-      state.engineState,
-      pendingOpponentPlayerId: state.pendingOpponentPlayerId,
-      pendingOpponentCards: state.pendingOpponentCards,
-      pendingOpponentPass: state.pendingOpponentPass,
-      opponentAwaitingConfirmation: state.opponentAwaitingConfirmation,
-    );
+  GameSnapshot _buildSnapshot(final _LocalGameState state) =>
+      _engine.buildSnapshot(
+        state.engineState,
+        pendingOpponentPlayerId: state.pendingOpponentPlayerId,
+        pendingOpponentCards: state.pendingOpponentCards,
+        pendingOpponentPass: state.pendingOpponentPass,
+        opponentAwaitingConfirmation: state.opponentAwaitingConfirmation,
+      );
 
   void _ensureAutomatedAgents(final List<GamePlayer> players) {
     for (final player in players) {
@@ -279,7 +283,9 @@ class LocalGameBackend implements GameBackend {
     }
   }
 
-  Future<void> _resolveSchupfForAutomatedPlayers(final _LocalGameState state) async {
+  Future<void> _resolveSchupfForAutomatedPlayers(
+    final _LocalGameState state,
+  ) async {
     final snapshot = _buildSnapshot(state);
     for (final player in state.engineState.players) {
       if (state.engineState.phase != GamePhase.schupf) {
@@ -342,7 +348,10 @@ class LocalGameBackend implements GameBackend {
     await Future<void>.delayed(_automatedActionDelay);
   }
 
-  void _autoResolveDragonGive(final _LocalGameState state, final String winnerId) {
+  void _autoResolveDragonGive(
+    final _LocalGameState state,
+    final String winnerId,
+  ) {
     final opponentIds = _engine.opponentIds(state.engineState, winnerId);
     if (opponentIds.isEmpty) {
       return;

@@ -25,11 +25,17 @@ abstract class GameEngine {
     final bool opponentAwaitingConfirmation = false,
   });
 
-  PlayerSnapshot buildPlayerSnapshot(final GameSnapshot snapshot, final String playerId);
+  PlayerSnapshot buildPlayerSnapshot(
+    final GameSnapshot snapshot,
+    final String playerId,
+  );
 
   bool hasPendingHumanSchupfReceipts(final GameEngineState state);
 
-  bool shouldPauseForAutomatedOpponent(final GameEngineState state, final String actorId);
+  bool shouldPauseForAutomatedOpponent(
+    final GameEngineState state,
+    final String actorId,
+  );
 
   List<String> opponentIds(final GameEngineState state, final String playerId);
 }

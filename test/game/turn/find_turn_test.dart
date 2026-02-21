@@ -10,7 +10,10 @@ void main() {
     });
     test('phoenixTest', () {
       const testCard = Card.phoenix(8.5);
-      expect(checkSingle(testCard), TichuTurn(TurnType.single, const [testCard]));
+      expect(
+        checkSingle(testCard),
+        TichuTurn(TurnType.single, const [testCard]),
+      );
     });
     test('dragonTest', () {
       final testCard = Card(CardFace.dragon, CardColor.special);
@@ -30,7 +33,10 @@ void main() {
       expect(checkForPair(cards), TichuTurn(TurnType.pair, cards));
     });
     test('phoenixInvalidTest', () {
-      final cards = <Card>[Card(CardFace.five, CardColor.blue), const Card.phoenix(4)];
+      final cards = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        const Card.phoenix(4),
+      ];
       expect(checkForPair(cards), TichuTurn(TurnType.pair, cards));
     });
     test('phoenixFromHandSelection', () {
@@ -45,7 +51,10 @@ void main() {
       expect(getTurn(cards), TichuTurn(TurnType.pair, expected));
     });
     test('phoenixValidTest', () {
-      final cards = <Card>[Card(CardFace.five, CardColor.blue), const Card.phoenix(5)];
+      final cards = <Card>[
+        Card(CardFace.five, CardColor.blue),
+        const Card.phoenix(5),
+      ];
       expect(checkForPair(cards), TichuTurn(TurnType.pair, cards));
     });
 

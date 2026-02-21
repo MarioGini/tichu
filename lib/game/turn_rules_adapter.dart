@@ -10,7 +10,8 @@ class TurnRulesAdapter {
   TurnRulesAdapter({final TurnHandler? turnHandler})
     : _turnHandler = turnHandler ?? TurnHandler();
 
-  TichuTurn detectTurn(final List<Card> cards) => getTurn(List<Card>.from(cards));
+  TichuTurn detectTurn(final List<Card> cards) =>
+      getTurn(List<Card>.from(cards));
 
   DeckState tryApplyTurn(
     final DeckState deck,
@@ -18,15 +19,17 @@ class TurnRulesAdapter {
     final CardFace inputWish, {
     final List<Card>? hand,
   }) => _turnHandler.handleTurn(
-      deck,
-      List<Card>.from(cards),
-      inputWish,
-      hand: hand,
-    );
+    deck,
+    List<Card>.from(cards),
+    inputWish,
+    hand: hand,
+  );
 
-  List<TichuTurn> legalTurns(final DeckState deck, final List<Card> hand) => generateLegalTurns(deck, List<Card>.from(hand));
+  List<TichuTurn> legalTurns(final DeckState deck, final List<Card> hand) =>
+      generateLegalTurns(deck, List<Card>.from(hand));
 
-  List<TichuTurn> bombsInHand(final List<Card> hand) => getBombs(List<Card>.from(hand));
+  List<TichuTurn> bombsInHand(final List<Card> hand) =>
+      getBombs(List<Card>.from(hand));
 
   bool hasBomb(final List<Card> hand) => hasBombInHand(hand);
 

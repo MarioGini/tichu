@@ -298,7 +298,10 @@ class SmartAiAgent extends PlayerAgent {
   /// Select phoenix value for a play. The move generator already assigns
   /// appropriate phoenix values (deck.value + 0.5 for singles, matching value
   /// for combos), so this is mainly for the interface contract.
-  double selectPhoenixValue(final DeckState deck, final List<Card> selectedCards) {
+  double selectPhoenixValue(
+    final DeckState deck,
+    final List<Card> selectedCards,
+  ) {
     final phoenix = selectedCards
         .where((final c) => c.face == CardFace.phoenix)
         .toList();

@@ -17,7 +17,10 @@ void main() {
     });
 
     test('tryApplyTurn returns valid deck for legal single on empty trick', () {
-      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
+      final deck = DeckState(
+        TichuTurn(TurnType.empty, const []),
+        CardFace.none,
+      );
       final card = Card(CardFace.nine, CardColor.black);
 
       final updated = adapter.tryApplyTurn(
@@ -31,7 +34,10 @@ void main() {
     });
 
     test('legalTurns returns playable options when turn is empty', () {
-      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
+      final deck = DeckState(
+        TichuTurn(TurnType.empty, const []),
+        CardFace.none,
+      );
       final hand = [
         Card(CardFace.ace, CardColor.green),
         Card(CardFace.king, CardColor.red),

@@ -53,7 +53,9 @@ void main() {
     await quickAssignFirstAvailable();
     await quickAssignFirstAvailable();
 
-    Finder cardFinder(final Card card) => find.byWidgetPredicate((final widget) => widget is CardWidget && widget.card == card);
+    Finder cardFinder(final Card card) => find.byWidgetPredicate(
+      (final widget) => widget is CardWidget && widget.card == card,
+    );
 
     final firstCenter = tester.getCenter(cardFinder(hand[0]));
     final secondCenter = tester.getCenter(cardFinder(hand[1]));

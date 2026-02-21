@@ -1,16 +1,13 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 
 class SoundEffects {
-  static const String _dogAsset = 'assets/sfx/woof_woof.mp3';
+  static const String _dogAsset = 'assets/sfx/dog.mp3';
   static const String _bombAsset = 'assets/sfx/bomb.mp3';
 
-  static final AudioPlayer _player = AudioPlayer()
-    ..setReleaseMode(ReleaseMode.stop);
-  static Map<String, dynamic>? _assetManifest;
+  static AudioPlayer? _player;
+  static Set<String>? _assetManifest;
+  static bool _audioSupported = true;
 
   static Future<void> playDog() async {
     await _playAsset(_dogAsset, SystemSoundType.click);
@@ -24,26 +21,60 @@ class SoundEffects {
     final String assetPath,
     final SystemSoundType fallback,
   ) async {
-    final assetKey = assetPath.replaceFirst('assets/', '');
+    final relativeAssetPath = assetPath.startsWith('assets/')
+        ? assetPath.substring('assets/'.length)
+        : assetPath;
+
     try {
       final exists = await _assetExists(assetPath);
       if (exists) {
-        await _player.stop();
-        await _player.play(AssetSource(assetKey));
+        final player = await _getPlayer();
+        if (player == null) {
+          await SystemSound.play(fallback);
+          return;
+        }
+        await player.stop();
+        try {
+          await player.play(AssetSource(relativeAssetPath));
+        } on Object {
+          await player.play(AssetSource(assetPath));
+        }
         return;
       }
-    } on Exception catch (_) {
+    } on Object catch (_) {
       // Ignore and fall back to system sound.
     }
 
-    unawaited(SystemSound.play(fallback));
+    await SystemSound.play(fallback);
   }
 
   static Future<bool> _assetExists(final String assetPath) async {
     if (_assetManifest == null) {
-      final manifestString = await rootBundle.loadString('AssetManifest.json');
-      _assetManifest = json.decode(manifestString) as Map<String, dynamic>;
+      try {
+        final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+        _assetManifest = manifest.listAssets().toSet();
+      } on Object {
+        _assetManifest = <String>{};
+      }
     }
-    return _assetManifest!.containsKey(assetPath);
+    return _assetManifest!.contains(assetPath);
+  }
+
+  static Future<AudioPlayer?> _getPlayer() async {
+    if (!_audioSupported) {
+      return null;
+    }
+
+    try {
+      final player = _player ?? AudioPlayer();
+      if (_player == null) {
+        await player.setReleaseMode(ReleaseMode.stop);
+        _player = player;
+      }
+      return _player;
+    } on Object {
+      _audioSupported = false;
+      return null;
+    }
   }
 }

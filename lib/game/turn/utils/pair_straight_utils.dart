@@ -1,7 +1,10 @@
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/card_utils.dart';
 
-List<TichuTurn> getPairStraights(final List<Card> cards, final int desiredLength) {
+List<TichuTurn> getPairStraights(
+  final List<Card> cards,
+  final int desiredLength,
+) {
   final pairStraights = <TichuTurn>[];
 
   cards.removeWhere(
@@ -32,7 +35,9 @@ List<TichuTurn> getPairStraights(final List<Card> cards, final int desiredLength
   // Look for consecutive pairs. findConnectedCards expects a unique list as
   // input. The output is mapped to the indices of the paired list.
   final pairIndices = findConnectedCards(
-    pairCards.where((final element) => pairCards.indexOf(element).isEven).toList(),
+    pairCards
+        .where((final element) => pairCards.indexOf(element).isEven)
+        .toList(),
   ).map((final e) => ConnectedCards(2 * e.beginIdx, 2 * e.endIdx)).toList();
 
   // Add connected pairs as tichu turns.
@@ -52,7 +57,9 @@ List<TichuTurn> getPairStraights(final List<Card> cards, final int desiredLength
     for (var i = 0; i < pairIndices.length - 1; ++i) {
       final gapValue = pairCards[pairIndices[i].endIdx].value - 1.0;
       if (gapValue == pairCards[pairIndices[i + 1].beginIdx].value + 1.0 &&
-          cards.where((final element) => element.value == gapValue).isNotEmpty) {
+          cards
+              .where((final element) => element.value == gapValue)
+              .isNotEmpty) {
         pairStraights.add(
           addPhoenixPadding(
             cards,
@@ -67,7 +74,9 @@ List<TichuTurn> getPairStraights(final List<Card> cards, final int desiredLength
     for (var i = 0; i < pairIndices.length; ++i) {
       // Add upper padding when possible
       final desValue = pairCards[pairIndices[i].beginIdx].value + 1.0;
-      if (cards.where((final element) => element.value == desValue).isNotEmpty) {
+      if (cards
+          .where((final element) => element.value == desValue)
+          .isNotEmpty) {
         pairStraights.add(
           addPhoenixPadding(
             cards,
@@ -80,7 +89,9 @@ List<TichuTurn> getPairStraights(final List<Card> cards, final int desiredLength
       }
       // Add lower padding when possible
       final desLowerValue = pairCards[pairIndices[i].endIdx].value - 1.0;
-      if (cards.where((final element) => element.value == desLowerValue).isNotEmpty) {
+      if (cards
+          .where((final element) => element.value == desLowerValue)
+          .isNotEmpty) {
         pairStraights.add(
           addPhoenixPadding(
             cards,

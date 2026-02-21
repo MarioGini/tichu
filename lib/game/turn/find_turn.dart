@@ -41,10 +41,10 @@ TichuTurn getTurn(final List<Card> cards) {
 }
 
 bool _hasUnassignedPhoenix(final List<Card> cards) => cards.any(
-    (final card) =>
-        card.face == CardFace.phoenix &&
-        card.value == Card.getValue(CardFace.phoenix),
-  );
+  (final card) =>
+      card.face == CardFace.phoenix &&
+      card.value == Card.getValue(CardFace.phoenix),
+);
 
 TichuTurn _resolvePhoenixTurn(final List<Card> cards) {
   final phoenixCount = cards
@@ -107,13 +107,20 @@ TichuTurn _resolvePhoenixTurn(final List<Card> cards) {
   return TichuTurn.InvalidTurn();
 }
 
-List<Card> _withPhoenixValue(final List<Card> cards, final double value) => cards
-      .map((final card) => card.face == CardFace.phoenix ? Card.phoenix(value) : card)
-      .toList();
+List<Card> _withPhoenixValue(final List<Card> cards, final double value) =>
+    cards
+        .map(
+          (final card) =>
+              card.face == CardFace.phoenix ? Card.phoenix(value) : card,
+        )
+        .toList();
 
 TichuTurn? _bestTurn(final List<TichuTurn> turns) {
   if (turns.isEmpty) return null;
-  return turns.reduce((final current, final next) => compareTurns(current, next) <= 0 ? current : next);
+  return turns.reduce(
+    (final current, final next) =>
+        compareTurns(current, next) <= 0 ? current : next,
+  );
 }
 
 // A single card can be either of turn type dog, dragon or single.
@@ -137,9 +144,8 @@ TichuTurn checkForPair(final List<Card> cards) {
   return possibleTurn;
 }
 
-bool _isForbiddenPairFace(final CardFace face) => face == CardFace.mahJong ||
-      face == CardFace.dragon ||
-      face == CardFace.dog;
+bool _isForbiddenPairFace(final CardFace face) =>
+    face == CardFace.mahJong || face == CardFace.dragon || face == CardFace.dog;
 
 TichuTurn checkForTriplet(final List<Card> cards) {
   var possibleTurn = TichuTurn.InvalidTurn();

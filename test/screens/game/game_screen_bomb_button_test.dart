@@ -7,7 +7,9 @@ import '../../utils/test_game_backend.dart';
 import '../../utils/test_game_fixtures.dart';
 
 void main() {
-  testWidgets('enables bomb button when hand contains bomb', (final tester) async {
+  testWidgets('enables bomb button when hand contains bomb', (
+    final tester,
+  ) async {
     final backend = FakeGameBackend();
 
     await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
@@ -21,7 +23,12 @@ void main() {
     ];
 
     backend.emit(
-      buildPlayerSnapshot(hand: bombHand, currentPlayerId: testHumanId),
+      buildPlayerSnapshot(
+        hand: bombHand,
+        currentPlayerId: testOpponentLeftId,
+        hasBombInHand: true,
+        canBomb: true,
+      ),
     );
 
     await tester.pump();

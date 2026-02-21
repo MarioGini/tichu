@@ -100,7 +100,8 @@ void main() {
         hand: [dog, _card(CardFace.five, CardColor.red)],
       );
       final handler = _FakeTurnHandler(
-        (final deck, final cards, final wish) => DeckState(TichuTurn(TurnType.dog, cards), wish),
+        (final deck, final cards, final wish) =>
+            DeckState(TichuTurn(TurnType.dog, cards), wish),
       );
 
       applyPlayAction(

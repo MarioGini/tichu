@@ -31,7 +31,9 @@ void removeCardsFromHand(final List<Card> hand, final List<Card> cards) {
   }
 }
 
-(Card toLeft, Card toPartner, Card toRight) fallbackSchupf(final List<Card> hand) {
+(Card toLeft, Card toPartner, Card toRight) fallbackSchupf(
+  final List<Card> hand,
+) {
   if (hand.length < 3) {
     throw StateError('Not enough cards to schupf.');
   }

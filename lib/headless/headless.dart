@@ -131,7 +131,10 @@ class _HeadlessRunner {
     }
   }
 
-  void _emitGrandTichuDecisions(final GameSnapshot snapshot, final GameSnapshot previous) {
+  void _emitGrandTichuDecisions(
+    final GameSnapshot snapshot,
+    final GameSnapshot previous,
+  ) {
     for (final entry in snapshot.grandTichuDecisions.entries) {
       if (previous.grandTichuDecisions.containsKey(entry.key)) {
         continue;
@@ -149,7 +152,10 @@ class _HeadlessRunner {
     }
   }
 
-  void _emitSchupfReceipts(final GameSnapshot snapshot, final GameSnapshot previous) {
+  void _emitSchupfReceipts(
+    final GameSnapshot snapshot,
+    final GameSnapshot previous,
+  ) {
     if (previous.phase == GamePhase.schupf &&
         snapshot.phase == GamePhase.play) {
       for (final entry in snapshot.schupfReceipts.entries) {
@@ -195,7 +201,10 @@ class _HeadlessRunner {
     );
   }
 
-  void _emitTurnResolution(final GameSnapshot snapshot, final GameSnapshot previous) {
+  void _emitTurnResolution(
+    final GameSnapshot snapshot,
+    final GameSnapshot previous,
+  ) {
     if (snapshot.lastPlayedTurn == null) {
       return;
     }
@@ -213,7 +222,10 @@ class _HeadlessRunner {
     );
   }
 
-  void _emitDragonGive(final GameSnapshot snapshot, final GameSnapshot previous) {
+  void _emitDragonGive(
+    final GameSnapshot snapshot,
+    final GameSnapshot previous,
+  ) {
     if (snapshot.lastDragonGiveBy == null ||
         snapshot.lastDragonGiveTo == null) {
       return;
@@ -281,10 +293,12 @@ class _HeadlessRunner {
       return;
     }
 
-    unawaited(backend.submitAction(
-      gameId,
-      ConfirmOpponentTurnAction(playerId: snapshot.pendingOpponentPlayerId!),
-    ));
+    unawaited(
+      backend.submitAction(
+        gameId,
+        ConfirmOpponentTurnAction(playerId: snapshot.pendingOpponentPlayerId!),
+      ),
+    );
   }
 
   void _writeHeader() {
@@ -423,28 +437,28 @@ void _printUsage() {
 }
 
 List<GamePlayer> _buildAutomatedPlayers() => const [
-    GamePlayer(
-      id: 'auto_1',
-      name: 'Opponent 1',
-      seat: 0,
-      type: PlayerType.automated,
-    ),
-    GamePlayer(
-      id: 'auto_2',
-      name: 'Opponent 2',
-      seat: 1,
-      type: PlayerType.automated,
-    ),
-    GamePlayer(
-      id: 'auto_3',
-      name: 'Opponent 3',
-      seat: 2,
-      type: PlayerType.automated,
-    ),
-    GamePlayer(
-      id: 'auto_4',
-      name: 'Opponent 4',
-      seat: 3,
-      type: PlayerType.automated,
-    ),
-  ];
+  GamePlayer(
+    id: 'auto_1',
+    name: 'Opponent 1',
+    seat: 0,
+    type: PlayerType.automated,
+  ),
+  GamePlayer(
+    id: 'auto_2',
+    name: 'Opponent 2',
+    seat: 1,
+    type: PlayerType.automated,
+  ),
+  GamePlayer(
+    id: 'auto_3',
+    name: 'Opponent 3',
+    seat: 2,
+    type: PlayerType.automated,
+  ),
+  GamePlayer(
+    id: 'auto_4',
+    name: 'Opponent 4',
+    seat: 3,
+    type: PlayerType.automated,
+  ),
+];

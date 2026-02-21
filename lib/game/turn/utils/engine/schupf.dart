@@ -3,7 +3,10 @@ import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/hand_utils.dart';
 
-void applySchupfSelection(final GameEngineState state, final SchupfAction action) {
+void applySchupfSelection(
+  final GameEngineState state,
+  final SchupfAction action,
+) {
   if (state.schupfSelections.containsKey(action.playerId)) {
     return;
   }
@@ -34,9 +37,17 @@ void applyAcknowledgeSchupf(
   final AcknowledgeSchupfAction action,
 ) {
   state.schupfReceipts.remove(action.playerId);
+  final pendingCards = state.schupfPendingAdditions.remove(action.playerId);
+  if (pendingCards != null && pendingCards.isNotEmpty) {
+    final hand = state.hands[action.playerId];
+    hand?.addAll(pendingCards);
+  }
 }
 
-bool hasPendingSchupfReceiptsForPlayer(final GameEngineState state, final String playerId) {
+bool hasPendingSchupfReceiptsForPlayer(
+  final GameEngineState state,
+  final String playerId,
+) {
   final player = state.players.firstWhere(
     (final p) => p.id == playerId,
     orElse: () => state.players.first,
@@ -72,7 +83,9 @@ void _maybeFinalizeSchupf(final GameEngineState state) {
   for (final entry in state.schupfSelections.entries) {
     final sourceId = entry.key;
     final selection = entry.value;
-    final sourcePlayer = state.players.firstWhere((final p) => p.id == sourceId);
+    final sourcePlayer = state.players.firstWhere(
+      (final p) => p.id == sourceId,
+    );
     final leftId = seatToPlayer[(sourcePlayer.seat + 1) % 4]!;
     final partnerId = seatToPlayer[(sourcePlayer.seat + 2) % 4]!;
     final rightId = seatToPlayer[(sourcePlayer.seat + 3) % 4]!;
@@ -111,12 +124,13 @@ void _maybeFinalizeSchupf(final GameEngineState state) {
     );
   }
 
-  for (final entry in additions.entries) {
-    final hand = state.hands[entry.key];
-    hand?.addAll(entry.value);
-  }
-
   state.schupfSelections.clear();
+  state.schupfPendingAdditions
+    ..clear()
+    ..addAll({
+      for (final entry in additions.entries)
+        entry.key: List<Card>.from(entry.value),
+    });
   state.schupfReceipts
     ..clear()
     ..addAll(receipts);

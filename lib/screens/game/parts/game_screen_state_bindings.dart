@@ -58,6 +58,9 @@ mixin _GameScreenBindings on State<GameScreen> {
   Card? get _schupfToRight;
   set _schupfToRight(final Card? value);
 
+  List<Card> get _schupfSentCards;
+  set _schupfSentCards(final List<Card> value);
+
   Timer? get _autoConfirmTimer;
   set _autoConfirmTimer(final Timer? value);
 

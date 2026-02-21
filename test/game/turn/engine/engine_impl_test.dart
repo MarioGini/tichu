@@ -79,6 +79,52 @@ void main() {
       );
     });
 
+    test('allows calling tichu during grand tichu phase', () {
+      final engine = GameEngineImpl();
+      final state = _state(phase: GamePhase.grandTichu);
+
+      engine.applyAction(state, const CallTichuAction(playerId: testHumanId));
+
+      expect(state.scoreTracker.state.tichuCalls[testHumanId], TichuCall.tichu);
+      expect(state.grandTichuDecisions[testHumanId], isFalse);
+      expect(state.currentPlayerIndex, 1);
+    });
+
+    test('disallows grand tichu if player already called tichu', () {
+      final engine = GameEngineImpl();
+      final state = _state(phase: GamePhase.grandTichu);
+
+      engine.applyAction(state, const CallTichuAction(playerId: testHumanId));
+
+      engine.applyAction(
+        state,
+        const GrandTichuDecisionAction(
+          playerId: testOpponentLeftId,
+          call: false,
+        ),
+      );
+      engine.applyAction(
+        state,
+        const GrandTichuDecisionAction(
+          playerId: testOpponentPartnerId,
+          call: false,
+        ),
+      );
+      engine.applyAction(
+        state,
+        const GrandTichuDecisionAction(
+          playerId: testOpponentRightId,
+          call: false,
+        ),
+      );
+
+      expect(state.scoreTracker.state.tichuCalls[testHumanId], TichuCall.tichu);
+      expect(
+        state.scoreTracker.state.tichuCalls[testHumanId],
+        isNot(TichuCall.grandTichu),
+      );
+    });
+
     test('requires schupf action during schupf phase', () {
       final engine = GameEngineImpl();
       final state = _state(phase: GamePhase.schupf);

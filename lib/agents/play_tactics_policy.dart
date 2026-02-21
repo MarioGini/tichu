@@ -28,7 +28,11 @@ class PlayTacticsPolicy {
         deck.turn.type != TurnType.empty &&
         deck.turn.type != TurnType.none &&
         deck.turn.type != TurnType.dog;
-    final mustFulfillWish = mahJong(deck, TichuTurn(TurnType.none, const []), hand);
+    final mustFulfillWish = mahJong(
+      deck,
+      TichuTurn(TurnType.none, const []),
+      hand,
+    );
 
     if (mustFulfillWish) {
       return null;
@@ -176,7 +180,10 @@ class PlayTacticsPolicy {
       return const <TichuTurn>[];
     }
     return legalTurns
-        .where((final turn) => turn.cards.any((final card) => card.face == deck.wish))
+        .where(
+          (final turn) =>
+              turn.cards.any((final card) => card.face == deck.wish),
+        )
         .toList();
   }
 
@@ -201,7 +208,10 @@ class PlayTacticsPolicy {
     }
 
     final mahjongTurns = legalTurns
-        .where((final turn) => turn.cards.any((final c) => c.face == CardFace.mahJong))
+        .where(
+          (final turn) =>
+              turn.cards.any((final c) => c.face == CardFace.mahJong),
+        )
         .toList();
     if (mahjongTurns.isEmpty) {
       return null;
@@ -262,7 +272,9 @@ class PlayTacticsPolicy {
   }) {
     if (deck.turn.type != TurnType.single) return null;
 
-    final singles = legalTurns.where((final t) => t.type == TurnType.single).toList();
+    final singles = legalTurns
+        .where((final t) => t.type == TurnType.single)
+        .toList();
     if (singles.isEmpty) return null;
 
     // Count how many times each face appears in the hand (ignoring specials

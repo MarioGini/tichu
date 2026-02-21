@@ -79,7 +79,10 @@ void main() {
   group('handleTurn recognizes triplet/full house plays', () {
     test('accepts triplet on empty deck', () {
       final handler = TurnHandler();
-      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
+      final deck = DeckState(
+        TichuTurn(TurnType.empty, const []),
+        CardFace.none,
+      );
       final selected = <Card>[
         Card(CardFace.queen, CardColor.red),
         Card(CardFace.queen, CardColor.blue),
@@ -99,7 +102,10 @@ void main() {
 
     test('accepts full house on empty deck', () {
       final handler = TurnHandler();
-      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
+      final deck = DeckState(
+        TichuTurn(TurnType.empty, const []),
+        CardFace.none,
+      );
       final selected = <Card>[
         Card(CardFace.queen, CardColor.red),
         Card(CardFace.queen, CardColor.blue),
@@ -121,7 +127,10 @@ void main() {
 
     test('accepts pair with phoenix on empty deck', () {
       final handler = TurnHandler();
-      final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
+      final deck = DeckState(
+        TichuTurn(TurnType.empty, const []),
+        CardFace.none,
+      );
       final selected = <Card>[
         Card(CardFace.queen, CardColor.red),
         const Card.phoenix(2),

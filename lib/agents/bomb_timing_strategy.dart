@@ -20,6 +20,6 @@ class DefaultBombTimingStrategy implements BombTimingStrategy {
     final TichuTurn bomb,
     final List<Card> hand,
   ) =>
-    // Conservative default: allow bombs only when there are no non-bomb plays.
-    false;
+      // Conservative default: allow bombs only when there are no non-bomb plays.
+      false;
 }

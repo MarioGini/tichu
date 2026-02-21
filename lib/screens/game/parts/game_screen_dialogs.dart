@@ -8,135 +8,75 @@ mixin _GameScreenDialogs on _GameScreenBindings {
 
     _lastDialogRoundNumber = scoreState.roundNumber;
     _roundCompleteAcknowledged = false;
-
-    // In AI-self mode, auto-continue after a brief pause so the user can
-    // see the scoreboard without needing to click through.
-    if (!_isSelfManual && !scoreState.gameComplete) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        setState(() {
-          _roundCompleteAcknowledged = true;
-        });
-        unawaited(_startRound());
-      });
-      return;
-    }
+    final tichuSuccessMessage = _buildTichuSuccessMessage(snapshot);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (final context) {
-          if (scoreState.gameComplete) {
-            final winnerLabel = switch (scoreState.winningTeam) {
-              0 => 'Your team wins!',
-              1 => 'Other team wins!',
-              _ => "It's a tie!",
-            };
-            return AlertDialog(
-              title: const Text('Match complete'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildScoreSummaryTable(context, scoreState),
-                  const SizedBox(height: 12),
-                  Text('Target: ${scoreState.targetScore} points'),
-                  const SizedBox(height: 12),
-                  Text(
-                    winnerLabel,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pop();
+
+      if (tichuSuccessMessage != null) {
+        await _showTichuSuccessBeforeSummary(tichuSuccessMessage);
+        if (!mounted) return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (final context) => RoundSummaryScreen(
+            scoreState: scoreState,
+            onBackHome: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
+            },
+            onStartNextRound: scoreState.gameComplete
+                ? null
+                : () async {
+                    setState(() {
+                      _roundCompleteAcknowledged = true;
+                    });
+                    await _startRound();
                   },
-                  child: const Text('Back to home'),
-                ),
-              ],
-            );
-          }
-          return AlertDialog(
-            title: Text('Round ${scoreState.roundNumber} complete'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [_buildScoreSummaryTable(context, scoreState)],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _roundCompleteAcknowledged = true;
-                  });
-                  Navigator.of(context).pop();
-                  unawaited(_startRound());
-                },
-                child: const Text('Start next round'),
-              ),
-            ],
-          );
-        },
+          ),
+        ),
       );
     });
   }
 
-  Widget _buildScoreSummaryTable(final BuildContext context, final ScoreState scoreState) {
-    if (scoreState.rounds.isEmpty) {
-      return const Text('No scoring data yet.');
-    }
-
-    final headerStyle = Theme.of(context).textTheme.labelLarge;
-    final numberStyle = Theme.of(context).textTheme.bodyMedium;
-
-    final rows = <TableRow>[
-      TableRow(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        ),
-        children: [
-          _ScoreSummaryCell('Round', style: headerStyle),
-          _ScoreSummaryCell('Your team', style: headerStyle),
-          _ScoreSummaryCell('Other team', style: headerStyle),
-        ],
-      ),
-      ...scoreState.rounds.map(
-        (final round) => TableRow(
-          children: [
-            _ScoreSummaryCell('${round.roundNumber}', style: numberStyle),
-            _ScoreSummaryCell('${round.teamOnePoints}', style: numberStyle),
-            _ScoreSummaryCell('${round.teamTwoPoints}', style: numberStyle),
-          ],
-        ),
-      ),
-      TableRow(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        ),
-        children: [
-          _ScoreSummaryCell('Total', style: headerStyle),
-          _ScoreSummaryCell('${scoreState.teamOneTotal}', style: headerStyle),
-          _ScoreSummaryCell('${scoreState.teamTwoTotal}', style: headerStyle),
-        ],
-      ),
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Table(
-        defaultColumnWidth: const IntrinsicColumnWidth(),
-        border: TableBorder.all(
-          color: Theme.of(context).dividerColor,
-          width: 0.5,
-        ),
-        children: rows,
+  Future<void> _showTichuSuccessBeforeSummary(final String message) async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierColor: Colors.transparent,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder:
+            (final context, final animation, final secondaryAnimation) =>
+                _PreRoundTichuCelebration(message: message),
       ),
     );
+  }
+
+  String? _buildTichuSuccessMessage(final PlayerSnapshot snapshot) {
+    final finishOrder = snapshot.scoreState.finishOrder;
+    if (finishOrder.isEmpty) return null;
+
+    final winningPlayerId = finishOrder.first;
+    final winningTichuCall = snapshot.scoreState.tichuCalls[winningPlayerId];
+    if (winningTichuCall == null || winningTichuCall == TichuCall.none) {
+      return null;
+    }
+
+    var winningPlayerName = 'Unknown';
+    for (final player in snapshot.players) {
+      if (player.id == winningPlayerId) {
+        winningPlayerName = player.name;
+        break;
+      }
+    }
+
+    final callLabel = winningTichuCall == TichuCall.grandTichu
+        ? 'Grand Tichu'
+        : 'Tichu';
+    return '$winningPlayerName successfully called $callLabel!';
   }
 
   void _maybeShowDragonGiveDialog(final PlayerSnapshot snapshot) {
@@ -154,18 +94,18 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         context: context,
         barrierDismissible: false,
         builder: (final context) => AlertDialog(
-            title: const Text('Who receives the dragon?'),
-            actionsAlignment: MainAxisAlignment.center,
-            actions: targetIds.map((final targetId) {
-              final name = snapshot.players
-                  .firstWhere((final player) => player.id == targetId)
-                  .name;
-              return TextButton(
-                onPressed: () => Navigator.of(context).pop(targetId),
-                child: Text(name),
-              );
-            }).toList(),
-          ),
+          title: const Text('Who receives the dragon?'),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: targetIds.map((final targetId) {
+            final name = snapshot.players
+                .firstWhere((final player) => player.id == targetId)
+                .name;
+            return TextButton(
+              onPressed: () => Navigator.of(context).pop(targetId),
+              child: Text(name),
+            );
+          }).toList(),
+        ),
       );
 
       _dragonGiveDialogOpen = false;
@@ -182,7 +122,9 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     });
   }
 
-  List<String> _orderDragonGiveTargetsForDisplay(final PlayerSnapshot snapshot) {
+  List<String> _orderDragonGiveTargetsForDisplay(
+    final PlayerSnapshot snapshot,
+  ) {
     final targetIds = List<String>.from(snapshot.pendingDragonGiveTargets);
     final seatById = {
       for (final player in snapshot.players) player.id: player.seat,
@@ -222,6 +164,8 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     if (snapshot.phase != GamePhase.grandTichu) return false;
     if (snapshot.currentPlayerId != _humanId) return false;
     if (snapshot.grandTichuDecisions.containsKey(_humanId)) return false;
+    final humanCall = snapshot.scoreState.tichuCalls[_humanId];
+    if (humanCall != null && humanCall != TichuCall.none) return false;
     return true;
   }
 
@@ -278,7 +222,16 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       builder: (final context) {
         var selected = initialChoice;
         return StatefulBuilder(
-          builder: (final context, final setState) => AlertDialog(
+          builder: (final context, final setState) => Focus(
+            autofocus: true,
+            onKeyEvent: (final node, final event) =>
+                handleDirectionalEnterKeyEvent(
+                  event,
+                  onEnter: () => Navigator.of(context).pop(selected),
+                  onLeft: () {},
+                  onRight: () {},
+                ),
+            child: AlertDialog(
               title: const Text('Declare a wish'),
               content: SizedBox(
                 width: 360,
@@ -321,6 +274,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
                 ),
               ],
             ),
+          ),
         );
       },
     );
@@ -376,6 +330,11 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         ),
       );
       setState(() {
+        _schupfSentCards = <Card>[
+          _schupfToLeft!,
+          _schupfToPartner!,
+          _schupfToRight!,
+        ];
         _defaultWishFaceFromSchupf = wishDefault;
         _defaultWishRoundNumber = snapshot.scoreState.roundNumber;
         _selectedIndexes.clear();
@@ -389,15 +348,90 @@ mixin _GameScreenDialogs on _GameScreenBindings {
   }
 }
 
-class _ScoreSummaryCell extends StatelessWidget {
-  final String text;
-  final TextStyle? style;
+class _PreRoundTichuCelebration extends StatefulWidget {
+  const _PreRoundTichuCelebration({required this.message});
 
-  const _ScoreSummaryCell(this.text, {this.style});
+  final String message;
 
   @override
-  Widget build(final BuildContext context) => Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Text(text, style: style),
+  State<_PreRoundTichuCelebration> createState() =>
+      _PreRoundTichuCelebrationState();
+}
+
+class _PreRoundTichuCelebrationState extends State<_PreRoundTichuCelebration>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<Offset> _slide;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 560),
+      reverseDuration: const Duration(milliseconds: 300),
     );
+    _slide = Tween<Offset>(begin: const Offset(0, -1.6), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: Curves.easeInCubic,
+            reverseCurve: Curves.easeIn,
+          ),
+        );
+    _scale = Tween<double>(begin: 0.9, end: 1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOutBack,
+        reverseCurve: Curves.easeIn,
+      ),
+    );
+    unawaited(_runSequence());
+  }
+
+  Future<void> _runSequence() async {
+    await _controller.forward();
+    await Future<void>.delayed(const Duration(milliseconds: 1700));
+    if (!mounted) return;
+    await _controller.reverse();
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(final BuildContext context) => Material(
+    color: Colors.transparent,
+    child: SafeArea(
+      child: Center(
+        child: IgnorePointer(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              EventSlamOverlay(
+                slide: _slide,
+                scale: _scale,
+                icon: Icons.emoji_events,
+                label: 'TICHU',
+              ),
+              const SizedBox(height: 6),
+              Text(
+                widget.message,
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(color: Colors.white),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }

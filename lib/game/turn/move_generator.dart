@@ -6,7 +6,10 @@ import 'package:tichu/game/turn/utils/full_house_utils.dart';
 import 'package:tichu/game/turn/utils/pair_straight_utils.dart';
 import 'package:tichu/game/turn/utils/straight_utils.dart';
 
-List<TichuTurn> generateLegalTurns(final DeckState deck, final List<Card> hand) {
+List<TichuTurn> generateLegalTurns(
+  final DeckState deck,
+  final List<Card> hand,
+) {
   final turns = <TichuTurn>[];
   final handCopy = List<Card>.from(hand);
 
@@ -40,7 +43,9 @@ List<TichuTurn> generateLegalTurns(final DeckState deck, final List<Card> hand) 
       );
     case TurnType.fullHouse:
       turns.addAll(
-        getFullHouses(handCopy).where((final turn) => validTurn(deck.turn, turn)),
+        getFullHouses(
+          handCopy,
+        ).where((final turn) => validTurn(deck.turn, turn)),
       );
     case TurnType.bomb:
       turns.addAll(
@@ -95,7 +100,9 @@ List<TichuTurn> _generateAnyPairStraights(final List<Card> hand) {
 
 List<TichuTurn> _generateSingles(final List<Card> hand, final DeckState? deck) {
   final turns = <TichuTurn>[];
-  final phoenix = hand.where((final card) => card.face == CardFace.phoenix).toList();
+  final phoenix = hand
+      .where((final card) => card.face == CardFace.phoenix)
+      .toList();
   final nonPhoenix = hand
       .where((final card) => card.face != CardFace.phoenix)
       .toList();
@@ -123,7 +130,9 @@ List<TichuTurn> _generateSingles(final List<Card> hand, final DeckState? deck) {
 
 List<TichuTurn> _generatePairs(final List<Card> hand, final DeckState? deck) {
   final turns = <TichuTurn>[];
-  final phoenixPresent = hand.any((final card) => card.face == CardFace.phoenix);
+  final phoenixPresent = hand.any(
+    (final card) => card.face == CardFace.phoenix,
+  );
   final nonPhoenix = hand
       .where((final card) => card.face != CardFace.phoenix)
       .toList();
@@ -164,13 +173,17 @@ List<TichuTurn> _generatePairs(final List<Card> hand, final DeckState? deck) {
   return turns;
 }
 
-bool _isForbiddenPairFace(final CardFace face) => face == CardFace.mahJong ||
-      face == CardFace.dragon ||
-      face == CardFace.dog;
+bool _isForbiddenPairFace(final CardFace face) =>
+    face == CardFace.mahJong || face == CardFace.dragon || face == CardFace.dog;
 
-List<TichuTurn> _generateTriplets(final List<Card> hand, final DeckState? deck) {
+List<TichuTurn> _generateTriplets(
+  final List<Card> hand,
+  final DeckState? deck,
+) {
   final turns = <TichuTurn>[];
-  final phoenixPresent = hand.any((final card) => card.face == CardFace.phoenix);
+  final phoenixPresent = hand.any(
+    (final card) => card.face == CardFace.phoenix,
+  );
   final nonPhoenix = hand
       .where((final card) => card.face != CardFace.phoenix)
       .toList();

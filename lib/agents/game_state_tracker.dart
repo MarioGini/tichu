@@ -40,11 +40,14 @@ class GameStateTracker {
 
   bool get allKingsKnown => _knownCount(CardFace.king) >= 4;
 
-  bool hasLastAce(final List<Card> hand) => allAcesKnown && hand.any((final c) => c.face == CardFace.ace);
+  bool hasLastAce(final List<Card> hand) =>
+      allAcesKnown && hand.any((final c) => c.face == CardFace.ace);
 
-  bool hasLastKing(final List<Card> hand) => allKingsKnown && hand.any((final c) => c.face == CardFace.king);
+  bool hasLastKing(final List<Card> hand) =>
+      allKingsKnown && hand.any((final c) => c.face == CardFace.king);
 
-  int _knownCount(final CardFace face) => _seenCards.where((final key) => key.startsWith('${face.name}:')).length;
+  int _knownCount(final CardFace face) =>
+      _seenCards.where((final key) => key.startsWith('${face.name}:')).length;
 
   void _addCards(final Iterable<Card> cards) {
     for (final card in cards) {

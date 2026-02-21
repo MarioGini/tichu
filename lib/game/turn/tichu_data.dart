@@ -38,31 +38,32 @@ class Card {
       color = CardColor.special;
 
   static double getValue(final CardFace cardFace) => switch (cardFace) {
-      CardFace.mahJong => 1.0,
-      CardFace.two => 2.0,
-      CardFace.three => 3.0,
-      CardFace.four => 4.0,
-      CardFace.five => 5.0,
-      CardFace.six => 6.0,
-      CardFace.seven => 7.0,
-      CardFace.eight => 8.0,
-      CardFace.nine => 9.0,
-      CardFace.ten => 10.0,
-      CardFace.jack => 11.0,
-      CardFace.queen => 12.0,
-      CardFace.king => 13.0,
-      CardFace.ace => 14.0,
-      CardFace.dragon => 25.0,
-      CardFace.phoenix => -10.0,
-      CardFace.dog => -2.0,
-      CardFace.none => 0.0,
-    };
+    CardFace.mahJong => 1.0,
+    CardFace.two => 2.0,
+    CardFace.three => 3.0,
+    CardFace.four => 4.0,
+    CardFace.five => 5.0,
+    CardFace.six => 6.0,
+    CardFace.seven => 7.0,
+    CardFace.eight => 8.0,
+    CardFace.nine => 9.0,
+    CardFace.ten => 10.0,
+    CardFace.jack => 11.0,
+    CardFace.queen => 12.0,
+    CardFace.king => 13.0,
+    CardFace.ace => 14.0,
+    CardFace.dragon => 25.0,
+    CardFace.phoenix => -10.0,
+    CardFace.dog => -2.0,
+    CardFace.none => 0.0,
+  };
 
   @override
-  bool operator ==(final Object other) => other is Card &&
-        color == other.color &&
-        face == other.face &&
-        value == other.value;
+  bool operator ==(final Object other) =>
+      other is Card &&
+      color == other.color &&
+      face == other.face &&
+      value == other.value;
 
   @override
   int get hashCode => face.index + 5 * color.index + value.toInt() * 17;
@@ -87,12 +88,12 @@ int compareCards(final Card a, final Card b) {
 /// player sees them in a consistent, intuitive spot (dragon/phoenix high,
 /// mahjong low, dog lowest).
 int displayRank(final Card card) => switch (card.face) {
-    CardFace.dragon => 1000,
-    CardFace.phoenix => 900,
-    CardFace.mahJong => 0,
-    CardFace.dog => -100,
-    _ => 100 + Card.getValue(card.face).toInt(),
-  };
+  CardFace.dragon => 1000,
+  CardFace.phoenix => 900,
+  CardFace.mahJong => 0,
+  CardFace.dog => -100,
+  _ => 100 + Card.getValue(card.face).toInt(),
+};
 
 /// Sort comparator for hand display (descending by display rank, then color,
 /// then face). Use with [List.sort].
@@ -132,21 +133,25 @@ class TichuTurn {
   static TichuTurn InvalidTurn() => TichuTurn(TurnType.none, const []);
 
   static double getValue(final TurnType type, final List<Card> cards) {
-    cards.sort(compareCards);
+    final sortedCards = [...cards]..sort(compareCards);
 
     return switch (type) {
       TurnType.single ||
       TurnType.pair ||
       TurnType.pairStraight ||
       TurnType.straight ||
-      TurnType.triplet => cards.first.value,
+      TurnType.triplet => sortedCards.first.value,
       TurnType.bomb =>
-        cards.length == 4 ? cards.first.value : 20 + cards.first.value,
+        sortedCards.length == 4
+            ? sortedCards.first.value
+            : 20 + sortedCards.first.value,
       TurnType.fullHouse => () {
-        final firstValueCount = cards
-            .where((final card) => card.value == cards.first.value)
+        final firstValueCount = sortedCards
+            .where((final card) => card.value == sortedCards.first.value)
             .length;
-        return firstValueCount == 3 ? cards.first.value : cards.last.value;
+        return firstValueCount == 3
+            ? sortedCards.first.value
+            : sortedCards.last.value;
       }(),
       TurnType.empty || TurnType.dog => 1.0,
       TurnType.none => 0.0,
@@ -155,13 +160,16 @@ class TichuTurn {
 
   @override
   bool operator ==(final Object other) {
-    cards.sort(compareCards);
-    if (other is TichuTurn) other.cards.sort(compareCards);
+    if (other is! TichuTurn) {
+      return false;
+    }
 
-    return other is TichuTurn &&
-        value == other.value &&
+    final sortedCards = [...cards]..sort(compareCards);
+    final sortedOtherCards = [...other.cards]..sort(compareCards);
+
+    return value == other.value &&
         type == other.type &&
-        _listEquals(cards, other.cards);
+        _listEquals(sortedCards, sortedOtherCards);
   }
 
   @override
@@ -198,5 +206,6 @@ class DeckState {
   DeckState(this.turn, this.wish);
 
   // ignore: non_constant_identifier_names, prefer_constructors_over_static_methods, legacy sentinel API
-  static DeckState Invalid() => DeckState(TichuTurn.InvalidTurn(), CardFace.none);
+  static DeckState Invalid() =>
+      DeckState(TichuTurn.InvalidTurn(), CardFace.none);
 }

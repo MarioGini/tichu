@@ -84,11 +84,15 @@ void main() {
       final turns = getBombs(cards);
       expect(turns.length, 2);
       expect(
-        turns.any((final turn) => turn.value == 20 + Card.getValue(CardFace.six)),
+        turns.any(
+          (final turn) => turn.value == 20 + Card.getValue(CardFace.six),
+        ),
         true,
       );
       expect(
-        turns.any((final turn) => turn.value == 20 + Card.getValue(CardFace.king)),
+        turns.any(
+          (final turn) => turn.value == 20 + Card.getValue(CardFace.king),
+        ),
         true,
       );
     });

@@ -61,6 +61,8 @@ class GameSnapshot {
   final bool opponentAwaitingConfirmation;
   final GamePhase phase;
   final Map<String, bool> canCallTichuByPlayer;
+  final Map<String, bool> hasBombByPlayer;
+  final Map<String, bool> canBombByPlayer;
   final Map<String, bool> grandTichuDecisions;
   final List<String> schupfCompletedPlayers;
   final Map<String, List<SchupfReceipt>> schupfReceipts;
@@ -87,6 +89,8 @@ class GameSnapshot {
     required this.opponentAwaitingConfirmation,
     required this.phase,
     this.canCallTichuByPlayer = const {},
+    this.hasBombByPlayer = const {},
+    this.canBombByPlayer = const {},
     required this.grandTichuDecisions,
     required this.schupfCompletedPlayers,
     required this.schupfReceipts,
@@ -118,6 +122,8 @@ class PlayerSnapshot {
   final bool opponentAwaitingConfirmation;
   final GamePhase phase;
   final bool canCallTichu;
+  final bool hasBombInHand;
+  final bool canBomb;
   final Map<String, bool> grandTichuDecisions;
   final List<String> schupfCompletedPlayers;
   final List<SchupfReceipt> schupfReceipts;
@@ -145,6 +151,8 @@ class PlayerSnapshot {
     required this.opponentAwaitingConfirmation,
     required this.phase,
     this.canCallTichu = false,
+    this.hasBombInHand = false,
+    this.canBomb = false,
     required this.grandTichuDecisions,
     required this.schupfCompletedPlayers,
     required this.schupfReceipts,
@@ -221,7 +229,10 @@ abstract class GameBackend {
 
   Future<void> setAutomatedActionDelay(final Duration delay);
 
-  Future<String> createGame(final List<GamePlayer> players, {final int targetScore = 1000});
+  Future<String> createGame(
+    final List<GamePlayer> players, {
+    final int targetScore = 1000,
+  });
 
   Future<void> startGame(final String gameId);
 

@@ -35,6 +35,29 @@ class OverlappingCardRow extends StatelessWidget {
     return LayoutBuilder(
       builder: (final context, final constraints) {
         final availWidth = constraints.maxWidth;
+        if (itemCount == 1) {
+          final child = itemBuilder(context, 0);
+          if (!availWidth.isFinite || cardWidth <= availWidth) {
+            return SizedBox(
+              height: contentHeight,
+              child: Align(
+                alignment: center ? Alignment.center : Alignment.centerLeft,
+                child: child,
+              ),
+            );
+          }
+
+          final widthScale = (availWidth / cardWidth).clamp(0.0, 1.0);
+          return SizedBox(
+            height: contentHeight,
+            width: availWidth,
+            child: Align(
+              alignment: center ? Alignment.center : Alignment.centerLeft,
+              child: Transform.scale(scale: widthScale, child: child),
+            ),
+          );
+        }
+
         final naturalStep = cardWidth + spacing;
         final totalNatural =
             cardWidth + math.max(0, itemCount - 1) * naturalStep;
@@ -64,8 +87,8 @@ class OverlappingCardRow extends StatelessWidget {
 
         return SizedBox(
           height: contentHeight,
+          width: availWidth,
           child: Stack(
-            clipBehavior: Clip.none,
             children: [
               for (int i = 0; i < itemCount; i++)
                 Positioned(

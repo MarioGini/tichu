@@ -39,11 +39,6 @@ class ActionBar extends StatelessWidget {
   @override
   Widget build(final BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isCompact = screenHeight < 500;
-    final hPad = isCompact ? 8.0 : 12.0;
-    final vPad = isCompact ? 6.0 : 10.0;
-    final buttonSpacing = isCompact ? 6.0 : 8.0;
     final neutralButtonStyle = OutlinedButton.styleFrom(
       foregroundColor: colorScheme.onSurface,
       side: BorderSide.none,
@@ -52,111 +47,130 @@ class ActionBar extends StatelessWidget {
 
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, vPad),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                colorScheme.surface.withValues(alpha: 0.9),
-                colorScheme.surface.withValues(alpha: 0.65),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: LayoutBuilder(
-            builder: (final context, final constraints) => Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: buttonSpacing,
-                  runSpacing: buttonSpacing,
-                  children: [
-                    if (showTurnActions) ...[
-                      if (showBomb)
+      child: LayoutBuilder(
+        builder: (final context, final constraints) {
+          final availH = constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : MediaQuery.of(context).size.height;
+          // Proportional scaling from constraints, not screen size.
+          final t = ((availH - 400) / 400).clamp(0.0, 1.0);
+          final hPad = 8.0 + 4 * t;
+          final vPad = 6.0 + 4 * t;
+          final buttonSpacing = 6.0 + 2 * t;
+          final buttonScale = ((availH - 400) / 150).clamp(0.7, 1.0);
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(hPad, 2, hPad, vPad),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: hPad,
+                vertical: 4 + 2 * t,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    colorScheme.surface.withValues(alpha: 0.9),
+                    colorScheme.surface.withValues(alpha: 0.65),
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: buttonSpacing,
+                    runSpacing: buttonSpacing,
+                    children: [
+                      if (showTurnActions) ...[
+                        if (showBomb)
+                          _buildButton(
+                            buttonScale: buttonScale,
+                            child: OutlinedButton.icon(
+                              onPressed: isBombEnabled ? onBomb : null,
+                              icon: const Icon(Icons.bolt),
+                              style: neutralButtonStyle,
+                              label: const Text('Bomb'),
+                            ),
+                          ),
+                        if (isPassPreferred)
+                          _buildButton(
+                            buttonScale: buttonScale,
+                            child: ElevatedButton.icon(
+                              onPressed: isPassEnabled ? onPass : null,
+                              icon: const Icon(Icons.not_interested),
+                              label: const Text('Pass'),
+                            ),
+                          )
+                        else
+                          _buildButton(
+                            buttonScale: buttonScale,
+                            child: OutlinedButton.icon(
+                              onPressed: isPassEnabled ? onPass : null,
+                              icon: const Icon(Icons.not_interested),
+                              style: neutralButtonStyle,
+                              label: const Text('Pass'),
+                            ),
+                          ),
                         _buildButton(
-                          isCompact: isCompact,
+                          buttonScale: buttonScale,
                           child: OutlinedButton.icon(
-                            onPressed: isBombEnabled ? onBomb : null,
-                            icon: const Icon(Icons.bolt),
+                            onPressed: isPlayEnabled ? onPlay : null,
+                            icon: const Icon(Icons.check_circle),
                             style: neutralButtonStyle,
-                            label: const Text('Bomb'),
+                            label: const Text('PLAY'),
                           ),
                         ),
-                      if (isPassPreferred)
-                        _buildButton(
-                          isCompact: isCompact,
-                          child: ElevatedButton.icon(
-                            onPressed: isPassEnabled ? onPass : null,
-                            icon: const Icon(Icons.not_interested),
-                            label: const Text('Pass'),
+                        if (showSchupf)
+                          _buildButton(
+                            buttonScale: buttonScale,
+                            child: ElevatedButton.icon(
+                              onPressed: isSchupfEnabled ? onSchupf : null,
+                              icon: const Icon(Icons.swap_horiz),
+                              label: Text(schupfLabel),
+                            ),
                           ),
-                        )
-                      else
+                      ],
+                      if (showDeclareTichu)
                         _buildButton(
-                          isCompact: isCompact,
+                          buttonScale: buttonScale,
                           child: OutlinedButton.icon(
-                            onPressed: isPassEnabled ? onPass : null,
-                            icon: const Icon(Icons.not_interested),
-                            style: neutralButtonStyle,
-                            label: const Text('Pass'),
-                          ),
-                        ),
-                      _buildButton(
-                        isCompact: isCompact,
-                        child: OutlinedButton.icon(
-                          onPressed: isPlayEnabled ? onPlay : null,
-                          icon: const Icon(Icons.check_circle),
-                          style: neutralButtonStyle,
-                          label: const Text('PLAY'),
-                        ),
-                      ),
-                      if (showSchupf)
-                        _buildButton(
-                          isCompact: isCompact,
-                          child: ElevatedButton.icon(
-                            onPressed: isSchupfEnabled ? onSchupf : null,
-                            icon: const Icon(Icons.swap_horiz),
-                            label: Text(schupfLabel),
+                            onPressed: onDeclareTichu,
+                            icon: const Icon(Icons.local_fire_department),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colorScheme.secondary,
+                              side: BorderSide.none,
+                              backgroundColor: colorScheme.secondary.withValues(
+                                alpha: 0.15,
+                              ),
+                            ),
+                            label: const Text('Tichu'),
                           ),
                         ),
                     ],
-                    if (showDeclareTichu)
-                      _buildButton(
-                        isCompact: isCompact,
-                        child: OutlinedButton.icon(
-                          onPressed: onDeclareTichu,
-                          icon: const Icon(Icons.local_fire_department),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.secondary,
-                            side: BorderSide.none,
-                            backgroundColor: colorScheme.secondary.withValues(
-                              alpha: 0.15,
-                            ),
-                          ),
-                          label: const Text('Tichu'),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildButton({
-    required final bool isCompact,
+    required final double buttonScale,
     required final Widget child,
   }) {
-    if (!isCompact) return child;
-    return SizedBox(height: 32, child: FittedBox(child: child));
+    if (buttonScale >= 1.0) return child;
+    final height = 32 + (16 * buttonScale);
+    return SizedBox(
+      height: height,
+      child: FittedBox(child: child),
+    );
   }
 }

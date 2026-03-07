@@ -15,7 +15,6 @@ class PlayerHandArea extends StatelessWidget {
     required this.hand,
     required this.selectedIndexes,
     required this.onCardTap,
-    required this.isCompact,
     required this.isActive,
     required this.isFinished,
     required this.finishPosition,
@@ -47,7 +46,6 @@ class PlayerHandArea extends StatelessWidget {
   final List<Card> hand;
   final Set<int> selectedIndexes;
   final ValueChanged<int> onCardTap;
-  final bool isCompact;
   final bool isActive;
   final bool isFinished;
   final int? finishPosition;
@@ -79,7 +77,6 @@ class PlayerHandArea extends StatelessWidget {
   final VoidCallback? onMatchContinue;
 
   Widget? _buildHeader(final BuildContext context) {
-    if (isCompact) return null;
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Row(
@@ -140,7 +137,7 @@ class PlayerHandArea extends StatelessWidget {
       final maxHeight = constraints.maxHeight.isFinite
           ? constraints.maxHeight
           : null;
-      final showHeader = !isCompact && (maxHeight == null || maxHeight >= 120);
+      final showHeader = maxHeight == null || maxHeight >= 120;
       final headerWidget = showHeader ? _buildHeader(context) : null;
 
       // Header (30) + gap (4) + container padding (12) live inside HandDisplay.
@@ -202,7 +199,10 @@ class PlayerHandArea extends StatelessWidget {
             )
           : baseContent;
 
-      return Column(mainAxisSize: MainAxisSize.min, children: [handContent]);
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight ?? double.infinity),
+        child: handContent,
+      );
     },
   );
 }

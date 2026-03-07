@@ -66,20 +66,30 @@ class SchupfPanel extends StatelessWidget {
   final SchupfPanelMode mode;
   final Widget? header;
 
+  /// Vertical padding consumed by the container in [buildSchupfPanelContainer].
+  static const double _containerPadding = 24.0; // 12 top + 12 bottom
+
   @override
   Widget build(final BuildContext context) => LayoutBuilder(
     builder: (final context, final constraints) {
-      final maxHeight = constraints.maxHeight.isFinite
+      final totalHeight = constraints.maxHeight.isFinite
           ? constraints.maxHeight
           : null;
-      final layout = computeSchupfLayout(maxHeight: maxHeight);
+      // Subtract container padding so layout is computed for inner content.
+      final contentHeight = totalHeight == null
+          ? null
+          : (totalHeight - _containerPadding).clamp(0.0, double.infinity);
+      final layout = computeSchupfLayout(
+        maxHeight: contentHeight,
+        hasHeader: header != null,
+      );
 
       return switch (mode) {
         final SchupfSelectionMode m => _buildSelection(
           context,
           constraints,
           layout,
-          maxHeight,
+          contentHeight,
           m,
         ),
         final SchupfReceiptMode m => _buildReceipt(
@@ -143,56 +153,67 @@ class SchupfPanel extends StatelessWidget {
           ),
     );
 
-    final content = Column(
-      children: [
-        if (header != null) ...[header!, SizedBox(height: layout.tightGap)],
-        _title(context, 'Schupf your cards'),
-        SizedBox(height: layout.tightGap + layout.looseGap),
-        _targetRow([
-          buildTarget(
-            label: 'Left',
-            value: m.schupfToRight,
-            onRemove: () => m.onClearSlot(SchupfSlot.right),
-            onAccept: (final card) => m.onSetSlot(SchupfSlot.right, card),
-          ),
-          buildTarget(
-            label: 'Partner',
-            value: m.schupfToPartner,
-            onRemove: () => m.onClearSlot(SchupfSlot.partner),
-            onAccept: (final card) => m.onSetSlot(SchupfSlot.partner, card),
-          ),
-          buildTarget(
-            label: 'Right',
-            value: m.schupfToLeft,
-            onRemove: () => m.onClearSlot(SchupfSlot.left),
-            onAccept: (final card) => m.onSetSlot(SchupfSlot.left, card),
-          ),
-        ]),
-        SizedBox(height: layout.tightGap),
-        Center(
-          child: ElevatedButton.icon(
-            onPressed: canSubmit ? m.onSubmit : null,
-            icon: const Icon(Icons.swap_horiz),
-            style: ElevatedButton.styleFrom(
-              side: BorderSide(
-                color: Theme.of(context).colorScheme.outlineVariant,
-                width: 0.6,
-              ),
-            ),
-            label: const Text('Schupf'),
-          ),
-        ),
-        SizedBox(height: layout.tightGap),
-        _handRow(layout, available, m),
-      ],
-    );
+    final handRow = _handRow(layout, available, m);
 
-    return buildSchupfPanelContainer(
-      panelWidth: panelWidth,
-      child: maxHeight == null
-          ? content
-          : SizedBox(height: maxHeight, child: content),
-    );
+    final fixedChildren = [
+      if (header != null) ...[header!, SizedBox(height: layout.tightGap)],
+      _title(context, 'Schupf your cards'),
+      SizedBox(height: layout.tightGap + layout.looseGap),
+      _targetRow([
+        buildTarget(
+          label: 'Left',
+          value: m.schupfToRight,
+          onRemove: () => m.onClearSlot(SchupfSlot.right),
+          onAccept: (final card) => m.onSetSlot(SchupfSlot.right, card),
+        ),
+        buildTarget(
+          label: 'Partner',
+          value: m.schupfToPartner,
+          onRemove: () => m.onClearSlot(SchupfSlot.partner),
+          onAccept: (final card) => m.onSetSlot(SchupfSlot.partner, card),
+        ),
+        buildTarget(
+          label: 'Right',
+          value: m.schupfToLeft,
+          onRemove: () => m.onClearSlot(SchupfSlot.left),
+          onAccept: (final card) => m.onSetSlot(SchupfSlot.left, card),
+        ),
+      ]),
+      SizedBox(height: layout.tightGap),
+      Center(
+        child: ElevatedButton.icon(
+          onPressed: canSubmit ? m.onSubmit : null,
+          icon: const Icon(Icons.swap_horiz),
+          style: ElevatedButton.styleFrom(
+            side: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 0.6,
+            ),
+          ),
+          label: const Text('Schupf'),
+        ),
+      ),
+      SizedBox(height: layout.tightGap),
+    ];
+
+    // When height-constrained, use Expanded for the hand row so it takes
+    // exactly the remaining space — no overflow possible.
+    final content = maxHeight != null
+        ? SizedBox(
+            height: maxHeight,
+            child: Column(
+              children: [
+                ...fixedChildren,
+                Expanded(child: handRow),
+              ],
+            ),
+          )
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [...fixedChildren, handRow],
+          );
+
+    return buildSchupfPanelContainer(panelWidth: panelWidth, child: content);
   }
 
   Widget _handRow(
@@ -200,57 +221,54 @@ class SchupfPanel extends StatelessWidget {
     final List<Card> available,
     final SchupfSelectionMode m,
   ) => SizedBox(
-    height: layout.availableHeight,
-    child: SizedBox(
-      width: _contentWidth(layout, available.length),
-      child: OverlappingCardRow(
-        itemCount: available.length,
-        cardWidth: layout.rowCardWidth,
-        cardHeight: layout.rowCardHeight,
-        spacing: layout.rowSpacing,
-        minVisible: 14 * layout.rowScale,
-        height: layout.rowCardHeight + 8,
-        itemBuilder: (final context, final index) {
-          final card = available[index];
-          void onQuickAssign() {
-            if (!m.desktopSchupfHelperEnabled) return;
-            if (m.schupfToRight == null) {
-              m.onSetSlot(SchupfSlot.right, card);
-            } else if (m.schupfToPartner == null) {
-              m.onSetSlot(SchupfSlot.partner, card);
-            } else if (m.schupfToLeft == null) {
-              m.onSetSlot(SchupfSlot.left, card);
-            }
+    width: _contentWidth(layout, available.length),
+    child: OverlappingCardRow(
+      itemCount: available.length,
+      cardWidth: layout.rowCardWidth,
+      cardHeight: layout.rowCardHeight,
+      spacing: layout.rowSpacing,
+      minVisible: 14 * layout.rowScale,
+      height: layout.rowCardHeight + 8,
+      itemBuilder: (final context, final index) {
+        final card = available[index];
+        void onQuickAssign() {
+          if (!m.desktopSchupfHelperEnabled) return;
+          if (m.schupfToRight == null) {
+            m.onSetSlot(SchupfSlot.right, card);
+          } else if (m.schupfToPartner == null) {
+            m.onSetSlot(SchupfSlot.partner, card);
+          } else if (m.schupfToLeft == null) {
+            m.onSetSlot(SchupfSlot.left, card);
           }
+        }
 
-          final isCursor = m.schupfCursorIndex == index;
+        final isCursor = m.schupfCursorIndex == index;
 
-          Widget buildCard() => GestureDetector(
-            onDoubleTap: onQuickAssign,
+        Widget buildCard() => GestureDetector(
+          onDoubleTap: onQuickAssign,
+          child: CardWidget(
+            card: card,
+            isSelected: isCursor,
+            compact: true,
+            scale: layout.rowScale,
+          ),
+        );
+
+        return Draggable<Card>(
+          data: card,
+          feedback: Material(
+            color: Colors.transparent,
             child: CardWidget(
               card: card,
-              isSelected: isCursor,
+              isSelected: false,
               compact: true,
               scale: layout.rowScale,
             ),
-          );
-
-          return Draggable<Card>(
-            data: card,
-            feedback: Material(
-              color: Colors.transparent,
-              child: CardWidget(
-                card: card,
-                isSelected: false,
-                compact: true,
-                scale: layout.rowScale,
-              ),
-            ),
-            childWhenDragging: Opacity(opacity: 0.4, child: buildCard()),
-            child: buildCard(),
-          );
-        },
-      ),
+          ),
+          childWhenDragging: Opacity(opacity: 0.4, child: buildCard()),
+          child: buildCard(),
+        );
+      },
     ),
   );
 

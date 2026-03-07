@@ -17,30 +17,63 @@ typedef SchupfLayout = ({
   double targetRowWidth,
 });
 
-SchupfLayout computeSchupfLayout({required final double? maxHeight}) {
-  const minCardHeight = 90.0;
-  final maxTargetHeight = maxHeight == null
-      ? CardWidget.compactHeight * 0.75
-      : (maxHeight * 0.22).clamp(
-          minCardHeight,
-          CardWidget.compactHeight * 0.75,
-        );
-  const minScale = minCardHeight / CardWidget.compactHeight;
-  final cardScale = (maxTargetHeight / CardWidget.compactHeight).clamp(
-    minScale,
+SchupfLayout computeSchupfLayout({
+  required final double? maxHeight,
+  final bool hasHeader = true,
+}) {
+  // Precise overhead for all fixed-height items in the selection Column:
+  //   header + gap:       hasHeader ? ~38  : 0
+  //   title:              ~22
+  //   title→targets gap:  tightGap + looseGap (estimated ~8)
+  //   target labels:      ~16
+  //   target label→box gap: tightGap (~3)
+  //   target box insets:  2 * 8 = 16
+  //   targets→button gap: tightGap (~3)
+  //   button:             ~40
+  //   button→hand gap:    tightGap (~3)
+  // Total ≈ 111 (with header) or 73 (without header)
+  final headerOverhead = hasHeader ? 38.0 : 0.0;
+  const targetInset = 8.0;
+  const targetInsetTotal = targetInset * 2; // 16
+  const nonCardOverhead =
+      22 +
+      8 +
+      16 +
+      3 +
+      3 +
+      40 +
+      3 +
+      16.0; // 111 (incl labels+inset+gaps+button+margin)
+  final fixedOverhead = headerOverhead + nonCardOverhead + targetInsetTotal;
+
+  // Budget remaining for actual card images (target card + hand cards).
+  final budgetForCards = maxHeight == null
+      ? CardWidget.compactHeight * 0.75 + 96.0
+      : (maxHeight - fixedOverhead).clamp(50.0, 280.0);
+
+  // Split: ~45% for target card height, ~55% for hand row.
+  final targetCardBudget = budgetForCards * 0.45;
+  final handBudget = budgetForCards * 0.55;
+
+  final maxTargetCardHeight = targetCardBudget.clamp(
+    40.0,
+    CardWidget.compactHeight * 0.75,
+  );
+  final cardScale = (maxTargetCardHeight / CardWidget.compactHeight).clamp(
+    0.35,
     0.9,
   );
-  const targetInset = 8.0;
   final targetWidth = CardWidget.compactWidth * cardScale + (targetInset * 2);
   final targetHeight = CardWidget.compactHeight * cardScale + (targetInset * 2);
-  final availableHeight = maxHeight == null
-      ? 96.0
-      : (maxHeight * 0.18).clamp(48.0, 96.0);
+  final availableHeight = handBudget.clamp(36.0, 96.0);
   final tightGap = maxHeight == null ? 4.0 : (maxHeight * 0.01).clamp(0.0, 4.0);
   final looseGap = maxHeight == null
       ? 6.0
       : (maxHeight * 0.015).clamp(0.0, 6.0);
-  final rowScale = (availableHeight / CardWidget.compactHeight).clamp(0.5, 0.9);
+  final rowScale = (availableHeight / CardWidget.compactHeight).clamp(
+    0.35,
+    0.9,
+  );
   final rowCardWidth = CardWidget.compactWidth * rowScale;
   final rowCardHeight = CardWidget.compactHeight * rowScale;
   final rowSpacing = 6 * rowScale;

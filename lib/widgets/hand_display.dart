@@ -31,9 +31,9 @@ class HandDisplay extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final resolvedHeight =
-        targetHeight ?? (screenHeight * 0.18).clamp(80.0, 160.0);
+    // Derive height from explicit targetHeight or parent constraints.
+    // MediaQuery fallback only when both are unavailable (standalone usage).
+    final resolvedHeight = targetHeight ?? 120.0;
     final scale = ((resolvedHeight - 12) / CardWidget.normalHeight).clamp(
       0.4,
       1.2,
@@ -89,10 +89,25 @@ class HandDisplay extends StatelessWidget {
     return LayoutBuilder(
       builder: (final context, final outerConstraints) {
         final n = cards.length;
-        final cardW = CardWidget.normalWidth * scale;
-        final cardH = CardWidget.normalHeight * scale;
-        final marginR = 8 * scale;
-        final selOffset = 8 * scale;
+        // Re-derive scale from the actual available height if constrained,
+        // accounting for container padding (6+6), selection offset, and header.
+        final availH = outerConstraints.maxHeight.isFinite
+            ? outerConstraints.maxHeight
+            : null;
+        final overhead =
+            12.0 + // container vertical padding
+            (header != null ? 34.0 : 0.0) + // header + gap
+            (finishPosition != null ? 24.0 : 0.0);
+        final effectiveScale = availH != null
+            ? ((availH - overhead) / (CardWidget.normalHeight + 8)).clamp(
+                0.3,
+                scale,
+              )
+            : scale;
+        final cardW = CardWidget.normalWidth * effectiveScale;
+        final cardH = CardWidget.normalHeight * effectiveScale;
+        final marginR = 8 * effectiveScale;
+        final selOffset = 8 * effectiveScale;
         final naturalWidth = cardW + math.max(0, n - 1) * (cardW + marginR);
         // Content + container padding (8 horizontal each side).
         final desiredWidth = naturalWidth + 16;
@@ -128,7 +143,7 @@ class HandDisplay extends StatelessWidget {
                       card: cards[index],
                       isSelected: selectedIndexes.contains(index),
                       onTap: () => onCardTap(index),
-                      scale: scale,
+                      scale: effectiveScale,
                     ),
                   ),
                 ),

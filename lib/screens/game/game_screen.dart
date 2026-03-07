@@ -415,8 +415,6 @@ class _GameScreenState extends State<GameScreen>
           scale: _bombScale,
         );
     final showOpponentPendingCards = isPlayPhase;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isCompact = screenHeight < 500;
     final humanTichuCall = tichuCalls['player-0'];
     final humanTichu =
         humanTichuCall == TichuCall.tichu ||
@@ -430,7 +428,6 @@ class _GameScreenState extends State<GameScreen>
       hand: _hand,
       selectedIndexes: _selectedIndexes,
       onCardTap: _toggleSelect,
-      isCompact: isCompact,
       isActive: showTurnIndicators && isCurrentTurn(_humanId),
       isFinished: isFinished(_humanId),
       finishPosition: finishPositionFor(_humanId),
@@ -524,19 +521,16 @@ class _GameScreenState extends State<GameScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (showGrandTichuDecision)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: GrandTichuBanner(
-                      selectNo: _grandTichuSelectNo,
-                      isPending: _grandTichuDialogOpen,
-                      onDecision: (final call) =>
-                          unawaited(_submitGrandTichuDecision(call)),
-                      onToggle: (final selectNo) {
-                        setState(() {
-                          _grandTichuSelectNo = selectNo;
-                        });
-                      },
-                    ),
+                  GrandTichuBanner(
+                    selectNo: _grandTichuSelectNo,
+                    isPending: _grandTichuDialogOpen,
+                    onDecision: (final call) =>
+                        unawaited(_submitGrandTichuDecision(call)),
+                    onToggle: (final selectNo) {
+                      setState(() {
+                        _grandTichuSelectNo = selectNo;
+                      });
+                    },
                   ),
                 ActionBar(
                   showTurnActions: showTurnActions,

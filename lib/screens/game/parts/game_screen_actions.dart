@@ -33,11 +33,9 @@ mixin _GameScreenActions on _GameScreenBindings {
     var inputWish = CardFace.none;
     if (_playController.requiresWishInput(selectedTurn)) {
       CardFace? defaultWish;
-      if (_defaultWishRoundNumber == snapshot.scoreState.roundNumber) {
-        final schupfWish = _defaultWishFaceFromSchupf;
-        if (schupfWish != null && isWishableFace(schupfWish)) {
-          defaultWish = schupfWish;
-        }
+      final schupfWish = _defaultWishFaceFromSchupf;
+      if (schupfWish != null && isWishableFace(schupfWish)) {
+        defaultWish = schupfWish;
       }
       final wish = await _promptWish(defaultWish: defaultWish);
       if (!mounted) return;

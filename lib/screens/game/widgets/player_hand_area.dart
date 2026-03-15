@@ -31,7 +31,7 @@ class PlayerHandArea extends StatelessWidget {
     required this.schupfReceipts,
     required this.schupfAckPending,
     required this.schupfCursorIndex,
-    required this.desktopSchupfHelperEnabled,
+
     required this.onSetSchupfSlot,
     required this.onClearSchupfSlot,
     required this.onSubmitSchupf,
@@ -65,7 +65,7 @@ class PlayerHandArea extends StatelessWidget {
   final List<SchupfReceipt> schupfReceipts;
   final bool schupfAckPending;
   final int? schupfCursorIndex;
-  final bool desktopSchupfHelperEnabled;
+
   final void Function(SchupfSlot slot, Card card) onSetSchupfSlot;
   final void Function(SchupfSlot slot) onClearSchupfSlot;
   final VoidCallback? onSubmitSchupf;
@@ -76,60 +76,58 @@ class PlayerHandArea extends StatelessWidget {
   final int? winningTeam;
   final VoidCallback? onMatchContinue;
 
-  Widget? _buildHeader(final BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.person, color: Colors.white70, size: 18),
-          const SizedBox(width: 4),
+  Widget? _buildHeader(final BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.person, color: Colors.white70, size: 18),
+        const SizedBox(width: 4),
+        Text(
+          'You',
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: Colors.white),
+        ),
+        if (showPoints) ...[
+          const SizedBox(width: 8),
           Text(
-            'You',
+            '$humanScore pts',
             style: Theme.of(
               context,
-            ).textTheme.labelMedium?.copyWith(color: Colors.white),
+            ).textTheme.labelSmall?.copyWith(color: Colors.white70),
           ),
-          if (showPoints) ...[
-            const SizedBox(width: 8),
-            Text(
-              '$humanScore pts',
-              style: Theme.of(
-                context,
-              ).textTheme.labelSmall?.copyWith(color: Colors.white70),
-            ),
-          ],
-          if (humanTichu) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: humanGrandTichu ? Colors.deepOrange : Colors.orange,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: (humanGrandTichu ? Colors.deepOrange : Colors.orange)
-                        .withValues(alpha: 0.4),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: Text(
-                humanGrandTichu ? 'GRAND' : 'TICHU',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ),
-          ],
         ],
-      ),
-    );
-  }
+        if (humanTichu) ...[
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: humanGrandTichu ? Colors.deepOrange : Colors.orange,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: (humanGrandTichu ? Colors.deepOrange : Colors.orange)
+                      .withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: Text(
+              humanGrandTichu ? 'GRAND' : 'TICHU',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
 
   @override
   Widget build(final BuildContext context) => LayoutBuilder(
@@ -140,12 +138,6 @@ class PlayerHandArea extends StatelessWidget {
       final showHeader = maxHeight == null || maxHeight >= 120;
       final headerWidget = showHeader ? _buildHeader(context) : null;
 
-      // Header (30) + gap (4) + container padding (12) live inside HandDisplay.
-      final handDisplayOverhead = showHeader ? 46.0 : 12.0;
-      final targetHeight = maxHeight == null
-          ? null
-          : (maxHeight - handDisplayOverhead).clamp(72.0, 240.0);
-
       final handDisplay = HandDisplay(
         cards: hand,
         selectedIndexes: selectedIndexes,
@@ -153,9 +145,16 @@ class PlayerHandArea extends StatelessWidget {
         isActive: isActive,
         isFinished: isFinished,
         finishPosition: finishPosition,
-        targetHeight: targetHeight,
         header: headerWidget,
       );
+
+      final hasPendingSchupfReceiptTransition =
+          !isSchupfActive &&
+          !schupfAckPending &&
+          schupfSentCards.isNotEmpty &&
+          schupfReceipts.isEmpty;
+      final showSchupfReceiptPanel =
+          hasSchupfReceipts || hasPendingSchupfReceiptTransition;
 
       final baseContent = isSchupfActive
           ? SchupfPanel(
@@ -169,10 +168,9 @@ class PlayerHandArea extends StatelessWidget {
                 onClearSlot: onClearSchupfSlot,
                 onSubmit: onSubmitSchupf,
                 schupfCursorIndex: schupfCursorIndex,
-                desktopSchupfHelperEnabled: desktopSchupfHelperEnabled,
               ),
             )
-          : hasSchupfReceipts
+          : showSchupfReceiptPanel
           ? SchupfPanel(
               hand: hand,
               header: headerWidget,

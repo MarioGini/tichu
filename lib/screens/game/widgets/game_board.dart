@@ -2,6 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:tichu/widgets/card_widget.dart';
+import 'package:tichu/widgets/game_gradient_background.dart';
+import 'package:tichu/widgets/played_card_size_scope.dart';
+
+/// Unified game board layout for all screen sizes.
+///
+/// Fixed-size sections: top opponent, middle row (opponents + trick).
+/// Remaining space: split between hand area (Expanded) and action bar.
+/// No manual pixel math for gaps — just `const SizedBox(height: 4)`.
 class GameBoard extends StatelessWidget {
   const GameBoard({
     super.key,
@@ -11,6 +20,9 @@ class GameBoard extends StatelessWidget {
     required this.trickArea,
     required this.handArea,
     required this.actionBar,
+    this.topPendingSlot = const SizedBox.shrink(),
+    this.leftPendingSlot = const SizedBox.shrink(),
+    this.rightPendingSlot = const SizedBox.shrink(),
   });
 
   final Widget topOpponent;
@@ -20,281 +32,123 @@ class GameBoard extends StatelessWidget {
   final Widget handArea;
   final Widget actionBar;
 
+  /// Slot between top opponent and trick area.
+  final Widget topPendingSlot;
+
+  /// Slot between the left opponent box and the trick area.
+  final Widget leftPendingSlot;
+
+  /// Slot between the trick area and the right opponent box.
+  final Widget rightPendingSlot;
+
   @override
-  Widget build(final BuildContext context) => LayoutBuilder(
-    builder: (final context, final constraints) {
-      final w = constraints.maxWidth;
-      final h = constraints.maxHeight;
-      final isPortraitMobile = h > w && w < 600;
+  Widget build(final BuildContext context) => GameGradientBackground(
+    child: LayoutBuilder(
+      builder: (final context, final constraints) {
+        final w = constraints.maxWidth;
+        final h = constraints.maxHeight;
+        final isPortrait = h > w && w < 600;
+        final laneGap = isPortrait ? 4.0 : 6.0;
 
-      // Proportional scaling factors derived from constraints.
-      // tw: 0→1 as width goes 320→1200; th: 0→1 as height goes 400→900.
-      final tw = ((w - 320) / 880).clamp(0.0, 1.0);
-      final th = ((h - 400) / 500).clamp(0.0, 1.0);
+        final opSize = math.min(
+          w * (isPortrait ? 0.20 : 0.16),
+          h * (isPortrait ? 0.14 : 0.16),
+        );
+        // Trick area height: tall enough for full-size cards + labels.
+        final trickH = math.min(
+          h * (isPortrait ? 0.26 : 0.28),
+          CardWidget.normalHeight + 56,
+        );
+        final cardLaneH = math.max(0, trickH - 44).toDouble();
+        final laneScale = (cardLaneH / CardWidget.normalHeight).clamp(
+          0.25,
+          1.0,
+        );
+        final preferredTrickW = math
+            .min(w * (isPortrait ? 0.28 : 0.24), 260)
+            .toDouble();
+        final rowW = math.max(0, w - (isPortrait ? 8 : 16)).toDouble();
+        final maxTrickW = math
+            .max(120, rowW - 2 * opSize - 4 * laneGap)
+            .toDouble();
+        final trickW = math.min(preferredTrickW, maxTrickW);
+        final preferredSideSlotW = CardWidget.normalWidth * laneScale;
+        final maxSideSlotW = math
+            .max(0, (rowW - 2 * opSize - trickW - 4 * laneGap) / 2)
+            .toDouble();
+        final sideSlotW = math.min(preferredSideSlotW, maxSideSlotW);
+        final topPendingH = cardLaneH;
+        final playedCardScale =
+            (math.max(0, cardLaneH - 8) / (CardWidget.normalHeight + 8)).clamp(
+              0.25,
+              1.0,
+            );
+        final rowHeight = math.max(opSize, trickH);
+        final hPad = isPortrait ? 4.0 : 8.0;
 
-      final boardGap = isPortraitMobile ? 0.0 : (2 + 10 * th);
-      final topPadH = (8 + 8 * tw).clamp(4.0, 16.0);
-      final topPadV = isPortraitMobile ? 2.0 : (4 + 4 * th);
-      final topPadding = EdgeInsets.fromLTRB(topPadH, topPadV, topPadH, 0);
-      final sidePad = (4 + 4 * tw).clamp(4.0, 8.0);
-      final handPadH = isPortraitMobile ? 4.0 : (6 + 6 * tw).clamp(4.0, 12.0);
-      final handPadV = isPortraitMobile ? 2.0 : (2 + 4 * th).clamp(2.0, 6.0);
-      final handPadding = EdgeInsets.fromLTRB(handPadH, 0, handPadH, handPadV);
-      final trickToHandGap = isPortraitMobile ? 0.0 : (2 + 4 * th);
-      final sideToCenterGap = isPortraitMobile
-          ? (6 + 4 * tw).clamp(4.0, 12.0)
-          : (12 + 18 * tw).clamp(8.0, 30.0);
-      final areaWidth = math.max<double>(0, w - (sidePad * 2));
-      final maxSideWidth = math.min(
-        areaWidth * (0.18 + 0.04 * (1 - tw)),
-        (142 + 98 * tw).clamp(100.0, 240.0),
-      );
-      final sideWidth = math.max<double>(
-        0,
-        math.min(maxSideWidth, (areaWidth - sideToCenterGap * 2) / 3),
-      );
-      // Opponent size: 12% of height on portrait, scaling 14–23% on wider.
-      final opponentFraction = isPortraitMobile
-          ? 0.12
-          : (0.14 + 0.09 * th).clamp(0.12, 0.23);
-      final sharedOpponentSize = math.min(sideWidth, h * opponentFraction);
-      const topPendingGap = 6.0;
-      final topPendingLaneHeight = (sharedOpponentSize * 0.28).clamp(
-        34.0,
-        64.0,
-      );
-      final topToMiddleGap = isPortraitMobile
-          ? 0.0
-          : topPendingGap + topPendingLaneHeight;
-      final topHeight = sharedOpponentSize + topPadding.vertical;
-
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: isPortraitMobile
-            // Portrait: single column with top opponent, trick, hand, action bar.
-            // spaceEvenly distributes remaining space as equal gaps.
-            ? Column(
-                children: [
-                  SizedBox(
-                    height: topHeight,
-                    child: Padding(
-                      padding: topPadding,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: sharedOpponentSize,
-                            maxHeight: sharedOpponentSize,
-                          ),
-                          child: topOpponent,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildPortraitLayout(
-                      sidePad: sidePad,
-                      sideToCenterGap: sideToCenterGap,
-                      sharedOpponentSize: sharedOpponentSize,
-                      tw: tw,
-                      handPadding: handPadding,
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                children: [
-                  SizedBox(
-                    height: topHeight,
-                    child: Padding(
-                      padding: topPadding,
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: sharedOpponentSize,
-                            maxHeight: sharedOpponentSize,
-                          ),
-                          child: topOpponent,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: boardGap),
-                  Expanded(
-                    child: _buildLandscapeLayout(
-                      sidePad: sidePad,
-                      topToMiddleGap: topToMiddleGap,
-                      sideToCenterGap: sideToCenterGap,
-                      sharedOpponentSize: sharedOpponentSize,
-                      tw: tw,
-                      trickToHandGap: trickToHandGap,
-                      handPadding: handPadding,
-                    ),
-                  ),
-                  actionBar,
-                ],
+        return PlayedCardSizeScope(
+          cardScale: playedCardScale,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: SizedBox.square(dimension: opSize, child: topOpponent),
               ),
-      );
-    },
-  );
-
-  /// Portrait mobile: all sections content-sized, space distributed evenly.
-  Widget _buildPortraitLayout({
-    required final double sidePad,
-    required final double sideToCenterGap,
-    required final double sharedOpponentSize,
-    required final double tw,
-    required final EdgeInsets handPadding,
-  }) => LayoutBuilder(
-    builder: (final context, final constraints) {
-      final areaWidth = math.max<double>(
-        0,
-        constraints.maxWidth - (sidePad * 2),
-      );
-      final centerMaxWidth = math.max<double>(
-        0,
-        areaWidth - (sharedOpponentSize * 2) - (sideToCenterGap * 2),
-      );
-      final centerScale = 1.08 + 0.14 * tw;
-      // Trick size from width, capped to avoid being too tall.
-      final trickSize = math.min(
-        constraints.maxHeight * 0.35,
-        math.max(sharedOpponentSize * centerScale, centerMaxWidth),
-      );
-
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // Middle row: opponents + trick square.
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: sidePad),
-            child: SizedBox(
-              height: math.max(sharedOpponentSize, trickSize),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: sharedOpponentSize,
-                    height: sharedOpponentSize,
-                    child: leftOpponent,
-                  ),
-                  SizedBox(width: sideToCenterGap),
-                  SizedBox(
-                    width: trickSize,
-                    height: trickSize,
-                    child: trickArea,
-                  ),
-                  SizedBox(width: sideToCenterGap),
-                  SizedBox(
-                    width: sharedOpponentSize,
-                    height: sharedOpponentSize,
-                    child: rightOpponent,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Hand + action bar grouped together, no gap between them.
-          Padding(
-            padding: handPadding,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [handArea, actionBar],
-            ),
-          ),
-        ],
-      );
-    },
-  );
-
-  /// Landscape / desktop: traditional flex-based split.
-  Widget _buildLandscapeLayout({
-    required final double sidePad,
-    required final double topToMiddleGap,
-    required final double sideToCenterGap,
-    required final double sharedOpponentSize,
-    required final double tw,
-    required final double trickToHandGap,
-    required final EdgeInsets handPadding,
-  }) => Column(
-    children: [
-      Expanded(
-        flex: 6,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(sidePad, topToMiddleGap, sidePad, 0),
-          child: LayoutBuilder(
-            builder: (final context, final areaConstraints) {
-              final areaWidth = areaConstraints.maxWidth;
-              final areaHeight = areaConstraints.maxHeight;
-              final centerMaxWidth = math.max<double>(
-                0,
-                areaWidth - (sharedOpponentSize * 2) - (sideToCenterGap * 2),
-              );
-              final opponentSquareSize = math.max<double>(
-                0,
-                math.min(areaHeight, sharedOpponentSize),
-              );
-              final centerScale = 1.08 + 0.14 * tw;
-              final centerSquareSize = math.max<double>(
-                0,
-                math.min(
-                  areaHeight,
-                  math.max(opponentSquareSize * centerScale, centerMaxWidth),
+              SizedBox(
+                height: topPendingH,
+                child: Center(
+                  child: SizedBox(width: sideSlotW, child: topPendingSlot),
                 ),
-              );
-
-              return SizedBox(
-                height: math.max(opponentSquareSize, centerSquareSize),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              ),
+              const SizedBox(height: 4),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: hPad),
+                child: SizedBox(
+                  height: rowHeight,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox.square(dimension: opSize, child: leftOpponent),
+                      SizedBox(width: laneGap),
+                      SizedBox(
+                        width: sideSlotW,
+                        height: cardLaneH,
+                        child: leftPendingSlot,
+                      ),
+                      SizedBox(width: laneGap),
+                      SizedBox(width: trickW, height: trickH, child: trickArea),
+                      SizedBox(width: laneGap),
+                      SizedBox(
+                        width: sideSlotW,
+                        height: cardLaneH,
+                        child: rightPendingSlot,
+                      ),
+                      SizedBox(width: laneGap),
+                      SizedBox.square(dimension: opSize, child: rightOpponent),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Remaining space: hand + action bar pack to top;
+              // leftover goes below action bar inside this Expanded.
+              Expanded(
+                child: Column(
                   children: [
-                    SizedBox(
-                      width: opponentSquareSize,
-                      height: opponentSquareSize,
-                      child: leftOpponent,
-                    ),
-                    SizedBox(width: sideToCenterGap),
-                    SizedBox(
-                      width: centerSquareSize,
-                      height: centerSquareSize,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: centerSquareSize,
-                            maxHeight: centerSquareSize,
-                          ),
-                          child: trickArea,
-                        ),
+                    Flexible(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: hPad),
+                        child: handArea,
                       ),
                     ),
-                    SizedBox(width: sideToCenterGap),
-                    SizedBox(
-                      width: opponentSquareSize,
-                      height: opponentSquareSize,
-                      child: rightOpponent,
-                    ),
+                    actionBar,
                   ],
                 ),
-              );
-            },
+              ),
+            ],
           ),
-        ),
-      ),
-      SizedBox(height: trickToHandGap),
-      Expanded(
-        flex: 5,
-        child: Padding(padding: handPadding, child: handArea),
-      ),
-    ],
+        );
+      },
+    ),
   );
 }

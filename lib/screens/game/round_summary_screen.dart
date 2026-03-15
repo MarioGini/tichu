@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/screens/game/widgets/trick_event_overlay.dart';
+import 'package:tichu/widgets/game_gradient_background.dart';
 
 class RoundSummaryScreen extends StatefulWidget {
   const RoundSummaryScreen({
@@ -106,17 +107,7 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
           automaticallyImplyLeading: false,
           title: const Text('Tichu'),
         ),
-        body: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Theme.of(context).colorScheme.surface,
-                Theme.of(context).colorScheme.surface.withValues(alpha: 0.7),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
+        body: GameGradientBackground(
           child: SafeArea(
             child: Center(
               child: ConstrainedBox(

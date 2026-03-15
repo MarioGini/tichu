@@ -422,20 +422,20 @@ void main() {
   });
 
   group('defaultWishFaceFromSchupf', () {
-    test('uses the card schupfed to the right', () {
+    test('uses the card schupfed to opponent 1 (toLeft)', () {
       final wish = defaultWishFaceFromSchupf(
         toLeft: Card(CardFace.three, CardColor.red),
         toPartner: Card(CardFace.jack, CardColor.blue),
         toRight: Card(CardFace.ace, CardColor.green),
       );
-      expect(wish, CardFace.ace);
+      expect(wish, CardFace.three);
     });
 
-    test('returns null when no right schupf card', () {
+    test('returns null when no opponent 1 schupf card', () {
       final wish = defaultWishFaceFromSchupf(
-        toLeft: Card(CardFace.king, CardColor.black),
+        toLeft: null,
         toPartner: Card(CardFace.ten, CardColor.red),
-        toRight: null,
+        toRight: Card(CardFace.king, CardColor.black),
       );
       expect(wish, isNull);
     });

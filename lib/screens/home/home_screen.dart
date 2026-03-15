@@ -122,196 +122,169 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           child: SafeArea(
-            child: LayoutBuilder(
-              builder: (final context, final constraints) {
-                final h = constraints.maxHeight;
-                // Single scale factor: 0.6 at 500px → 1.0 at 900px+.
-                final s = (0.6 + 0.4 * ((h - 500) / 400)).clamp(0.6, 1.0);
-                final sectionGap = 24.0 * s;
-                final cardMargin = 24.0 * s;
-                final cardPadH = 28.0 * s;
-                final cardPadV = 32.0 * s;
-                final iconSize = 56.0 * s;
-                final iconPad = 18.0 * s;
-
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: Card(
-                      margin: EdgeInsets.all(cardMargin),
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: cardPadH,
-                          vertical: cardPadV,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Card(
+                  margin: const EdgeInsets.all(24),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 32,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                          child: const Icon(
+                            Icons.style,
+                            size: 56,
+                            color: Colors.white,
+                          ),
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(iconPad),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.08),
-                              ),
-                              child: Icon(
-                                Icons.style,
-                                size: iconSize,
-                                color: Colors.white,
-                              ),
-                            ),
-                            SizedBox(height: sectionGap),
-                            Text(
-                              'TICHU',
-                              style: Theme.of(context).textTheme.headlineMedium,
-                              textAlign: TextAlign.center,
-                            ),
-                            SizedBox(height: sectionGap),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 120),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color:
-                                      _keyboardSection ==
-                                          _HomeKeyboardSection.matchLength
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Colors.transparent,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      'Match length',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'First team to $_targetScore points',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
-                                  ),
-                                  Slider(
-                                    value: sliderValue,
-                                    max: (_scoreOptions.length - 1).toDouble(),
-                                    divisions: _scoreOptions.length - 1,
-                                    label: '$_targetScore',
-                                    onChanged: (final value) {
-                                      setState(() {
-                                        _targetScore =
-                                            _scoreOptions[value.round().clamp(
-                                              0,
-                                              3,
-                                            )];
-                                      });
-                                    },
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: _scoreOptions
-                                        .map(
-                                          (final score) => Text(
-                                            score.toString(),
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.labelSmall,
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: sectionGap),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 120),
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color:
-                                      _keyboardSection ==
-                                          _HomeKeyboardSection.playerControl
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Colors.transparent,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      'Your player control',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.titleMedium,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  SegmentedButton<PlayerControlMode>(
-                                    segments: const [
-                                      ButtonSegment<PlayerControlMode>(
-                                        value: PlayerControlMode.manual,
-                                        label: Text('Manual'),
-                                        icon: Icon(Icons.person),
-                                      ),
-                                      ButtonSegment<PlayerControlMode>(
-                                        value: PlayerControlMode.ai,
-                                        label: Text('AI'),
-                                        icon: Icon(Icons.smart_toy),
-                                      ),
-                                    ],
-                                    selected: {_selfControlMode},
-                                    showSelectedIcon: false,
-                                    onSelectionChanged: (final selection) {
-                                      final selected = selection.first;
-                                      setState(() {
-                                        _selfControlMode = selected;
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _selfControlMode == PlayerControlMode.manual
-                                        ? 'You play manually; opponents are AI.'
-                                        : 'AI controls your seat too so you can watch full AI play.',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: sectionGap),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: _startSinglePlayer,
-                                icon: const Icon(Icons.play_arrow),
-                                label: const Text('Single Player Mode'),
-                              ),
-                            ),
-                          ],
+                        const SizedBox(height: 24),
+                        Text(
+                          'TICHU',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                          textAlign: TextAlign.center,
                         ),
-                      ),
+                        const SizedBox(height: 24),
+                        _buildSection(
+                          isActive:
+                              _keyboardSection ==
+                              _HomeKeyboardSection.matchLength,
+                          child: _buildMatchLengthSection(sliderValue),
+                        ),
+                        const SizedBox(height: 24),
+                        _buildSection(
+                          isActive:
+                              _keyboardSection ==
+                              _HomeKeyboardSection.playerControl,
+                          child: _buildPlayerControlSection(),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _startSinglePlayer,
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Single Player Mode'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildSection({
+    required final bool isActive,
+    required final Widget child,
+  }) => AnimatedContainer(
+    duration: const Duration(milliseconds: 120),
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(
+        color: isActive
+            ? Theme.of(context).colorScheme.primary
+            : Colors.transparent,
+      ),
+    ),
+    child: child,
+  );
+
+  Widget _buildMatchLengthSection(final double sliderValue) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Match length',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+      ),
+      const SizedBox(height: 8),
+      Text(
+        'First team to $_targetScore points',
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      Slider(
+        value: sliderValue,
+        max: (_scoreOptions.length - 1).toDouble(),
+        divisions: _scoreOptions.length - 1,
+        label: '$_targetScore',
+        onChanged: (final value) {
+          setState(() {
+            _targetScore = _scoreOptions[value.round().clamp(0, 3)];
+          });
+        },
+      ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: _scoreOptions
+            .map(
+              (final score) => Text(
+                score.toString(),
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            )
+            .toList(),
+      ),
+    ],
+  );
+
+  Widget _buildPlayerControlSection() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          'Your player control',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+      ),
+      const SizedBox(height: 8),
+      SegmentedButton<PlayerControlMode>(
+        segments: const [
+          ButtonSegment<PlayerControlMode>(
+            value: PlayerControlMode.manual,
+            label: Text('Manual'),
+            icon: Icon(Icons.person),
+          ),
+          ButtonSegment<PlayerControlMode>(
+            value: PlayerControlMode.ai,
+            label: Text('AI'),
+            icon: Icon(Icons.smart_toy),
+          ),
+        ],
+        selected: {_selfControlMode},
+        showSelectedIcon: false,
+        onSelectionChanged: (final selection) {
+          setState(() {
+            _selfControlMode = selection.first;
+          });
+        },
+      ),
+      const SizedBox(height: 8),
+      Text(
+        _selfControlMode == PlayerControlMode.manual
+            ? 'You play manually; opponents are AI.'
+            : 'AI controls your seat too so you can watch full AI play.',
+        style: Theme.of(context).textTheme.bodyMedium,
+        textAlign: TextAlign.center,
+      ),
+    ],
+  );
 }

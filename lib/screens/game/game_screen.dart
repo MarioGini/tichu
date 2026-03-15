@@ -27,6 +27,7 @@ import 'package:tichu/services/sound_effects.dart';
 import 'package:tichu/widgets/action_bar.dart';
 import 'package:tichu/widgets/card_widget.dart';
 import 'package:tichu/widgets/opponent_display.dart';
+import 'package:tichu/widgets/pending_play_slot.dart';
 import 'package:tichu/widgets/trick_display.dart';
 
 part 'parts/game_screen_actions.dart';
@@ -82,7 +83,6 @@ class _GameScreenState extends State<GameScreen>
   List<Card> _pendingOpponentCards = <Card>[];
   bool _pendingOpponentPass = false;
   String? _pendingOpponentPlayerId;
-  String? _pendingOpponentLabel;
   String? _dragonGiveKey;
   TichuTurn? _dragonGiveTurn;
   @override
@@ -256,13 +256,9 @@ class _GameScreenState extends State<GameScreen>
       _pendingOpponentCards = uiProjection.pendingOpponentCards;
       _pendingOpponentPass = uiProjection.pendingOpponentPass;
       _pendingOpponentPlayerId = uiProjection.pendingOpponentPlayerId;
-      _pendingOpponentLabel = _pendingOpponentPlayerId == null
-          ? null
-          : snapshot.players
-                .firstWhere(
-                  (final player) => player.id == _pendingOpponentPlayerId,
-                )
-                .name;
+      if (snapshot.scoreState.roundNumber != _defaultWishRoundNumber) {
+        _defaultWishFaceFromSchupf = null;
+      }
       final dragonKey =
           '${snapshot.lastDragonGiveBy ?? ''}|'
           '${snapshot.lastDragonGiveTo ?? ''}';
@@ -284,7 +280,7 @@ class _GameScreenState extends State<GameScreen>
       final isSchupfActive =
           snapshot.phase == GamePhase.schupf &&
           !snapshot.schupfCompletedPlayers.contains(_humanId);
-      if (_isDesktopSchupfHelperEnabled &&
+      if (_hasKeyboardForSchupf &&
           isSchupfActive &&
           _schupfCursorIndex == null) {
         _syncSchupfCursor(defaultToRightMost: true);
@@ -406,9 +402,7 @@ class _GameScreenState extends State<GameScreen>
           dragonGiveLabel: dragonLabel,
           activeWish: snapshot?.activeWish ?? CardFace.none,
           trickPoints: snapshot?.trickPoints ?? 0,
-          pendingOpponentLabel: _pendingOpponentLabel,
-          pendingOpponentCards: _pendingOpponentCards,
-          pendingOpponentPass: _pendingOpponentPass,
+          showTrickPoints: isPlayPhase && !pendingReceipts,
         ).withBombOverlay(
           showOverlay: _showBombOverlay,
           slide: _bombSlide,
@@ -445,7 +439,6 @@ class _GameScreenState extends State<GameScreen>
       schupfReceipts: snapshot?.schupfReceipts ?? const [],
       schupfAckPending: _schupfAckPending,
       schupfCursorIndex: _schupfCursorIndex,
-      desktopSchupfHelperEnabled: _isDesktopSchupfHelperEnabled,
       onSetSchupfSlot: _setSchupfSlot,
       onClearSchupfSlot: _clearSchupfSlot,
       onSubmitSchupf: _submitSchupf,
@@ -485,33 +478,43 @@ class _GameScreenState extends State<GameScreen>
               snapshot: snapshot,
               tichuCalls: tichuCalls,
               showTurnIndicators: showTurnIndicators,
-              showOpponentPendingCards: showOpponentPendingCards,
               showPoints: showPoints,
               teamScore: displayPartnerScore,
+            ),
+            topPendingSlot: _buildPendingSlot(
+              playerId: 'player-2',
+              showPending: showOpponentPendingCards,
+              alignment: Alignment.bottomCenter,
             ),
             leftOpponent: _buildOpponent(
               playerId: 'player-3',
               name: 'Opponent 3',
               alignment: Axis.vertical,
               icon: Icons.memory,
-              pendingPlacement: PendingPlacement.right,
               snapshot: snapshot,
               tichuCalls: tichuCalls,
               showTurnIndicators: showTurnIndicators,
-              showOpponentPendingCards: showOpponentPendingCards,
               showPoints: showPoints,
               teamScore: displayLeftScore,
+            ),
+            leftPendingSlot: _buildPendingSlot(
+              playerId: 'player-3',
+              showPending: showOpponentPendingCards,
+              alignment: Alignment.bottomRight,
+            ),
+            rightPendingSlot: _buildPendingSlot(
+              playerId: 'player-1',
+              showPending: showOpponentPendingCards,
+              alignment: Alignment.bottomLeft,
             ),
             rightOpponent: _buildOpponent(
               playerId: 'player-1',
               name: 'Opponent 1',
               alignment: Axis.vertical,
               icon: Icons.smart_toy_outlined,
-              pendingPlacement: PendingPlacement.left,
               snapshot: snapshot,
               tichuCalls: tichuCalls,
               showTurnIndicators: showTurnIndicators,
-              showOpponentPendingCards: showOpponentPendingCards,
               showPoints: showPoints,
               teamScore: displayRightScore,
             ),
@@ -560,6 +563,7 @@ class _GameScreenState extends State<GameScreen>
                   showDeclareTichu:
                       _isSelfManual &&
                       !isRoundComplete &&
+                      !showGrandTichuDecision &&
                       ((snapshot != null && phase != GamePhase.play) ||
                           (snapshot?.canCallTichu ?? false)) &&
                       !humanTichu,
@@ -592,10 +596,8 @@ class _GameScreenState extends State<GameScreen>
     required final PlayerSnapshot? snapshot,
     required final Map<String, TichuCall> tichuCalls,
     required final bool showTurnIndicators,
-    required final bool showOpponentPendingCards,
     required final bool showPoints,
     required final int teamScore,
-    final PendingPlacement? pendingPlacement,
   }) {
     final cardCount = snapshot?.opponentCardCounts[playerId] ?? 0;
     final finishOrder = snapshot?.scoreState.finishOrder ?? const <String>[];
@@ -616,17 +618,21 @@ class _GameScreenState extends State<GameScreen>
       finishPosition: finishPosition,
       alignment: alignment,
       icon: icon,
-      pendingCards:
-          showOpponentPendingCards && _pendingOpponentPlayerId == playerId
-          ? _pendingOpponentCards
-          : const [],
-      pendingPass:
-          showOpponentPendingCards &&
-          _pendingOpponentPlayerId == playerId &&
-          _pendingOpponentPass,
-      pendingPlacement: pendingPlacement ?? PendingPlacement.below,
       teamScore: teamScore,
       showPoints: showPoints,
+    );
+  }
+
+  Widget _buildPendingSlot({
+    required final String playerId,
+    required final bool showPending,
+    required final Alignment alignment,
+  }) {
+    final isActive = showPending && _pendingOpponentPlayerId == playerId;
+    return PendingPlaySlot(
+      cards: isActive ? _pendingOpponentCards : const [],
+      isPassed: isActive && _pendingOpponentPass,
+      alignment: alignment,
     );
   }
 
@@ -698,7 +704,7 @@ class _GameScreenState extends State<GameScreen>
         snapshot.phase == GamePhase.schupf &&
         !snapshot.schupfCompletedPlayers.contains(_humanId);
     if (!isSchupfActive) return null;
-    if (!_isDesktopSchupfHelperEnabled) return null;
+    if (!_hasKeyboardForSchupf) return null;
 
     final canSubmit =
         _schupfToLeft != null &&
@@ -722,7 +728,7 @@ class _GameScreenState extends State<GameScreen>
         snapshot.phase == GamePhase.schupf &&
         !snapshot.schupfCompletedPlayers.contains(_humanId);
     if (!isSchupfActive) return false;
-    if (!_isDesktopSchupfHelperEnabled) return false;
+    if (!_hasKeyboardForSchupf) return false;
 
     final canSubmit =
         _schupfToLeft != null &&
@@ -789,7 +795,7 @@ class _GameScreenState extends State<GameScreen>
         case SchupfSlot.right:
           _schupfToRight = card;
       }
-      if (_isDesktopSchupfHelperEnabled) {
+      if (_hasKeyboardForSchupf) {
         _syncSchupfCursor(defaultToRightMost: true);
       } else {
         _schupfCursorIndex = null;
@@ -807,7 +813,7 @@ class _GameScreenState extends State<GameScreen>
         case SchupfSlot.right:
           _schupfToRight = null;
       }
-      if (_isDesktopSchupfHelperEnabled) {
+      if (_hasKeyboardForSchupf) {
         _syncSchupfCursor(defaultToRightMost: true);
       } else {
         _schupfCursorIndex = null;
@@ -816,7 +822,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _syncSchupfCursor({required final bool defaultToRightMost}) {
-    if (!_isDesktopSchupfHelperEnabled) {
+    if (!_hasKeyboardForSchupf) {
       _schupfCursorIndex = null;
       return;
     }
@@ -847,7 +853,7 @@ class _GameScreenState extends State<GameScreen>
     _schupfCursorIndex = _schupfCursorIndex!.clamp(0, available - 1);
   }
 
-  bool get _isDesktopSchupfHelperEnabled {
+  bool get _hasKeyboardForSchupf {
     final mediaQuery = MediaQuery.maybeOf(context);
     if (mediaQuery != null) {
       final shortestSide = math.min(

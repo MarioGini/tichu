@@ -23,7 +23,6 @@ class SchupfSelectionMode extends SchupfPanelMode {
     required this.onClearSlot,
     required this.onSubmit,
     this.schupfCursorIndex,
-    this.desktopSchupfHelperEnabled = false,
   });
 
   final Card? schupfToLeft;
@@ -33,7 +32,6 @@ class SchupfSelectionMode extends SchupfPanelMode {
   final void Function(SchupfSlot slot) onClearSlot;
   final VoidCallback? onSubmit;
   final int? schupfCursorIndex;
-  final bool desktopSchupfHelperEnabled;
 }
 
 /// Receipt mode: the player views received cards and acknowledges.
@@ -67,7 +65,7 @@ class SchupfPanel extends StatelessWidget {
   final Widget? header;
 
   /// Vertical padding consumed by the container in [buildSchupfPanelContainer].
-  static const double _containerPadding = 24.0; // 12 top + 12 bottom
+  static const double _containerPadding = 24; // 12 top + 12 bottom
 
   @override
   Widget build(final BuildContext context) => LayoutBuilder(
@@ -196,22 +194,10 @@ class SchupfPanel extends StatelessWidget {
       SizedBox(height: layout.tightGap),
     ];
 
-    // When height-constrained, use Expanded for the hand row so it takes
-    // exactly the remaining space — no overflow possible.
-    final content = maxHeight != null
-        ? SizedBox(
-            height: maxHeight,
-            child: Column(
-              children: [
-                ...fixedChildren,
-                Expanded(child: handRow),
-              ],
-            ),
-          )
-        : Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [...fixedChildren, handRow],
-          );
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [...fixedChildren, handRow],
+    );
 
     return buildSchupfPanelContainer(panelWidth: panelWidth, child: content);
   }
@@ -232,7 +218,6 @@ class SchupfPanel extends StatelessWidget {
       itemBuilder: (final context, final index) {
         final card = available[index];
         void onQuickAssign() {
-          if (!m.desktopSchupfHelperEnabled) return;
           if (m.schupfToRight == null) {
             m.onSetSlot(SchupfSlot.right, card);
           } else if (m.schupfToPartner == null) {
@@ -284,7 +269,8 @@ class SchupfPanel extends StatelessWidget {
       for (final receipt in m.receipts) receipt.direction: receipt,
     };
     final filteredHand = <Card>[];
-    final hiddenCards = List<Card>.from(m.schupfSentCards);
+    final hiddenCards = List<Card>.from(m.schupfSentCards)
+      ..addAll(m.receipts.map((final receipt) => receipt.card));
     for (final card in hand) {
       final hiddenIndex = hiddenCards.indexOf(card);
       if (hiddenIndex >= 0) {
@@ -335,7 +321,9 @@ class SchupfPanel extends StatelessWidget {
         ]),
         const SizedBox(height: 8),
         ElevatedButton.icon(
-          onPressed: m.schupfAckPending ? null : m.onAcknowledge,
+          onPressed: m.schupfAckPending || m.receipts.isEmpty
+              ? null
+              : m.onAcknowledge,
           icon: const Icon(Icons.check_circle_outline),
           label: const Text('PLAY'),
         ),

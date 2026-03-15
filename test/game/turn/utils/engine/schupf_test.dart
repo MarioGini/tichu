@@ -134,8 +134,11 @@ void main() {
       expect(state.schupfReceipts.keys, hasLength(4));
       expect(state.schupfReceipts[testHumanId], hasLength(3));
       expect(state.schupfPendingAdditions[testHumanId], hasLength(3));
-      expect(state.hands[testHumanId], hasLength(initialHandLength - 3));
-      expect(state.currentPlayerIndex, 0);
+      // Cards are merged immediately: lost 3 sent, gained 3 received.
+      expect(state.hands[testHumanId], hasLength(initialHandLength));
+      // The human schupfed the Mahjong to the left opponent (seat 1),
+      // so the left opponent should start.
+      expect(state.currentPlayerIndex, 1);
       expect(state.deck.turn.type, TurnType.empty);
       expect(state.deck.wish, CardFace.ten);
       expect(state.lastPlayedBy, isNull);
@@ -170,7 +173,7 @@ void main() {
       expect(hasPendingHumanSchupfReceipts(state), isTrue);
     });
 
-    test('acknowledgement removes player receipts', () {
+    test('acknowledgement removes receipts and pending metadata', () {
       final state = _buildState();
       final addedCard = _card(CardFace.king, CardColor.blue);
       state.schupfReceipts[testHumanId] = [
@@ -190,8 +193,8 @@ void main() {
 
       expect(state.schupfReceipts.containsKey(testHumanId), isFalse);
       expect(state.schupfPendingAdditions.containsKey(testHumanId), isFalse);
-      expect(state.hands[testHumanId], hasLength(previousLength + 1));
-      expect(state.hands[testHumanId], contains(addedCard));
+      // Cards were already merged during finalization, not during acknowledge.
+      expect(state.hands[testHumanId], hasLength(previousLength));
       expect(hasPendingHumanSchupfReceipts(state), isFalse);
     });
   });

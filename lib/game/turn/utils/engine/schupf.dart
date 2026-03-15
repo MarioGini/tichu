@@ -37,12 +37,10 @@ void applyAcknowledgeSchupf(
   final GameEngineState state,
   final AcknowledgeSchupfAction action,
 ) {
+  // Cards are already merged into hands during finalization.
+  // Acknowledgment just clears the receipt UI metadata.
   state.schupfReceipts.remove(action.playerId);
-  final pendingCards = state.schupfPendingAdditions.remove(action.playerId);
-  if (pendingCards != null && pendingCards.isNotEmpty) {
-    final hand = state.hands[action.playerId];
-    hand?.addAll(pendingCards);
-  }
+  state.schupfPendingAdditions.remove(action.playerId);
 }
 
 bool hasPendingSchupfReceiptsForPlayer(
@@ -126,6 +124,15 @@ void _maybeFinalizeSchupf(final GameEngineState state) {
   }
 
   state.schupfSelections.clear();
+
+  // Merge received cards directly into hands so _startingPlayerIndex
+  // can simply check who holds the Mahjong.
+  for (final entry in additions.entries) {
+    final hand = state.hands[entry.key];
+    hand?.addAll(entry.value);
+  }
+
+  // Keep additions as UI metadata so the receipt screen can display them.
   state.schupfPendingAdditions
     ..clear()
     ..addAll({

@@ -150,14 +150,14 @@ bool isWishableFace(final CardFace face) => switch (face) {
 
 /// Returns the default wish face derived from schupf selections.
 ///
-/// The convention is to wish for the face of the card given to the
-/// next player (right opponent), since that player is most likely to
-/// still hold it.
+/// The convention is to wish for the face of the card given to
+/// Opponent 1 (UI right-side opponent for the human player), as this
+/// target is preferred for the default Mahjong wish.
 CardFace? defaultWishFaceFromSchupf({
   required final Card? toLeft,
   required final Card? toPartner,
   required final Card? toRight,
-}) => toRight?.face;
+}) => toLeft?.face;
 
 bool canPlayWishOnFullHouse(final DeckState deck, final List<Card> cards) {
   final possibleTurns = getFullHouses(cards);

@@ -246,10 +246,14 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       return;
     }
 
+    final toLeft = _schupfToLeft!;
+    final toPartner = _schupfToPartner!;
+    final toRight = _schupfToRight!;
+
     final wishDefault = defaultWishFaceFromSchupf(
-      toLeft: _schupfToLeft,
-      toPartner: _schupfToPartner,
-      toRight: _schupfToRight,
+      toLeft: toLeft,
+      toPartner: toPartner,
+      toRight: toRight,
     );
 
     try {
@@ -257,17 +261,13 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         snapshot.gameId,
         SchupfAction(
           playerId: _humanId,
-          toLeft: _schupfToLeft!,
-          toPartner: _schupfToPartner!,
-          toRight: _schupfToRight!,
+          toLeft: toLeft,
+          toPartner: toPartner,
+          toRight: toRight,
         ),
       );
       setState(() {
-        _schupfSentCards = <Card>[
-          _schupfToLeft!,
-          _schupfToPartner!,
-          _schupfToRight!,
-        ];
+        _schupfSentCards = <Card>[toLeft, toPartner, toRight];
         _defaultWishFaceFromSchupf = wishDefault;
         _defaultWishRoundNumber = snapshot.scoreState.roundNumber;
         _selectedIndexes.clear();

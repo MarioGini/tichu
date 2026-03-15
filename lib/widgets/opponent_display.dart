@@ -67,7 +67,7 @@ class OpponentDisplay extends StatelessWidget {
         final maxHeight = constraints.maxHeight;
         const gap = 6.0;
         final squareSide = math.max<double>(0, math.min(maxWidth, maxHeight));
-        final pendingHeight = (squareSide * 0.28).clamp(34.0, 64.0);
+        final pendingHeight = (squareSide * 0.35).clamp(48.0, 80.0);
 
         final box = SizedBox.square(
           dimension: squareSide,
@@ -181,7 +181,7 @@ class OpponentDisplay extends StatelessWidget {
             return Center(child: box);
           }
 
-          final pendingHeight = (squareSide * 0.35).clamp(48.0, 110.0);
+          final pendingHeight = (squareSide * 0.40).clamp(56.0, 120.0);
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -331,7 +331,7 @@ class OpponentDisplay extends StatelessWidget {
             CardWidget.normalWidth +
             math.max(0, pendingCount - 1) * desiredMinVisible;
         final scaleByWidth = maxWidth / widthDenominator;
-        final scale = math.min(scaleByHeight, scaleByWidth).clamp(0.35, 1.25);
+        final scale = math.min(scaleByHeight, scaleByWidth).clamp(0.42, 1.25);
         final cardW = CardWidget.normalWidth * scale;
         final cardH = CardWidget.normalHeight * scale;
         final spacing = 6 * scale;

@@ -98,7 +98,9 @@ SchupfLayout computeSchupfLayout({
 Widget buildSchupfPanelContainer({
   required final double panelWidth,
   required final Widget child,
-}) => Center(
+}) => Align(
+  alignment: Alignment.topCenter,
+  heightFactor: 1,
   child: SizedBox(
     width: panelWidth,
     child: Container(

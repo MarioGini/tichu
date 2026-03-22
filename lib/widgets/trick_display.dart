@@ -27,7 +27,7 @@ class TrickDisplay extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) => Container(
-    padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+    padding: const EdgeInsets.fromLTRB(6, 3, 6, 5),
     decoration: BoxDecoration(
       color: Colors.black.withValues(alpha: 0.3),
       borderRadius: BorderRadius.circular(16),
@@ -42,12 +42,12 @@ class TrickDisplay extends StatelessWidget {
     ),
     child: LayoutBuilder(
       builder: (final context, final constraints) {
-        final availH = constraints.maxHeight - 12; // container padding
+        final availH = constraints.maxHeight - 8; // container padding
         final placeholderScale = (availH / CardWidget.normalHeight).clamp(
           0.25,
           1.0,
         );
-        final gap = 2.0 + 2.0 * placeholderScale;
+        final gap = 1.0 + 1.5 * placeholderScale;
 
         final hasMahjongInTrick = cards.any(
           (final card) => card.face == CardFace.mahJong,
@@ -56,11 +56,11 @@ class TrickDisplay extends StatelessWidget {
 
         final showHeaderLine =
             currentWinnerLabel.isNotEmpty || dragonGiveLabel.isNotEmpty;
-        final reservedHeaderH = showHeaderLine ? 36 : 0;
+        final reservedHeaderH = showHeaderLine ? 28 : 0;
         final reservedWishH = showWish
             ? CardWidget.compactHeight * placeholderScale * 0.5 + gap
             : 0;
-        final reservedPointsH = showTrickPoints ? 18 : 0;
+        final reservedPointsH = showTrickPoints ? 14 : 0;
         final cardTopGap = cards.isNotEmpty ? math.max(1, gap * 0.45) : 0.0;
         final reservedGapH = cardTopGap.toDouble();
         final cardAreaH = math.max(
@@ -70,7 +70,7 @@ class TrickDisplay extends StatelessWidget {
               reservedWishH -
               reservedPointsH -
               reservedGapH -
-              4,
+              2,
         );
         final scopedScale = PlayedCardSizeScope.maybeOf(context);
         final heightScale = (cardAreaH / (CardWidget.normalHeight + 8)).clamp(

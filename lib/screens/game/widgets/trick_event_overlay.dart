@@ -35,12 +35,18 @@ class EventSlamOverlay extends StatelessWidget {
     required this.scale,
     required this.icon,
     required this.label,
+    this.gradientColors,
+    this.iconColor,
+    this.labelColor,
   });
 
   final Animation<Offset> slide;
   final Animation<double> scale;
   final IconData icon;
   final String label;
+  final List<Color>? gradientColors;
+  final Color? iconColor;
+  final Color? labelColor;
 
   @override
   Widget build(final BuildContext context) => SlideTransition(
@@ -53,11 +59,13 @@ class EventSlamOverlay extends StatelessWidget {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: RadialGradient(
-            colors: [
-              Colors.orangeAccent,
-              Colors.deepOrange.shade700,
-              Colors.black87,
-            ],
+            colors:
+                gradientColors ??
+                [
+                  Colors.orangeAccent,
+                  Colors.deepOrange.shade700,
+                  Colors.black87,
+                ],
             stops: const [0.0, 0.6, 1.0],
           ),
           boxShadow: [
@@ -72,11 +80,11 @@ class EventSlamOverlay extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: Colors.white, size: 42),
+              Icon(icon, color: iconColor ?? Colors.white, size: 42),
               Text(
                 label,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+                  color: labelColor ?? Colors.white,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 2,
                 ),

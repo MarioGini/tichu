@@ -290,14 +290,24 @@ class PlayTacticsPolicy {
         .toList();
     final occurrences = getOccurrenceCount(normalCards);
 
+    final hasNaturalWinningSingle = singles.any((final t) {
+      final face = t.cards.first.face;
+      return face != CardFace.phoenix &&
+          face != CardFace.dragon &&
+          face != CardFace.dog;
+    });
+
     // Filter to singles whose face is a true singleton in the hand.
     final singletonPlays = singles.where((final t) {
       final face = t.cards.first.face;
-      // Phoenix play and dragon/dog are always fine to play.
-      if (face == CardFace.phoenix ||
-          face == CardFace.dragon ||
-          face == CardFace.dog) {
+      // Dragon and dog are always fine to play. Preserve phoenix when a
+      // natural winning single exists, since phoenix is our most flexible
+      // remaining trump-like control card.
+      if (face == CardFace.dragon || face == CardFace.dog) {
         return true;
+      }
+      if (face == CardFace.phoenix) {
+        return !hasNaturalWinningSingle;
       }
       return (occurrences[face] ?? 0) == 1;
     }).toList();

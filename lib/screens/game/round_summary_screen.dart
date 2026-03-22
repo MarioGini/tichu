@@ -30,16 +30,7 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
   late final Animation<double> _celebrationScale;
   bool _showCelebration = false;
 
-  String? get _celebrationMessage {
-    if (widget.scoreState.gameComplete) {
-      return switch (widget.scoreState.winningTeam) {
-        0 => 'Your team wins the match!',
-        1 => 'Other team wins the match!',
-        _ => 'The match ends in a tie!',
-      };
-    }
-    return widget.tichuSuccessMessage;
-  }
+  String? get _celebrationMessage => widget.tichuSuccessMessage;
 
   String get _celebrationLabel =>
       widget.scoreState.gameComplete ? 'MATCH' : 'TICHU';
@@ -70,15 +61,11 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
 
     if (_celebrationMessage != null) {
       _showCelebration = true;
-      unawaited(_runCelebration());
+      unawaited(_celebrationController.forward());
     }
   }
 
-  Future<void> _runCelebration() async {
-    await _celebrationController.forward();
-    await Future<void>.delayed(const Duration(milliseconds: 1700));
-    if (!mounted) return;
-    await _celebrationController.reverse();
+  void _dismissCelebration() {
     if (!mounted) return;
     setState(() {
       _showCelebration = false;
@@ -169,28 +156,31 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
                         ),
                       ),
                       if (_showCelebration && _celebrationMessage != null)
-                        IgnorePointer(
-                          child: AnimatedOpacity(
-                            opacity: _showCelebration ? 1 : 0,
-                            duration: const Duration(milliseconds: 140),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                EventSlamOverlay(
-                                  slide: _celebrationSlide,
-                                  scale: _celebrationScale,
-                                  icon: Icons.emoji_events,
-                                  label: _celebrationLabel,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  _celebrationMessage!,
-                                  style: Theme.of(context).textTheme.labelLarge
-                                      ?.copyWith(color: Colors.white),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
+                        AnimatedOpacity(
+                          opacity: _showCelebration ? 1 : 0,
+                          duration: const Duration(milliseconds: 140),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              EventSlamOverlay(
+                                slide: _celebrationSlide,
+                                scale: _celebrationScale,
+                                icon: Icons.emoji_events,
+                                label: _celebrationLabel,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _celebrationMessage!,
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(color: Colors.white),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 14),
+                              FilledButton(
+                                onPressed: _dismissCelebration,
+                                child: const Text('Next'),
+                              ),
+                            ],
                           ),
                         ),
                     ],

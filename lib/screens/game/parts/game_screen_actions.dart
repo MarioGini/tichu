@@ -4,6 +4,7 @@ mixin _GameScreenActions on _GameScreenBindings {
   void _toggleSelect(final int index) {
     if (!_isSelfManual) return;
     setState(() {
+      _aiSuggestionSelectionOwned = false;
       if (_selectedIndexes.contains(index)) {
         _selectedIndexes.remove(index);
       } else {
@@ -54,6 +55,7 @@ mixin _GameScreenActions on _GameScreenBindings {
       );
       setState(() {
         _selectedIndexes.clear();
+        _aiSuggestionSelectionOwned = false;
       });
     } on Object catch (error) {
       _showSnack(error.toString());
@@ -83,6 +85,7 @@ mixin _GameScreenActions on _GameScreenBindings {
       _selectedIndexes
         ..clear()
         ..addAll(_playController.cardIndicesInHand(_hand, playableBomb.cards));
+      _aiSuggestionSelectionOwned = false;
     });
 
     try {
@@ -92,6 +95,7 @@ mixin _GameScreenActions on _GameScreenBindings {
       );
       setState(() {
         _selectedIndexes.clear();
+        _aiSuggestionSelectionOwned = false;
       });
     } on Object catch (error) {
       _showSnack(error.toString());
@@ -128,6 +132,7 @@ mixin _GameScreenActions on _GameScreenBindings {
       );
       setState(() {
         _selectedIndexes.clear();
+        _aiSuggestionSelectionOwned = false;
       });
     } on Object catch (error) {
       _showSnack(error.toString());

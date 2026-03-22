@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Card;
+import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/driver_ui_projector.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_backend.dart';
@@ -118,6 +119,10 @@ class _GameScreenState extends State<GameScreen>
   @override
   bool _soundEnabled = SoundEffects.enabled;
   @override
+  bool _aiSuggestionEnabled = true;
+  @override
+  bool _aiSuggestionSelectionOwned = false;
+  @override
   Card? _schupfToLeft;
   @override
   Card? _schupfToPartner;
@@ -133,6 +138,8 @@ class _GameScreenState extends State<GameScreen>
   bool _grandTichuSelectNo = true;
   int? _schupfCursorIndex;
   final FocusNode _schupfFocusNode = FocusNode();
+  late final SmartAiAgent _suggestionAgent;
+  int _aiSuggestionRequestId = 0;
 
   @override
   void initState() {
@@ -168,6 +175,7 @@ class _GameScreenState extends State<GameScreen>
     _resolvedPlayerControls.addAll(widget.playerControlModes);
     _selfControlMode =
         _resolvedPlayerControls[_humanId] ?? PlayerControlMode.manual;
+    _suggestionAgent = SmartAiAgent(_humanId);
     _opponentDelaySeconds = 1.0;
     _players = [
       GamePlayer(
@@ -199,8 +207,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Future<void> _initializeGame() async {
-    await CardWidget.precacheCardAssets(context);
-    if (!mounted) return;
+    unawaited(CardWidget.precacheCardAssets(context));
 
     final gameId = await _backend.createGame(
       _players,
@@ -240,6 +247,7 @@ class _GameScreenState extends State<GameScreen>
       }
       if (_hand.length != snapshot.hand.length) {
         _selectedIndexes.clear();
+        _aiSuggestionSelectionOwned = false;
       }
       _hand = List<Card>.from(snapshot.hand)..sort(compareCardsForDisplay);
       _trickCards = List<Card>.from(snapshot.deck.turn.cards);
@@ -275,6 +283,7 @@ class _GameScreenState extends State<GameScreen>
       _selectedIndexes
         ..clear()
         ..addAll(uiProjection.selectedIndexes);
+      _aiSuggestionSelectionOwned = false;
 
       // Initialize / reset schupf keyboard cursor.
       final isSchupfActive =
@@ -302,11 +311,146 @@ class _GameScreenState extends State<GameScreen>
     _maybeAutoConfirmOpponentTurn(snapshot);
     _maybeAutoPass(snapshot);
     _maybeAutoSelectFinisher(snapshot);
+    unawaited(_maybeApplyAiSuggestion(snapshot));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _schupfFocusNode.requestFocus();
     });
+  }
+
+  @override
+  Future<void> _maybeApplyAiSuggestion(final PlayerSnapshot snapshot) async {
+    if (!_isSelfManual || !_aiSuggestionEnabled) {
+      _clearAiSuggestionSelection();
+      return;
+    }
+    if (snapshot.phase != GamePhase.play ||
+        snapshot.currentPlayerId != _humanId) {
+      _clearAiSuggestionSelection();
+      return;
+    }
+    if (snapshot.pendingDragonGiveBy == _humanId) {
+      _clearAiSuggestionSelection();
+      return;
+    }
+    if (_schupfAckPending || snapshot.schupfReceipts.isNotEmpty) {
+      _clearAiSuggestionSelection();
+      return;
+    }
+
+    final isLeading =
+        snapshot.deck.turn.type == TurnType.empty ||
+        snapshot.deck.turn.type == TurnType.none;
+    if (isLeading) {
+      _clearAiSuggestionSelection();
+      return;
+    }
+
+    if (_selectedIndexes.isNotEmpty && !_aiSuggestionSelectionOwned) {
+      return;
+    }
+
+    final requestId = ++_aiSuggestionRequestId;
+    final aiSnapshot = _buildAiSuggestionSnapshot(snapshot);
+    final action = await _suggestionAgent.selectTurn(aiSnapshot);
+    if (!mounted || requestId != _aiSuggestionRequestId) return;
+
+    if (action is! PlayTurnAction) {
+      _clearAiSuggestionSelection();
+      return;
+    }
+
+    final suggestedIndexes = _playController.cardIndicesInHand(
+      _hand,
+      action.cards,
+    );
+    if (suggestedIndexes.isEmpty) {
+      _clearAiSuggestionSelection();
+      return;
+    }
+
+    final suggestedCards = [for (final index in suggestedIndexes) _hand[index]];
+    final suggestedTurn = _playController.resolveSelectedTurn(
+      snapshot: snapshot,
+      selectedCards: suggestedCards,
+      hand: _hand,
+    );
+    if (suggestedTurn == null) {
+      _clearAiSuggestionSelection();
+      return;
+    }
+
+    setState(() {
+      _selectedIndexes
+        ..clear()
+        ..addAll(suggestedIndexes);
+      _aiSuggestionSelectionOwned = true;
+    });
+  }
+
+  @override
+  void _clearAiSuggestionSelection() {
+    _aiSuggestionRequestId += 1;
+    if (!_aiSuggestionSelectionOwned || _selectedIndexes.isEmpty) return;
+    if (!mounted) return;
+    setState(() {
+      _selectedIndexes.clear();
+      _aiSuggestionSelectionOwned = false;
+    });
+  }
+
+  GameSnapshot _buildAiSuggestionSnapshot(final PlayerSnapshot snapshot) {
+    final hands = <String, List<Card>>{};
+    for (final player in snapshot.players) {
+      if (player.id == _humanId) {
+        hands[player.id] = List<Card>.from(_hand);
+        continue;
+      }
+      final count = snapshot.opponentCardCounts[player.id] ?? 0;
+      hands[player.id] = List<Card>.generate(
+        count,
+        (_) => Card(CardFace.none, CardColor.special),
+      );
+    }
+
+    return GameSnapshot(
+      gameId: snapshot.gameId,
+      players: snapshot.players,
+      hands: hands,
+      deck: snapshot.deck,
+      trickPoints: snapshot.trickPoints,
+      activeWish: snapshot.activeWish,
+      currentPlayerId: snapshot.currentPlayerId,
+      consecutivePasses: snapshot.consecutivePasses,
+      lastPlayedBy: snapshot.lastPlayedBy,
+      lastPlayedTurn: snapshot.lastPlayedTurn,
+      lastDragonGiveBy: snapshot.lastDragonGiveBy,
+      lastDragonGiveTo: snapshot.lastDragonGiveTo,
+      pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
+      pendingDragonGiveTargets: snapshot.pendingDragonGiveTargets,
+      pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
+      pendingOpponentCards: snapshot.pendingOpponentCards,
+      pendingOpponentPass: snapshot.pendingOpponentPass,
+      scoreState: snapshot.scoreState,
+      opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
+      phase: snapshot.phase,
+      canCallTichuByPlayer: {
+        for (final player in snapshot.players)
+          player.id: player.id == _humanId && snapshot.canCallTichu,
+      },
+      hasBombByPlayer: {
+        for (final player in snapshot.players)
+          player.id: player.id == _humanId && snapshot.hasBombInHand,
+      },
+      canBombByPlayer: {
+        for (final player in snapshot.players)
+          player.id: player.id == _humanId && snapshot.canBomb,
+      },
+      grandTichuDecisions: snapshot.grandTichuDecisions,
+      schupfCompletedPlayers: snapshot.schupfCompletedPlayers,
+      schupfReceipts: {_humanId: snapshot.schupfReceipts},
+    );
   }
 
   @override

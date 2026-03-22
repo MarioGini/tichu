@@ -4,17 +4,21 @@ import 'package:flutter/material.dart';
 class OptionsDialog extends StatefulWidget {
   const OptionsDialog({
     super.key,
+    required this.aiSuggestionEnabled,
     required this.opponentDelay,
     required this.autoPassEnabled,
     required this.soundEnabled,
+    required this.onAiSuggestionChanged,
     required this.onOpponentDelayChanged,
     required this.onAutoPassChanged,
     required this.onSoundChanged,
   });
 
+  final bool aiSuggestionEnabled;
   final double opponentDelay;
   final bool autoPassEnabled;
   final bool soundEnabled;
+  final ValueChanged<bool> onAiSuggestionChanged;
   final ValueChanged<double> onOpponentDelayChanged;
   final ValueChanged<bool> onAutoPassChanged;
   final ValueChanged<bool> onSoundChanged;
@@ -24,6 +28,7 @@ class OptionsDialog extends StatefulWidget {
 }
 
 class _OptionsDialogState extends State<OptionsDialog> {
+  late bool _aiSuggestionEnabled;
   late double _opponentDelay;
   late bool _autoPassEnabled;
   late bool _soundEnabled;
@@ -31,6 +36,7 @@ class _OptionsDialogState extends State<OptionsDialog> {
   @override
   void initState() {
     super.initState();
+    _aiSuggestionEnabled = widget.aiSuggestionEnabled;
     _opponentDelay = widget.opponentDelay;
     _autoPassEnabled = widget.autoPassEnabled;
     _soundEnabled = widget.soundEnabled;
@@ -42,6 +48,16 @@ class _OptionsDialogState extends State<OptionsDialog> {
     content: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        SwitchListTile(
+          value: _aiSuggestionEnabled,
+          onChanged: (final value) {
+            setState(() {
+              _aiSuggestionEnabled = value;
+            });
+            widget.onAiSuggestionChanged(value);
+          },
+          title: const Text('AI move suggestion'),
+        ),
         Row(
           children: [
             Expanded(

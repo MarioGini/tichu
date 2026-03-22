@@ -157,7 +157,7 @@ class GamePlayController {
     final used = <int>{};
     for (final card in cards) {
       for (var i = 0; i < hand.length; i++) {
-        if (!used.contains(i) && hand[i] == card) {
+        if (!used.contains(i) && _cardsMatchForSelection(hand[i], card)) {
           indices.add(i);
           used.add(i);
           break;
@@ -165,6 +165,17 @@ class GamePlayController {
       }
     }
     return indices;
+  }
+
+  bool _cardsMatchForSelection(final Card handCard, final Card selectedCard) {
+    if (handCard == selectedCard) {
+      return true;
+    }
+
+    // Suggested phoenix singles carry a dynamic play value, while the hand
+    // stores phoenix at its base value. Match them by identity, not value.
+    return handCard.face == CardFace.phoenix &&
+        selectedCard.face == CardFace.phoenix;
   }
 
   /// Returns the first bomb in [hand] that can beat the current [deck], or

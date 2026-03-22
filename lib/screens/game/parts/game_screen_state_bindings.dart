@@ -51,6 +51,12 @@ mixin _GameScreenBindings on State<GameScreen> {
   bool get _soundEnabled;
   set _soundEnabled(final bool value);
 
+  bool get _aiSuggestionEnabled;
+  set _aiSuggestionEnabled(final bool value);
+
+  bool get _aiSuggestionSelectionOwned;
+  set _aiSuggestionSelectionOwned(final bool value);
+
   Card? get _schupfToLeft;
   set _schupfToLeft(final Card? value);
 
@@ -86,4 +92,8 @@ mixin _GameScreenBindings on State<GameScreen> {
   Future<void> _pass();
 
   Future<CardFace?> _promptWish({final CardFace? defaultWish});
+
+  Future<void> _maybeApplyAiSuggestion(final PlayerSnapshot snapshot);
+
+  void _clearAiSuggestionSelection();
 }

@@ -225,5 +225,18 @@ void main() {
 
       expect(shouldAutoSelect, isFalse);
     });
+
+    test(
+      'cardIndicesInHand matches phoenix regardless of dynamic play value',
+      () {
+        final hand = [Card(CardFace.phoenix, CardColor.special)];
+
+        final indices = controller.cardIndicesInHand(hand, [
+          const Card.phoenix(13.5),
+        ]);
+
+        expect(indices, {0});
+      },
+    );
   });
 }

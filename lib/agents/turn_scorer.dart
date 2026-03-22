@@ -22,6 +22,11 @@ class PolicyWeights {
   final double disruptOpponentTichuNearFinish;
   final double avoidSoftLeadAgainstOpponentTichu;
   final double trickPointCapture;
+  final double phoenixTrumpLeadCapture;
+  final double phoenixTrumpOnAceBonus;
+  final double phoenixTrumpAgainstNearFinishBonus;
+  final double preserveFlexibleTrump;
+  final double preferNaturalTrumpResponse;
 
   const PolicyWeights({
     this.lowLeadPreference = 2,
@@ -39,6 +44,11 @@ class PolicyWeights {
     this.disruptOpponentTichuNearFinish = 8,
     this.avoidSoftLeadAgainstOpponentTichu = 4,
     this.trickPointCapture = 1,
+    this.phoenixTrumpLeadCapture = 8,
+    this.phoenixTrumpOnAceBonus = 6,
+    this.phoenixTrumpAgainstNearFinishBonus = 5,
+    this.preserveFlexibleTrump = 8,
+    this.preferNaturalTrumpResponse = 6,
   });
 }
 
@@ -183,7 +193,101 @@ class TurnScorer {
       score -= weights.supportPartnerTichu;
     }
 
+    score += _phoenixTrumpLeadScore(
+      snapshot: snapshot,
+      playerId: playerId,
+      play: play,
+      deck: deck,
+      hand: hand,
+      opponentTichuNearFinishWinning: opponentTichuNearFinishWinning,
+    );
+
+    score += _naturalTrumpResponseScore(play: play, deck: deck, hand: hand);
+
     return score;
+  }
+
+  double _phoenixTrumpLeadScore({
+    required final GameSnapshot snapshot,
+    required final String playerId,
+    required final TichuTurn play,
+    required final DeckState deck,
+    required final List<Card> hand,
+    required final bool opponentTichuNearFinishWinning,
+  }) {
+    if (play.type != TurnType.single || play.cards.isEmpty) {
+      return 0;
+    }
+    if (deck.turn.type != TurnType.single || deck.turn.cards.isEmpty) {
+      return 0;
+    }
+    if (play.cards.first.face != CardFace.phoenix) {
+      return 0;
+    }
+
+    final tracker = this.tracker;
+    if (tracker == null) {
+      return 0;
+    }
+    if (!tracker.isDragonPlayed(hand)) {
+      return 0;
+    }
+
+    final table = TableRelationships(snapshot, playerId);
+    final currentWinnerId = deck.currentWinner.isNotEmpty
+        ? deck.currentWinner
+        : snapshot.lastPlayedBy;
+    if (currentWinnerId != null && table.isPartner(currentWinnerId)) {
+      return 0;
+    }
+
+    var bonus = weights.phoenixTrumpLeadCapture;
+    final topCard = deck.turn.cards.first;
+    if (topCard.face == CardFace.ace) {
+      bonus += weights.phoenixTrumpOnAceBonus;
+    }
+    if (opponentTichuNearFinishWinning) {
+      bonus += weights.phoenixTrumpAgainstNearFinishBonus;
+    }
+    return bonus;
+  }
+
+  double _naturalTrumpResponseScore({
+    required final TichuTurn play,
+    required final DeckState deck,
+    required final List<Card> hand,
+  }) {
+    if (play.type != TurnType.single || play.cards.isEmpty) {
+      return 0;
+    }
+    if (deck.turn.type != TurnType.single || deck.turn.cards.isEmpty) {
+      return 0;
+    }
+
+    final selectedFace = play.cards.first.face;
+    final hasPhoenixInHand = hand.any(
+      (final card) => card.face == CardFace.phoenix,
+    );
+    final aceCount = hand
+        .where((final card) => card.face == CardFace.ace)
+        .length;
+    final hasNaturalWinningAce = hand.any(
+      (final card) => card.face == CardFace.ace && card.value > deck.turn.value,
+    );
+
+    if (selectedFace == CardFace.phoenix && hasNaturalWinningAce) {
+      return -weights.preserveFlexibleTrump;
+    }
+
+    if (selectedFace == CardFace.ace && hasPhoenixInHand) {
+      var bonus = weights.preferNaturalTrumpResponse;
+      if (aceCount >= 2) {
+        bonus += weights.preserveFlexibleTrump;
+      }
+      return bonus;
+    }
+
+    return 0;
   }
 
   bool _opponentLow(final GameSnapshot snapshot, final String playerId) {

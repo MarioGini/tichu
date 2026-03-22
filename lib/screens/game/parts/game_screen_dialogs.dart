@@ -6,9 +6,22 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     await showDialog<void>(
       context: context,
       builder: (final context) => OptionsDialog(
+        aiSuggestionEnabled: _aiSuggestionEnabled,
         opponentDelay: _opponentDelaySeconds,
         autoPassEnabled: _autoPassEnabled,
         soundEnabled: _soundEnabled,
+        onAiSuggestionChanged: (final value) {
+          setState(() {
+            _aiSuggestionEnabled = value;
+          });
+          if (!value) {
+            _clearAiSuggestionSelection();
+            return;
+          }
+          final snapshot = _snapshot;
+          if (snapshot == null) return;
+          unawaited(_maybeApplyAiSuggestion(snapshot));
+        },
         onOpponentDelayChanged: (final value) {
           setState(() {
             _opponentDelaySeconds = value;
@@ -40,13 +53,27 @@ mixin _GameScreenDialogs on _GameScreenBindings {
 
     _lastDialogRoundNumber = scoreState.roundNumber;
     _roundCompleteAcknowledged = false;
-    final tichuSuccessMessage = _buildTichuSuccessMessage(snapshot);
+    final tichuSuccess = _buildTichuSuccessMessage(snapshot);
+    final matchSuccess = _buildMatchSuccessMessage(scoreState);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      if (tichuSuccessMessage != null) {
-        await _showTichuSuccessBeforeSummary(tichuSuccessMessage);
+      if (matchSuccess != null) {
+        await _showCelebrationBeforeSummary(
+          message: matchSuccess.message,
+          label: 'MATCH',
+          isPositive: matchSuccess.isPositive,
+        );
+        if (!mounted) return;
+      }
+
+      if (tichuSuccess != null) {
+        await _showCelebrationBeforeSummary(
+          message: tichuSuccess.message,
+          label: 'TICHU',
+          isPositive: tichuSuccess.isPositive,
+        );
         if (!mounted) return;
       }
 
@@ -72,7 +99,11 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     });
   }
 
-  Future<void> _showTichuSuccessBeforeSummary(final String message) async {
+  Future<void> _showCelebrationBeforeSummary({
+    required final String message,
+    required final String label,
+    required final bool isPositive,
+  }) async {
     if (!mounted) return;
     await Navigator.of(context).push(
       PageRouteBuilder<void>(
@@ -82,12 +113,29 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         reverseTransitionDuration: Duration.zero,
         pageBuilder:
             (final context, final animation, final secondaryAnimation) =>
-                TichuCelebrationOverlay(message: message),
+                TichuCelebrationOverlay(
+                  message: message,
+                  label: label,
+                  isPositive: isPositive,
+                ),
       ),
     );
   }
 
-  String? _buildTichuSuccessMessage(final PlayerSnapshot snapshot) {
+  ({String message, bool isPositive})? _buildMatchSuccessMessage(
+    final ScoreState scoreState,
+  ) {
+    if (!scoreState.gameComplete) return null;
+    return switch (scoreState.winningTeam) {
+      0 => (message: 'Your team wins the match!', isPositive: true),
+      1 => (message: 'Other team wins the match!', isPositive: false),
+      _ => (message: 'The match ends in a tie!', isPositive: false),
+    };
+  }
+
+  ({String message, bool isPositive})? _buildTichuSuccessMessage(
+    final PlayerSnapshot snapshot,
+  ) {
     final finishOrder = snapshot.scoreState.finishOrder;
     if (finishOrder.isEmpty) return null;
 
@@ -108,7 +156,27 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     final callLabel = winningTichuCall == TichuCall.grandTichu
         ? 'Grand Tichu'
         : 'Tichu';
-    return '$winningPlayerName successfully called $callLabel!';
+    final isPositive = _isOurTeamPlayer(snapshot, winningPlayerId);
+    if (isPositive) {
+      return (
+        message: '$winningPlayerName successfully called $callLabel!',
+        isPositive: true,
+      );
+    }
+    return (
+      message: '$winningPlayerName made $callLabel against your team.',
+      isPositive: false,
+    );
+  }
+
+  bool _isOurTeamPlayer(final PlayerSnapshot snapshot, final String playerId) {
+    final mySeat = snapshot.players
+        .firstWhere((final player) => player.id == _humanId)
+        .seat;
+    final winnerSeat = snapshot.players
+        .firstWhere((final player) => player.id == playerId)
+        .seat;
+    return mySeat % 2 == winnerSeat % 2;
   }
 
   void _maybeShowDragonGiveDialog(final PlayerSnapshot snapshot) {

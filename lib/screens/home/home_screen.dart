@@ -5,6 +5,7 @@ import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/screens/shared/keyboard_shortcuts.dart';
 import 'package:tichu/screens/shared/player_control.dart';
 import 'package:tichu/services/local/local_backend.dart';
+import 'package:tichu/widgets/card_widget.dart';
 
 enum _HomeKeyboardSection { matchLength, playerControl }
 
@@ -21,6 +22,29 @@ class _HomeScreenState extends State<HomeScreen> {
   PlayerControlMode _selfControlMode = PlayerControlMode.manual;
   final FocusNode _keyboardFocusNode = FocusNode();
   _HomeKeyboardSection _keyboardSection = _HomeKeyboardSection.matchLength;
+  Future<void>? _cardPrecacheFuture;
+  bool _didKickoffPrecache = false;
+  bool _isPrecacheReady = false;
+  bool _isStarting = false;
+
+  bool get _canStart => _isPrecacheReady && !_isStarting;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didKickoffPrecache) return;
+    _didKickoffPrecache = true;
+    final precacheFuture = CardWidget.precacheCardAssets(context);
+    unawaited(
+      precacheFuture.whenComplete(() {
+        if (!mounted) return;
+        setState(() {
+          _isPrecacheReady = true;
+        });
+      }),
+    );
+    _cardPrecacheFuture = precacheFuture;
+  }
 
   @override
   void dispose() {
@@ -28,9 +52,15 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _startSinglePlayer() {
-    unawaited(
-      Navigator.of(context).push(
+  Future<void> _startSinglePlayer() async {
+    if (!_canStart) return;
+    setState(() {
+      _isStarting = true;
+    });
+    try {
+      await (_cardPrecacheFuture ?? CardWidget.precacheCardAssets(context));
+      if (!mounted) return;
+      await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => GameScreen(
             backend: LocalGameBackend(),
@@ -38,8 +68,14 @@ class _HomeScreenState extends State<HomeScreen> {
             playerControlModes: {'player-0': _selfControlMode},
           ),
         ),
-      ),
-    );
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isStarting = false;
+        });
+      }
+    }
   }
 
   void _onKeyboardLeft() {
@@ -95,7 +131,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onKeyboardEnter() {
-    _startSinglePlayer();
+    if (!_canStart) return;
+    unawaited(_startSinglePlayer());
   }
 
   @override
@@ -171,9 +208,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: _startSinglePlayer,
+                            onPressed: !_canStart
+                                ? null
+                                : () => unawaited(_startSinglePlayer()),
                             icon: const Icon(Icons.play_arrow),
-                            label: const Text('Single Player Mode'),
+                            label: Text(
+                              !_isPrecacheReady
+                                  ? 'Warming up cards...'
+                                  : _isStarting
+                                  ? 'Preparing cards...'
+                                  : 'Single Player Mode',
+                            ),
                           ),
                         ),
                       ],

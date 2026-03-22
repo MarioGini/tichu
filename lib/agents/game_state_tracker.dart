@@ -47,8 +47,22 @@ class GameStateTracker {
   bool hasLastKing(final List<Card> hand) =>
       allKingsKnown && hand.any((final c) => c.face == CardFace.king);
 
+  bool isDragonPlayed(final List<Card> hand) =>
+      _knownCount(CardFace.dragon) > _countInHand(hand, CardFace.dragon);
+
+  bool isPhoenixPlayed(final List<Card> hand) =>
+      _knownCount(CardFace.phoenix) > _countInHand(hand, CardFace.phoenix);
+
+  int playedAcesCount(final List<Card> hand) =>
+      _knownCount(CardFace.ace) - _countInHand(hand, CardFace.ace);
+
+  bool hasUnplayedAce(final List<Card> hand) => playedAcesCount(hand) < 4;
+
   int _knownCount(final CardFace face) =>
       _seenCards.where((final key) => key.startsWith('${face.name}:')).length;
+
+  int _countInHand(final List<Card> hand, final CardFace face) =>
+      hand.where((final card) => card.face == face).length;
 
   void _addCards(final Iterable<Card> cards) {
     for (final card in cards) {

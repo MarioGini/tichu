@@ -7,9 +7,16 @@ import 'package:tichu/screens/game/widgets/trick_event_overlay.dart';
 /// Full-screen celebration overlay shown when a Tichu call succeeds,
 /// before navigating to the round summary.
 class TichuCelebrationOverlay extends StatefulWidget {
-  const TichuCelebrationOverlay({super.key, required this.message});
+  const TichuCelebrationOverlay({
+    super.key,
+    required this.message,
+    this.label = 'TICHU',
+    this.isPositive = true,
+  });
 
   final String message;
+  final String label;
+  final bool isPositive;
 
   @override
   State<TichuCelebrationOverlay> createState() =>
@@ -45,14 +52,10 @@ class _TichuCelebrationOverlayState extends State<TichuCelebrationOverlay>
         reverseCurve: Curves.easeIn,
       ),
     );
-    unawaited(_runSequence());
+    unawaited(_controller.forward());
   }
 
-  Future<void> _runSequence() async {
-    await _controller.forward();
-    await Future<void>.delayed(const Duration(milliseconds: 1700));
-    if (!mounted) return;
-    await _controller.reverse();
+  void _dismiss() {
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -68,26 +71,35 @@ class _TichuCelebrationOverlayState extends State<TichuCelebrationOverlay>
     color: Colors.transparent,
     child: SafeArea(
       child: Center(
-        child: IgnorePointer(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              EventSlamOverlay(
-                slide: _slide,
-                scale: _scale,
-                icon: Icons.emoji_events,
-                label: 'TICHU',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            EventSlamOverlay(
+              slide: _slide,
+              scale: _scale,
+              icon: widget.isPositive
+                  ? Icons.emoji_events
+                  : Icons.warning_amber,
+              label: widget.label,
+              gradientColors: widget.isPositive
+                  ? [
+                      Colors.orangeAccent,
+                      Colors.deepOrange.shade700,
+                      Colors.black87,
+                    ]
+                  : [Colors.pinkAccent, Colors.red.shade800, Colors.black87],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              widget.message,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: widget.isPositive ? Colors.white : Colors.red.shade100,
               ),
-              const SizedBox(height: 6),
-              Text(
-                widget.message,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelLarge?.copyWith(color: Colors.white),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 14),
+            FilledButton(onPressed: _dismiss, child: const Text('Next')),
+          ],
         ),
       ),
     ),

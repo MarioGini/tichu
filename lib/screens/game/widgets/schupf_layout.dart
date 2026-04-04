@@ -49,30 +49,30 @@ SchupfLayout computeSchupfLayout({
   // Budget remaining for actual card images (target card + hand cards).
   final budgetForCards = maxHeight == null
       ? CardWidget.compactHeight * 0.75 + 96.0
-      : (maxHeight - fixedOverhead).clamp(50.0, 280.0);
+      : (maxHeight - fixedOverhead).clamp(30.0, 280.0);
 
-  // Split: ~45% for target card height, ~55% for hand row.
-  final targetCardBudget = budgetForCards * 0.45;
-  final handBudget = budgetForCards * 0.55;
+  // Split closer to even so both target and hand cards remain readable.
+  final targetCardBudget = budgetForCards * 0.5;
+  final handBudget = budgetForCards * 0.5;
 
   final maxTargetCardHeight = targetCardBudget.clamp(
-    40.0,
-    CardWidget.compactHeight * 0.75,
+    32.0,
+    CardWidget.compactHeight * 0.85,
   );
   final cardScale = (maxTargetCardHeight / CardWidget.compactHeight).clamp(
-    0.35,
-    0.9,
+    0.28,
+    1.0,
   );
   final targetWidth = CardWidget.compactWidth * cardScale + (targetInset * 2);
   final targetHeight = CardWidget.compactHeight * cardScale + (targetInset * 2);
-  final availableHeight = handBudget.clamp(36.0, 96.0);
+  final availableHeight = handBudget.clamp(28.0, 110.0);
   final tightGap = maxHeight == null ? 4.0 : (maxHeight * 0.01).clamp(0.0, 4.0);
   final looseGap = maxHeight == null
       ? 6.0
       : (maxHeight * 0.015).clamp(0.0, 6.0);
   final rowScale = (availableHeight / CardWidget.compactHeight).clamp(
-    0.35,
-    0.9,
+    0.28,
+    1.0,
   );
   final rowCardWidth = CardWidget.compactWidth * rowScale;
   final rowCardHeight = CardWidget.compactHeight * rowScale;

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart' hide Card;
 
 import 'package:tichu/game/game_types.dart';
@@ -87,7 +89,6 @@ class SchupfPanel extends StatelessWidget {
           context,
           constraints,
           layout,
-          contentHeight,
           m,
         ),
         final SchupfReceiptMode m => _buildReceipt(
@@ -106,7 +107,6 @@ class SchupfPanel extends StatelessWidget {
     final BuildContext context,
     final BoxConstraints constraints,
     final SchupfLayout layout,
-    final double? maxHeight,
     final SchupfSelectionMode m,
   ) {
     final canSubmit =
@@ -120,6 +120,11 @@ class SchupfPanel extends StatelessWidget {
         .where((final card) => !selectedCards.contains(card))
         .toList();
     final panelWidth = _panelWidth(constraints, layout, available.length);
+    final contentMaxWidth = constraints.maxWidth.isFinite
+        ? panelWidth - _containerPadding < 0
+              ? 0.0
+              : panelWidth - _containerPadding
+        : _contentWidth(layout, available.length);
 
     Widget buildTarget({
       required final String label,
@@ -151,7 +156,7 @@ class SchupfPanel extends StatelessWidget {
           ),
     );
 
-    final handRow = _handRow(layout, available, m);
+    final handRow = _handRow(layout, available, m, maxWidth: contentMaxWidth);
 
     final fixedChildren = [
       if (header != null) ...[header!, SizedBox(height: layout.tightGap)],
@@ -176,7 +181,7 @@ class SchupfPanel extends StatelessWidget {
           onRemove: () => m.onClearSlot(SchupfSlot.left),
           onAccept: (final card) => m.onSetSlot(SchupfSlot.left, card),
         ),
-      ]),
+      ], maxWidth: contentMaxWidth),
       SizedBox(height: layout.tightGap),
       Center(
         child: ElevatedButton.icon(
@@ -196,7 +201,12 @@ class SchupfPanel extends StatelessWidget {
 
     final content = Column(
       mainAxisSize: MainAxisSize.min,
-      children: [...fixedChildren, handRow],
+      children: [
+        ...fixedChildren,
+        ClipRect(
+          child: Align(alignment: Alignment.topCenter, child: handRow),
+        ),
+      ],
     );
 
     return buildSchupfPanelContainer(panelWidth: panelWidth, child: content);
@@ -205,9 +215,10 @@ class SchupfPanel extends StatelessWidget {
   Widget _handRow(
     final SchupfLayout layout,
     final List<Card> available,
-    final SchupfSelectionMode m,
-  ) => SizedBox(
-    width: _contentWidth(layout, available.length),
+    final SchupfSelectionMode m, {
+    required final double maxWidth,
+  }) => SizedBox(
+    width: math.min(_contentWidth(layout, available.length), maxWidth),
     child: OverlappingCardRow(
       itemCount: available.length,
       cardWidth: layout.rowCardWidth,
@@ -280,6 +291,11 @@ class SchupfPanel extends StatelessWidget {
       }
     }
     final panelWidth = _panelWidth(constraints, layout, filteredHand.length);
+    final contentMaxWidth = constraints.maxWidth.isFinite
+        ? panelWidth - _containerPadding < 0
+              ? 0.0
+              : panelWidth - _containerPadding
+        : _contentWidth(layout, filteredHand.length);
 
     Widget buildTarget({
       required final String label,
@@ -298,6 +314,30 @@ class SchupfPanel extends StatelessWidget {
               scale: layout.cardScale,
             ),
     );
+
+    final filteredHandRow = filteredHand.isEmpty
+        ? null
+        : SizedBox(
+            height: layout.availableHeight,
+            width: math.min(
+              _contentWidth(layout, filteredHand.length),
+              contentMaxWidth,
+            ),
+            child: OverlappingCardRow(
+              itemCount: filteredHand.length,
+              cardWidth: layout.rowCardWidth,
+              cardHeight: layout.rowCardHeight,
+              spacing: layout.rowSpacing,
+              minVisible: 14 * layout.rowScale,
+              height: layout.rowCardHeight + 8,
+              itemBuilder: (final context, final index) => CardWidget(
+                card: filteredHand[index],
+                isSelected: false,
+                compact: true,
+                scale: layout.rowScale,
+              ),
+            ),
+          );
 
     final content = Column(
       mainAxisSize: MainAxisSize.min,
@@ -318,7 +358,7 @@ class SchupfPanel extends StatelessWidget {
             label: 'Right',
             receipt: receiptByDirection[SchupfDirection.left],
           ),
-        ]),
+        ], maxWidth: contentMaxWidth),
         const SizedBox(height: 8),
         ElevatedButton.icon(
           onPressed: m.schupfAckPending || m.receipts.isEmpty
@@ -327,24 +367,12 @@ class SchupfPanel extends StatelessWidget {
           icon: const Icon(Icons.check_circle_outline),
           label: const Text('PLAY'),
         ),
-        SizedBox(height: layout.tightGap),
-        if (filteredHand.isNotEmpty)
-          SizedBox(
-            height: layout.availableHeight,
-            width: _contentWidth(layout, filteredHand.length),
-            child: OverlappingCardRow(
-              itemCount: filteredHand.length,
-              cardWidth: layout.rowCardWidth,
-              cardHeight: layout.rowCardHeight,
-              spacing: layout.rowSpacing,
-              minVisible: 14 * layout.rowScale,
-              height: layout.rowCardHeight + 8,
-              itemBuilder: (final context, final index) => CardWidget(
-                card: filteredHand[index],
-                isSelected: false,
-                compact: true,
-                scale: layout.rowScale,
-              ),
+        if (filteredHandRow != null) SizedBox(height: layout.tightGap),
+        if (filteredHandRow != null)
+          ClipRect(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: filteredHandRow,
             ),
           ),
       ],
@@ -384,14 +412,27 @@ class SchupfPanel extends StatelessWidget {
     ),
   );
 
-  static Widget _targetRow(final List<Widget> targets) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      targets[0],
-      const SizedBox(width: 12),
-      targets[1],
-      const SizedBox(width: 12),
-      targets[2],
-    ],
-  );
+  static Widget _targetRow(
+    final List<Widget> targets, {
+    final double? maxWidth,
+  }) {
+    final row = Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        targets[0],
+        const SizedBox(width: 12),
+        targets[1],
+        const SizedBox(width: 12),
+        targets[2],
+      ],
+    );
+
+    if (maxWidth == null) return row;
+
+    return SizedBox(
+      width: maxWidth,
+      child: FittedBox(fit: BoxFit.scaleDown, child: row),
+    );
+  }
 }

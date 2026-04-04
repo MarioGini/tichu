@@ -10,8 +10,12 @@ class FakeGameBackend implements GameBackend {
       StreamController<PlayerSnapshot>.broadcast();
   final List<GameAction> actions = [];
   Duration? automatedActionDelay;
+  PlayerSnapshot? _latestSnapshot;
 
-  void emit(final PlayerSnapshot snapshot) => _controller.add(snapshot);
+  void emit(final PlayerSnapshot snapshot) {
+    _latestSnapshot = snapshot;
+    _controller.add(snapshot);
+  }
 
   Future<void> close() async {
     await _controller.close();
@@ -26,7 +30,13 @@ class FakeGameBackend implements GameBackend {
   Stream<PlayerSnapshot> watchGame(
     final String gameId,
     final String playerId,
-  ) => _controller.stream;
+  ) async* {
+    final latestSnapshot = _latestSnapshot;
+    if (latestSnapshot != null) {
+      yield latestSnapshot;
+    }
+    yield* _controller.stream;
+  }
 
   @override
   Future<String> createGame(

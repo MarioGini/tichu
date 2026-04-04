@@ -1,5 +1,6 @@
 import 'package:tichu/agents/dragon_give_strategy.dart';
 import 'package:tichu/agents/game_state_tracker.dart';
+import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
@@ -107,9 +108,28 @@ class SmartAiAgent extends PlayerAgent {
       return PassAction(playerId: playerId);
     }
 
-    final legalTurns = generateLegalTurns(deck, hand);
+    final generatedTurns = generateLegalTurns(deck, List<Card>.from(hand));
+    var legalTurns = LegalPlayGuard.strictLegalTurnsFromCandidates(
+      deck: deck,
+      hand: hand,
+      candidates: generatedTurns,
+    );
+
     if (legalTurns.isEmpty) {
-      return PassAction(playerId: playerId);
+      final recovered = LegalPlayGuard.firstLegalTurnBruteForce(
+        deck: deck,
+        hand: hand,
+      );
+      if (recovered != null) {
+        legalTurns = [recovered];
+      }
+    }
+
+    if (legalTurns.isEmpty) {
+      if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {
+        return PassAction(playerId: playerId);
+      }
+      throw StateError('No legal turn and pass is illegal for current state.');
     }
 
     final finishingTurns = legalTurns
@@ -141,7 +161,7 @@ class SmartAiAgent extends PlayerAgent {
       hand: hand,
       table: table,
     );
-    if (partnerPass != null) {
+    if (partnerPass != null && LegalPlayGuard.canPass(deck: deck, hand: hand)) {
       return partnerPass;
     }
 
@@ -212,11 +232,25 @@ class SmartAiAgent extends PlayerAgent {
       legalTurns: legalTurns,
       hand: hand,
     );
+    validPlays = LegalPlayGuard.strictLegalTurnsFromCandidates(
+      deck: deck,
+      hand: hand,
+      candidates: validPlays,
+    );
 
     validPlays = _filterLowSinglePhoenixResponses(deck, validPlays);
 
     if (validPlays.isEmpty) {
-      return PassAction(playerId: playerId);
+      if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {
+        return PassAction(playerId: playerId);
+      }
+      final selected = playSelectionStrategy.selectPlay(
+        snapshot,
+        legalTurns,
+        deck,
+        hand,
+      );
+      return _buildPlayAction(snapshot, selected, deck, hand);
     }
 
     final opponentThreatWinning = playTacticsPolicy
@@ -266,7 +300,8 @@ class SmartAiAgent extends PlayerAgent {
 
     return PlayTurnAction(
       playerId: playerId,
-      cards: turn.cards,
+      // Always hand off a mutable copy so downstream turn parsing can sort.
+      cards: List<Card>.from(turn.cards),
       inputWish: wish,
     );
   }

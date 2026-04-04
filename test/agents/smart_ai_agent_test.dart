@@ -379,6 +379,20 @@ void main() {
       }
     });
 
+    test('returns play cards as mutable list', () async {
+      final snapshot = _snapshot(
+        myHand: [Card(CardFace.phoenix, CardColor.special)],
+        deck: _emptyDeck(),
+      );
+
+      final action = await agent.selectTurn(snapshot);
+      expect(action, isA<PlayTurnAction>());
+
+      final play = action as PlayTurnAction;
+      expect(play.cards.single.face, CardFace.phoenix);
+      expect(() => play.cards.sort(compareCards), returnsNormally);
+    });
+
     test('follows with a higher single when required', () async {
       final hand = [
         Card(CardFace.three, CardColor.red),
@@ -482,22 +496,25 @@ void main() {
       expect(play.cards.first.face, CardFace.ace);
     });
 
-    test('passes when tactics policy filters all valid plays', () async {
-      final customAgent = SmartAiAgent(
-        _aiId,
-        playTacticsPolicy: const _ForceEmptyValidPlaysPolicy(),
-      );
-      final hand = [
-        Card(CardFace.five, CardColor.red),
-        Card(CardFace.king, CardColor.blue),
-      ];
+    test(
+      'plays when tactics policy filters all valid plays but pass is illegal',
+      () async {
+        final customAgent = SmartAiAgent(
+          _aiId,
+          playTacticsPolicy: const _ForceEmptyValidPlaysPolicy(),
+        );
+        final hand = [
+          Card(CardFace.five, CardColor.red),
+          Card(CardFace.king, CardColor.blue),
+        ];
 
-      final action = await customAgent.selectTurn(
-        _snapshot(myHand: hand, deck: _emptyDeck()),
-      );
+        final action = await customAgent.selectTurn(
+          _snapshot(myHand: hand, deck: _emptyDeck()),
+        );
 
-      expect(action, isA<PassAction>());
-    });
+        expect(action, isA<PlayTurnAction>());
+      },
+    );
 
     test('prefers non-bomb plays', () async {
       final hand = [

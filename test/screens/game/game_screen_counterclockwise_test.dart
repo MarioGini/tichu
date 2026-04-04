@@ -13,9 +13,10 @@ void main() {
     final backend = FakeGameBackend();
 
     await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+    await tester.pump();
 
     backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentLeftId));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final opponent3Center = tester.getCenter(find.text('Opponent 3'));
     final opponent1Center = tester.getCenter(find.text('Opponent 1'));
@@ -27,6 +28,7 @@ void main() {
     final backend = FakeGameBackend();
 
     await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+    await tester.pump();
 
     OpponentDisplay opponentByName(final String name) =>
         tester.widget<OpponentDisplay>(
@@ -38,13 +40,13 @@ void main() {
 
     // Opponent 1 is current → only Opponent 1 highlighted.
     backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentLeftId));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(opponentByName('Opponent 1').isActive, isTrue);
     expect(opponentByName('Opponent 3').isActive, isFalse);
 
     // Opponent 3 is current → only Opponent 3 highlighted.
     backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentRightId));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(opponentByName('Opponent 3').isActive, isTrue);
     expect(opponentByName('Opponent 1').isActive, isFalse);
   });

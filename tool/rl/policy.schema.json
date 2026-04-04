@@ -1,0 +1,99 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://tichu.local/schemas/tichu-rl-policy-v1.schema.json",
+    "title": "Tichu RL Policy (v1)",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "source_transition_schema",
+        "builder",
+        "state_action_values"
+    ],
+    "properties": {
+        "schema_version": {
+            "type": "string",
+            "const": "tichu_rl_policy_v1"
+        },
+        "source_transition_schema": {
+            "type": "string",
+            "const": "tichu_rl_transition_v2"
+        },
+        "builder": {
+            "type": "object",
+            "required": [
+                "algorithm",
+                "gamma",
+                "min_samples",
+                "episodes_seen",
+                "transitions_used",
+                "generated_at_utc"
+            ],
+            "properties": {
+                "algorithm": {
+                    "type": "string",
+                    "const": "monte_carlo_state_action_returns"
+                },
+                "gamma": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0
+                },
+                "min_samples": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "episodes_seen": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "transitions_used": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "generated_at_utc": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": true
+        },
+        "state_action_values": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "additionalProperties": {
+                    "type": "number"
+                }
+            }
+        },
+        "entries": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "state_key",
+                    "action_key",
+                    "value",
+                    "samples"
+                ],
+                "properties": {
+                    "state_key": {
+                        "type": "string"
+                    },
+                    "action_key": {
+                        "type": "string"
+                    },
+                    "value": {
+                        "type": "number"
+                    },
+                    "samples": {
+                        "type": "integer",
+                        "minimum": 1
+                    }
+                },
+                "additionalProperties": false
+            }
+        }
+    },
+    "additionalProperties": true
+}

@@ -614,6 +614,8 @@ class _GameScreenState extends State<GameScreen>
         ),
         child: SafeArea(
           child: GameBoard(
+            reserveTopPendingSlot: showOpponentPendingCards,
+            reserveSidePendingSlots: showOpponentPendingCards,
             topOpponent: _buildOpponent(
               playerId: 'player-2',
               name: 'Opponent 2',

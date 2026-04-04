@@ -20,6 +20,8 @@ class GameBoard extends StatelessWidget {
     required this.trickArea,
     required this.handArea,
     required this.actionBar,
+    this.reserveTopPendingSlot = true,
+    this.reserveSidePendingSlots = true,
     this.topPendingSlot = const SizedBox.shrink(),
     this.leftPendingSlot = const SizedBox.shrink(),
     this.rightPendingSlot = const SizedBox.shrink(),
@@ -31,6 +33,8 @@ class GameBoard extends StatelessWidget {
   final Widget trickArea;
   final Widget handArea;
   final Widget actionBar;
+  final bool reserveTopPendingSlot;
+  final bool reserveSidePendingSlots;
 
   /// Slot between top opponent and trick area.
   final Widget topPendingSlot;
@@ -68,16 +72,23 @@ class GameBoard extends StatelessWidget {
             .min(w * (isPortrait ? 0.28 : 0.24), 260)
             .toDouble();
         final rowW = math.max(0, w - (isPortrait ? 8 : 16)).toDouble();
+        final pendingLaneBudget = reserveSidePendingSlots
+            ? (2 * laneGap + 2 * CardWidget.normalWidth * laneScale)
+            : 0.0;
         final maxTrickW = math
-            .max(120, rowW - 2 * opSize - 4 * laneGap)
+            .max(120, rowW - 2 * opSize - 2 * laneGap - pendingLaneBudget)
             .toDouble();
         final trickW = math.min(preferredTrickW, maxTrickW);
         final preferredSideSlotW = CardWidget.normalWidth * laneScale;
-        final maxSideSlotW = math
-            .max(0, (rowW - 2 * opSize - trickW - 4 * laneGap) / 2)
-            .toDouble();
-        final sideSlotW = math.min(preferredSideSlotW, maxSideSlotW);
-        final topPendingH = cardLaneH;
+        final maxSideSlotW = reserveSidePendingSlots
+            ? math
+                  .max(0, (rowW - 2 * opSize - trickW - 4 * laneGap) / 2)
+                  .toDouble()
+            : 0.0;
+        final sideSlotW = reserveSidePendingSlots
+            ? math.min(preferredSideSlotW, maxSideSlotW)
+            : 0.0;
+        final topPendingH = reserveTopPendingSlot ? cardLaneH : 0.0;
         final playedCardScale =
             (math.max(0, cardLaneH - 8) / (CardWidget.normalHeight + 8)).clamp(
               0.25,
@@ -94,12 +105,13 @@ class GameBoard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 4),
                 child: SizedBox.square(dimension: opSize, child: topOpponent),
               ),
-              SizedBox(
-                height: topPendingH,
-                child: Center(
-                  child: SizedBox(width: sideSlotW, child: topPendingSlot),
+              if (reserveTopPendingSlot)
+                SizedBox(
+                  height: topPendingH,
+                  child: Center(
+                    child: SizedBox(width: sideSlotW, child: topPendingSlot),
+                  ),
                 ),
-              ),
               const SizedBox(height: 4),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: hPad),
@@ -110,19 +122,23 @@ class GameBoard extends StatelessWidget {
                     children: [
                       SizedBox.square(dimension: opSize, child: leftOpponent),
                       SizedBox(width: laneGap),
-                      SizedBox(
-                        width: sideSlotW,
-                        height: cardLaneH,
-                        child: leftPendingSlot,
-                      ),
-                      SizedBox(width: laneGap),
+                      if (reserveSidePendingSlots) ...[
+                        SizedBox(
+                          width: sideSlotW,
+                          height: cardLaneH,
+                          child: leftPendingSlot,
+                        ),
+                        SizedBox(width: laneGap),
+                      ],
                       SizedBox(width: trickW, height: trickH, child: trickArea),
-                      SizedBox(width: laneGap),
-                      SizedBox(
-                        width: sideSlotW,
-                        height: cardLaneH,
-                        child: rightPendingSlot,
-                      ),
+                      if (reserveSidePendingSlots) ...[
+                        SizedBox(width: laneGap),
+                        SizedBox(
+                          width: sideSlotW,
+                          height: cardLaneH,
+                          child: rightPendingSlot,
+                        ),
+                      ],
                       SizedBox(width: laneGap),
                       SizedBox.square(dimension: opSize, child: rightOpponent),
                     ],

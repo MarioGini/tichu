@@ -44,13 +44,13 @@ void main() {
       ];
       await transitionsFile.writeAsString('${lines.join('\n')}\n');
 
-      final processResult = await Process.run('dart', [
+      final processResult = await Process.run(Platform.resolvedExecutable, [
         'run',
         'tool/rl/build_policy_from_transitions.dart',
         '--input=${transitionsFile.path}',
         '--output=${policyFile.path}',
         '--gamma=0.5',
-      ], workingDirectory: '/home/mario/repos/tichu');
+      ], workingDirectory: Directory.current.path);
 
       expect(
         processResult.exitCode,

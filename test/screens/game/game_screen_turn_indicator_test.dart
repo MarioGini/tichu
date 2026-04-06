@@ -3,11 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/screens/game/game_screen.dart';
-import 'package:tichu/screens/shared/player_control.dart';
 import 'package:tichu/widgets/card_widget.dart';
 import 'package:tichu/widgets/hand_display.dart';
 
-import '../../utils/test_game_backend.dart';
+import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
 import '../../utils/test_helpers.dart';
 
@@ -15,18 +14,23 @@ void main() {
   testWidgets('keeps self turn indicator visible in AI self mode', (
     final tester,
   ) async {
-    final backend = FakeGameBackend();
+    final backend = FakeGameMatchService();
 
     await tester.pumpWidget(
       MaterialApp(
         home: GameScreen(
-          backend: backend,
-          playerControlModes: const {testHumanId: PlayerControlMode.ai},
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
         ),
       ),
     );
 
-    backend.emit(buildPlayerSnapshot(currentPlayerId: testHumanId));
+    backend.emit(
+      buildPlayerSnapshot(
+        players: testAiSelfPlayers,
+        currentPlayerId: testHumanId,
+      ),
+    );
     await tester.pump();
 
     final handDisplay = tester.widget<HandDisplay>(find.byType(HandDisplay));
@@ -36,19 +40,20 @@ void main() {
   testWidgets('keeps self turn indicator when AI self pending move is staged', (
     final tester,
   ) async {
-    final backend = FakeGameBackend();
+    final backend = FakeGameMatchService();
 
     await tester.pumpWidget(
       MaterialApp(
         home: GameScreen(
-          backend: backend,
-          playerControlModes: const {testHumanId: PlayerControlMode.ai},
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
         ),
       ),
     );
 
     backend.emit(
       buildPlayerSnapshot(
+        players: testAiSelfPlayers,
         currentPlayerId: testHumanId,
         pendingOpponentPlayerId: testHumanId,
         pendingOpponentCards: [Card(CardFace.ace, CardColor.green)],
@@ -63,20 +68,21 @@ void main() {
   testWidgets('shows AI self pending play cards as selected in hand', (
     final tester,
   ) async {
-    final backend = FakeGameBackend();
+    final backend = FakeGameMatchService();
     final ace = Card(CardFace.ace, CardColor.green);
 
     await tester.pumpWidget(
       MaterialApp(
         home: GameScreen(
-          backend: backend,
-          playerControlModes: const {testHumanId: PlayerControlMode.ai},
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
         ),
       ),
     );
 
     backend.emit(
       buildPlayerSnapshot(
+        players: testAiSelfPlayers,
         currentPlayerId: testHumanId,
         hand: [
           Card(CardFace.two, CardColor.red),
@@ -96,7 +102,12 @@ void main() {
     final selectedCard = handDisplay.cards[handDisplay.selectedIndexes.first];
     expect(selectedCard, ace);
 
-    backend.emit(buildPlayerSnapshot(currentPlayerId: testHumanId));
+    backend.emit(
+      buildPlayerSnapshot(
+        players: testAiSelfPlayers,
+        currentPlayerId: testHumanId,
+      ),
+    );
     await tester.pump();
 
     final clearedHandDisplay = tester.widget<HandDisplay>(
@@ -115,7 +126,7 @@ void main() {
     suppressOverflowErrors(previousOnError);
     addTearDown(() => FlutterError.onError = previousOnError);
 
-    final backend = FakeGameBackend();
+    final backend = FakeGameMatchService();
     final toLeft = Card(CardFace.ace, CardColor.green);
     final toPartner = Card(CardFace.king, CardColor.red);
     final toRight = Card(CardFace.queen, CardColor.blue);
@@ -123,14 +134,15 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: GameScreen(
-          backend: backend,
-          playerControlModes: const {testHumanId: PlayerControlMode.ai},
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
         ),
       ),
     );
 
     backend.emit(
       buildPlayerSnapshot(
+        players: testAiSelfPlayers,
         phase: GamePhase.schupf,
         currentPlayerId: testHumanId,
         hand: [

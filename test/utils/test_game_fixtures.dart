@@ -35,7 +35,35 @@ final testPlayers = [
   ),
 ];
 
+final testAiSelfPlayers = [
+  const GamePlayer(
+    id: testHumanId,
+    name: 'You (AI)',
+    seat: 0,
+    type: PlayerType.automated,
+  ),
+  const GamePlayer(
+    id: testOpponentLeftId,
+    name: 'Opponent 1',
+    seat: 1,
+    type: PlayerType.automated,
+  ),
+  const GamePlayer(
+    id: testOpponentPartnerId,
+    name: 'Opponent 2 (Partner)',
+    seat: 2,
+    type: PlayerType.automated,
+  ),
+  const GamePlayer(
+    id: testOpponentRightId,
+    name: 'Opponent 3',
+    seat: 3,
+    type: PlayerType.automated,
+  ),
+];
+
 PlayerSnapshot buildPlayerSnapshot({
+  final List<GamePlayer>? players,
   final List<Card>? hand,
   final DeckState? deck,
   final String? currentPlayerId,
@@ -62,7 +90,7 @@ PlayerSnapshot buildPlayerSnapshot({
   final List<SchupfReceipt>? schupfReceipts,
 }) => PlayerSnapshot(
   gameId: 'test-game',
-  players: testPlayers,
+  players: players ?? testPlayers,
   hand:
       hand ??
       [

@@ -1,39 +1,38 @@
 import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/screens/game/widgets/options_dialog.dart';
 import 'package:tichu/screens/game/game_screen.dart';
-import 'package:tichu/screens/shared/player_control.dart';
 
-import '../../utils/test_game_backend.dart';
+import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
 
 void main() {
   testWidgets(
-    'defaults opponent delay to 1s for manual self when player-3 is AI',
+    'options dialog updates automated action delay through match service',
     (final tester) async {
-      final backend = FakeGameBackend();
+      final backend = FakeGameMatchService();
 
-      await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GameScreen(
+            matchService: backend,
+            sessionHandle: backend.sessionHandle,
+          ),
+        ),
+      );
+      backend.emit(buildPlayerSnapshot(currentPlayerId: testHumanId));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.settings));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(OptionsDialog), findsOneWidget);
+
+      final slider = tester.widget<Slider>(find.byType(Slider));
+      slider.onChanged?.call(4);
       await tester.pump();
 
-      expect(backend.automatedActionDelay, const Duration(seconds: 1));
+      expect(backend.automatedActionDelay, const Duration(seconds: 4));
     },
   );
-
-  testWidgets('defaults opponent delay to 1s for AI self', (
-    final tester,
-  ) async {
-    final backend = FakeGameBackend();
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: GameScreen(
-          backend: backend,
-          playerControlModes: const {testHumanId: PlayerControlMode.ai},
-        ),
-      ),
-    );
-    await tester.pump();
-
-    expect(backend.automatedActionDelay, const Duration(seconds: 1));
-  });
 }

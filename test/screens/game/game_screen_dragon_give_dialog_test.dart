@@ -3,16 +3,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 
-import '../../utils/test_game_backend.dart';
+import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
 
 void main() {
   testWidgets('shows dragon recipients as left then right from player view', (
     final tester,
   ) async {
-    final backend = FakeGameBackend();
+    final backend = FakeGameMatchService();
 
-    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GameScreen(
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
+        ),
+      ),
+    );
 
     backend.emit(
       buildPlayerSnapshot(

@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 
-import '../../utils/test_game_backend.dart';
+import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
 import '../../utils/test_helpers.dart';
 
@@ -13,8 +13,15 @@ void main() {
     suppressOverflowErrors(oldHandler);
     addTearDown(() => FlutterError.onError = oldHandler);
 
-    final backend = FakeGameBackend();
-    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+    final backend = FakeGameMatchService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GameScreen(
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
+        ),
+      ),
+    );
 
     backend.emit(
       buildPlayerSnapshot(
@@ -30,8 +37,15 @@ void main() {
   });
 
   testWidgets('shows action bar during play phase', (final tester) async {
-    final backend = FakeGameBackend();
-    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+    final backend = FakeGameMatchService();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GameScreen(
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
+        ),
+      ),
+    );
 
     backend.emit(buildPlayerSnapshot(currentPlayerId: testHumanId));
     await tester.pump();

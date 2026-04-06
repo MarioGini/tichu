@@ -6,8 +6,9 @@ import 'package:flutter/material.dart' hide Card;
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/driver_ui_projector.dart';
 import 'package:tichu/game/game_actions.dart';
-import 'package:tichu/game/game_backend.dart';
+import 'package:tichu/game/game_match.dart';
 import 'package:tichu/game/game_play_controller.dart';
+import 'package:tichu/game/game_session.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
@@ -24,6 +25,7 @@ import 'package:tichu/screens/game/widgets/trick_event_overlay.dart';
 import 'package:tichu/screens/game/widgets/wish_dialog.dart';
 import 'package:tichu/screens/shared/keyboard_shortcuts.dart';
 import 'package:tichu/screens/shared/player_control.dart';
+import 'package:tichu/services/local/local_table_service.dart';
 import 'package:tichu/services/sound_effects.dart';
 import 'package:tichu/widgets/action_bar.dart';
 import 'package:tichu/widgets/card_widget.dart';
@@ -39,14 +41,12 @@ part 'parts/game_screen_state_bindings.dart';
 class GameScreen extends StatefulWidget {
   const GameScreen({
     super.key,
-    required final GameBackend backend,
-    final int targetScore = 1000,
-    this.playerControlModes = const {},
-  }) : _backend = backend,
-       _targetScore = targetScore;
-  final GameBackend _backend;
-  final int _targetScore;
-  final Map<String, PlayerControlMode> playerControlModes;
+    required GameMatchService matchService,
+    required GameSessionHandle sessionHandle,
+  }) : _matchService = matchService,
+       _sessionHandle = sessionHandle;
+  final GameMatchService _matchService;
+  final GameSessionHandle _sessionHandle;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -60,21 +60,22 @@ class _GameScreenState extends State<GameScreen>
         _GameScreenHelpers,
         _GameScreenDialogs {
   @override
-  final String _humanId = 'player-0';
-  final Map<String, PlayerControlMode> _resolvedPlayerControls = {};
+  late final String _humanId;
   PlayerControlMode _selfControlMode = PlayerControlMode.manual;
 
   @override
   bool get _isSelfManual => _selfControlMode == PlayerControlMode.manual;
-  @override
-  late final GameBackend _backend;
+  late final GameMatchService _matchService;
+  late final GameSessionHandle _sessionHandle;
   final DriverUiProjector _uiProjector = const DriverUiProjector();
   @override
   late final GamePlayController _playController = GamePlayController();
-  late final List<GamePlayer> _players;
-  StreamSubscription<PlayerSnapshot>? _subscription;
+  StreamSubscription<GameMatchView>? _matchSubscription;
   @override
   PlayerSnapshot? _snapshot;
+  int? _selfSeat;
+  int _matchRevision = 0;
+  int _clientActionCounter = 0;
 
   @override
   List<Card> _hand = [];
@@ -144,7 +145,10 @@ class _GameScreenState extends State<GameScreen>
   @override
   void initState() {
     super.initState();
-    _backend = widget._backend;
+    _matchService = widget._matchService;
+    _sessionHandle = widget._sessionHandle;
+    _humanId = _sessionHandle.playerId;
+    _selfSeat = _sessionHandle.seat;
     _bombController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 650),
@@ -166,63 +170,36 @@ class _GameScreenState extends State<GameScreen>
         });
       }
     });
-    _resolvedPlayerControls.addAll({
-      'player-0': PlayerControlMode.manual,
-      'player-1': PlayerControlMode.ai,
-      'player-2': PlayerControlMode.ai,
-      'player-3': PlayerControlMode.ai,
-    });
-    _resolvedPlayerControls.addAll(widget.playerControlModes);
-    _selfControlMode =
-        _resolvedPlayerControls[_humanId] ?? PlayerControlMode.manual;
     _suggestionAgent = SmartAiAgent(_humanId);
     _opponentDelaySeconds = 1.0;
-    _players = [
-      GamePlayer(
-        id: 'player-0',
-        name: _selfControlMode == PlayerControlMode.ai ? 'You (AI)' : 'You',
-        seat: 0,
-        type: _toPlayerType(_resolvedPlayerControls['player-0']),
-      ),
-      GamePlayer(
-        id: 'player-1',
-        name: 'Opponent 1',
-        seat: 1,
-        type: _toPlayerType(_resolvedPlayerControls['player-1']),
-      ),
-      GamePlayer(
-        id: 'player-2',
-        name: 'Opponent 2',
-        seat: 2,
-        type: _toPlayerType(_resolvedPlayerControls['player-2']),
-      ),
-      GamePlayer(
-        id: 'player-3',
-        name: 'Opponent 3',
-        seat: 3,
-        type: _toPlayerType(_resolvedPlayerControls['player-3']),
-      ),
-    ];
-    unawaited(_initializeGame());
+    unawaited(_initializeMatch());
   }
 
-  Future<void> _initializeGame() async {
+  Future<void> _initializeMatch() async {
     unawaited(CardWidget.precacheCardAssets(context));
+    final matchId = _sessionHandle.matchId;
+    if (matchId == null) {
+      throw StateError('Session handle does not have an active matchId.');
+    }
 
-    final gameId = await _backend.createGame(
-      _players,
-      targetScore: widget._targetScore,
-    );
-    final delayMs = (_opponentDelaySeconds * 1000).round();
-    await _backend.setAutomatedActionDelay(Duration(milliseconds: delayMs));
-    _subscription = _backend
-        .watchGame(gameId, _humanId)
-        .listen(_handleSnapshot);
-    await _backend.startGame(gameId);
+    _matchSubscription = _matchService
+        .watchMatch(matchId, accessToken: _sessionHandle.accessToken)
+        .listen(_handleMatchView);
     if (!mounted) return;
     setState(() {
-      _gameId = gameId;
+      _gameId = matchId;
     });
+  }
+
+  void _handleMatchView(final GameMatchView view) {
+    _matchRevision = view.revision;
+    _selfSeat = view.selfSeat;
+    if (!view.roundAcknowledgementRequired) {
+      _roundCompleteAcknowledged = true;
+    }
+    _selfControlMode = _controlModeFromSnapshot(view.snapshot);
+    _gameId = view.matchId;
+    _handleSnapshot(view.snapshot);
   }
 
   void _handleSnapshot(final PlayerSnapshot snapshot) {
@@ -453,6 +430,96 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
+  PlayerControlMode _controlModeFromSnapshot(final PlayerSnapshot snapshot) {
+    for (final player in snapshot.players) {
+      if (player.id != _humanId) continue;
+      return player.type == PlayerType.automated
+          ? PlayerControlMode.ai
+          : PlayerControlMode.manual;
+    }
+    return PlayerControlMode.manual;
+  }
+
+  @override
+  Future<void> _submitGameAction(final GameAction action) async {
+    final matchService = _matchService;
+    final gameId = _gameId;
+    if (gameId == null) {
+      throw StateError('Game is not ready.');
+    }
+    await matchService.submitAction(
+      gameId,
+      GameActionSubmission(
+        clientActionId: _nextClientActionId(),
+        action: action,
+        expectedRevision: _matchRevision,
+      ),
+      accessToken: _sessionHandle.accessToken,
+    );
+  }
+
+  @override
+  Future<void> _acknowledgeRoundSummary() async {
+    final snapshot = _snapshot;
+    final gameId = _gameId;
+    if (snapshot == null || gameId == null) return;
+
+    await _matchService.acknowledgeRoundSummary(
+      gameId,
+      RoundSummaryAcknowledgement(
+        clientActionId: _nextClientActionId(),
+        roundNumber: snapshot.scoreState.roundNumber,
+        expectedRevision: _matchRevision,
+      ),
+      accessToken: _sessionHandle.accessToken,
+    );
+  }
+
+  @override
+  Future<void> _setAutomatedActionDelay(final Duration delay) async {
+    final gameId = _gameId;
+    if (gameId != null && _matchService is AdjustableAutomatedActionDelay) {
+      final delayService = _matchService as AdjustableAutomatedActionDelay;
+      await delayService.setMatchAutomatedActionDelay(
+        gameId,
+        accessToken: _sessionHandle.accessToken,
+        delay: delay,
+      );
+    }
+  }
+
+  String _nextClientActionId() =>
+      '$_humanId-${++_clientActionCounter}-$_matchRevision';
+
+  int? _resolveSelfSeat(final PlayerSnapshot? snapshot) {
+    final currentSeat = _selfSeat;
+    if (currentSeat != null) return currentSeat;
+    if (snapshot == null) return null;
+    for (final player in snapshot.players) {
+      if (player.id == _humanId) {
+        return player.seat;
+      }
+    }
+    return null;
+  }
+
+  GamePlayer? _playerForRelativeSeat(
+    final PlayerSnapshot? snapshot,
+    final int seatOffset,
+  ) {
+    if (snapshot == null || snapshot.players.isEmpty) return null;
+    final selfSeat = _resolveSelfSeat(snapshot);
+    if (selfSeat == null) return null;
+    final playerCount = snapshot.players.length;
+    final targetSeat = (selfSeat + seatOffset + playerCount) % playerCount;
+    for (final player in snapshot.players) {
+      if (player.seat == targetSeat) {
+        return player;
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(final BuildContext context) {
     final snapshot = _snapshot;
@@ -462,8 +529,11 @@ class _GameScreenState extends State<GameScreen>
     final finishOrder = scoreState?.finishOrder ?? const <String>[];
     final isRoundComplete = scoreState?.roundComplete ?? false;
     final isGameComplete = scoreState?.gameComplete ?? false;
-    int roundPointsFor(final String playerId) =>
-        playerRoundPoints[playerId] ?? 0;
+    final partnerPlayer = _playerForRelativeSeat(snapshot, 2);
+    final leftPlayer = _playerForRelativeSeat(snapshot, -1);
+    final rightPlayer = _playerForRelativeSeat(snapshot, 1);
+    int roundPointsFor(final String? playerId) =>
+        playerId == null ? 0 : playerRoundPoints[playerId] ?? 0;
     int? finishPositionFor(final String playerId) {
       final index = finishOrder.indexOf(playerId);
       return index == -1 ? null : index + 1;
@@ -476,9 +546,9 @@ class _GameScreenState extends State<GameScreen>
     }
 
     final displayHumanScore = roundPointsFor(_humanId);
-    final displayPartnerScore = roundPointsFor('player-2');
-    final displayLeftScore = roundPointsFor('player-3');
-    final displayRightScore = roundPointsFor('player-1');
+    final displayPartnerScore = roundPointsFor(partnerPlayer?.id);
+    final displayLeftScore = roundPointsFor(leftPlayer?.id);
+    final displayRightScore = roundPointsFor(rightPlayer?.id);
     final currentPlayerId = snapshot?.currentPlayerId;
     bool isCurrentTurn(final String playerId) => currentPlayerId == playerId;
     final isLocalPlayerTurn = isCurrentTurn(_humanId);
@@ -553,7 +623,7 @@ class _GameScreenState extends State<GameScreen>
           scale: _bombScale,
         );
     final showOpponentPendingCards = isPlayPhase;
-    final humanTichuCall = tichuCalls['player-0'];
+    final humanTichuCall = tichuCalls[_humanId];
     final humanTichu =
         humanTichuCall == TichuCall.tichu ||
         humanTichuCall == TichuCall.grandTichu;
@@ -617,8 +687,8 @@ class _GameScreenState extends State<GameScreen>
             reserveTopPendingSlot: showOpponentPendingCards,
             reserveSidePendingSlots: showOpponentPendingCards,
             topOpponent: _buildOpponent(
-              playerId: 'player-2',
-              name: 'Opponent 2',
+              player: partnerPlayer,
+              fallbackName: 'Partner',
               alignment: Axis.horizontal,
               icon: Icons.psychology_alt,
               snapshot: snapshot,
@@ -628,13 +698,13 @@ class _GameScreenState extends State<GameScreen>
               teamScore: displayPartnerScore,
             ),
             topPendingSlot: _buildPendingSlot(
-              playerId: 'player-2',
+              playerId: partnerPlayer?.id,
               showPending: showOpponentPendingCards,
               alignment: Alignment.bottomCenter,
             ),
             leftOpponent: _buildOpponent(
-              playerId: 'player-3',
-              name: 'Opponent 3',
+              player: leftPlayer,
+              fallbackName: 'Left Opponent',
               alignment: Axis.vertical,
               icon: Icons.memory,
               snapshot: snapshot,
@@ -644,18 +714,18 @@ class _GameScreenState extends State<GameScreen>
               teamScore: displayLeftScore,
             ),
             leftPendingSlot: _buildPendingSlot(
-              playerId: 'player-3',
+              playerId: leftPlayer?.id,
               showPending: showOpponentPendingCards,
               alignment: Alignment.bottomRight,
             ),
             rightPendingSlot: _buildPendingSlot(
-              playerId: 'player-1',
+              playerId: rightPlayer?.id,
               showPending: showOpponentPendingCards,
               alignment: Alignment.bottomLeft,
             ),
             rightOpponent: _buildOpponent(
-              playerId: 'player-1',
-              name: 'Opponent 1',
+              player: rightPlayer,
+              fallbackName: 'Right Opponent',
               alignment: Axis.vertical,
               icon: Icons.smart_toy_outlined,
               snapshot: snapshot,
@@ -727,16 +797,9 @@ class _GameScreenState extends State<GameScreen>
     );
   }
 
-  PlayerType _toPlayerType(final PlayerControlMode? mode) {
-    if (mode == PlayerControlMode.ai) {
-      return PlayerType.automated;
-    }
-    return PlayerType.human;
-  }
-
   OpponentDisplay _buildOpponent({
-    required final String playerId,
-    required final String name,
+    required final GamePlayer? player,
+    required final String fallbackName,
     required final Axis alignment,
     required final IconData icon,
     required final PlayerSnapshot? snapshot,
@@ -745,19 +808,26 @@ class _GameScreenState extends State<GameScreen>
     required final bool showPoints,
     required final int teamScore,
   }) {
+    final playerId = player?.id;
+    final name = player?.name ?? fallbackName;
     final cardCount = snapshot?.opponentCardCounts[playerId] ?? 0;
     final finishOrder = snapshot?.scoreState.finishOrder ?? const <String>[];
-    final finishIndex = finishOrder.indexOf(playerId);
+    final finishIndex = playerId == null ? -1 : finishOrder.indexOf(playerId);
     final finishPosition = finishIndex == -1 ? null : finishIndex + 1;
-    final cardsLeft = snapshot?.opponentCardCounts[playerId];
+    final cardsLeft = playerId == null
+        ? null
+        : snapshot?.opponentCardCounts[playerId];
     final isFinished =
         (cardsLeft != null && cardsLeft == 0) || finishPosition != null;
-    final call = tichuCalls[playerId];
+    final call = playerId == null ? null : tichuCalls[playerId];
 
     return OpponentDisplay(
       name: name,
       cardCount: cardCount,
-      isActive: showTurnIndicators && snapshot?.currentPlayerId == playerId,
+      isActive:
+          showTurnIndicators &&
+          playerId != null &&
+          snapshot?.currentPlayerId == playerId,
       isFinished: isFinished,
       tichuDeclared: call == TichuCall.tichu || call == TichuCall.grandTichu,
       grandTichuDeclared: call == TichuCall.grandTichu,
@@ -770,7 +840,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   Widget _buildPendingSlot({
-    required final String playerId,
+    required final String? playerId,
     required final bool showPending,
     required final Alignment alignment,
   }) {
@@ -916,10 +986,15 @@ class _GameScreenState extends State<GameScreen>
 
   @override
   void dispose() {
-    unawaited(_subscription?.cancel());
+    unawaited(_matchSubscription?.cancel());
     final gameId = _gameId;
     if (gameId != null) {
-      unawaited(_backend.disposeGame(gameId));
+      unawaited(
+        _matchService.leaveMatch(
+          gameId,
+          accessToken: _sessionHandle.accessToken,
+        ),
+      );
     }
     _autoConfirmTimer?.cancel();
     _bombController.dispose();

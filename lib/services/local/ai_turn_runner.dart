@@ -16,7 +16,7 @@ typedef AgentFactory = PlayerAgent Function(String playerId);
 ///
 /// Manages automated player agents, translates their decisions into engine
 /// actions, and exposes a single [runAutomatedPlayers] entry point so that
-/// the local backend stays focused on the GameBackend interface.
+/// the local runtime stays focused on state progression.
 class AiTurnRunner {
   AiTurnRunner({required final AgentFactory agentFactory})
     : _agentFactory = agentFactory;
@@ -25,7 +25,7 @@ class AiTurnRunner {
 
   late GameEngine _engine;
 
-  // ignore: avoid_setters_without_getters, engine is write-only; set once by LocalGameBackend.
+  // ignore: avoid_setters_without_getters, engine is write-only; set once by LocalMatchRuntime.
   set engine(final GameEngine value) => _engine = value;
 
   final Map<String, PlayerAgent> _automatedAgents = {};

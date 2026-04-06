@@ -17,7 +17,7 @@ mixin _GameScreenActions on _GameScreenBindings {
   @override
   Future<void> _startRound() async {
     if (_gameId == null || !_roundCompleteAcknowledged) return;
-    await _backend.startNewRound(_gameId!);
+    await _acknowledgeRoundSummary();
   }
 
   Future<void> _playSelected() async {
@@ -45,8 +45,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     }
 
     try {
-      await _backend.submitAction(
-        snapshot.gameId,
+      await _submitGameAction(
         PlayTurnAction(
           playerId: _humanId,
           cards: selectedTurn.cards,
@@ -89,8 +88,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     });
 
     try {
-      await _backend.submitAction(
-        snapshot.gameId,
+      await _submitGameAction(
         PlayTurnAction(playerId: _humanId, cards: playableBomb.cards),
       );
       setState(() {
@@ -110,10 +108,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     }
 
     try {
-      await _backend.submitAction(
-        snapshot.gameId,
-        ConfirmOpponentTurnAction(playerId: _humanId),
-      );
+      await _submitGameAction(ConfirmOpponentTurnAction(playerId: _humanId));
     } on Object catch (error) {
       _showSnack(error.toString());
     }
@@ -126,10 +121,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     if (snapshot == null) return;
     if (!_canPass(snapshot)) return;
     try {
-      await _backend.submitAction(
-        snapshot.gameId,
-        const PassAction(playerId: 'player-0'),
-      );
+      await _submitGameAction(PassAction(playerId: _humanId));
       setState(() {
         _selectedIndexes.clear();
         _aiSuggestionSelectionOwned = false;
@@ -148,10 +140,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     final canDeclarePrePlay = snapshot.phase != GamePhase.play;
     if (!snapshot.canCallTichu && !canDeclarePrePlay) return;
     try {
-      await _backend.submitAction(
-        snapshot.gameId,
-        const CallTichuAction(playerId: 'player-0'),
-      );
+      await _submitGameAction(CallTichuAction(playerId: _humanId));
     } on Object catch (error) {
       _showSnack(error.toString());
     }
@@ -165,10 +154,7 @@ mixin _GameScreenActions on _GameScreenBindings {
       _schupfAckPending = true;
     });
     try {
-      await _backend.submitAction(
-        snapshot.gameId,
-        const AcknowledgeSchupfAction(playerId: 'player-0'),
-      );
+      await _submitGameAction(AcknowledgeSchupfAction(playerId: _humanId));
     } on Object catch (error) {
       if (mounted) {
         setState(() {

@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:tichu/game/game_session.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/screens/shared/keyboard_shortcuts.dart';
 import 'package:tichu/screens/shared/player_control.dart';
-import 'package:tichu/services/local/local_backend.dart';
+import 'package:tichu/services/local/local_table_service.dart';
 import 'package:tichu/widgets/card_widget.dart';
 
 enum _HomeKeyboardSection { matchLength, playerControl }
@@ -59,13 +61,72 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       await (_cardPrecacheFuture ?? CardWidget.precacheCardAssets(context));
+      final tableService = LocalGameTableService();
+      final displayName = _selfControlMode == PlayerControlMode.ai
+          ? 'You (AI)'
+          : 'You';
+      final sessionHandle = await tableService.createLobby(
+        CreateGameLobbyRequest(
+          displayName: displayName,
+          targetScore: _targetScore,
+          preferredSeat: 0,
+        ),
+      );
+      await tableService.claimSeat(
+        sessionHandle.lobbyId,
+        accessToken: sessionHandle.accessToken,
+        seat: 0,
+        type: _selfControlMode == PlayerControlMode.ai
+            ? PlayerType.automated
+            : PlayerType.human,
+      );
+      await tableService.claimSeat(
+        sessionHandle.lobbyId,
+        accessToken: sessionHandle.accessToken,
+        seat: 1,
+        type: PlayerType.automated,
+        automatedDisplayName: 'Opponent 1',
+      );
+      await tableService.claimSeat(
+        sessionHandle.lobbyId,
+        accessToken: sessionHandle.accessToken,
+        seat: 2,
+        type: PlayerType.automated,
+        automatedDisplayName: 'Opponent 2',
+      );
+      await tableService.claimSeat(
+        sessionHandle.lobbyId,
+        accessToken: sessionHandle.accessToken,
+        seat: 3,
+        type: PlayerType.automated,
+        automatedDisplayName: 'Opponent 3',
+      );
+      await tableService.setReadyState(
+        sessionHandle.lobbyId,
+        accessToken: sessionHandle.accessToken,
+        isReady: true,
+      );
+      final lobbyUpdates = tableService.watchLobby(
+        sessionHandle.lobbyId,
+        accessToken: sessionHandle.accessToken,
+      );
+      await tableService.startMatch(
+        sessionHandle.lobbyId,
+        accessToken: sessionHandle.accessToken,
+      );
+      final activeLobby = await lobbyUpdates.firstWhere(
+        (final snapshot) => snapshot.matchId != null,
+      );
+      final activeHandle = sessionHandle.copyWith(
+        seat: 0,
+        matchId: activeLobby.matchId,
+      );
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => GameScreen(
-            backend: LocalGameBackend(),
-            targetScore: _targetScore,
-            playerControlModes: {'player-0': _selfControlMode},
+            matchService: tableService,
+            sessionHandle: activeHandle,
           ),
         ),
       );

@@ -4,25 +4,24 @@ import 'dart:math';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
-import 'package:tichu/game/game_backend.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
-
 import 'package:tichu/services/local/ai_turn_runner.dart';
 import 'package:tichu/services/local/local_game_state.dart';
 
-/// A fully local, in-process [GameBackend] implementation.
+/// Fully local, in-process runtime for a single match.
 ///
-/// Runs the engine directly and delegates AI agent orchestration to
-/// [AiTurnRunner].
-class LocalGameBackend implements GameBackend {
+/// This owns engine state and AI orchestration but does not expose any UI-
+/// facing transport contract. Higher-level services adapt it into the
+/// session/match APIs.
+class LocalMatchRuntime {
   final GameEngine _engine;
   final AiTurnRunner _aiRunner;
   final Map<String, LocalGameState> _games = {};
 
-  LocalGameBackend({
+  LocalMatchRuntime({
     final GameEngine? engine,
     final Random? random,
     final AgentFactory? agentFactory,
@@ -37,15 +36,6 @@ class LocalGameBackend implements GameBackend {
     }
   }
 
-  @override
-  Stream<PlayerSnapshot> watchGame(final String gameId, final String playerId) {
-    final state = _requireGame(gameId);
-    return state.controller.stream.map(
-      (final snapshot) => _engine.buildPlayerSnapshot(snapshot, playerId),
-    );
-  }
-
-  @override
   Future<void> setAutomatedActionDelay(final Duration delay) async {
     _aiRunner.automatedActionDelay = delay;
   }
@@ -53,7 +43,6 @@ class LocalGameBackend implements GameBackend {
   Stream<GameSnapshot> watchGameState(final String gameId) =>
       _requireGame(gameId).controller.stream;
 
-  @override
   Future<String> createGame(
     final List<GamePlayer> players, {
     final int targetScore = 1000,
@@ -71,7 +60,6 @@ class LocalGameBackend implements GameBackend {
     return gameId;
   }
 
-  @override
   Future<void> startNewRound(final String gameId) async {
     final state = _requireGame(gameId);
     _engine.startNewRound(state.engineState);
@@ -80,7 +68,6 @@ class LocalGameBackend implements GameBackend {
     await _runAi(state);
   }
 
-  @override
   Future<void> startGame(final String gameId) async {
     final state = _requireGame(gameId);
     _engine.startGame(state.engineState);
@@ -89,7 +76,6 @@ class LocalGameBackend implements GameBackend {
     await _runAi(state);
   }
 
-  @override
   Future<void> submitAction(
     final String gameId,
     final GameAction action,
@@ -131,13 +117,10 @@ class LocalGameBackend implements GameBackend {
     await _runAi(state);
   }
 
-  @override
   Future<void> disposeGame(final String gameId) async {
     final state = _games.remove(gameId);
     await state?.controller.close();
   }
-
-  // ── Helpers ─────────────────────────────────────────────────────────
 
   LocalGameState _requireGame(final String gameId) {
     final state = _games[gameId];

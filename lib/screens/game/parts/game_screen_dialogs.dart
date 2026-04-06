@@ -27,9 +27,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
             _opponentDelaySeconds = value;
           });
           final delayMs = (value * 1000).round();
-          unawaited(
-            _backend.setAutomatedActionDelay(Duration(milliseconds: delayMs)),
-          );
+          unawaited(_setAutomatedActionDelay(Duration(milliseconds: delayMs)));
         },
         onAutoPassChanged: (final value) {
           setState(() {
@@ -212,8 +210,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
       if (!mounted) return;
       if (selectedTarget == null) return;
       try {
-        await _backend.submitAction(
-          _gameId!,
+        await _submitGameAction(
           GiveDragonAction(playerId: _humanId, targetPlayerId: selectedTarget),
         );
       } on Object catch (error) {
@@ -290,8 +287,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     if (_grandTichuDialogOpen) return;
     _grandTichuDialogOpen = true;
     try {
-      await _backend.submitAction(
-        snapshot.gameId,
+      await _submitGameAction(
         GrandTichuDecisionAction(playerId: _humanId, call: call),
       );
     } on Object catch (error) {
@@ -325,8 +321,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     );
 
     try {
-      await _backend.submitAction(
-        snapshot.gameId,
+      await _submitGameAction(
         SchupfAction(
           playerId: _humanId,
           toLeft: toLeft,

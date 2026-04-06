@@ -378,7 +378,7 @@ void main() {
       final snapshot = await snapshotFuture;
       expect(snapshot.gameId, gameId);
 
-      final roundSnapshotFuture = gameStream.skip(1).first;
+      final roundSnapshotFuture = backend.watchGameState(gameId).first;
       await backend.startNewRound(gameId);
       final roundSnapshot = await roundSnapshotFuture;
       expect(roundSnapshot.gameId, gameId);

@@ -5,7 +5,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/widgets/card_widget.dart';
 
-import '../../utils/test_game_backend.dart';
+import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
 import '../../utils/test_helpers.dart';
 
@@ -20,9 +20,16 @@ void main() {
     suppressOverflowErrors(previousOnError);
     addTearDown(() => FlutterError.onError = previousOnError);
 
-    final backend = FakeGameBackend();
+    final backend = FakeGameMatchService();
 
-    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GameScreen(
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
+        ),
+      ),
+    );
 
     final hand = [
       Card(CardFace.four, CardColor.red),

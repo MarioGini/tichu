@@ -7,7 +7,8 @@ Domain and runtime seam for game progression: engine contracts, backend APIs, pl
 - `engine.dart`: main engine contract used by controller/backend.
 - `engine_state.dart`: engine state shapes/snapshots.
 - `game_actions.dart`: `GameAction` abstract class + all concrete action subclasses (PlayTurnAction, PassAction, etc.).
-- `game_backend.dart`: abstract `GameBackend` interface (runtime backend boundary exposed to UI/controller).
+- `game_match.dart`: multiplayer-ready live match contract with revision/idempotency metadata around player snapshots.
+- `game_session.dart`: lobby/session contract for create/join/seat/ready/start flows before a live match begins.
 - `game_play_controller.dart`: orchestrates play flow between UI and backend.
 - `game_snapshot.dart`: `GameSnapshot` and `PlayerSnapshot` — immutable state snapshots for UI and backend communication.
 - `game_types.dart`: core domain enums and simple types (`PlayerType`, `GamePhase`, `SchupfDirection`, `SchupfReceipt`, `GamePlayer`).

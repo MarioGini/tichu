@@ -5,24 +5,31 @@ import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/screens/game/widgets/schupf_panel.dart';
 
-import '../../utils/test_game_backend.dart';
+import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
 
 void main() {
   Future<void> pumpGame(
     final WidgetTester tester,
-    final FakeGameBackend backend,
+    final FakeGameMatchService backend,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1080, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(MaterialApp(home: GameScreen(backend: backend)));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GameScreen(
+          matchService: backend,
+          sessionHandle: backend.sessionHandle,
+        ),
+      ),
+    );
   }
 
   testWidgets('play phase has stable layout at 1080x2400', (
     final tester,
   ) async {
-    final backend = FakeGameBackend();
+    final backend = FakeGameMatchService();
     await pumpGame(tester, backend);
 
     backend.emit(
@@ -39,7 +46,7 @@ void main() {
   testWidgets(
     'schupf phase keeps tichu button below schupf panel at 1080x2400',
     (final tester) async {
-      final backend = FakeGameBackend();
+      final backend = FakeGameMatchService();
       await pumpGame(tester, backend);
 
       backend.emit(
@@ -77,7 +84,7 @@ void main() {
   testWidgets('schupf receipt phase is stable at 1080x2400', (
     final tester,
   ) async {
-    final backend = FakeGameBackend();
+    final backend = FakeGameMatchService();
     await pumpGame(tester, backend);
 
     backend.emit(

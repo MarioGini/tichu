@@ -5,7 +5,6 @@ part of '../game_screen.dart';
 mixin _GameScreenBindings on State<GameScreen> {
   String get _humanId;
   bool get _isSelfManual;
-  GameBackend get _backend;
   String? get _gameId;
   PlayerSnapshot? get _snapshot;
   List<Card> get _hand;
@@ -86,6 +85,12 @@ mixin _GameScreenBindings on State<GameScreen> {
   List<Card> _selectedCards();
 
   Future<void> _startRound();
+
+  Future<void> _submitGameAction(final GameAction action);
+
+  Future<void> _acknowledgeRoundSummary();
+
+  Future<void> _setAutomatedActionDelay(final Duration delay);
 
   Future<void> _confirmOpponentTurn();
 

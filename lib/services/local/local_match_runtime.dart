@@ -41,7 +41,7 @@ class LocalMatchRuntime {
   }
 
   Stream<GameSnapshot> watchGameState(final String gameId) =>
-      _requireGame(gameId).controller.stream;
+      _requireGame(gameId).watchSnapshots();
 
   Future<String> createGame(
     final List<GamePlayer> players, {
@@ -128,8 +128,11 @@ class LocalMatchRuntime {
     return state;
   }
 
-  void _emitSnapshot(final LocalGameState state) =>
-      state.controller.add(_buildSnapshot(state));
+  void _emitSnapshot(final LocalGameState state) {
+    final snapshot = _buildSnapshot(state);
+    state.latestSnapshot = snapshot;
+    state.controller.add(snapshot);
+  }
 
   GameSnapshot _buildSnapshot(final LocalGameState state) =>
       _engine.buildSnapshot(

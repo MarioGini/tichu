@@ -104,3 +104,11 @@ abstract interface class GameMatchService {
     required final String accessToken,
   });
 }
+
+abstract interface class AdjustableAutomatedActionDelay {
+  Future<void> setMatchAutomatedActionDelay(
+    final String matchId, {
+    required final String accessToken,
+    required final Duration delay,
+  });
+}

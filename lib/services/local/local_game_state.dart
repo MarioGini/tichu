@@ -9,6 +9,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 class LocalGameState {
   final GameEngineState engineState;
   final StreamController<GameSnapshot> controller;
+  GameSnapshot? latestSnapshot;
 
   GameAction? pendingOpponentAction;
   String? pendingOpponentPlayerId;
@@ -18,4 +19,19 @@ class LocalGameState {
 
   LocalGameState({required this.engineState})
     : controller = StreamController<GameSnapshot>.broadcast();
+
+  Stream<GameSnapshot> watchSnapshots() =>
+      Stream<GameSnapshot>.multi((final streamController) {
+        final current = latestSnapshot;
+        if (current != null) {
+          streamController.add(current);
+        }
+
+        final subscription = controller.stream.listen(
+          streamController.add,
+          onError: streamController.addError,
+          onDone: streamController.close,
+        );
+        streamController.onCancel = subscription.cancel;
+      }, isBroadcast: true);
 }

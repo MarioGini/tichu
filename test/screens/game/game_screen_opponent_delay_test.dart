@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/screens/game/widgets/options_dialog.dart';
 import 'package:tichu/screens/game/game_screen.dart';
+import 'package:tichu/screens/game/widgets/options_dialog.dart';
 
-import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
+import '../../utils/test_game_match_service.dart';
 
 void main() {
   testWidgets(
@@ -21,10 +21,11 @@ void main() {
         ),
       );
       backend.emit(buildPlayerSnapshot(currentPlayerId: testHumanId));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       await tester.tap(find.byIcon(Icons.settings));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 250));
 
       expect(find.byType(OptionsDialog), findsOneWidget);
 

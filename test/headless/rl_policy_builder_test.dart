@@ -12,7 +12,6 @@ void main() {
     try {
       final lines = [
         jsonEncode({
-          'schema_version': 'tichu_rl_transition_v2',
           'episode': 1,
           'seq': 1,
           'state_key': 's1',
@@ -22,7 +21,6 @@ void main() {
           'done': false,
         }),
         jsonEncode({
-          'schema_version': 'tichu_rl_transition_v2',
           'episode': 1,
           'seq': 2,
           'state_key': 's2',
@@ -32,7 +30,6 @@ void main() {
           'done': false,
         }),
         jsonEncode({
-          'schema_version': 'tichu_rl_transition_v2',
           'episode': 1,
           'seq': 3,
           'state_key': 's3',
@@ -61,8 +58,6 @@ void main() {
 
       final decoded =
           jsonDecode(await policyFile.readAsString()) as Map<String, dynamic>;
-      expect(decoded['schema_version'], 'tichu_rl_policy_v1');
-      expect(decoded['source_transition_schema'], 'tichu_rl_transition_v2');
 
       final builder = decoded['builder'] as Map<String, dynamic>;
       expect(builder['algorithm'], 'monte_carlo_state_action_returns');

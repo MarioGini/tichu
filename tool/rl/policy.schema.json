@@ -1,23 +1,12 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://tichu.local/schemas/tichu-rl-policy-v1.schema.json",
-    "title": "Tichu RL Policy (v1)",
+    "title": "Tichu RL Policy",
     "type": "object",
     "required": [
-        "schema_version",
-        "source_transition_schema",
         "builder",
         "state_action_values"
     ],
     "properties": {
-        "schema_version": {
-            "type": "string",
-            "const": "tichu_rl_policy_v1"
-        },
-        "source_transition_schema": {
-            "type": "string",
-            "const": "tichu_rl_transition_v2"
-        },
         "builder": {
             "type": "object",
             "required": [
@@ -55,7 +44,7 @@
                     "format": "date-time"
                 }
             },
-            "additionalProperties": true
+            "additionalProperties": false
         },
         "state_action_values": {
             "type": "object",
@@ -66,34 +55,15 @@
                 }
             }
         },
-        "entries": {
-            "type": "array",
-            "items": {
+        "coarse_state_action_values": {
+            "type": "object",
+            "additionalProperties": {
                 "type": "object",
-                "required": [
-                    "state_key",
-                    "action_key",
-                    "value",
-                    "samples"
-                ],
-                "properties": {
-                    "state_key": {
-                        "type": "string"
-                    },
-                    "action_key": {
-                        "type": "string"
-                    },
-                    "value": {
-                        "type": "number"
-                    },
-                    "samples": {
-                        "type": "integer",
-                        "minimum": 1
-                    }
-                },
-                "additionalProperties": false
+                "additionalProperties": {
+                    "type": "number"
+                }
             }
         }
     },
-    "additionalProperties": true
+    "additionalProperties": false
 }

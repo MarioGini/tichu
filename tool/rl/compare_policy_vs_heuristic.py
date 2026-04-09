@@ -179,11 +179,6 @@ def _policy_coverage(eval_jsonl: Path, policy_json: Path) -> dict[str, float | i
         "any_state_action_hit_ratio": (any_state_action_hit / state_seen)
         if state_seen
         else 0.0,
-        # Backward-compatible aliases used by existing notes/scripts.
-        "state_hit_ratio": (any_state_hit / state_seen) if state_seen else 0.0,
-        "state_action_hit_ratio": (any_state_action_hit / state_seen)
-        if state_seen
-        else 0.0,
     }
 
 
@@ -214,9 +209,23 @@ def main() -> int:
     )
     parser.add_argument("--target-score", type=int, default=100)
     parser.add_argument("--train-seed", type=int, default=123)
-    parser.add_argument("--eval-seed", type=int, default=123)
+    parser.add_argument("--eval-seed", type=int, default=456)
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--min-samples", type=int, default=2)
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=1,
+        help="Number of iterative self-play rounds. "
+        "Each iteration generates trajectories using the previous policy, "
+        "then rebuilds the policy from the combined data.",
+    )
+    parser.add_argument(
+        "--epsilon",
+        type=float,
+        default=0.0,
+        help="Epsilon-greedy exploration rate for training episodes (0-1).",
+    )
     parser.add_argument(
         "--workdir",
         default="",
@@ -230,6 +239,7 @@ def main() -> int:
 
     args = parser.parse_args()
     train_episodes = args.train_episodes if args.train_episodes > 0 else args.episodes
+    iterations = max(1, args.iterations)
 
     repo = Path(args.repo).resolve()
 
@@ -241,42 +251,92 @@ def main() -> int:
         workdir = Path(tempfile.mkdtemp(prefix="tichu_policy_compare_"))
         cleanup = not args.keep_artifacts
 
-    baseline_train = workdir / "baseline_train.jsonl"
     policy_json = workdir / "policy.json"
     eval_baseline = workdir / "eval_baseline.jsonl"
     eval_policy = workdir / "eval_policy.jsonl"
 
     try:
-        # 1) Generate training trajectories from heuristic self-play.
-        _run(
-            [
+        # --- Iterative self-play loop ---
+        # Iteration 0: heuristic self-play (no policy, no epsilon).
+        # Iteration 1+: use the previous policy with epsilon-greedy exploration.
+        combined_train = workdir / "combined_train.jsonl"
+        next_episode_offset = 0
+
+        for iteration in range(iterations):
+            iter_train = workdir / f"train_iter{iteration}.jsonl"
+            train_seed = args.train_seed + iteration
+
+            train_cmd = [
                 "dart",
                 "run",
                 "lib/headless/headless.dart",
-                f"--seed={args.train_seed}",
+                f"--seed={train_seed}",
                 f"--target-score={args.target_score}",
                 f"--episodes={train_episodes}",
                 "--format=rl-jsonl",
-                f"--output={baseline_train}",
-            ],
-            cwd=repo,
-        )
+                f"--output={iter_train}",
+            ]
 
-        # 2) Build policy from training trajectories.
-        _run(
-            [
-                "dart",
-                "run",
-                "tool/rl/build_policy_from_transitions.dart",
-                f"--input={baseline_train}",
-                f"--output={policy_json}",
-                f"--gamma={args.gamma}",
-                f"--min-samples={args.min_samples}",
-            ],
-            cwd=repo,
-        )
+            if iteration > 0 and policy_json.exists():
+                # Use the policy from the previous iteration with exploration.
+                train_cmd.append(f"--rl-policy={policy_json}")
+                if args.epsilon > 0:
+                    train_cmd.append(f"--epsilon={args.epsilon}")
 
-        # 3) Evaluate baseline and policy runs on the same eval seed.
+            print(
+                f"iteration {iteration + 1}/{iterations}: generating "
+                f"{train_episodes} training episodes (seed={train_seed})"
+                + (
+                    f", epsilon={args.epsilon}"
+                    if iteration > 0 and args.epsilon > 0
+                    else ""
+                )
+                + (
+                    f", policy={policy_json.name}"
+                    if iteration > 0 and policy_json.exists()
+                    else ""
+                ),
+                flush=True,
+            )
+            _run(train_cmd, cwd=repo)
+
+            # Append this iteration's data to the combined training file,
+            # re-numbering episodes to maintain ascending order across
+            # iterations (the policy builder requires this).
+            max_episode_in_iter = 0
+            with combined_train.open("a", encoding="utf-8") as out:
+                with iter_train.open("r", encoding="utf-8") as inp:
+                    for line in inp:
+                        stripped = line.strip()
+                        if not stripped:
+                            continue
+                        row = json.loads(stripped)
+                        orig_episode = int(row.get("episode", 0))
+                        row["episode"] = orig_episode + next_episode_offset
+                        max_episode_in_iter = max(max_episode_in_iter, orig_episode)
+                        out.write(json.dumps(row) + "\n")
+            next_episode_offset += max_episode_in_iter + 1
+
+            # Build policy from all accumulated trajectories.
+            print(
+                f"iteration {iteration + 1}/{iterations}: building policy",
+                flush=True,
+            )
+            _run(
+                [
+                    "dart",
+                    "run",
+                    "tool/rl/build_policy_from_transitions.dart",
+                    f"--input={combined_train}",
+                    f"--output={policy_json}",
+                    f"--gamma={args.gamma}",
+                    f"--min-samples={args.min_samples}",
+                ],
+                cwd=repo,
+            )
+
+        # --- Evaluation ---
+        # Baseline: pure heuristic on eval seed.
         _run(
             [
                 "dart",
@@ -290,6 +350,7 @@ def main() -> int:
             ],
             cwd=repo,
         )
+        # Policy: learned policy on the same eval seed (no epsilon).
         _run(
             [
                 "dart",
@@ -323,6 +384,8 @@ def main() -> int:
                 "eval_seed": args.eval_seed,
                 "gamma": args.gamma,
                 "min_samples": args.min_samples,
+                "iterations": iterations,
+                "epsilon": args.epsilon,
             },
             "policy_table_entries_exact": policy_entries_exact,
             "policy_table_entries_coarse": policy_entries_coarse,

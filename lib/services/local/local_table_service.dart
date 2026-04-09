@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_match.dart';
@@ -8,16 +8,9 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/services/local/local_match_runtime.dart';
+import 'package:tichu/services/multiplayer/table_projection_store.dart';
 import 'package:tichu/services/transport/dto/match_dto.dart' as match_dto;
 import 'package:tichu/services/transport/dto/session_dto.dart' as session_dto;
-
-abstract interface class AdjustableAutomatedActionDelay {
-  Future<void> setMatchAutomatedActionDelay(
-    final String matchId, {
-    required final String accessToken,
-    required final Duration delay,
-  });
-}
 
 class LocalGameTableService
     implements
@@ -27,11 +20,15 @@ class LocalGameTableService
   LocalGameTableService({
     final LocalMatchRuntime Function()? runtimeFactory,
     final GameEngine? projectionEngine,
+    final GameTableProjectionStore? projectionStore,
   }) : _runtimeFactory = runtimeFactory ?? LocalMatchRuntime.new,
-       _projectionEngine = projectionEngine ?? GameEngineImpl();
+       _projectionEngine = projectionEngine ?? GameEngineImpl(),
+       _projectionStore =
+           projectionStore ?? const NoopGameTableProjectionStore();
 
   final LocalMatchRuntime Function() _runtimeFactory;
   final GameEngine _projectionEngine;
+  final GameTableProjectionStore _projectionStore;
   final Map<String, _LocalLobbyState> _lobbies = {};
   final Map<String, String> _lobbyIdByJoinCode = {};
   int _nextLobbyId = 1;
@@ -39,14 +36,19 @@ class LocalGameTableService
   int _nextAccessTokenId = 1;
 
   @override
-  Future<GameSessionHandle> createLobby(
-    final CreateGameLobbyRequest request,
-  ) async {
+  Future<GameSessionHandle> createLobby(final CreateGameLobbyRequest request) =>
+      createLobbyForAuthUser(request);
+
+  Future<GameSessionHandle> createLobbyForAuthUser(
+    final CreateGameLobbyRequest request, {
+    final String? authUserId,
+  }) async {
     final decodedRequest = _roundTripCreateLobbyRequest(request);
     final lobbyId = 'local-lobby-${_nextLobbyId++}';
     final joinCode = 'L${lobbyId.split('-').last.padLeft(4, '0')}';
     final participant = _createParticipant(
       displayName: decodedRequest.displayName,
+      authUserId: authUserId,
     );
     final lobby = _LocalLobbyState(
       lobbyId: lobbyId,
@@ -85,9 +87,13 @@ class LocalGameTableService
   }
 
   @override
-  Future<GameSessionHandle> joinLobby(
-    final JoinGameLobbyRequest request,
-  ) async {
+  Future<GameSessionHandle> joinLobby(final JoinGameLobbyRequest request) =>
+      joinLobbyForAuthUser(request);
+
+  Future<GameSessionHandle> joinLobbyForAuthUser(
+    final JoinGameLobbyRequest request, {
+    final String? authUserId,
+  }) async {
     final decodedRequest = _roundTripJoinLobbyRequest(request);
     final lobbyId = _lobbyIdByJoinCode[decodedRequest.joinCode];
     if (lobbyId == null) {
@@ -98,15 +104,40 @@ class LocalGameTableService
       throw StateError('Lobby is closed.');
     }
 
-    final participant = _createParticipant(
+    final participant = _findParticipantByAuthUserId(lobby, authUserId);
+    if (participant != null) {
+      _markParticipantConnected(lobby, participant);
+      if (decodedRequest.preferredSeat != null) {
+        _claimParticipantSeat(
+          lobby,
+          participant,
+          seat: decodedRequest.preferredSeat!,
+          type: PlayerType.human,
+        );
+      }
+      _emitLobby(lobby);
+      return _roundTripSessionHandle(
+        GameSessionHandle(
+          lobbyId: lobby.lobbyId,
+          playerId: participant.playerId,
+          accessToken: participant.accessToken,
+          seat: participant.seat,
+          matchId: lobby.matchId,
+        ),
+      );
+    }
+
+    final newParticipant = _createParticipant(
       displayName: decodedRequest.displayName,
+      authUserId: authUserId,
     );
-    lobby.participantsByAccessToken[participant.accessToken] = participant;
-    lobby.participantsByPlayerId[participant.playerId] = participant;
+    lobby.participantsByAccessToken[newParticipant.accessToken] =
+        newParticipant;
+    lobby.participantsByPlayerId[newParticipant.playerId] = newParticipant;
     if (decodedRequest.preferredSeat != null) {
       _claimParticipantSeat(
         lobby,
-        participant,
+        newParticipant,
         seat: decodedRequest.preferredSeat!,
         type: PlayerType.human,
       );
@@ -116,9 +147,9 @@ class LocalGameTableService
     return _roundTripSessionHandle(
       GameSessionHandle(
         lobbyId: lobby.lobbyId,
-        playerId: participant.playerId,
-        accessToken: participant.accessToken,
-        seat: participant.seat,
+        playerId: newParticipant.playerId,
+        accessToken: newParticipant.accessToken,
+        seat: newParticipant.seat,
         matchId: lobby.matchId,
       ),
     );
@@ -396,12 +427,47 @@ class LocalGameTableService
     await resolved.lobby.runtime?.setAutomatedActionDelay(delay);
   }
 
-  _LocalParticipant _createParticipant({required final String displayName}) =>
-      _LocalParticipant(
-        playerId: 'local-player-${_nextPlayerId++}',
-        accessToken: 'local-token-${_nextAccessTokenId++}',
-        displayName: displayName,
-      );
+  _LocalParticipant _createParticipant({
+    required final String displayName,
+    final String? authUserId,
+  }) {
+    final playerId = 'local-player-${_nextPlayerId++}';
+    return _LocalParticipant(
+      playerId: playerId,
+      authUserId: authUserId ?? playerId,
+      accessToken: 'local-token-${_nextAccessTokenId++}',
+      displayName: displayName,
+    );
+  }
+
+  _LocalParticipant? _findParticipantByAuthUserId(
+    final _LocalLobbyState lobby,
+    final String? authUserId,
+  ) {
+    if (authUserId == null || authUserId.isEmpty) {
+      return null;
+    }
+    for (final participant in lobby.participantsByPlayerId.values) {
+      if (participant.authUserId == authUserId) {
+        return participant;
+      }
+    }
+    return null;
+  }
+
+  void _markParticipantConnected(
+    final _LocalLobbyState lobby,
+    final _LocalParticipant participant,
+  ) {
+    participant.isConnected = true;
+    final seat = participant.seat;
+    if (seat != null) {
+      final seatState = lobby.seats[seat];
+      if (seatState.playerId == participant.playerId) {
+        seatState.isConnected = true;
+      }
+    }
+  }
 
   _LocalLobbyState _requireLobby(final String lobbyId) {
     final lobby = _lobbies[lobbyId];
@@ -548,6 +614,12 @@ class LocalGameTableService
     );
     lobby.latestMatchState = event;
     lobby.matchEvents.add(event);
+    unawaited(
+      _projectionStore.replaceMatchViews(matchId, [
+        for (final participant in lobby.participantsByPlayerId.values)
+          _buildProjectedMatchView(lobby, participant, event),
+      ]),
+    );
   }
 
   GameLobbySnapshot _buildLobbySnapshot(
@@ -659,6 +731,12 @@ class LocalGameTableService
     if (!lobby.lobbyEvents.isClosed) {
       lobby.lobbyEvents.add(null);
     }
+    unawaited(
+      _projectionStore.replaceLobbyViews(lobby.lobbyId, [
+        for (final participant in lobby.participantsByPlayerId.values)
+          _buildProjectedLobbyView(lobby, participant),
+      ]),
+    );
   }
 
   void _emitConnection(
@@ -668,6 +746,16 @@ class LocalGameTableService
     lobby.lastConnectionSnapshot = snapshot;
     if (!lobby.connectionEvents.isClosed) {
       lobby.connectionEvents.add(snapshot);
+    }
+
+    final matchId = lobby.matchId;
+    if (matchId != null) {
+      unawaited(
+        _projectionStore.replaceConnectionViews(matchId, [
+          for (final participant in lobby.participantsByPlayerId.values)
+            _buildProjectedConnectionView(lobby, participant, snapshot),
+        ]),
+      );
     }
   }
 
@@ -691,17 +779,59 @@ class LocalGameTableService
       lobby,
       const GameMatchConnectionSnapshot(state: GameMatchConnectionState.closed),
     );
-    await lobby.runtimeSubscription?.cancel();
-    final matchId = lobby.matchId;
-    if (matchId != null) {
-      await lobby.runtime?.disposeGame(matchId);
-    }
     _lobbies.remove(lobby.lobbyId);
     _lobbyIdByJoinCode.remove(lobby.joinCode);
-    await lobby.lobbyEvents.close();
-    await lobby.connectionEvents.close();
-    await lobby.matchEvents.close();
+    await _projectionStore.deleteLobbyState(
+      lobby.lobbyId,
+      matchId: lobby.matchId,
+    );
+    await lobby.dispose();
   }
+
+  ProjectedLobbyView _buildProjectedLobbyView(
+    final _LocalLobbyState lobby,
+    final _LocalParticipant participant,
+  ) => ProjectedLobbyView(
+    lobbyId: lobby.lobbyId,
+    authUserId: participant.authUserId,
+    accessToken: participant.accessToken,
+    playerId: participant.playerId,
+    payload: session_dto.GameLobbySnapshotDto.fromDomain(
+      _buildLobbySnapshot(lobby, participant.playerId),
+    ).toJson(),
+  );
+
+  ProjectedMatchView _buildProjectedMatchView(
+    final _LocalLobbyState lobby,
+    final _LocalParticipant participant,
+    final _LocalMatchState event,
+  ) {
+    final view = _buildMatchView(lobby, participant, event);
+    return ProjectedMatchView(
+      lobbyId: lobby.lobbyId,
+      matchId: event.matchId,
+      authUserId: participant.authUserId,
+      accessToken: participant.accessToken,
+      playerId: participant.playerId,
+      revision: event.revision,
+      payload: match_dto.GameMatchViewDto.fromDomain(view).toJson(),
+    );
+  }
+
+  ProjectedConnectionView _buildProjectedConnectionView(
+    final _LocalLobbyState lobby,
+    final _LocalParticipant participant,
+    final GameMatchConnectionSnapshot snapshot,
+  ) => ProjectedConnectionView(
+    lobbyId: lobby.lobbyId,
+    matchId: lobby.matchId!,
+    authUserId: participant.authUserId,
+    accessToken: participant.accessToken,
+    playerId: participant.playerId,
+    payload: match_dto.GameMatchConnectionSnapshotDto.fromDomain(
+      snapshot,
+    ).toJson(),
+  );
 }
 
 class _LocalLobbyState {
@@ -742,16 +872,32 @@ class _LocalLobbyState {
   Duration automatedActionDelay = const Duration(seconds: 1);
   int revision = 0;
   int? pendingRoundNumber;
+
+  Future<void> dispose() async {
+    await runtimeSubscription?.cancel();
+    runtimeSubscription = null;
+
+    final activeMatchId = matchId;
+    if (activeMatchId != null) {
+      await runtime?.disposeGame(activeMatchId);
+    }
+
+    await lobbyEvents.close();
+    await connectionEvents.close();
+    await matchEvents.close();
+  }
 }
 
 class _LocalParticipant {
   _LocalParticipant({
     required this.playerId,
+    required this.authUserId,
     required this.accessToken,
     required this.displayName,
   });
 
   final String playerId;
+  final String authUserId;
   final String accessToken;
   final String displayName;
   int? seat;

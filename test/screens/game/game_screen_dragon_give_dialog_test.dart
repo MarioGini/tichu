@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 
-import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
+import '../../utils/test_game_match_service.dart';
 
 void main() {
   testWidgets('shows dragon recipients as left then right from player view', (
@@ -32,7 +32,8 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('Who receives the dragon?'), findsOneWidget);
 
@@ -46,7 +47,8 @@ void main() {
     expect(opponent3Dx, lessThan(opponent1Dx));
 
     await tester.tap(opponent3Button);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
     final giveDragonActions = backend.actions.whereType<GiveDragonAction>();
     expect(giveDragonActions, hasLength(1));

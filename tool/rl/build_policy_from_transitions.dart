@@ -1,9 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-const _policySchemaVersion = 'tichu_rl_policy_v1';
-const _expectedTransitionSchemaVersion = 'tichu_rl_transition_v2';
-
 Future<void> main(final List<String> args) async {
   final config = _parseArgs(args);
   if (config.showHelp) {
@@ -14,7 +11,6 @@ Future<void> main(final List<String> args) async {
   final builder = _MonteCarloPolicyBuilder(
     gamma: config.gamma,
     minSamples: config.minSamples,
-    expectedTransitionSchemaVersion: _expectedTransitionSchemaVersion,
   );
 
   await builder.ingestJsonl(File(config.inputPath));
@@ -50,7 +46,7 @@ class _Config {
 _Config _parseArgs(final List<String> args) {
   var inputPath = '';
   var outputPath = '';
-  var gamma = 1.0;
+  var gamma = 0.99;
   var minSamples = 1;
   var showHelp = false;
 
@@ -112,7 +108,7 @@ void _printUsage() {
 class _Transition {
   final int episode;
   final int? seq;
-  final String schemaVersion;
+  final int team;
   final String stateKey;
   final String? stateKeyCoarse;
   final String actionKey;
@@ -123,7 +119,7 @@ class _Transition {
   const _Transition({
     required this.episode,
     required this.seq,
-    required this.schemaVersion,
+    required this.team,
     required this.stateKey,
     required this.stateKeyCoarse,
     required this.actionKey,
@@ -134,7 +130,6 @@ class _Transition {
 
   factory _Transition.fromJson(final Map<String, Object?> json) {
     final episode = json['episode'];
-    final schemaVersion = json['schema_version'];
     final stateKey = json['state_key'];
     final stateKeyCoarse = json['state_key_coarse'];
     final actionKey = json['action_key'];
@@ -142,9 +137,9 @@ class _Transition {
     final reward = json['reward'];
     final discount = json['discount'];
     final done = json['done'];
+    final team = json['team'];
 
     if (episode is! num ||
-        schemaVersion is! String ||
         stateKey is! String ||
         actionKey is! String ||
         reward is! num) {
@@ -162,7 +157,7 @@ class _Transition {
     return _Transition(
       episode: episode.toInt(),
       seq: seq is num ? seq.toInt() : null,
-      schemaVersion: schemaVersion,
+      team: team is num ? team.toInt() : 0,
       stateKey: stateKey,
       stateKeyCoarse: stateKeyCoarse is String ? stateKeyCoarse : null,
       actionKey: actionKey,
@@ -188,7 +183,6 @@ class _StateActionAccumulator {
 class _MonteCarloPolicyBuilder {
   final double gamma;
   final int minSamples;
-  final String expectedTransitionSchemaVersion;
 
   int episodesSeen = 0;
   int transitionsUsed = 0;
@@ -197,11 +191,7 @@ class _MonteCarloPolicyBuilder {
   final Map<String, Map<String, _StateActionAccumulator>> _coarseAccumulators =
       {};
 
-  _MonteCarloPolicyBuilder({
-    required this.gamma,
-    required this.minSamples,
-    required this.expectedTransitionSchemaVersion,
-  });
+  _MonteCarloPolicyBuilder({required this.gamma, required this.minSamples});
 
   Future<void> ingestJsonl(final File inputFile) async {
     if (!inputFile.existsSync()) {
@@ -231,12 +221,6 @@ class _MonteCarloPolicyBuilder {
       }
 
       final transition = _Transition.fromJson(decoded);
-
-      if (transition.schemaVersion != expectedTransitionSchemaVersion) {
-        throw FormatException(
-          'Line $lineNumber schema_version ${transition.schemaVersion} does not match expected $expectedTransitionSchemaVersion.',
-        );
-      }
 
       currentEpisode ??= transition.episode;
 
@@ -271,28 +255,20 @@ class _MonteCarloPolicyBuilder {
   }
 
   Map<String, Object?> buildPolicy() {
-    final (stateActionValues, entries) = _buildActionTable(_accumulators);
-    final (coarseStateActionValues, coarseEntries) = _buildActionTable(
-      _coarseAccumulators,
-    );
+    final stateActionValues = _buildActionTable(_accumulators);
+    final coarseStateActionValues = _buildActionTable(_coarseAccumulators);
 
     return {
-      'schema_version': _policySchemaVersion,
-      'source_transition_schema': expectedTransitionSchemaVersion,
       'builder': {
         'algorithm': 'monte_carlo_state_action_returns',
         'gamma': gamma,
         'min_samples': minSamples,
-        'uses_action_shape_backoff': true,
-        'uses_coarse_state_keys': true,
         'episodes_seen': episodesSeen,
         'transitions_used': transitionsUsed,
         'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
       },
       'state_action_values': stateActionValues,
       'coarse_state_action_values': coarseStateActionValues,
-      'entries': entries,
-      'coarse_entries': coarseEntries,
     };
   }
 
@@ -303,38 +279,52 @@ class _MonteCarloPolicyBuilder {
 
     episodesSeen++;
 
-    var g = 0.0;
-    for (final transition in episodeTransitions.reversed) {
-      g = transition.reward + gamma * transition.discount * g;
-      transitionsUsed++;
+    // Partition transitions by team so each team's return only includes
+    // rewards from its own actions (no cross-team credit assignment noise).
+    final byTeam = <int, List<_Transition>>{};
+    for (final t in episodeTransitions) {
+      byTeam.putIfAbsent(t.team, () => <_Transition>[]).add(t);
+    }
 
-      _accumulate(_accumulators, transition.stateKey, transition.actionKey, g);
-      if (transition.actionShapeKey != null &&
-          transition.actionShapeKey != transition.actionKey) {
+    for (final teamTransitions in byTeam.values) {
+      var g = 0.0;
+      for (final transition in teamTransitions.reversed) {
+        g = transition.reward + gamma * transition.discount * g;
+        transitionsUsed++;
+
         _accumulate(
           _accumulators,
           transition.stateKey,
-          transition.actionShapeKey!,
-          g,
-        );
-      }
-
-      final coarseStateKey = transition.stateKeyCoarse;
-      if (coarseStateKey != null && coarseStateKey.isNotEmpty) {
-        _accumulate(
-          _coarseAccumulators,
-          coarseStateKey,
           transition.actionKey,
           g,
         );
         if (transition.actionShapeKey != null &&
             transition.actionShapeKey != transition.actionKey) {
           _accumulate(
-            _coarseAccumulators,
-            coarseStateKey,
+            _accumulators,
+            transition.stateKey,
             transition.actionShapeKey!,
             g,
           );
+        }
+
+        final coarseStateKey = transition.stateKeyCoarse;
+        if (coarseStateKey != null && coarseStateKey.isNotEmpty) {
+          _accumulate(
+            _coarseAccumulators,
+            coarseStateKey,
+            transition.actionKey,
+            g,
+          );
+          if (transition.actionShapeKey != null &&
+              transition.actionShapeKey != transition.actionKey) {
+            _accumulate(
+              _coarseAccumulators,
+              coarseStateKey,
+              transition.actionShapeKey!,
+              g,
+            );
+          }
         }
       }
     }
@@ -354,11 +344,10 @@ class _MonteCarloPolicyBuilder {
     acc.add(value);
   }
 
-  (Map<String, Object?>, List<Map<String, Object?>>) _buildActionTable(
+  Map<String, Object?> _buildActionTable(
     final Map<String, Map<String, _StateActionAccumulator>> source,
   ) {
     final stateActionValues = <String, Object?>{};
-    final entries = <Map<String, Object?>>[];
 
     final sortedStates = source.keys.toList()..sort();
     for (final stateKey in sortedStates) {
@@ -371,15 +360,7 @@ class _MonteCarloPolicyBuilder {
         if (acc.samples < minSamples) {
           continue;
         }
-
-        final mean = acc.mean;
-        actionValues[actionKey] = mean;
-        entries.add({
-          'state_key': stateKey,
-          'action_key': actionKey,
-          'value': mean,
-          'samples': acc.samples,
-        });
+        actionValues[actionKey] = acc.mean;
       }
 
       if (actionValues.isNotEmpty) {
@@ -387,6 +368,6 @@ class _MonteCarloPolicyBuilder {
       }
     }
 
-    return (stateActionValues, entries);
+    return stateActionValues;
   }
 }

@@ -56,35 +56,6 @@ class RlPolicyTable {
       }
     }
 
-    final entries = jsonObject['entries'];
-    if (entries is List) {
-      for (final entry in entries) {
-        if (entry is! Map) continue;
-        final stateKey = entry['state_key']?.toString();
-        final actionKey = entry['action_key']?.toString();
-        final value = entry['value'];
-        if (stateKey == null || actionKey == null || value is! num) continue;
-        values.putIfAbsent(stateKey, () => <String, double>{})[actionKey] =
-            value.toDouble();
-      }
-    }
-
-    final coarseEntries = jsonObject['coarse_entries'];
-    if (coarseEntries is List) {
-      for (final entry in coarseEntries) {
-        if (entry is! Map) continue;
-        final stateKey = entry['state_key']?.toString();
-        final actionKey = entry['action_key']?.toString();
-        final value = entry['value'];
-        if (stateKey == null || actionKey == null || value is! num) continue;
-        coarseValues.putIfAbsent(
-          stateKey,
-          () => <String, double>{},
-        )[actionKey] = value
-            .toDouble();
-      }
-    }
-
     if (values.isEmpty && coarseValues.isEmpty) {
       return const RlPolicyTable.empty();
     }

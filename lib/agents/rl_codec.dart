@@ -1,10 +1,9 @@
+import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
-
-const rlTransitionSchemaVersion = 'tichu_rl_transition_v2';
 
 String encodeRlCardToken(final Card card) {
   if (card.face == CardFace.phoenix) {
@@ -150,7 +149,6 @@ String buildRlStateKey({
   ).entries.map((final e) => '${e.key}:${e.value.name}').join(';');
 
   return [
-    'v2',
     'player=$playerId',
     'phase=${snapshot.phase.name}',
     'current=${snapshot.currentPlayerId}',
@@ -223,12 +221,29 @@ String buildRlCoarseStateKey({
       activeWish != CardFace.none &&
       hand.any((final card) => card.face == activeWish);
 
+  // Who is currently winning the trick? Categorize as self/partner/opponent.
+  final trickWinnerRelation = _trickWinnerRelation(snapshot, playerId);
+
+  // How many players have already finished this round?
+  final playersOut = snapshot.scoreState.finishOrder.length;
+
+  // Tichu call state: own call + any opponent call.
+  final ownCall = snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none;
+  final table = TableRelationships(snapshot, playerId);
+  final partnerCall =
+      snapshot.scoreState.tichuCalls[table.partnerId ?? ''] ?? TichuCall.none;
+  final anyOppCall = table.opponents.any(
+    (final opp) =>
+        (snapshot.scoreState.tichuCalls[opp.id] ?? TichuCall.none) !=
+        TichuCall.none,
+  );
+
   return [
-    'v1',
     'team=$team',
     'phase=${snapshot.phase.name}',
     'curr=${snapshot.currentPlayerId == playerId ? 1 : 0}',
     'deck=${snapshot.deck.turn.type.name}:$deckValueBucket',
+    'trick_win=$trickWinnerRelation',
     'wish=${activeWish.name}:${hasWishInHand ? 1 : 0}',
     'passes=${snapshot.consecutivePasses.clamp(0, 3)}',
     'hand_n=${hand.length}',
@@ -237,9 +252,23 @@ String buildRlCoarseStateKey({
     'bomb=${(snapshot.hasBombByPlayer[playerId] ?? false) ? 1 : 0}',
     'can_bomb=${(snapshot.canBombByPlayer[playerId] ?? false) ? 1 : 0}',
     'can_tichu=${(snapshot.canCallTichuByPlayer[playerId] ?? false) ? 1 : 0}',
+    'calls=${ownCall.name}.${partnerCall.name}.${anyOppCall ? 1 : 0}',
+    'out=$playersOut',
     'opp=$oppBuckets',
     'gap=$scoreGapBucket',
   ].join('|');
+}
+
+String _trickWinnerRelation(
+  final GameSnapshot snapshot,
+  final String playerId,
+) {
+  final winner = snapshot.deck.currentWinner;
+  if (winner.isEmpty) return 'none';
+  if (winner == playerId) return 'self';
+  final table = TableRelationships(snapshot, playerId);
+  if (table.isPartner(winner)) return 'partner';
+  return 'opponent';
 }
 
 int _teamForPlayer(final GameSnapshot snapshot, final String playerId) {

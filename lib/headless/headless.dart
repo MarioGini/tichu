@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:tichu/agents/hand_evaluator.dart';
+import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
 import 'package:tichu/agents/rl_codec.dart';
 import 'package:tichu/agents/rl_policy_play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
@@ -10,6 +12,7 @@ import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/find_turn.dart';
@@ -33,10 +36,15 @@ Future<void> main(final List<String> args) async {
       ? null
       : File(config.outputPath).openWrite();
 
-  final rlPolicy = await _loadRlPolicy(config.rlPolicyPath);
-  final agentFactory = _buildAgentFactory(rlPolicy: rlPolicy);
-
   final random = config.seed == null ? Random() : Random(config.seed);
+
+  final rlPolicy = await _loadRlPolicy(config.rlPolicyPath);
+  final agentFactory = _buildAgentFactory(
+    rlPolicy: rlPolicy,
+    useMcts: config.useMcts,
+    mctsDeterminizations: config.mctsDeterminizations,
+    random: random,
+  );
 
   final simulator = _HeadlessSimulator(
     random: random,
@@ -48,6 +56,7 @@ Future<void> main(final List<String> args) async {
     output: outputSink,
     includeTimestamps: config.includeTimestamps,
     includeLegalTurnCount: config.includeLegalTurnCount,
+    epsilon: config.epsilon,
     agentFactory: agentFactory,
   );
 
@@ -71,6 +80,7 @@ class _HeadlessSimulator {
   final IOSink? output;
   final bool includeTimestamps;
   final bool includeLegalTurnCount;
+  final double epsilon;
   final PlayerAgent Function(String playerId) agentFactory;
 
   _HeadlessSimulator({
@@ -83,6 +93,7 @@ class _HeadlessSimulator {
     required this.output,
     required this.includeTimestamps,
     required this.includeLegalTurnCount,
+    required this.epsilon,
     required this.agentFactory,
   });
 
@@ -165,6 +176,15 @@ class _HeadlessSimulator {
         csvWriter?.emitOpponentAction(snapshot: before, action: appliedAction);
       }
 
+      // Feed pass observations to MCTS belief trackers.
+      if (appliedAction is PassAction) {
+        _notifyMctsPass(
+          agents: agents,
+          passPlayerId: appliedAction.playerId,
+          deckTurn: before.deck.turn,
+        );
+      }
+
       snapshot = engine.buildSnapshot(state);
       csvWriter?.processSnapshot(snapshot);
       rlWriter?.emitTransition(
@@ -210,6 +230,14 @@ class _HeadlessSimulator {
         throw StateError('No agent registered for ${currentPlayer.id}.');
       }
 
+      // ε-greedy: randomly decide grand tichu call.
+      if (epsilon > 0 && random.nextDouble() < epsilon) {
+        return GrandTichuDecisionAction(
+          playerId: currentPlayer.id,
+          call: random.nextBool(),
+        );
+      }
+
       final shouldCall = await agent.shouldCallGrandTichu(snapshot);
       return GrandTichuDecisionAction(
         playerId: currentPlayer.id,
@@ -240,6 +268,15 @@ class _HeadlessSimulator {
         throw StateError('No valid dragon target available for $winnerId.');
       }
 
+      // ε-greedy: randomly pick a dragon-give target.
+      if (epsilon > 0 && random.nextDouble() < epsilon) {
+        final randomTarget = opponentIds[random.nextInt(opponentIds.length)];
+        return GiveDragonAction(
+          playerId: winnerId,
+          targetPlayerId: randomTarget,
+        );
+      }
+
       final preferredSeat = agents[winnerId]?.selectDragonGive(snapshot);
       final targetId = _resolveDragonTarget(
         state: state,
@@ -255,7 +292,51 @@ class _HeadlessSimulator {
     if (agent == null) {
       throw StateError('No agent registered for ${currentPlayer.id}.');
     }
+
+    // ε-greedy exploration: with probability epsilon, pick a random legal
+    // action during the play phase instead of the agent's choice.
+    if (epsilon > 0 &&
+        snapshot.phase == GamePhase.play &&
+        random.nextDouble() < epsilon) {
+      final randomAction = _pickRandomLegalAction(snapshot, currentPlayer.id);
+      if (randomAction != null) {
+        return randomAction;
+      }
+    }
+
     return agent.selectAction(snapshot);
+  }
+
+  GameAction? _pickRandomLegalAction(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) {
+    final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
+    if (hand.isEmpty) {
+      return null;
+    }
+
+    final legalTurns = generateLegalTurns(snapshot.deck, List<Card>.from(hand));
+    final canPass =
+        snapshot.deck.turn.type != TurnType.empty &&
+        snapshot.deck.turn.type != TurnType.none &&
+        !mahJong(snapshot.deck, TichuTurn(TurnType.none, const []), hand);
+
+    final actions = <GameAction>[
+      for (final turn in legalTurns)
+        PlayTurnAction(
+          playerId: playerId,
+          cards: List<Card>.from(turn.cards),
+          inputWish: CardFace.none,
+        ),
+      if (canPass) PassAction(playerId: playerId),
+    ];
+
+    if (actions.isEmpty) {
+      return null;
+    }
+
+    return actions[random.nextInt(actions.length)];
   }
 
   GameAction _applyActionWithRecovery({
@@ -404,6 +485,21 @@ class _HeadlessSimulator {
       }
     }
     return opponentIds.first;
+  }
+
+  void _notifyMctsPass({
+    required final Map<String, PlayerAgent> agents,
+    required final String passPlayerId,
+    required final TichuTurn deckTurn,
+  }) {
+    for (final agent in agents.values) {
+      if (agent is SmartAiAgent) {
+        final strategy = agent.playSelectionStrategy;
+        if (strategy is MctsPlaySelectionStrategy) {
+          strategy.recordPass(passPlayerId: passPlayerId, deckTurn: deckTurn);
+        }
+      }
+    }
   }
 }
 
@@ -652,6 +748,13 @@ class _CsvEventWriter {
   }
 }
 
+class _RewardResult {
+  final double total;
+  final Map<String, double> breakdown;
+
+  const _RewardResult({required this.total, required this.breakdown});
+}
+
 class _RlTransitionWriter {
   final IOSink output;
   final int episode;
@@ -672,11 +775,13 @@ class _RlTransitionWriter {
     required final int step,
   }) {
     final actorTeam = _teamForPlayer(before, action.playerId);
-    final reward = _rewardDelta(
+    final rewardResult = _computeReward(
       actorTeam: actorTeam,
-      before: before.scoreState,
-      after: after.scoreState,
+      action: action,
+      before: before,
+      after: after,
     );
+    final reward = rewardResult.total;
     final actionKey = encodeRlActionKey(action);
     final actionShapeKey = encodeRlActionShapeKey(action);
     final stateKey = buildRlStateKey(
@@ -711,7 +816,6 @@ class _RlTransitionWriter {
         : null;
 
     final record = <String, Object?>{
-      'schema_version': rlTransitionSchemaVersion,
       'episode': episode,
       'seq': _sequence++,
       'step': step,
@@ -742,6 +846,7 @@ class _RlTransitionWriter {
           ? action.targetPlayerId
           : null,
       'reward': reward,
+      'reward_breakdown': rewardResult.breakdown,
       'done': after.scoreState.gameComplete,
       'discount': after.scoreState.gameComplete ? 0.0 : 1.0,
       'round': after.scoreState.roundNumber,
@@ -793,7 +898,179 @@ class _RlTransitionWriter {
     return player.seat.isEven ? 0 : 1;
   }
 
-  double _rewardDelta({
+  _RewardResult _computeReward({
+    required final int actorTeam,
+    required final GameAction action,
+    required final GameSnapshot before,
+    required final GameSnapshot after,
+  }) {
+    final breakdown = <String, double>{};
+
+    final playerId = action.playerId;
+    final beforeHand = before.hands[playerId] ?? const <Card>[];
+    final afterHand = after.hands[playerId] ?? const <Card>[];
+    final beforeHandSize = beforeHand.length;
+    final afterHandSize = afterHand.length;
+
+    // 1) Team score delta — the core outcome signal. Scale down so it doesn't
+    //    dwarf intermediate shaping (round-end deltas can be 100–200).
+    final scoreDelta =
+        _scoreDelta(
+          actorTeam: actorTeam,
+          before: before.scoreState,
+          after: after.scoreState,
+        ) *
+        0.1;
+    breakdown['score_delta'] = scoreDelta;
+
+    // 2) Cards shed — how many cards you gave away this turn.
+    final cardsShed = beforeHandSize - afterHandSize;
+    final cardsShedReward = cardsShed > 0 ? cardsShed * 1.0 : 0.0;
+    breakdown['cards_shed'] = cardsShedReward;
+
+    // 3) Remaining hand playability — after the play, how many distinct plays
+    //    does the remaining hand decompose into? Fewer groups = faster out.
+    //    This captures "how many cards you can still give away" going forward.
+    var playabilityReward = 0.0;
+    if (afterHandSize > 0 && cardsShed > 0) {
+      final beforePlayability = _handPlayability(beforeHand);
+      final afterPlayability = _handPlayability(afterHand);
+      playabilityReward = (afterPlayability - beforePlayability) * 2.0;
+    }
+    breakdown['playability'] = playabilityReward;
+
+    // 4) Remaining hand strength — is the hand still powerful enough to
+    //    control the game (aces, bombs, connectivity)?
+    var strengthReward = 0.0;
+    if (afterHandSize > 0 && beforeHandSize > 0 && cardsShed > 0) {
+      final beforeStrength = HandEvaluator.evaluate(
+        List<Card>.from(beforeHand),
+      );
+      final afterStrength = HandEvaluator.evaluate(List<Card>.from(afterHand));
+      final beforePerCard = beforeStrength / beforeHandSize;
+      final afterPerCard = afterStrength / afterHandSize;
+      strengthReward = (afterPerCard - beforePerCard) * 0.5;
+    }
+    breakdown['hand_strength'] = strengthReward;
+
+    // 5) Points scored — trick points captured by winning a trick.
+    var trickReward = 0.0;
+    if (action is PlayTurnAction) {
+      final wasWinning = before.deck.currentWinner == playerId;
+      final nowWinning = after.deck.currentWinner == playerId;
+
+      if (nowWinning && !wasWinning) {
+        final trickValue = after.trickPoints;
+        if (trickValue > 0) {
+          trickReward += trickValue * 0.1;
+        }
+      }
+
+      final playedPoints = pointsForCards(action.cards);
+      if (playedPoints > 0 && nowWinning) {
+        trickReward += playedPoints * 0.05;
+      }
+    }
+    breakdown['trick_points'] = trickReward;
+
+    // 6) Finish order bonus — going out early is the #1 strategic goal.
+    var finishReward = 0.0;
+    if (afterHandSize == 0 && beforeHandSize > 0) {
+      final finishPosition = after.scoreState.finishOrder.indexOf(playerId);
+      if (finishPosition >= 0) {
+        const finishRewards = [10.0, 5.0, 1.0, -5.0];
+        finishReward = finishRewards[finishPosition.clamp(0, 3)];
+      } else {
+        finishReward = 8.0;
+      }
+    }
+    breakdown['finish_order'] = finishReward;
+
+    // 7) Tichu call outcome — reward/penalize making or failing a Tichu call.
+    var tichuReward = 0.0;
+    final ownCall = before.scoreState.tichuCalls[playerId] ?? TichuCall.none;
+    if (ownCall != TichuCall.none && after.scoreState.roundComplete) {
+      final madeIt =
+          after.scoreState.finishOrder.isNotEmpty &&
+          after.scoreState.finishOrder.first == playerId;
+      final bonus = ownCall == TichuCall.grandTichu ? 20.0 : 10.0;
+      tichuReward = madeIt ? bonus : -bonus;
+    }
+    breakdown['tichu_outcome'] = tichuReward;
+
+    final total =
+        scoreDelta +
+        cardsShedReward +
+        playabilityReward +
+        strengthReward +
+        trickReward +
+        finishReward +
+        tichuReward;
+
+    return _RewardResult(total: total, breakdown: breakdown);
+  }
+
+  /// Compute the average group size if we greedily decompose the hand into
+  /// legal plays on an empty deck. Higher = fewer leads needed = better tempo.
+  double _handPlayability(final List<Card> hand) {
+    if (hand.isEmpty) return 0;
+
+    final plays = generateLegalTurns(
+      DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
+      List<Card>.from(hand),
+    );
+    if (plays.isEmpty) return 0;
+
+    // Count how many distinct non-overlapping groups best cover the hand.
+    // A rough proxy: take the largest plays greedily.
+    final sortedPlays = [...plays]
+      ..sort((final a, final b) => b.cards.length.compareTo(a.cards.length));
+
+    final remaining = List<Card>.from(hand);
+    var groupCount = 0;
+
+    for (final play in sortedPlays) {
+      if (remaining.isEmpty) break;
+
+      final playCards = List<Card>.from(play.cards);
+      var allPresent = true;
+      for (final card in playCards) {
+        final idx = remaining.indexWhere((final c) {
+          if (card.face == CardFace.phoenix) {
+            return c.face == CardFace.phoenix;
+          }
+          return c.face == card.face && c.color == card.color;
+        });
+        if (idx < 0) {
+          allPresent = false;
+          break;
+        }
+      }
+
+      if (!allPresent) continue;
+
+      for (final card in playCards) {
+        final removeIdx = remaining.indexWhere((final c) {
+          if (card.face == CardFace.phoenix) {
+            return c.face == CardFace.phoenix;
+          }
+          return c.face == card.face && c.color == card.color;
+        });
+        if (removeIdx >= 0) {
+          remaining.removeAt(removeIdx);
+        }
+      }
+      groupCount++;
+    }
+
+    // Add remaining orphan cards as individual plays.
+    groupCount += remaining.length;
+
+    // Return cards-per-group ratio. Higher is better.
+    return hand.length / groupCount;
+  }
+
+  double _scoreDelta({
     required final int actorTeam,
     required final ScoreState before,
     required final ScoreState after,
@@ -930,6 +1207,9 @@ class _HeadlessConfig {
   final bool includeTimestamps;
   final bool includeLegalTurnCount;
   final String? rlPolicyPath;
+  final double epsilon;
+  final bool useMcts;
+  final int mctsDeterminizations;
 
   const _HeadlessConfig({
     required this.seed,
@@ -943,6 +1223,9 @@ class _HeadlessConfig {
     required this.includeTimestamps,
     required this.includeLegalTurnCount,
     required this.rlPolicyPath,
+    required this.epsilon,
+    required this.useMcts,
+    required this.mctsDeterminizations,
   });
 }
 
@@ -961,6 +1244,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   String? rlPolicyPath;
   var outputProvided = false;
   var showHelp = false;
+  var epsilon = 0.0;
+  var useMcts = false;
+  var mctsDeterminizations = 20;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -1037,6 +1323,28 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       outputProvided = true;
       continue;
     }
+
+    if (arg.startsWith('--epsilon=')) {
+      final parsed = double.tryParse(arg.split('=').last);
+      if (parsed != null && parsed >= 0 && parsed <= 1) {
+        epsilon = parsed;
+      }
+      continue;
+    }
+
+    if (arg == '--mcts') {
+      useMcts = true;
+      continue;
+    }
+
+    if (arg.startsWith('--mcts-determinizations=')) {
+      final parsed = int.tryParse(arg.split('=').last);
+      if (parsed != null && parsed > 0) {
+        mctsDeterminizations = parsed;
+      }
+      useMcts = true;
+      continue;
+    }
   }
 
   if (!outputProvided && outputFormat == _HeadlessOutputFormat.rlJsonl) {
@@ -1055,6 +1363,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     includeTimestamps: includeTimestamps,
     includeLegalTurnCount: includeLegalTurnCount,
     rlPolicyPath: rlPolicyPath,
+    epsilon: epsilon,
+    useMcts: useMcts,
+    mctsDeterminizations: mctsDeterminizations,
   );
 }
 
@@ -1068,6 +1379,9 @@ void _printUsage() {
     '       [--format=csv|rl-jsonl|none] [--output=path] [--no-timestamps]',
   );
   stdout.writeln('       [--rl-legal-count] [--rl-policy=policy.json] [--rl]');
+  stdout.writeln(
+    '       [--epsilon=0.1] [--mcts] [--mcts-determinizations=20]',
+  );
 }
 
 List<GamePlayer> _buildAutomatedPlayers() => const [
@@ -1125,7 +1439,21 @@ Future<RlPolicyTable?> _loadRlPolicy(final String? path) async {
 
 PlayerAgent Function(String playerId) _buildAgentFactory({
   required final RlPolicyTable? rlPolicy,
+  final bool useMcts = false,
+  final int mctsDeterminizations = 20,
+  final Random? random,
 }) {
+  if (useMcts) {
+    return (final playerId) => SmartAiAgent(
+      playerId,
+      playSelectionStrategy: MctsPlaySelectionStrategy(
+        playerId: playerId,
+        numDeterminizations: mctsDeterminizations,
+        random: random,
+      ),
+    );
+  }
+
   if (rlPolicy == null || rlPolicy.isEmpty) {
     return SmartAiAgent.new;
   }

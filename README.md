@@ -2,6 +2,9 @@
 
 Multiplayer Tichu card game built with Flutter.
 
+See [doc/multiplayer.md](doc/multiplayer.md) for the current multiplayer review,
+backend alternatives, and local emulation plan.
+
 ## Supported targets
 - Linux desktop
 - Web
@@ -46,6 +49,80 @@ Run on Web (local web server):
 flutter run -d web-server --web-port 8080
 ```
 
+Use the Supabase backend instead of the local in-process table service:
+```
+flutter run -d chrome \
+	--dart-define=TICHU_BACKEND=supabase \
+	--dart-define=SUPABASE_URL=https://your-project.supabase.co \
+	--dart-define=SUPABASE_ANON_KEY=your-anon-key
+```
+
+Current Supabase server shape:
+- Supabase Edge Functions act as the public API entrypoints the Flutter app calls.
+- A Dart authority process runs the actual Tichu engine and lobby state.
+- The Edge Functions proxy each action to that authority process.
+
+Run the local authority process:
+```
+dart run tool/supabase_authority.dart --host 127.0.0.1 --port 8081
+```
+
+Required Supabase Function environment:
+- `TICHU_AUTHORITY_URL`, for example `http://127.0.0.1:8081`
+- optional `TICHU_AUTHORITY_PROXY_SECRET`
+
+Optional authority projection environment:
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_DB_URL`
+
+When those three variables are set for the authority process, it first
+bootstraps the projection tables, grants, and RLS in Postgres from Dart code,
+then mirrors
+sanitized per-player lobby, match, and connection views into Supabase Postgres.
+The Flutter Supabase client now signs in anonymously, reads only its own
+projection rows through RLS, and watches those rows through Supabase Realtime.
+
+If you configure a proxy secret for the Edge Functions, pass the same value to
+the authority process:
+```
+TICHU_AUTHORITY_PROXY_SECRET=dev-secret \
+dart run tool/supabase_authority.dart
+```
+
+Use a direct Postgres URL for the bootstrap step:
+- local Supabase example: `postgresql://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable`
+- hosted Supabase: use the project's direct Postgres connection string, ideally with `sslmode=verify-full`
+
+Optional Supabase transport tuning:
+- `TICHU_SUPABASE_FUNCTION_NAME` defaults to `tichu`
+- `TICHU_SUPABASE_FUNCTION_PREFIX` is still accepted as a legacy alias
+
+Supabase auth requirement:
+- Enable Anonymous sign-ins in your Supabase Auth settings.
+- Projection table reads now require an authenticated Supabase user, even in local development.
+
+The home screen now opens into a create/join lobby flow. Create a lobby to get a
+join code, or open another client and join the same lobby code from there.
+
+For local Supabase development, serve the Edge Functions and the authority in
+parallel, then point Flutter at your local Supabase project:
+```
+supabase functions serve --env-file supabase/.env.local
+SUPABASE_URL=http://127.0.0.1:54321 \
+SUPABASE_SERVICE_ROLE_KEY=your-local-service-role-key \
+SUPABASE_DB_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres?sslmode=disable \
+dart run tool/supabase_authority.dart
+flutter run -d chrome \
+	--dart-define=TICHU_BACKEND=supabase \
+	--dart-define=SUPABASE_URL=http://127.0.0.1:54321 \
+	--dart-define=SUPABASE_ANON_KEY=your-local-anon-key
+```
+
+Current limitation:
+- The current security model is row-scoped to the signed-in Supabase user via RLS.
+- That is enough for local multiplayer development, but it is still anonymous-auth based and not the final production identity model.
+
 ## Build
 Linux desktop bundle:
 ```
@@ -71,28 +148,6 @@ flutter analyze --fatal-infos --fatal-warnings
 Run tests:
 ```
 flutter test
-```
-
-Global coverage report (single run for all files):
-```
-flutter test --coverage
-```
-
-Coverage output is written to `coverage/lcov.info`.
-
-Quick inspect examples:
-```
-# overall line coverage
-lcov --summary coverage/lcov.info
-
-# inspect one file (example)
-lcov --list coverage/lcov.info | grep "lib/agents/wish_strategy.dart"
-
-# python summary helper (overall + top files)
-uv run python coverage/parse_lcov.py --top 30
-
-# focus only on game/scoring files and show uncovered line numbers
-uv run python coverage/parse_lcov.py --include lib/game --include scoring --show-uncovered
 ```
 
 Clean build outputs:
@@ -150,7 +205,7 @@ Useful headless options:
 For fastest training data generation, prefer `--format=rl-jsonl` or `--format=none` and keep `--target-score` low or `--rounds` bounded.
 
 RL JSONL transitions now include:
-- `schema_version`, `state_key`, `next_state_key`
+- `state_key`, `next_state_key`
 - full actor-perspective `state` and `next_state`
 - structured `action` plus `action_key`
 - `legal_action_keys` when enumerable, `action_index`, `reward`, `done`, `discount`

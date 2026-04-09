@@ -2,17 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:tichu/game/game_session.dart';
-import 'package:tichu/game/game_types.dart';
-import 'package:tichu/screens/game/game_screen.dart';
-import 'package:tichu/screens/shared/keyboard_shortcuts.dart';
-import 'package:tichu/screens/shared/player_control.dart';
-import 'package:tichu/services/local/local_table_service.dart';
-import 'package:tichu/widgets/card_widget.dart';
-
-enum _HomeKeyboardSection { matchLength, playerControl }
+import 'package:tichu/screens/lobby/lobby_screen.dart';
+import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, final MultiplayerBackend? multiplayerBackend})
+    : _multiplayerBackend = multiplayerBackend;
+
+  final MultiplayerBackend? _multiplayerBackend;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -20,270 +17,207 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const List<int> _scoreOptions = [500, 1000, 1500, 2000];
+
+  late final MultiplayerBackend _multiplayerBackend =
+      widget._multiplayerBackend ?? LocalMultiplayerBackend();
+  final TextEditingController _displayNameController = TextEditingController(
+    text: 'Player',
+  );
+  final TextEditingController _joinCodeController = TextEditingController();
   int _targetScore = 1000;
-  PlayerControlMode _selfControlMode = PlayerControlMode.manual;
-  final FocusNode _keyboardFocusNode = FocusNode();
-  _HomeKeyboardSection _keyboardSection = _HomeKeyboardSection.matchLength;
-  Future<void>? _cardPrecacheFuture;
-  bool _didKickoffPrecache = false;
-  bool _isPrecacheReady = false;
-  bool _isStarting = false;
+  int _preferredSeat = 0;
+  bool _isBusy = false;
 
-  bool get _canStart => _isPrecacheReady && !_isStarting;
+  String get _displayName => _displayNameController.text.trim();
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_didKickoffPrecache) return;
-    _didKickoffPrecache = true;
-    final precacheFuture = CardWidget.precacheCardAssets(context);
-    unawaited(
-      precacheFuture.whenComplete(() {
-        if (!mounted) return;
-        setState(() {
-          _isPrecacheReady = true;
-        });
-      }),
-    );
-    _cardPrecacheFuture = precacheFuture;
-  }
+  String get _joinCode => _joinCodeController.text.trim().toUpperCase();
+
+  bool get _canCreate => !_isBusy && _displayName.isNotEmpty;
+
+  bool get _canJoin =>
+      !_isBusy && _displayName.isNotEmpty && _joinCode.isNotEmpty;
 
   @override
   void dispose() {
-    _keyboardFocusNode.dispose();
+    _displayNameController.dispose();
+    _joinCodeController.dispose();
     super.dispose();
   }
 
-  Future<void> _startSinglePlayer() async {
-    if (!_canStart) return;
+  Future<void> _createLobby() async {
+    if (!_canCreate) return;
+    await _runBusyAction(() async {
+      final sessionHandle = await _multiplayerBackend.sessionService
+          .createLobby(
+            CreateGameLobbyRequest(
+              displayName: _displayName,
+              targetScore: _targetScore,
+              preferredSeat: _preferredSeat,
+            ),
+          );
+      await _openLobby(sessionHandle);
+    });
+  }
+
+  Future<void> _joinLobby() async {
+    if (!_canJoin) return;
+    await _runBusyAction(() async {
+      final sessionHandle = await _multiplayerBackend.sessionService.joinLobby(
+        JoinGameLobbyRequest(
+          joinCode: _joinCode,
+          displayName: _displayName,
+          preferredSeat: _preferredSeat,
+        ),
+      );
+      await _openLobby(sessionHandle);
+    });
+  }
+
+  Future<void> _openLobby(final GameSessionHandle sessionHandle) async {
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LobbyScreen(
+          multiplayerBackend: _multiplayerBackend,
+          sessionHandle: sessionHandle,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _runBusyAction(final Future<void> Function() action) async {
     setState(() {
-      _isStarting = true;
+      _isBusy = true;
     });
     try {
-      await (_cardPrecacheFuture ?? CardWidget.precacheCardAssets(context));
-      final tableService = LocalGameTableService();
-      final displayName = _selfControlMode == PlayerControlMode.ai
-          ? 'You (AI)'
-          : 'You';
-      final sessionHandle = await tableService.createLobby(
-        CreateGameLobbyRequest(
-          displayName: displayName,
-          targetScore: _targetScore,
-          preferredSeat: 0,
-        ),
-      );
-      await tableService.claimSeat(
-        sessionHandle.lobbyId,
-        accessToken: sessionHandle.accessToken,
-        seat: 0,
-        type: _selfControlMode == PlayerControlMode.ai
-            ? PlayerType.automated
-            : PlayerType.human,
-      );
-      await tableService.claimSeat(
-        sessionHandle.lobbyId,
-        accessToken: sessionHandle.accessToken,
-        seat: 1,
-        type: PlayerType.automated,
-        automatedDisplayName: 'Opponent 1',
-      );
-      await tableService.claimSeat(
-        sessionHandle.lobbyId,
-        accessToken: sessionHandle.accessToken,
-        seat: 2,
-        type: PlayerType.automated,
-        automatedDisplayName: 'Opponent 2',
-      );
-      await tableService.claimSeat(
-        sessionHandle.lobbyId,
-        accessToken: sessionHandle.accessToken,
-        seat: 3,
-        type: PlayerType.automated,
-        automatedDisplayName: 'Opponent 3',
-      );
-      await tableService.setReadyState(
-        sessionHandle.lobbyId,
-        accessToken: sessionHandle.accessToken,
-        isReady: true,
-      );
-      final lobbyUpdates = tableService.watchLobby(
-        sessionHandle.lobbyId,
-        accessToken: sessionHandle.accessToken,
-      );
-      await tableService.startMatch(
-        sessionHandle.lobbyId,
-        accessToken: sessionHandle.accessToken,
-      );
-      final activeLobby = await lobbyUpdates.firstWhere(
-        (final snapshot) => snapshot.matchId != null,
-      );
-      final activeHandle = sessionHandle.copyWith(
-        seat: 0,
-        matchId: activeLobby.matchId,
-      );
+      await action();
+    } catch (error) {
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => GameScreen(
-            matchService: tableService,
-            sessionHandle: activeHandle,
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$error')));
     } finally {
       if (mounted) {
         setState(() {
-          _isStarting = false;
+          _isBusy = false;
         });
       }
     }
-  }
-
-  void _onKeyboardLeft() {
-    if (_keyboardSection == _HomeKeyboardSection.matchLength) {
-      final currentIndex = _scoreOptions.indexOf(_targetScore);
-      if (currentIndex > 0) {
-        setState(() {
-          _targetScore = _scoreOptions[currentIndex - 1];
-        });
-      }
-      return;
-    }
-
-    if (_selfControlMode == PlayerControlMode.ai) {
-      setState(() {
-        _selfControlMode = PlayerControlMode.manual;
-      });
-    }
-  }
-
-  void _onKeyboardRight() {
-    if (_keyboardSection == _HomeKeyboardSection.matchLength) {
-      final currentIndex = _scoreOptions.indexOf(_targetScore);
-      if (currentIndex < _scoreOptions.length - 1) {
-        setState(() {
-          _targetScore = _scoreOptions[currentIndex + 1];
-        });
-      }
-      return;
-    }
-
-    if (_selfControlMode == PlayerControlMode.manual) {
-      setState(() {
-        _selfControlMode = PlayerControlMode.ai;
-      });
-    }
-  }
-
-  void _onKeyboardUp() {
-    if (_keyboardSection != _HomeKeyboardSection.matchLength) {
-      setState(() {
-        _keyboardSection = _HomeKeyboardSection.matchLength;
-      });
-    }
-  }
-
-  void _onKeyboardDown() {
-    if (_keyboardSection != _HomeKeyboardSection.playerControl) {
-      setState(() {
-        _keyboardSection = _HomeKeyboardSection.playerControl;
-      });
-    }
-  }
-
-  void _onKeyboardEnter() {
-    if (!_canStart) return;
-    unawaited(_startSinglePlayer());
   }
 
   @override
   Widget build(final BuildContext context) {
     final sliderValue = _scoreOptions.indexOf(_targetScore).toDouble();
+
     return Scaffold(
-      body: Focus(
-        focusNode: _keyboardFocusNode,
-        autofocus: true,
-        onKeyEvent: (final node, final event) => handleDirectionalEnterKeyEvent(
-          event,
-          onEnter: _onKeyboardEnter,
-          onLeft: _onKeyboardLeft,
-          onRight: _onKeyboardRight,
-          onUp: _onKeyboardUp,
-          onDown: _onKeyboardDown,
-        ),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF0B4A30), Color(0xFF0F5D3D), Color(0xFF134E4A)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0B4A30), Color(0xFF0F5D3D), Color(0xFF134E4A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          child: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Card(
-                  margin: const EdgeInsets.all(24),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 28,
-                      vertical: 32,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.08),
-                          ),
-                          child: const Icon(
-                            Icons.style,
-                            size: 56,
-                            color: Colors.white,
-                          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: Card(
+                margin: const EdgeInsets.all(24),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 32,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.08),
                         ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'TICHU',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                          textAlign: TextAlign.center,
+                        child: const Icon(
+                          Icons.groups_rounded,
+                          size: 56,
+                          color: Colors.white,
                         ),
-                        const SizedBox(height: 24),
-                        _buildSection(
-                          isActive:
-                              _keyboardSection ==
-                              _HomeKeyboardSection.matchLength,
-                          child: _buildMatchLengthSection(sliderValue),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'TICHU',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Create a lobby or join one with a code.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildBackendBanner(context),
+                      const SizedBox(height: 24),
+                      TextField(
+                        controller: _displayNameController,
+                        textInputAction: TextInputAction.next,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(
+                          labelText: 'Display name',
+                          hintText: 'Enter your player name',
                         ),
-                        const SizedBox(height: 24),
-                        _buildSection(
-                          isActive:
-                              _keyboardSection ==
-                              _HomeKeyboardSection.playerControl,
-                          child: _buildPlayerControlSection(),
+                      ),
+                      const SizedBox(height: 24),
+                      _buildSeatPreferenceSection(context),
+                      const SizedBox(height: 24),
+                      _buildMatchLengthSection(context, sliderValue),
+                      const SizedBox(height: 24),
+                      TextField(
+                        controller: _joinCodeController,
+                        textCapitalization: TextCapitalization.characters,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(
+                          labelText: 'Join code',
+                          hintText: 'Enter a lobby code to join',
                         ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: !_canStart
-                                ? null
-                                : () => unawaited(_startSinglePlayer()),
-                            icon: const Icon(Icons.play_arrow),
-                            label: Text(
-                              !_isPrecacheReady
-                                  ? 'Warming up cards...'
-                                  : _isStarting
-                                  ? 'Preparing cards...'
-                                  : 'Single Player Mode',
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _canCreate
+                                  ? () => unawaited(_createLobby())
+                                  : null,
+                              icon: const Icon(Icons.add_circle_outline),
+                              label: Text(
+                                _isBusy ? 'Working...' : 'Create Lobby',
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _canJoin
+                                  ? () => unawaited(_joinLobby())
+                                  : null,
+                              icon: const Icon(Icons.login),
+                              label: const Text('Join Lobby'),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _multiplayerBackend.supportsAutomatedSeats
+                            ? 'Local tables can fill remaining seats with bots from the lobby screen.'
+                            : 'Supabase lobbies expect other clients to join with the same code.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -294,33 +228,67 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSection({
-    required final bool isActive,
-    required final Widget child,
-  }) => AnimatedContainer(
-    duration: const Duration(milliseconds: 120),
-    padding: const EdgeInsets.all(8),
+  Widget _buildBackendBanner(final BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: isActive
-            ? Theme.of(context).colorScheme.primary
-            : Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Icon(
+            Icons.hub_outlined,
+            color: Theme.of(context).colorScheme.secondary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Backend', style: Theme.of(context).textTheme.labelLarge),
+                Text(
+                  _multiplayerBackend.displayName,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     ),
-    child: child,
   );
 
-  Widget _buildMatchLengthSection(final double sliderValue) => Column(
-    mainAxisSize: MainAxisSize.min,
+  Widget _buildSeatPreferenceSection(final BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Match length',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+      Text('Seat preference', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      SegmentedButton<int>(
+        segments: const [
+          ButtonSegment<int>(value: 0, label: Text('1')),
+          ButtonSegment<int>(value: 1, label: Text('2')),
+          ButtonSegment<int>(value: 2, label: Text('3')),
+          ButtonSegment<int>(value: 3, label: Text('4')),
+        ],
+        selected: <int>{_preferredSeat},
+        showSelectedIcon: false,
+        onSelectionChanged: (final selection) {
+          setState(() {
+            _preferredSeat = selection.first;
+          });
+        },
       ),
+    ],
+  );
+
+  Widget _buildMatchLengthSection(
+    final BuildContext context,
+    final double sliderValue,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('Match length', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
       Text(
         'First team to $_targetScore points',
@@ -347,49 +315,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
             .toList(),
-      ),
-    ],
-  );
-
-  Widget _buildPlayerControlSection() => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          'Your player control',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-      ),
-      const SizedBox(height: 8),
-      SegmentedButton<PlayerControlMode>(
-        segments: const [
-          ButtonSegment<PlayerControlMode>(
-            value: PlayerControlMode.manual,
-            label: Text('Manual'),
-            icon: Icon(Icons.person),
-          ),
-          ButtonSegment<PlayerControlMode>(
-            value: PlayerControlMode.ai,
-            label: Text('AI'),
-            icon: Icon(Icons.smart_toy),
-          ),
-        ],
-        selected: {_selfControlMode},
-        showSelectedIcon: false,
-        onSelectionChanged: (final selection) {
-          setState(() {
-            _selfControlMode = selection.first;
-          });
-        },
-      ),
-      const SizedBox(height: 8),
-      Text(
-        _selfControlMode == PlayerControlMode.manual
-            ? 'You play manually; opponents are AI.'
-            : 'AI controls your seat too so you can watch full AI play.',
-        style: Theme.of(context).textTheme.bodyMedium,
-        textAlign: TextAlign.center,
       ),
     ],
   );

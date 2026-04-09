@@ -25,7 +25,6 @@ import 'package:tichu/screens/game/widgets/trick_event_overlay.dart';
 import 'package:tichu/screens/game/widgets/wish_dialog.dart';
 import 'package:tichu/screens/shared/keyboard_shortcuts.dart';
 import 'package:tichu/screens/shared/player_control.dart';
-import 'package:tichu/services/local/local_table_service.dart';
 import 'package:tichu/services/sound_effects.dart';
 import 'package:tichu/widgets/action_bar.dart';
 import 'package:tichu/widgets/card_widget.dart';
@@ -43,10 +42,13 @@ class GameScreen extends StatefulWidget {
     super.key,
     required GameMatchService matchService,
     required GameSessionHandle sessionHandle,
+    double initialOpponentDelaySeconds = 1.0,
   }) : _matchService = matchService,
-       _sessionHandle = sessionHandle;
+       _sessionHandle = sessionHandle,
+       _initialOpponentDelaySeconds = initialOpponentDelaySeconds;
   final GameMatchService _matchService;
   final GameSessionHandle _sessionHandle;
+  final double _initialOpponentDelaySeconds;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -171,7 +173,7 @@ class _GameScreenState extends State<GameScreen>
       }
     });
     _suggestionAgent = SmartAiAgent(_humanId);
-    _opponentDelaySeconds = 1.0;
+    _opponentDelaySeconds = widget._initialOpponentDelaySeconds;
     unawaited(_initializeMatch());
   }
 

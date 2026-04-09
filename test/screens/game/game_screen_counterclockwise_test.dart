@@ -3,8 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/widgets/opponent_display.dart';
 
-import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
+import '../../utils/test_game_match_service.dart';
 
 void main() {
   testWidgets('places Opponent 3 on left and Opponent 1 on right', (
@@ -23,7 +23,8 @@ void main() {
     await tester.pump();
 
     backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentLeftId));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
     final opponent3Center = tester.getCenter(find.text('Opponent 3'));
     final opponent1Center = tester.getCenter(find.text('Opponent 1'));
@@ -54,13 +55,15 @@ void main() {
 
     // Opponent 1 is current → only Opponent 1 highlighted.
     backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentLeftId));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     expect(opponentByName('Opponent 1').isActive, isTrue);
     expect(opponentByName('Opponent 3').isActive, isFalse);
 
     // Opponent 3 is current → only Opponent 3 highlighted.
     backend.emit(buildPlayerSnapshot(currentPlayerId: testOpponentRightId));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     expect(opponentByName('Opponent 3').isActive, isTrue);
     expect(opponentByName('Opponent 1').isActive, isFalse);
   });

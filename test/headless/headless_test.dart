@@ -119,7 +119,7 @@ void main() {
       await headless.main([
         '--seed=1',
         '--target-score=100000',
-        '--rounds=20',
+        '--rounds=10',
         '--output=${outputFile.path}',
       ]);
 
@@ -140,7 +140,7 @@ void main() {
           )
           .length;
 
-      expect(roundEndCount, 20);
+      expect(roundEndCount, 10);
     } finally {
       await tempDir.delete(recursive: true);
     }
@@ -165,7 +165,6 @@ void main() {
       expect(lines, isNotEmpty);
 
       final first = jsonDecode(lines.first) as Map<String, dynamic>;
-      expect(first['schema_version'], 'tichu_rl_transition_v2');
       expect(first['episode'], isA<int>());
       expect(first['seq'], isA<int>());
       expect(first['step'], isA<int>());

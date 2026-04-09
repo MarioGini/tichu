@@ -4,8 +4,8 @@ import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 
-import '../../utils/test_game_match_service.dart';
 import '../../utils/test_game_fixtures.dart';
+import '../../utils/test_game_match_service.dart';
 
 void main() {
   testWidgets('shows pending opponent cards before confirmation', (
@@ -16,6 +16,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: GameScreen(
+          initialOpponentDelaySeconds: 0.001,
           matchService: backend,
           sessionHandle: backend.sessionHandle,
         ),
@@ -49,8 +50,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('No cards on table'), findsNothing);
-
-    await tester.pump(const Duration(milliseconds: 700));
   });
 
   testWidgets('auto-confirms repeated identical pending passes', (
@@ -61,6 +60,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: GameScreen(
+          initialOpponentDelaySeconds: 0.001,
           matchService: backend,
           sessionHandle: backend.sessionHandle,
         ),
@@ -77,7 +77,7 @@ void main() {
     );
 
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pump(const Duration(milliseconds: 10));
 
     expect(backend.actions.whereType<ConfirmOpponentTurnAction>().length, 1);
 
@@ -94,7 +94,7 @@ void main() {
     );
 
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pump(const Duration(milliseconds: 10));
 
     expect(backend.actions.whereType<ConfirmOpponentTurnAction>().length, 2);
   });

@@ -28,53 +28,51 @@ class GameActionDto {
     this.toRight,
   });
 
-  factory GameActionDto.fromDomain(final GameAction action) {
-    return switch (action) {
-      PlayTurnAction() => GameActionDto(
-        kind: 'playTurn',
-        playerId: action.playerId,
-        cards: [for (final card in action.cards) CardDto.fromDomain(card)],
-        inputWish: action.inputWish.name,
-      ),
-      PassAction() => GameActionDto(kind: 'pass', playerId: action.playerId),
-      GiveDragonAction() => GameActionDto(
-        kind: 'giveDragon',
-        playerId: action.playerId,
-        targetPlayerId: action.targetPlayerId,
-      ),
-      ConfirmOpponentTurnAction() => GameActionDto(
-        kind: 'confirmOpponentTurn',
-        playerId: action.playerId,
-      ),
-      CallTichuAction() => GameActionDto(
-        kind: 'callTichu',
-        playerId: action.playerId,
-      ),
-      CallGrandTichuAction() => GameActionDto(
-        kind: 'callGrandTichu',
-        playerId: action.playerId,
-      ),
-      GrandTichuDecisionAction() => GameActionDto(
-        kind: 'grandTichuDecision',
-        playerId: action.playerId,
-        call: action.call,
-      ),
-      SchupfAction() => GameActionDto(
-        kind: 'schupf',
-        playerId: action.playerId,
-        toLeft: CardDto.fromDomain(action.toLeft),
-        toPartner: CardDto.fromDomain(action.toPartner),
-        toRight: CardDto.fromDomain(action.toRight),
-      ),
-      AcknowledgeSchupfAction() => GameActionDto(
-        kind: 'acknowledgeSchupf',
-        playerId: action.playerId,
-      ),
-      _ => throw UnsupportedError(
-        'Unsupported action type: ${action.runtimeType}',
-      ),
-    };
-  }
+  factory GameActionDto.fromDomain(final GameAction action) => switch (action) {
+    PlayTurnAction() => GameActionDto(
+      kind: 'playTurn',
+      playerId: action.playerId,
+      cards: [for (final card in action.cards) CardDto.fromDomain(card)],
+      inputWish: action.inputWish.name,
+    ),
+    PassAction() => GameActionDto(kind: 'pass', playerId: action.playerId),
+    GiveDragonAction() => GameActionDto(
+      kind: 'giveDragon',
+      playerId: action.playerId,
+      targetPlayerId: action.targetPlayerId,
+    ),
+    ConfirmOpponentTurnAction() => GameActionDto(
+      kind: 'confirmOpponentTurn',
+      playerId: action.playerId,
+    ),
+    CallTichuAction() => GameActionDto(
+      kind: 'callTichu',
+      playerId: action.playerId,
+    ),
+    CallGrandTichuAction() => GameActionDto(
+      kind: 'callGrandTichu',
+      playerId: action.playerId,
+    ),
+    GrandTichuDecisionAction() => GameActionDto(
+      kind: 'grandTichuDecision',
+      playerId: action.playerId,
+      call: action.call,
+    ),
+    SchupfAction() => GameActionDto(
+      kind: 'schupf',
+      playerId: action.playerId,
+      toLeft: CardDto.fromDomain(action.toLeft),
+      toPartner: CardDto.fromDomain(action.toPartner),
+      toRight: CardDto.fromDomain(action.toRight),
+    ),
+    AcknowledgeSchupfAction() => GameActionDto(
+      kind: 'acknowledgeSchupf',
+      playerId: action.playerId,
+    ),
+    _ => throw UnsupportedError(
+      'Unsupported action type: ${action.runtimeType}',
+    ),
+  };
 
   factory GameActionDto.fromJson(final Map<String, dynamic> json) =>
       GameActionDto(
@@ -101,33 +99,31 @@ class GameActionDto {
     'toRight': toRight?.toJson(),
   };
 
-  GameAction toDomain() {
-    return switch (kind) {
-      'playTurn' => PlayTurnAction(
-        playerId: playerId,
-        cards: [for (final card in cards) card.toDomain()],
-        inputWish: enumByName(CardFace.values, inputWish ?? CardFace.none.name),
-      ),
-      'pass' => PassAction(playerId: playerId),
-      'giveDragon' => GiveDragonAction(
-        playerId: playerId,
-        targetPlayerId: targetPlayerId!,
-      ),
-      'confirmOpponentTurn' => ConfirmOpponentTurnAction(playerId: playerId),
-      'callTichu' => CallTichuAction(playerId: playerId),
-      'callGrandTichu' => CallGrandTichuAction(playerId: playerId),
-      'grandTichuDecision' => GrandTichuDecisionAction(
-        playerId: playerId,
-        call: call ?? false,
-      ),
-      'schupf' => SchupfAction(
-        playerId: playerId,
-        toLeft: toLeft!.toDomain(),
-        toPartner: toPartner!.toDomain(),
-        toRight: toRight!.toDomain(),
-      ),
-      'acknowledgeSchupf' => AcknowledgeSchupfAction(playerId: playerId),
-      _ => throw UnsupportedError('Unknown action kind: $kind'),
-    };
-  }
+  GameAction toDomain() => switch (kind) {
+    'playTurn' => PlayTurnAction(
+      playerId: playerId,
+      cards: [for (final card in cards) card.toDomain()],
+      inputWish: enumByName(CardFace.values, inputWish ?? CardFace.none.name),
+    ),
+    'pass' => PassAction(playerId: playerId),
+    'giveDragon' => GiveDragonAction(
+      playerId: playerId,
+      targetPlayerId: targetPlayerId!,
+    ),
+    'confirmOpponentTurn' => ConfirmOpponentTurnAction(playerId: playerId),
+    'callTichu' => CallTichuAction(playerId: playerId),
+    'callGrandTichu' => CallGrandTichuAction(playerId: playerId),
+    'grandTichuDecision' => GrandTichuDecisionAction(
+      playerId: playerId,
+      call: call ?? false,
+    ),
+    'schupf' => SchupfAction(
+      playerId: playerId,
+      toLeft: toLeft!.toDomain(),
+      toPartner: toPartner!.toDomain(),
+      toRight: toRight!.toDomain(),
+    ),
+    'acknowledgeSchupf' => AcknowledgeSchupfAction(playerId: playerId),
+    _ => throw UnsupportedError('Unknown action kind: $kind'),
+  };
 }

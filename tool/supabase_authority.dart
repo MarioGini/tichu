@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:supabase/supabase.dart';
 import 'package:tichu/services/local/local_table_service.dart';
+import 'package:tichu/services/multiplayer/authority_state_store.dart';
+import 'package:tichu/services/supabase/postgres_authority_state_store.dart';
 import 'package:tichu/services/supabase/supabase_authority_server.dart';
 import 'package:tichu/services/supabase/supabase_projection_schema_bootstrap.dart';
 import 'package:tichu/services/supabase/supabase_table_projection_store.dart';
@@ -37,11 +39,20 @@ Future<void> main(final List<String> args) async {
       Platform.environment['SUPABASE_SERVICE_ROLE_KEY'];
   final supabaseDbUrl = Platform.environment['SUPABASE_DB_URL'];
 
+  final projectionStore = await _createProjectionStore(
+    supabaseUrl: supabaseUrl,
+    supabaseServiceRoleKey: supabaseServiceRoleKey,
+    supabaseDbUrl: supabaseDbUrl,
+  );
+  final stateStore = _createStateStore(supabaseDbUrl: supabaseDbUrl);
+
   final tableService = LocalGameTableService(
-    projectionStore: await _createProjectionStore(
-      supabaseUrl: supabaseUrl,
-      supabaseServiceRoleKey: supabaseServiceRoleKey,
-      supabaseDbUrl: supabaseDbUrl,
+    projectionStore: projectionStore,
+    stateStore: stateStore,
+    heartbeatConfig: const HeartbeatConfig(
+      sweepInterval: Duration(seconds: 10),
+      timeout: Duration(seconds: 30),
+      enabled: true,
     ),
   );
 
@@ -62,6 +73,7 @@ Future<void> main(final List<String> args) async {
   ]);
 
   stdout.writeln('Shutting down authority server.');
+  tableService.dispose();
   await authorityServer.close(force: true);
 }
 
@@ -90,6 +102,13 @@ Future<SupabaseTableProjectionStore?> _createProjectionStore({
   return SupabaseTableProjectionStore(
     client: SupabaseClient(supabaseUrl, supabaseServiceRoleKey),
   );
+}
+
+AuthorityStateStore? _createStateStore({required final String? supabaseDbUrl}) {
+  if (supabaseDbUrl == null || supabaseDbUrl.isEmpty) {
+    return null;
+  }
+  return PostgresAuthorityStateStore(databaseUrl: supabaseDbUrl);
 }
 
 String _readStringArg(
@@ -125,5 +144,6 @@ Environment:
   TICHU_AUTHORITY_PROXY_SECRET    Optional shared secret expected in x-tichu-proxy-secret
   SUPABASE_URL                    Optional Supabase project URL for Postgres projection writes
   SUPABASE_SERVICE_ROLE_KEY       Optional service-role key used by the authority to upsert view rows
-  SUPABASE_DB_URL                 Direct Postgres URL used to bootstrap projection schema and RLS in code
+  SUPABASE_DB_URL                 Direct Postgres URL used to bootstrap projection schema, RLS,
+                                  and durable lobby/action-log persistence
 ''';

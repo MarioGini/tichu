@@ -72,6 +72,7 @@ List<TichuTurn> getStraights(List<Card> cards, final int desiredLength) {
             Card.phoenix(uniqueCards[sequence.endIdx].value - 1),
           );
         }
+        phoenixCards.sort(compareCards);
         phoenixStraights.add(TichuTurn(TurnType.straight, phoenixCards));
       }
     }
@@ -92,6 +93,7 @@ List<TichuTurn> getStraights(List<Card> cards, final int desiredLength) {
         phoenixCards.add(
           Card.phoenix(uniqueCards[connected[i].beginIdx].value + 1),
         );
+        phoenixCards.sort(compareCards);
         phoenixStraights.add(TichuTurn(TurnType.straight, phoenixCards));
       }
     }

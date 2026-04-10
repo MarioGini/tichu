@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_match.dart';
@@ -8,9 +9,24 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/services/local/local_match_runtime.dart';
+import 'package:tichu/services/multiplayer/authority_state_store.dart';
 import 'package:tichu/services/multiplayer/table_projection_store.dart';
 import 'package:tichu/services/transport/dto/match_dto.dart' as match_dto;
 import 'package:tichu/services/transport/dto/session_dto.dart' as session_dto;
+
+class HeartbeatConfig {
+  const HeartbeatConfig({
+    this.sweepInterval = const Duration(seconds: 10),
+    this.timeout = const Duration(seconds: 30),
+    this.enabled = false,
+  });
+
+  final Duration sweepInterval;
+  final Duration timeout;
+  final bool enabled;
+
+  static const disabled = HeartbeatConfig();
+}
 
 class LocalGameTableService
     implements
@@ -21,14 +37,29 @@ class LocalGameTableService
     final LocalMatchRuntime Function()? runtimeFactory,
     final GameEngine? projectionEngine,
     final GameTableProjectionStore? projectionStore,
+    final AuthorityStateStore? stateStore,
+    final HeartbeatConfig heartbeatConfig = HeartbeatConfig.disabled,
   }) : _runtimeFactory = runtimeFactory ?? LocalMatchRuntime.new,
        _projectionEngine = projectionEngine ?? GameEngineImpl(),
        _projectionStore =
-           projectionStore ?? const NoopGameTableProjectionStore();
+           projectionStore ?? const NoopGameTableProjectionStore(),
+       _stateStore = stateStore ?? const NoopAuthorityStateStore(),
+       _heartbeatConfig = heartbeatConfig {
+    if (_heartbeatConfig.enabled) {
+      _heartbeatSweepTimer = Timer.periodic(
+        _heartbeatConfig.sweepInterval,
+        (_) => sweepHeartbeats(),
+      );
+    }
+  }
 
   final LocalMatchRuntime Function() _runtimeFactory;
   final GameEngine _projectionEngine;
   final GameTableProjectionStore _projectionStore;
+  final AuthorityStateStore _stateStore;
+  final HeartbeatConfig _heartbeatConfig;
+  Timer? _heartbeatSweepTimer;
+  final Random _random = Random();
   final Map<String, _LocalLobbyState> _lobbies = {};
   final Map<String, String> _lobbyIdByJoinCode = {};
   int _nextLobbyId = 1;
@@ -45,7 +76,7 @@ class LocalGameTableService
   }) async {
     final decodedRequest = _roundTripCreateLobbyRequest(request);
     final lobbyId = 'local-lobby-${_nextLobbyId++}';
-    final joinCode = 'L${lobbyId.split('-').last.padLeft(4, '0')}';
+    final joinCode = _generateJoinCode();
     final participant = _createParticipant(
       displayName: decodedRequest.displayName,
       authUserId: authUserId,
@@ -54,7 +85,9 @@ class LocalGameTableService
       lobbyId: lobbyId,
       joinCode: joinCode,
       hostPlayerId: participant.playerId,
+      gameName: decodedRequest.gameName,
       targetScore: decodedRequest.targetScore,
+      visibility: decodedRequest.visibility,
       participantsByAccessToken: {participant.accessToken: participant},
       participantsByPlayerId: {participant.playerId: participant},
       seats: List<_LocalSeatState>.generate(
@@ -66,13 +99,16 @@ class LocalGameTableService
     _lobbies[lobbyId] = lobby;
     _lobbyIdByJoinCode[joinCode] = lobbyId;
 
-    if (decodedRequest.preferredSeat != null) {
-      _claimParticipantSeat(
-        lobby,
-        participant,
-        seat: decodedRequest.preferredSeat!,
-        type: PlayerType.human,
-      );
+    if (decodedRequest.preferredTeam != null) {
+      final seat = _firstOpenSeatForTeam(lobby, decodedRequest.preferredTeam!);
+      if (seat != null) {
+        _claimParticipantSeat(
+          lobby,
+          participant,
+          seat: seat,
+          type: PlayerType.human,
+        );
+      }
     }
 
     _emitLobby(lobby);
@@ -95,7 +131,11 @@ class LocalGameTableService
     final String? authUserId,
   }) async {
     final decodedRequest = _roundTripJoinLobbyRequest(request);
-    final lobbyId = _lobbyIdByJoinCode[decodedRequest.joinCode];
+    final lobbyId =
+        _lobbyIdByJoinCode[decodedRequest.joinCode] ??
+        (_lobbies.containsKey(decodedRequest.joinCode)
+            ? decodedRequest.joinCode
+            : null);
     if (lobbyId == null) {
       throw StateError('Unknown join code: ${decodedRequest.joinCode}');
     }
@@ -107,13 +147,19 @@ class LocalGameTableService
     final participant = _findParticipantByAuthUserId(lobby, authUserId);
     if (participant != null) {
       _markParticipantConnected(lobby, participant);
-      if (decodedRequest.preferredSeat != null) {
-        _claimParticipantSeat(
+      if (decodedRequest.preferredTeam != null) {
+        final seat = _firstOpenSeatForTeam(
           lobby,
-          participant,
-          seat: decodedRequest.preferredSeat!,
-          type: PlayerType.human,
+          decodedRequest.preferredTeam!,
         );
+        if (seat != null) {
+          _claimParticipantSeat(
+            lobby,
+            participant,
+            seat: seat,
+            type: PlayerType.human,
+          );
+        }
       }
       _emitLobby(lobby);
       return _roundTripSessionHandle(
@@ -134,13 +180,16 @@ class LocalGameTableService
     lobby.participantsByAccessToken[newParticipant.accessToken] =
         newParticipant;
     lobby.participantsByPlayerId[newParticipant.playerId] = newParticipant;
-    if (decodedRequest.preferredSeat != null) {
-      _claimParticipantSeat(
-        lobby,
-        newParticipant,
-        seat: decodedRequest.preferredSeat!,
-        type: PlayerType.human,
-      );
+    if (decodedRequest.preferredTeam != null) {
+      final seat = _firstOpenSeatForTeam(lobby, decodedRequest.preferredTeam!);
+      if (seat != null) {
+        _claimParticipantSeat(
+          lobby,
+          newParticipant,
+          seat: seat,
+          type: PlayerType.human,
+        );
+      }
     }
 
     _emitLobby(lobby);
@@ -153,6 +202,30 @@ class LocalGameTableService
         matchId: lobby.matchId,
       ),
     );
+  }
+
+  @override
+  Future<List<GameLobbyListEntry>> listGames() async {
+    return <GameLobbyListEntry>[
+      for (final lobby in _lobbies.values)
+        if (lobby.state == GameLobbyState.assembling ||
+            lobby.state == GameLobbyState.readyCheck)
+          GameLobbyListEntry(
+            lobbyId: lobby.lobbyId,
+            gameName: lobby.gameName,
+            hostDisplayName: _hostDisplayName(lobby),
+            targetScore: lobby.targetScore,
+            visibility: lobby.visibility,
+            occupiedSeats: lobby.seats
+                .where((final s) => s.state == GameLobbySeatState.occupied)
+                .length,
+          ),
+    ];
+  }
+
+  String _hostDisplayName(final _LocalLobbyState lobby) {
+    final host = lobby.participantsByPlayerId[lobby.hostPlayerId];
+    return host?.displayName ?? 'Unknown';
   }
 
   @override
@@ -343,6 +416,15 @@ class LocalGameTableService
 
     await lobby.runtime!.submitAction(matchId, decodedSubmission.action);
     lobby.processedClientActionIds.add(decodedSubmission.clientActionId);
+    unawaited(
+      _stateStore.appendAction(
+        matchId,
+        lobby.lobbyId,
+        match_dto.GameActionSubmissionDto.fromDomain(
+          decodedSubmission,
+        ).toJson(),
+      ),
+    );
   }
 
   @override
@@ -427,6 +509,66 @@ class LocalGameTableService
     await resolved.lobby.runtime?.setAutomatedActionDelay(delay);
   }
 
+  @override
+  Future<void> sendHeartbeat(
+    final String lobbyId, {
+    required final String accessToken,
+  }) async {
+    final lobby = _requireLobby(lobbyId);
+    final participant = _requireParticipant(lobby, accessToken);
+    _updateHeartbeat(lobby, participant);
+  }
+
+  Future<void> sendMatchHeartbeat(
+    final String matchId, {
+    required final String accessToken,
+  }) async {
+    final resolved = _requireActiveMatch(matchId, accessToken);
+    _updateHeartbeat(resolved.lobby, resolved.participant);
+  }
+
+  void _updateHeartbeat(
+    final _LocalLobbyState lobby,
+    final _LocalParticipant participant,
+  ) {
+    participant.lastHeartbeatAt = DateTime.now();
+    if (!participant.isConnected) {
+      _markParticipantConnected(lobby, participant);
+      _emitLobby(lobby);
+    }
+  }
+
+  void sweepHeartbeats() {
+    final now = DateTime.now();
+    for (final lobby in _lobbies.values.toList()) {
+      var changed = false;
+      for (final participant in lobby.participantsByPlayerId.values) {
+        if (!participant.isConnected) continue;
+        final seat = participant.seat;
+        if (seat != null && lobby.seats[seat].isBot) continue;
+        if (now.difference(participant.lastHeartbeatAt) >
+            _heartbeatConfig.timeout) {
+          participant.isConnected = false;
+          if (seat != null) {
+            final seatState = lobby.seats[seat];
+            if (seatState.playerId == participant.playerId) {
+              seatState.isConnected = false;
+            }
+          }
+          changed = true;
+        }
+      }
+      if (changed) {
+        _emitLobby(lobby);
+      }
+    }
+  }
+
+  void dispose() {
+    _heartbeatSweepTimer?.cancel();
+    _heartbeatSweepTimer = null;
+  }
+
   _LocalParticipant _createParticipant({
     required final String displayName,
     final String? authUserId,
@@ -438,6 +580,25 @@ class LocalGameTableService
       accessToken: 'local-token-${_nextAccessTokenId++}',
       displayName: displayName,
     );
+  }
+
+  String _generateJoinCode() {
+    String code;
+    do {
+      code = (_random.nextInt(90000) + 10000).toString();
+    } while (_lobbyIdByJoinCode.containsKey(code));
+    return code;
+  }
+
+  /// Returns the first open seat on the given team (0 = even seats, 1 = odd).
+  int? _firstOpenSeatForTeam(final _LocalLobbyState lobby, final int team) {
+    final teamSeats = team == 0 ? <int>[0, 2] : <int>[1, 3];
+    for (final seatIndex in teamSeats) {
+      if (lobby.seats[seatIndex].state == GameLobbySeatState.open) {
+        return seatIndex;
+      }
+    }
+    return null;
   }
 
   _LocalParticipant? _findParticipantByAuthUserId(
@@ -631,8 +792,10 @@ class LocalGameTableService
     localPlayerId: localPlayerId,
     hostPlayerId: lobby.hostPlayerId,
     matchId: lobby.matchId,
+    gameName: lobby.gameName,
     targetScore: lobby.targetScore,
     state: lobby.state,
+    visibility: lobby.visibility,
     canStart: _canStart(lobby),
     isLocalPlayerHost: localPlayerId == lobby.hostPlayerId,
     seats: [for (final seat in lobby.seats) seat.toSnapshot()],
@@ -737,6 +900,9 @@ class LocalGameTableService
           _buildProjectedLobbyView(lobby, participant),
       ]),
     );
+    unawaited(
+      _stateStore.saveLobbyState(lobby.lobbyId, _serializeLobby(lobby)),
+    );
   }
 
   void _emitConnection(
@@ -785,6 +951,7 @@ class LocalGameTableService
       lobby.lobbyId,
       matchId: lobby.matchId,
     );
+    await _stateStore.deleteLobbyState(lobby.lobbyId);
     await lobby.dispose();
   }
 
@@ -832,6 +999,47 @@ class LocalGameTableService
       snapshot,
     ).toJson(),
   );
+
+  Map<String, dynamic> _serializeLobby(final _LocalLobbyState lobby) =>
+      <String, dynamic>{
+        'lobbyId': lobby.lobbyId,
+        'joinCode': lobby.joinCode,
+        'hostPlayerId': lobby.hostPlayerId,
+        'gameName': lobby.gameName,
+        'targetScore': lobby.targetScore,
+        'visibility': lobby.visibility.name,
+        'state': lobby.state.name,
+        'matchId': lobby.matchId,
+        'revision': lobby.revision,
+        'pendingRoundNumber': lobby.pendingRoundNumber,
+        'pendingAcknowledgementPlayerIds': lobby.pendingAcknowledgementPlayerIds
+            .toList(),
+        'participants': <Map<String, dynamic>>[
+          for (final p in lobby.participantsByPlayerId.values)
+            <String, dynamic>{
+              'playerId': p.playerId,
+              'authUserId': p.authUserId,
+              'accessToken': p.accessToken,
+              'displayName': p.displayName,
+              'seat': p.seat,
+              'isReady': p.isReady,
+              'isConnected': p.isConnected,
+            },
+        ],
+        'seats': <Map<String, dynamic>>[
+          for (final s in lobby.seats)
+            <String, dynamic>{
+              'seat': s.seat,
+              'state': s.state.name,
+              'type': s.type.name,
+              'playerId': s.playerId,
+              'displayName': s.displayName,
+              'isReady': s.isReady,
+              'isConnected': s.isConnected,
+              'isBot': s.isBot,
+            },
+        ],
+      };
 }
 
 class _LocalLobbyState {
@@ -839,7 +1047,9 @@ class _LocalLobbyState {
     required this.lobbyId,
     required this.joinCode,
     required this.hostPlayerId,
+    required this.gameName,
     required this.targetScore,
+    required this.visibility,
     required this.participantsByAccessToken,
     required this.participantsByPlayerId,
     required this.seats,
@@ -848,7 +1058,9 @@ class _LocalLobbyState {
   final String lobbyId;
   final String joinCode;
   String hostPlayerId;
+  final String gameName;
   final int targetScore;
+  final GameLobbyVisibility visibility;
   final Map<String, _LocalParticipant> participantsByAccessToken;
   final Map<String, _LocalParticipant> participantsByPlayerId;
   final List<_LocalSeatState> seats;
@@ -903,6 +1115,7 @@ class _LocalParticipant {
   int? seat;
   bool isReady = false;
   bool isConnected = true;
+  DateTime lastHeartbeatAt = DateTime.now();
 }
 
 class _LocalSeatState {

@@ -5,7 +5,6 @@ import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_match.dart';
 import 'package:tichu/game/game_session.dart';
 import 'package:tichu/game/game_snapshot.dart';
-import 'package:tichu/services/local/local_table_service.dart';
 import 'package:tichu/services/transport/dto/match_dto.dart' as match_dto;
 
 class FakeGameMatchService

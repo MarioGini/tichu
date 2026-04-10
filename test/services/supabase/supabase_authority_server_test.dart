@@ -32,7 +32,7 @@ void main() {
             'request': <String, dynamic>{
               'displayName': 'Host',
               'targetScore': 1000,
-              'preferredSeat': 0,
+              'preferredTeam': 0,
             },
           },
           authUserId: '00000000-0000-0000-0000-000000000001',
@@ -116,6 +116,106 @@ void main() {
 
       final response = await request.close();
       expect(response.statusCode, HttpStatus.unauthorized);
+    });
+
+    test('accepts heartbeat for a lobby', () async {
+      final hostHandle = await _postJson(
+        baseUri,
+        'create-lobby',
+        <String, dynamic>{
+          'request': <String, dynamic>{
+            'displayName': 'Host',
+            'targetScore': 1000,
+            'preferredTeam': 0,
+          },
+        },
+        authUserId: '00000000-0000-0000-0000-000000000001',
+      );
+
+      final result = await _postJson(baseUri, 'heartbeat', <String, dynamic>{
+        'lobbyId': hostHandle['lobbyId'] as String,
+        'accessToken': hostHandle['accessToken'] as String,
+      }, authUserId: '00000000-0000-0000-0000-000000000001');
+      expect(result['ok'], isTrue);
+    });
+
+    test('accepts heartbeat for a match', () async {
+      final hostHandle = await _postJson(
+        baseUri,
+        'create-lobby',
+        <String, dynamic>{
+          'request': <String, dynamic>{
+            'displayName': 'Host',
+            'targetScore': 1000,
+            'preferredTeam': 0,
+          },
+        },
+        authUserId: '00000000-0000-0000-0000-000000000001',
+      );
+      final lobbyId = hostHandle['lobbyId'] as String;
+      final accessToken = hostHandle['accessToken'] as String;
+
+      await _postJson(
+        baseUri,
+        'set-ready-state',
+        <String, dynamic>{
+          'lobbyId': lobbyId,
+          'accessToken': accessToken,
+          'isReady': true,
+        },
+        authUserId: '00000000-0000-0000-0000-000000000001',
+      );
+
+      for (var seat = 1; seat < 4; seat++) {
+        await _postJson(baseUri, 'claim-seat', <String, dynamic>{
+          'lobbyId': lobbyId,
+          'accessToken': accessToken,
+          'seat': seat,
+          'type': 'automated',
+          'automatedDisplayName': 'Bot ${seat + 1}',
+        }, authUserId: '00000000-0000-0000-0000-000000000001');
+      }
+
+      await _postJson(baseUri, 'start-match', <String, dynamic>{
+        'lobbyId': lobbyId,
+        'accessToken': accessToken,
+      }, authUserId: '00000000-0000-0000-0000-000000000001');
+
+      final lobbySnapshot = await _postJson(
+        baseUri,
+        'get-lobby',
+        <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
+        authUserId: '00000000-0000-0000-0000-000000000001',
+      );
+      final matchId = lobbySnapshot['matchId'] as String;
+
+      final result = await _postJson(baseUri, 'heartbeat', <String, dynamic>{
+        'matchId': matchId,
+        'accessToken': accessToken,
+      }, authUserId: '00000000-0000-0000-0000-000000000001');
+      expect(result['ok'], isTrue);
+    });
+
+    test('list-games returns open lobbies', () async {
+      await _postJson(baseUri, 'create-lobby', <String, dynamic>{
+        'request': <String, dynamic>{
+          'displayName': 'Host',
+          'gameName': 'Test Game',
+          'targetScore': 1000,
+        },
+      }, authUserId: '00000000-0000-0000-0000-000000000001');
+
+      final result = await _postJson(
+        baseUri,
+        'list-games',
+        <String, dynamic>{},
+        authUserId: '00000000-0000-0000-0000-000000000001',
+      );
+      final games = result['games'] as List<dynamic>;
+      expect(games, hasLength(1));
+      final game = games.first as Map<String, dynamic>;
+      expect(game['gameName'], 'Test Game');
+      expect(game['hostDisplayName'], 'Host');
     });
   });
 }

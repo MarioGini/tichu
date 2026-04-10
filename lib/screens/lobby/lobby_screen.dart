@@ -203,7 +203,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          lobby?.joinCode == null ? 'Lobby' : 'Lobby ${lobby!.joinCode}',
+          lobby?.gameName.isNotEmpty == true ? lobby!.gameName : 'Game Lobby',
         ),
       ),
       body: DecoratedBox(
@@ -232,8 +232,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
                               const SizedBox(height: 20),
                               Text(
                                 localSeat == null
-                                    ? 'Choose an open seat to join the table.'
-                                    : 'You are seated at Seat ${localSeat.seat + 1}.',
+                                    ? 'Choose a team to join the table.'
+                                    : 'You are on ${localSeat.seat.isEven ? "Team 1" : "Team 2"} (Seat ${localSeat.seat + 1}).',
                                 style: Theme.of(context).textTheme.bodyLarge,
                                 textAlign: TextAlign.center,
                               ),
@@ -300,7 +300,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                         ? null
                                         : () => unawaited(_leaveLobby()),
                                     icon: const Icon(Icons.exit_to_app),
-                                    label: const Text('Leave Lobby'),
+                                    label: const Text('Leave Game'),
                                   ),
                                 ],
                               ),
@@ -337,14 +337,16 @@ class _LobbyScreenState extends State<LobbyScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (lobby.gameName.isNotEmpty) ...[
+            Text(
+              lobby.gameName,
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+          ],
           Text(
-            lobby.joinCode ?? lobby.lobbyId,
-            style: Theme.of(context).textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${widget.multiplayerBackend.displayName} backend • First team to ${lobby.targetScore}',
+            'First team to ${lobby.targetScore} • ${lobby.visibility == GameLobbyVisibility.private ? "Private" : "Public"}',
             style: Theme.of(context).textTheme.bodyMedium,
             textAlign: TextAlign.center,
           ),
@@ -354,11 +356,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
             runSpacing: 12,
             alignment: WrapAlignment.center,
             children: [
-              OutlinedButton.icon(
-                onPressed: lobby.joinCode == null ? null : _copyJoinCode,
-                icon: const Icon(Icons.copy_outlined),
-                label: const Text('Copy Join Code'),
-              ),
+              if (lobby.visibility == GameLobbyVisibility.private)
+                OutlinedButton.icon(
+                  onPressed: lobby.joinCode == null ? null : _copyJoinCode,
+                  icon: const Icon(Icons.copy_outlined),
+                  label: Text('Code: ${lobby.joinCode ?? ""}'),
+                ),
               Chip(
                 avatar: Icon(
                   lobby.isLocalPlayerHost ? Icons.star : Icons.person_outline,
@@ -396,7 +399,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Seat ${seat.seat + 1}',
+                      '${seat.seat.isEven ? "Team 1" : "Team 2"} • Seat ${seat.seat + 1}',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),

@@ -102,3 +102,12 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.gitignore.io/api/windows,flutter,firebase,visualstudiocode
+
+# Python / uv
+**/.venv/
+**/__pycache__/
+*.pyc
+uv.lock
+
+# RL training artifacts
+rl/outputs/

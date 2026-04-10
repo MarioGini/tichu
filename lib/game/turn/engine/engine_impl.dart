@@ -219,11 +219,26 @@ class GameEngineImpl implements GameEngine {
     final bool opponentAwaitingConfirmation = false,
   }) {
     final currentPlayer = state.players[state.currentPlayerIndex];
+    final snapshotHands = {
+      for (final entry in state.hands.entries)
+        entry.key: List<Card>.from(entry.value),
+    };
+    final snapshotDeck =
+        DeckState(
+            TichuTurn(
+              state.deck.turn.type,
+              List<Card>.from(state.deck.turn.cards),
+            ),
+            state.deck.wish,
+          )
+          ..currentWinner = state.deck.currentWinner
+          ..cardStack = List<Card>.from(state.deck.cardStack);
+
     return GameSnapshot(
       gameId: state.gameId,
-      players: state.players,
-      hands: state.hands,
-      deck: state.deck,
+      players: List<GamePlayer>.from(state.players),
+      hands: snapshotHands,
+      deck: snapshotDeck,
       trickPoints: pointsForCards(state.currentTrickCards),
       activeWish: state.deck.wish,
       currentPlayerId: currentPlayer.id,

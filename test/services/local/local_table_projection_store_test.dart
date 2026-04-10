@@ -9,7 +9,7 @@ void main() {
     final service = LocalGameTableService(projectionStore: projectionStore);
 
     final host = await service.createLobby(
-      const CreateGameLobbyRequest(displayName: 'Host', preferredSeat: 0),
+      const CreateGameLobbyRequest(displayName: 'Host', preferredTeam: 0),
     );
     final lobbyAfterHostCreate = projectionStore.lastLobbyViews;
     expect(lobbyAfterHostCreate, hasLength(1));
@@ -28,8 +28,12 @@ void main() {
         JoinGameLobbyRequest(
           joinCode: joinCode,
           displayName: 'Player ${seat + 1}',
-          preferredSeat: seat,
         ),
+      );
+      await service.claimSeat(
+        handle.lobbyId,
+        accessToken: handle.accessToken,
+        seat: seat,
       );
       handles.add(handle);
     }

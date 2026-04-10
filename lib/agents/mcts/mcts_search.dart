@@ -2,6 +2,8 @@ import 'dart:math';
 
 import 'package:tichu/agents/mcts/belief_tracker.dart';
 import 'package:tichu/agents/mcts/hand_sampler.dart';
+import 'package:tichu/agents/nn/feature_encoder.dart';
+import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -29,9 +31,22 @@ class RolloutSimulator {
   final DefaultPlaySelectionStrategy _rolloutPolicy;
   static const _maxRolloutSteps = 500;
 
-  RolloutSimulator({final Random? random})
-    : _random = random ?? Random(),
-      _rolloutPolicy = const DefaultPlaySelectionStrategy();
+  /// Optional value network for leaf evaluation. When provided, positions
+  /// are evaluated by the network after [earlyStopDepth] steps instead of
+  /// rolling out to completion. This is the AlphaZero-style hybrid approach.
+  final Mlp? valueNetwork;
+  final double valueNetworkMean;
+  final double valueNetworkStd;
+  final int earlyStopDepth;
+
+  RolloutSimulator({
+    final Random? random,
+    this.valueNetwork,
+    this.valueNetworkMean = 0.0,
+    this.valueNetworkStd = 1.0,
+    this.earlyStopDepth = 20,
+  }) : _random = random ?? Random(),
+       _rolloutPolicy = const DefaultPlaySelectionStrategy();
 
   /// Run a single rollout:
   /// 1. Build a fresh engine state matching the snapshot.
@@ -59,6 +74,13 @@ class RolloutSimulator {
     var steps = 0;
     while (!state.scoreTracker.state.roundComplete &&
         steps < _maxRolloutSteps) {
+      // Value network early stop: after earlyStopDepth steps, evaluate
+      // the position with the network instead of continuing rollout.
+      if (valueNetwork != null && steps >= earlyStopDepth) {
+        final snap = engine.buildSnapshot(state);
+        return _evaluateWithNetwork(snap, myTeam);
+      }
+
       final snap = engine.buildSnapshot(state);
       final action = _selectRolloutAction(
         engine: engine,
@@ -141,6 +163,38 @@ class RolloutSimulator {
     }
 
     return state;
+  }
+
+  /// Evaluate a position using the value network.
+  RolloutResult _evaluateWithNetwork(
+    final GameSnapshot snapshot,
+    final int myTeam,
+  ) {
+    final playerId = snapshot.currentPlayerId;
+    final stateFeatures = encodeStateFeatures(
+      snapshot: snapshot,
+      playerId: playerId,
+    );
+    final dummyAction = List<double>.filled(actionFeatureCount, 0.0);
+    final input = [...stateFeatures, ...dummyAction];
+
+    var value = valueNetwork!.predict(input);
+    // Denormalize.
+    value = value * valueNetworkStd + valueNetworkMean;
+
+    // Flip sign if we're evaluating from the opponent's perspective.
+    final evalTeam = snapshot.players
+        .firstWhere(
+          (final p) => p.id == playerId,
+          orElse: () => snapshot.players.first,
+        )
+        .seat
+        .isEven
+        ? 0
+        : 1;
+    if (evalTeam != myTeam) value = -value;
+
+    return RolloutResult(value);
   }
 
   GameAction? _selectRolloutAction({
@@ -237,9 +291,19 @@ class MctsSearch {
   MctsSearch({
     this.numDeterminizations = 20,
     this.rolloutsPerDeterminization = 1,
+    final Mlp? valueNetwork,
+    final double valueNetworkMean = 0.0,
+    final double valueNetworkStd = 1.0,
+    final int valueNetworkEarlyStopDepth = 20,
     final Random? random,
   }) : _sampler = HandSampler(random: random),
-       _simulator = RolloutSimulator(random: random);
+       _simulator = RolloutSimulator(
+         random: random,
+         valueNetwork: valueNetwork,
+         valueNetworkMean: valueNetworkMean,
+         valueNetworkStd: valueNetworkStd,
+         earlyStopDepth: valueNetworkEarlyStopDepth,
+       );
 
   /// Search for the best action among [candidates] from [snapshot].
   ///

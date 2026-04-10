@@ -116,6 +116,8 @@ class SupabaseAuthorityServer {
         return _createLobby(body, authUserId: authUserId);
       case 'join-lobby':
         return _joinLobby(body, authUserId: authUserId);
+      case 'list-games':
+        return _listGames();
       case 'get-lobby':
         return _getLobby(body);
       case 'claim-seat':
@@ -142,6 +144,9 @@ class SupabaseAuthorityServer {
         return const <String, dynamic>{'ok': true};
       case 'leave-match':
         await _leaveMatch(body);
+        return const <String, dynamic>{'ok': true};
+      case 'heartbeat':
+        await _heartbeat(body);
         return const <String, dynamic>{'ok': true};
       default:
         throw const _ClientRequestError(
@@ -179,6 +184,16 @@ class SupabaseAuthorityServer {
       authUserId: resolvedAuthUserId,
     );
     return session_dto.GameSessionHandleDto.fromDomain(handle).toJson();
+  }
+
+  Future<Map<String, dynamic>> _listGames() async {
+    final entries = await _tableService.listGames();
+    return <String, dynamic>{
+      'games': <Map<String, dynamic>>[
+        for (final entry in entries)
+          session_dto.GameLobbyListEntryDto.fromDomain(entry).toJson(),
+      ],
+    };
   }
 
   Future<Map<String, dynamic>> _getLobby(
@@ -278,6 +293,25 @@ class SupabaseAuthorityServer {
     return _tableService.leaveMatch(
       _requireString(body, 'matchId'),
       accessToken: _requireString(body, 'accessToken'),
+    );
+  }
+
+  Future<void> _heartbeat(final Map<String, dynamic> body) {
+    final accessToken = _requireString(body, 'accessToken');
+    final lobbyId = body['lobbyId'] as String?;
+    final matchId = body['matchId'] as String?;
+    if (matchId != null && matchId.isNotEmpty) {
+      return _tableService.sendMatchHeartbeat(
+        matchId,
+        accessToken: accessToken,
+      );
+    }
+    if (lobbyId != null && lobbyId.isNotEmpty) {
+      return _tableService.sendHeartbeat(lobbyId, accessToken: accessToken);
+    }
+    throw const _ClientRequestError(
+      HttpStatus.badRequest,
+      'heartbeat requires lobbyId or matchId.',
     );
   }
 

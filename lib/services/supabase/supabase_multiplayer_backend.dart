@@ -77,7 +77,7 @@ class SupabaseMultiplayerBackend implements MultiplayerBackend {
   String get displayName => 'Supabase';
 
   @override
-  bool get supportsAutomatedSeats => false;
+  bool get supportsAutomatedSeats => true;
 
   @override
   GameSessionService get sessionService => _sessionService;
@@ -301,7 +301,30 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
   }
 
   @override
+  Future<List<GameLobbyListEntry>> listGames() async {
+    final payload = await invokeJson('list-games');
+    final rawList = payload['games'] as List<dynamic>;
+    return <GameLobbyListEntry>[
+      for (final entry in rawList)
+        session_dto.GameLobbyListEntryDto.fromJson(
+          Map<String, dynamic>.from(entry as Map),
+        ).toDomain(),
+    ];
+  }
+
+  @override
   Stream<GameLobbySnapshot> watchLobby(
+    final String lobbyId, {
+    required final String accessToken,
+  }) => _withHeartbeat(
+    source: () => _watchLobbyProjected(lobbyId, accessToken: accessToken),
+    heartbeatBody: <String, dynamic>{
+      'lobbyId': lobbyId,
+      'accessToken': accessToken,
+    },
+  );
+
+  Stream<GameLobbySnapshot> _watchLobbyProjected(
     final String lobbyId, {
     required final String accessToken,
   }) => watchProjectedValue(
@@ -381,6 +404,46 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
     'leave-lobby',
     body: <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
   );
+
+  @override
+  Future<void> sendHeartbeat(
+    final String lobbyId, {
+    required final String accessToken,
+  }) => invokeVoid(
+    'heartbeat',
+    body: <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
+  );
+
+  Stream<T> _withHeartbeat<T>({
+    required final Stream<T> Function() source,
+    required final Map<String, dynamic> heartbeatBody,
+  }) {
+    final controller = StreamController<T>();
+    Timer? heartbeatTimer;
+    StreamSubscription<T>? subscription;
+
+    controller.onListen = () {
+      heartbeatTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => invokeVoid('heartbeat', body: heartbeatBody).catchError((_) {}),
+      );
+      unawaited(
+        invokeVoid('heartbeat', body: heartbeatBody).catchError((_) {}),
+      );
+      subscription = source().listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+    };
+
+    controller.onCancel = () async {
+      heartbeatTimer?.cancel();
+      await subscription?.cancel();
+    };
+
+    return controller.stream;
+  }
 }
 
 final class SupabaseGameMatchService extends _SupabaseServiceBase
@@ -392,6 +455,15 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
 
   @override
   Stream<GameMatchView> watchMatch(
+    final String matchId, {
+    required final String accessToken,
+  }) => _withMatchHeartbeat(
+    matchId: matchId,
+    accessToken: accessToken,
+    source: () => _watchMatchProjected(matchId, accessToken: accessToken),
+  );
+
+  Stream<GameMatchView> _watchMatchProjected(
     final String matchId, {
     required final String accessToken,
   }) => watchProjectedValue(
@@ -522,4 +594,40 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
     'leave-match',
     body: <String, dynamic>{'matchId': matchId, 'accessToken': accessToken},
   );
+
+  Stream<T> _withMatchHeartbeat<T>({
+    required final String matchId,
+    required final String accessToken,
+    required final Stream<T> Function() source,
+  }) {
+    final controller = StreamController<T>();
+    Timer? heartbeatTimer;
+    StreamSubscription<T>? subscription;
+    final heartbeatBody = <String, dynamic>{
+      'matchId': matchId,
+      'accessToken': accessToken,
+    };
+
+    controller.onListen = () {
+      heartbeatTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => invokeVoid('heartbeat', body: heartbeatBody).catchError((_) {}),
+      );
+      unawaited(
+        invokeVoid('heartbeat', body: heartbeatBody).catchError((_) {}),
+      );
+      subscription = source().listen(
+        controller.add,
+        onError: controller.addError,
+        onDone: controller.close,
+      );
+    };
+
+    controller.onCancel = () async {
+      heartbeatTimer?.cancel();
+      await subscription?.cancel();
+    };
+
+    return controller.stream;
+  }
 }

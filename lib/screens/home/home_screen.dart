@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:tichu/game/game_session.dart';
+import 'package:tichu/game/game_types.dart';
+import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/screens/lobby/lobby_screen.dart';
 import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
 
@@ -16,60 +18,150 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const List<int> _scoreOptions = [500, 1000, 1500, 2000];
-
   late final MultiplayerBackend _multiplayerBackend =
       widget._multiplayerBackend ?? LocalMultiplayerBackend();
   final TextEditingController _displayNameController = TextEditingController(
     text: 'Player',
   );
-  final TextEditingController _joinCodeController = TextEditingController();
-  int _targetScore = 1000;
-  int _preferredSeat = 0;
   bool _isBusy = false;
+  List<GameLobbyListEntry> _games = const <GameLobbyListEntry>[];
+  Timer? _refreshTimer;
 
   String get _displayName => _displayNameController.text.trim();
 
-  String get _joinCode => _joinCodeController.text.trim().toUpperCase();
+  bool get _canAct => !_isBusy && _displayName.isNotEmpty;
 
-  bool get _canCreate => !_isBusy && _displayName.isNotEmpty;
-
-  bool get _canJoin =>
-      !_isBusy && _displayName.isNotEmpty && _joinCode.isNotEmpty;
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshGames());
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _refreshGames(),
+    );
+  }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _displayNameController.dispose();
-    _joinCodeController.dispose();
     super.dispose();
   }
 
-  Future<void> _createLobby() async {
-    if (!_canCreate) return;
+  Future<void> _refreshGames() async {
+    try {
+      final games = await _multiplayerBackend.sessionService.listGames();
+      if (mounted) {
+        setState(() {
+          _games = games;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _showCreateGameDialog() async {
+    if (!_canAct) return;
+
+    final result = await showDialog<_CreateGameResult>(
+      context: context,
+      builder: (final context) => _CreateGameDialog(displayName: _displayName),
+    );
+    if (result == null || !mounted) return;
+
     await _runBusyAction(() async {
-      final sessionHandle = await _multiplayerBackend.sessionService
-          .createLobby(
-            CreateGameLobbyRequest(
-              displayName: _displayName,
-              targetScore: _targetScore,
-              preferredSeat: _preferredSeat,
-            ),
-          );
-      await _openLobby(sessionHandle);
+      final handle = await _multiplayerBackend.sessionService.createLobby(
+        CreateGameLobbyRequest(
+          displayName: _displayName,
+          gameName: result.gameName,
+          targetScore: result.targetScore,
+          preferredTeam: result.preferredTeam,
+          visibility: result.visibility,
+        ),
+      );
+      await _openLobby(handle);
     });
   }
 
-  Future<void> _joinLobby() async {
-    if (!_canJoin) return;
+  Future<void> _showJoinPrivateDialog() async {
+    if (!_canAct) return;
+
+    final code = await showDialog<String>(
+      context: context,
+      builder: (final context) => const _JoinPrivateDialog(),
+    );
+    if (code == null || code.isEmpty || !mounted) return;
+
     await _runBusyAction(() async {
-      final sessionHandle = await _multiplayerBackend.sessionService.joinLobby(
+      final handle = await _multiplayerBackend.sessionService.joinLobby(
+        JoinGameLobbyRequest(joinCode: code, displayName: _displayName),
+      );
+      await _openLobby(handle);
+    });
+  }
+
+  Future<void> _joinGame(final GameLobbyListEntry entry) async {
+    if (!_canAct) return;
+    await _runBusyAction(() async {
+      final handle = await _multiplayerBackend.sessionService.joinLobby(
         JoinGameLobbyRequest(
-          joinCode: _joinCode,
+          joinCode: entry.lobbyId,
           displayName: _displayName,
-          preferredSeat: _preferredSeat,
         ),
       );
-      await _openLobby(sessionHandle);
+      await _openLobby(handle);
+    });
+  }
+
+  Future<void> _playSolo() async {
+    if (!_canAct) return;
+    await _runBusyAction(() async {
+      final service = _multiplayerBackend.sessionService;
+      final handle = await service.createLobby(
+        CreateGameLobbyRequest(
+          displayName: _displayName,
+          gameName: '$_displayName vs Bots',
+          visibility: GameLobbyVisibility.private,
+        ),
+      );
+      await service.setReadyState(
+        handle.lobbyId,
+        accessToken: handle.accessToken,
+        isReady: true,
+      );
+      for (var seat = 0; seat < 4; seat++) {
+        final lobby = await service
+            .watchLobby(handle.lobbyId, accessToken: handle.accessToken)
+            .first;
+        final seatState = lobby.seats[seat];
+        if (seatState.state == GameLobbySeatState.open) {
+          await service.claimSeat(
+            handle.lobbyId,
+            accessToken: handle.accessToken,
+            seat: seat,
+            type: PlayerType.automated,
+            automatedDisplayName: 'Bot ${seat + 1}',
+          );
+        }
+      }
+      await service.startMatch(handle.lobbyId, accessToken: handle.accessToken);
+      final activeLobby = await service
+          .watchLobby(handle.lobbyId, accessToken: handle.accessToken)
+          .firstWhere((final s) => s.matchId != null);
+      final localSeat = activeLobby.seats.firstWhere(
+        (final s) => s.playerId == handle.playerId,
+      );
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => GameScreen(
+            matchService: _multiplayerBackend.matchService,
+            sessionHandle: handle.copyWith(
+              seat: localSeat.seat,
+              matchId: activeLobby.matchId,
+            ),
+          ),
+        ),
+      );
     });
   }
 
@@ -83,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+    unawaited(_refreshGames());
   }
 
   Future<void> _runBusyAction(final Future<void> Function() action) async {
@@ -107,7 +200,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(final BuildContext context) {
-    final sliderValue = _scoreOptions.indexOf(_targetScore).toDouble();
+    final publicGames = _games
+        .where((final g) => g.visibility == GameLobbyVisibility.public)
+        .toList();
 
     return Scaffold(
       body: DecoratedBox(
@@ -121,104 +216,102 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 680),
+              constraints: const BoxConstraints(maxWidth: 780),
               child: Card(
                 margin: const EdgeInsets.all(24),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 32,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withValues(alpha: 0.08),
-                        ),
-                        child: const Icon(
-                          Icons.groups_rounded,
-                          size: 56,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'TICHU',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Create a lobby or join one with a code.',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildBackendBanner(context),
-                      const SizedBox(height: 24),
-                      TextField(
-                        controller: _displayNameController,
-                        textInputAction: TextInputAction.next,
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          labelText: 'Display name',
-                          hintText: 'Enter your player name',
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildSeatPreferenceSection(context),
-                      const SizedBox(height: 24),
-                      _buildMatchLengthSection(context, sliderValue),
-                      const SizedBox(height: 24),
-                      TextField(
-                        controller: _joinCodeController,
-                        textCapitalization: TextCapitalization.characters,
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          labelText: 'Join code',
-                          hintText: 'Enter a lobby code to join',
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _canCreate
-                                  ? () => unawaited(_createLobby())
-                                  : null,
-                              icon: const Icon(Icons.add_circle_outline),
-                              label: Text(
-                                _isBusy ? 'Working...' : 'Create Lobby',
+                          Text(
+                            'TICHU',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _displayNameController,
+                            onChanged: (_) => setState(() {}),
+                            decoration: const InputDecoration(
+                              labelText: 'Display name',
+                              hintText: 'Enter your player name',
+                              isDense: true,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              if (_multiplayerBackend.supportsAutomatedSeats)
+                                FilledButton.icon(
+                                  onPressed: _canAct
+                                      ? () => unawaited(_playSolo())
+                                      : null,
+                                  icon: const Icon(Icons.play_arrow_rounded),
+                                  label: const Text('Play Solo'),
+                                ),
+                              ElevatedButton.icon(
+                                onPressed: _canAct
+                                    ? () => unawaited(_showCreateGameDialog())
+                                    : null,
+                                icon: const Icon(Icons.add_circle_outline),
+                                label: const Text('Create Game'),
                               ),
-                            ),
+                              OutlinedButton.icon(
+                                onPressed: _canAct
+                                    ? () => unawaited(_showJoinPrivateDialog())
+                                    : null,
+                                icon: const Icon(Icons.lock_outlined),
+                                label: const Text('Join Private Game'),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _canJoin
-                                  ? () => unawaited(_joinLobby())
-                                  : null,
-                              icon: const Icon(Icons.login),
-                              label: const Text('Join Lobby'),
-                            ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Text(
+                                'Open Games',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                onPressed: () => unawaited(_refreshGames()),
+                                icon: const Icon(Icons.refresh),
+                                tooltip: 'Refresh',
+                              ),
+                            ],
                           ),
+                          const Divider(height: 1),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _multiplayerBackend.supportsAutomatedSeats
-                            ? 'Local tables can fill remaining seats with bots from the lobby screen.'
-                            : 'Supabase lobbies expect other clients to join with the same code.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+                    ),
+                    Expanded(
+                      child: publicGames.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No open games. Create one!',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 28,
+                                vertical: 8,
+                              ),
+                              itemCount: publicGames.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (final context, final index) =>
+                                  _buildGameTile(context, publicGames[index]),
+                            ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -228,93 +321,223 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBackendBanner(final BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(14),
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.4),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Icon(
-            Icons.hub_outlined,
-            color: Theme.of(context).colorScheme.secondary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Backend', style: Theme.of(context).textTheme.labelLarge),
-                Text(
-                  _multiplayerBackend.displayName,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _buildSeatPreferenceSection(final BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text('Seat preference', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
-      SegmentedButton<int>(
-        segments: const [
-          ButtonSegment<int>(value: 0, label: Text('1')),
-          ButtonSegment<int>(value: 1, label: Text('2')),
-          ButtonSegment<int>(value: 2, label: Text('3')),
-          ButtonSegment<int>(value: 3, label: Text('4')),
-        ],
-        selected: <int>{_preferredSeat},
-        showSelectedIcon: false,
-        onSelectionChanged: (final selection) {
-          setState(() {
-            _preferredSeat = selection.first;
-          });
-        },
-      ),
-    ],
-  );
-
-  Widget _buildMatchLengthSection(
+  Widget _buildGameTile(
     final BuildContext context,
-    final double sliderValue,
-  ) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text('Match length', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
-      Text(
-        'First team to $_targetScore points',
-        style: Theme.of(context).textTheme.bodyMedium,
+    final GameLobbyListEntry entry,
+  ) {
+    final title = entry.gameName.isNotEmpty
+        ? entry.gameName
+        : '${entry.hostDisplayName}\'s Game';
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      leading: CircleAvatar(
+        child: Text('${entry.occupiedSeats}/${entry.totalSeats}'),
       ),
-      Slider(
-        value: sliderValue,
-        max: (_scoreOptions.length - 1).toDouble(),
-        divisions: _scoreOptions.length - 1,
-        label: '$_targetScore',
-        onChanged: (final value) {
-          setState(() {
-            _targetScore = _scoreOptions[value.round().clamp(0, 3)];
-          });
-        },
+      title: Text(title),
+      subtitle: Text(
+        'Host: ${entry.hostDisplayName} • First to ${entry.targetScore}',
       ),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: _scoreOptions
-            .map(
-              (final score) => Text(
-                score.toString(),
-                style: Theme.of(context).textTheme.labelSmall,
+      trailing: FilledButton(
+        onPressed: _canAct ? () => unawaited(_joinGame(entry)) : null,
+        child: const Text('Join'),
+      ),
+    );
+  }
+}
+
+class _CreateGameResult {
+  final String gameName;
+  final int targetScore;
+  final int preferredTeam;
+  final GameLobbyVisibility visibility;
+
+  const _CreateGameResult({
+    required this.gameName,
+    required this.targetScore,
+    required this.preferredTeam,
+    required this.visibility,
+  });
+}
+
+class _CreateGameDialog extends StatefulWidget {
+  const _CreateGameDialog({required this.displayName});
+
+  final String displayName;
+
+  @override
+  State<_CreateGameDialog> createState() => _CreateGameDialogState();
+}
+
+class _CreateGameDialogState extends State<_CreateGameDialog> {
+  static const List<int> _scoreOptions = [500, 1000, 1500, 2000];
+
+  late final TextEditingController _gameNameController = TextEditingController(
+    text: '${widget.displayName}\'s Game',
+  );
+  int _targetScore = 1000;
+  int _preferredTeam = 0;
+  GameLobbyVisibility _visibility = GameLobbyVisibility.public;
+
+  @override
+  void dispose() {
+    _gameNameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(final BuildContext context) {
+    final sliderValue = _scoreOptions.indexOf(_targetScore).toDouble();
+
+    return AlertDialog(
+      title: const Text('Create Game'),
+      content: SizedBox(
+        width: 400,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _gameNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Game name',
+                  hintText: 'Name your game',
+                ),
               ),
-            )
-            .toList(),
+              const SizedBox(height: 20),
+              Text('Visibility', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 8),
+              SegmentedButton<GameLobbyVisibility>(
+                segments: const [
+                  ButtonSegment<GameLobbyVisibility>(
+                    value: GameLobbyVisibility.public,
+                    label: Text('Public'),
+                    icon: Icon(Icons.public),
+                  ),
+                  ButtonSegment<GameLobbyVisibility>(
+                    value: GameLobbyVisibility.private,
+                    label: Text('Private'),
+                    icon: Icon(Icons.lock_outlined),
+                  ),
+                ],
+                selected: <GameLobbyVisibility>{_visibility},
+                showSelectedIcon: false,
+                onSelectionChanged: (final selection) {
+                  setState(() {
+                    _visibility = selection.first;
+                  });
+                },
+              ),
+              if (_visibility == GameLobbyVisibility.private)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Private games need the join code to enter.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              const SizedBox(height: 20),
+              Text(
+                'Team preference',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment<int>(value: 0, label: Text('Team 1')),
+                  ButtonSegment<int>(value: 1, label: Text('Team 2')),
+                ],
+                selected: <int>{_preferredTeam},
+                showSelectedIcon: false,
+                onSelectionChanged: (final selection) {
+                  setState(() {
+                    _preferredTeam = selection.first;
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Match length',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 4),
+              Text('First team to $_targetScore points'),
+              Slider(
+                value: sliderValue,
+                max: (_scoreOptions.length - 1).toDouble(),
+                divisions: _scoreOptions.length - 1,
+                label: '$_targetScore',
+                onChanged: (final value) {
+                  setState(() {
+                    _targetScore = _scoreOptions[value.round().clamp(0, 3)];
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).pop(
+              _CreateGameResult(
+                gameName: _gameNameController.text.trim(),
+                targetScore: _targetScore,
+                preferredTeam: _preferredTeam,
+                visibility: _visibility,
+              ),
+            );
+          },
+          child: const Text('Create'),
+        ),
+      ],
+    );
+  }
+}
+
+class _JoinPrivateDialog extends StatefulWidget {
+  const _JoinPrivateDialog();
+
+  @override
+  State<_JoinPrivateDialog> createState() => _JoinPrivateDialogState();
+}
+
+class _JoinPrivateDialogState extends State<_JoinPrivateDialog> {
+  final TextEditingController _codeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(final BuildContext context) => AlertDialog(
+    title: const Text('Join Private Game'),
+    content: TextField(
+      controller: _codeController,
+      textCapitalization: TextCapitalization.characters,
+      decoration: const InputDecoration(
+        labelText: 'Join code',
+        hintText: 'Enter the 5-digit game code',
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: () {
+          final code = _codeController.text.trim().toUpperCase();
+          Navigator.of(context).pop(code);
+        },
+        child: const Text('Join'),
       ),
     ],
   );

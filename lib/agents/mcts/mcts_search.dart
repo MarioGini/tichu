@@ -74,9 +74,11 @@ class RolloutSimulator {
     var steps = 0;
     while (!state.scoreTracker.state.roundComplete &&
         steps < _maxRolloutSteps) {
-      // Value network early stop: after earlyStopDepth steps, evaluate
-      // the position with the network instead of continuing rollout.
-      if (valueNetwork != null && steps >= earlyStopDepth) {
+      // NOTE: value-network early stop is disabled. The current network is
+      // a Q(s, a) head; querying it as V(s) with zeroed action features is
+      // out-of-distribution. Re-enable once a true value head is trained.
+      // ignore: dead_code
+      if (false && valueNetwork != null && steps >= earlyStopDepth) {
         final snap = engine.buildSnapshot(state);
         return _evaluateWithNetwork(snap, myTeam);
       }
@@ -183,13 +185,14 @@ class RolloutSimulator {
     value = value * valueNetworkStd + valueNetworkMean;
 
     // Flip sign if we're evaluating from the opponent's perspective.
-    final evalTeam = snapshot.players
-        .firstWhere(
-          (final p) => p.id == playerId,
-          orElse: () => snapshot.players.first,
-        )
-        .seat
-        .isEven
+    final evalTeam =
+        snapshot.players
+            .firstWhere(
+              (final p) => p.id == playerId,
+              orElse: () => snapshot.players.first,
+            )
+            .seat
+            .isEven
         ? 0
         : 1;
     if (evalTeam != myTeam) value = -value;

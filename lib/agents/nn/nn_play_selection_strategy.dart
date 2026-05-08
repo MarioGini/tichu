@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
@@ -17,7 +19,13 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
   final Mlp network;
   final PlaySelectionStrategy fallback;
 
-  const NnPlaySelectionStrategy({
+  /// Pre-allocated typed input buffer reused across [selectPlay] calls.
+  /// Avoids ~7 list allocations per decision in a typical play phase
+  /// (one per legal action) — matters because [Mlp.predict] is the hot
+  /// path of headless self-play.
+  late final Float64List _inputBuffer = Float64List(network.inputSize);
+
+  NnPlaySelectionStrategy({
     required this.playerId,
     required this.network,
     this.fallback = const DefaultPlaySelectionStrategy(),
@@ -63,6 +71,14 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
       playerId: playerId,
     );
 
+    // Fill the state-features prefix once; the action suffix changes per
+    // legal play and is overwritten on each iteration.
+    final buffer = _inputBuffer;
+    final stateLen = stateFeatures.length;
+    for (var i = 0; i < stateLen; i++) {
+      buffer[i] = stateFeatures[i];
+    }
+
     TichuTurn? bestPlay;
     var bestValue = double.negativeInfinity;
 
@@ -72,9 +88,10 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
         deck: deck,
         isPass: false,
       );
-
-      final input = [...stateFeatures, ...actionFeatures];
-      final qValue = network.predict(input);
+      for (var i = 0; i < actionFeatures.length; i++) {
+        buffer[stateLen + i] = actionFeatures[i];
+      }
+      final qValue = network.predictBuffer(buffer);
 
       if (qValue > bestValue) {
         bestValue = qValue;

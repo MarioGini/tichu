@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:tichu/agents/hand_evaluator.dart';
 import 'package:tichu/agents/mcts/ismcts_play_selection_strategy.dart';
 import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
+import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/rl_codec.dart';
@@ -25,7 +26,8 @@ import 'package:tichu/game/turn/wish_logic.dart';
 
 part 'headless_simulator.dart';
 part 'csv_event_writer.dart';
-part 'rl_transition_writer.dart';
+part 'bc_transition_writer.dart';
+part 'summary_writer.dart';
 
 const _defaultTargetScore = 1000;
 const _defaultEpisodes = 1;
@@ -45,6 +47,7 @@ Future<void> main(final List<String> args) async {
   final random = config.seed == null ? Random() : Random(config.seed);
 
   final nnPolicy = await _loadNnPolicy(config.nnPolicyPath);
+  final opponentPolicy = await _loadNnPolicy(config.opponentPolicyPath);
   final policyFactory = _buildAgentFactory(
     nnPolicy: nnPolicy,
     useMcts: config.useMcts,
@@ -53,15 +56,19 @@ Future<void> main(final List<String> args) async {
     ismctsSimulations: config.ismctsSimulations,
     random: random,
   );
-  final heuristicFactory = _buildAgentFactory(
-    nnPolicy: null,
-    random: random,
-  );
+  final opponentFactory = opponentPolicy != null
+      ? _buildAgentFactory(nnPolicy: opponentPolicy, random: random)
+      : _buildAgentFactory(nnPolicy: null, random: random);
 
   final PlayerAgent Function(String, int) agentFactory;
-  if (config.mixed) {
+  if (opponentPolicy != null) {
+    // Self-play mode: team0 (even seats) plays the loaded NN policy,
+    // team1 (odd seats) plays the frozen opponent policy.
     agentFactory = (final playerId, final seat) =>
-        seat.isEven ? policyFactory(playerId) : heuristicFactory(playerId);
+        seat.isEven ? policyFactory(playerId) : opponentFactory(playerId);
+  } else if (config.mixed) {
+    agentFactory = (final playerId, final seat) =>
+        seat.isEven ? policyFactory(playerId) : opponentFactory(playerId);
   } else {
     agentFactory = (final playerId, final _) => policyFactory(playerId);
   }
@@ -75,7 +82,6 @@ Future<void> main(final List<String> args) async {
     outputFormat: config.outputFormat,
     output: outputSink,
     includeTimestamps: config.includeTimestamps,
-    includeLegalTurnCount: config.includeLegalTurnCount,
     epsilon: config.epsilon,
     agentFactory: agentFactory,
   );
@@ -102,8 +108,8 @@ class _HeadlessConfig {
   final _HeadlessOutputFormat outputFormat;
   final bool showHelp;
   final bool includeTimestamps;
-  final bool includeLegalTurnCount;
   final String? nnPolicyPath;
+  final String? opponentPolicyPath;
   final double epsilon;
   final bool useMcts;
   final int mctsDeterminizations;
@@ -121,8 +127,8 @@ class _HeadlessConfig {
     required this.outputFormat,
     required this.showHelp,
     required this.includeTimestamps,
-    required this.includeLegalTurnCount,
     required this.nnPolicyPath,
+    required this.opponentPolicyPath,
     required this.epsilon,
     required this.useMcts,
     required this.mctsDeterminizations,
@@ -132,7 +138,7 @@ class _HeadlessConfig {
   });
 }
 
-enum _HeadlessOutputFormat { csv, rlJsonl, none }
+enum _HeadlessOutputFormat { csv, bcJsonl, summary, none }
 
 _HeadlessConfig _parseArgs(final List<String> args) {
   int? seed;
@@ -143,8 +149,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var episodes = _defaultEpisodes;
   var maxStepsPerEpisode = _defaultMaxStepsPerEpisode;
   var includeTimestamps = true;
-  var includeLegalTurnCount = false;
   String? nnPolicyPath;
+  String? opponentPolicyPath;
   var outputProvided = false;
   var showHelp = false;
   var epsilon = 0.0;
@@ -155,34 +161,97 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var mixed = false;
 
   for (final arg in args) {
-    if (arg == '--help' || arg == '-h') { showHelp = true; continue; }
-    if (arg.startsWith('--seed=')) { seed = int.tryParse(arg.split('=').last); continue; }
-    if (arg.startsWith('--target-score=')) { targetScore = int.tryParse(arg.split('=').last) ?? _defaultTargetScore; continue; }
-    if (arg.startsWith('--rounds=')) { final p = int.tryParse(arg.split('=').last); if (p != null && p > 0) rounds = p; continue; }
-    if (arg.startsWith('--episodes=')) { final p = int.tryParse(arg.split('=').last); if (p != null && p > 0) episodes = p; continue; }
-    if (arg.startsWith('--max-steps=')) { final p = int.tryParse(arg.split('=').last); if (p != null && p > 0) maxStepsPerEpisode = p; continue; }
+    if (arg == '--help' || arg == '-h') {
+      showHelp = true;
+      continue;
+    }
+    if (arg.startsWith('--seed=')) {
+      seed = int.tryParse(arg.split('=').last);
+      continue;
+    }
+    if (arg.startsWith('--target-score=')) {
+      targetScore = int.tryParse(arg.split('=').last) ?? _defaultTargetScore;
+      continue;
+    }
+    if (arg.startsWith('--rounds=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) rounds = p;
+      continue;
+    }
+    if (arg.startsWith('--episodes=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) episodes = p;
+      continue;
+    }
+    if (arg.startsWith('--max-steps=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) maxStepsPerEpisode = p;
+      continue;
+    }
     if (arg.startsWith('--format=')) {
       switch (arg.split('=').last) {
-        case 'csv': outputFormat = _HeadlessOutputFormat.csv;
-        case 'rl-jsonl': outputFormat = _HeadlessOutputFormat.rlJsonl;
-        case 'none': outputFormat = _HeadlessOutputFormat.none;
+        case 'csv':
+          outputFormat = _HeadlessOutputFormat.csv;
+        case 'bc-jsonl':
+          outputFormat = _HeadlessOutputFormat.bcJsonl;
+        case 'summary':
+          outputFormat = _HeadlessOutputFormat.summary;
+        case 'none':
+          outputFormat = _HeadlessOutputFormat.none;
       }
       continue;
     }
-    if (arg == '--rl') { outputFormat = _HeadlessOutputFormat.rlJsonl; continue; }
-    if (arg == '--no-timestamps') { includeTimestamps = false; continue; }
-    if (arg == '--rl-legal-count') { includeLegalTurnCount = true; continue; }
-    if (arg.startsWith('--output=')) { outputPath = arg.split('=').last; outputProvided = true; continue; }
-    if (arg.startsWith('--epsilon=')) { final p = double.tryParse(arg.split('=').last); if (p != null && p >= 0 && p <= 1) epsilon = p; continue; }
-    if (arg == '--mcts') { useMcts = true; continue; }
-    if (arg.startsWith('--mcts-determinizations=')) { final p = int.tryParse(arg.split('=').last); if (p != null && p > 0) mctsDeterminizations = p; useMcts = true; continue; }
-    if (arg.startsWith('--nn-policy=')) { nnPolicyPath = arg.split('=').last; continue; }
-    if (arg == '--ismcts') { useIsmcts = true; continue; }
-    if (arg.startsWith('--ismcts-simulations=')) { final p = int.tryParse(arg.split('=').last); if (p != null && p > 0) ismctsSimulations = p; useIsmcts = true; continue; }
-    if (arg == '--mixed') { mixed = true; continue; }
+    if (arg == '--no-timestamps') {
+      includeTimestamps = false;
+      continue;
+    }
+    if (arg.startsWith('--output=')) {
+      outputPath = arg.split('=').last;
+      outputProvided = true;
+      continue;
+    }
+    if (arg.startsWith('--epsilon=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) epsilon = p;
+      continue;
+    }
+    if (arg == '--mcts') {
+      useMcts = true;
+      continue;
+    }
+    if (arg.startsWith('--mcts-determinizations=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) mctsDeterminizations = p;
+      useMcts = true;
+      continue;
+    }
+    if (arg.startsWith('--nn-policy=')) {
+      nnPolicyPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--opponent-policy=')) {
+      opponentPolicyPath = arg.split('=').last;
+      continue;
+    }
+    if (arg == '--ismcts') {
+      useIsmcts = true;
+      continue;
+    }
+    if (arg.startsWith('--ismcts-simulations=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) ismctsSimulations = p;
+      useIsmcts = true;
+      continue;
+    }
+    if (arg == '--mixed') {
+      mixed = true;
+      continue;
+    }
   }
 
-  if (!outputProvided && outputFormat == _HeadlessOutputFormat.rlJsonl) {
+  if (!outputProvided &&
+      (outputFormat == _HeadlessOutputFormat.bcJsonl ||
+          outputFormat == _HeadlessOutputFormat.summary)) {
     outputPath = 'game.jsonl';
   }
 
@@ -196,8 +265,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     outputFormat: outputFormat,
     showHelp: showHelp,
     includeTimestamps: includeTimestamps,
-    includeLegalTurnCount: includeLegalTurnCount,
     nnPolicyPath: nnPolicyPath,
+    opponentPolicyPath: opponentPolicyPath,
     epsilon: epsilon,
     useMcts: useMcts,
     mctsDeterminizations: mctsDeterminizations,
@@ -211,7 +280,7 @@ void _printUsage() {
   stdout.writeln('Headless Tichu automated-opponent runner');
   stdout.writeln('Usage: dart run lib/headless/headless.dart [--seed=N]');
   stdout.writeln('       [--target-score=N] [--rounds=N] [--episodes=N]');
-  stdout.writeln('       [--format=csv|rl-jsonl|none] [--output=path]');
+  stdout.writeln('       [--format=csv|bc-jsonl|summary|none] [--output=path]');
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
   stdout.writeln('       [--epsilon=0.1] [--mcts] [--ismcts]');
 }

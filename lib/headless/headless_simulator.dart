@@ -9,7 +9,6 @@ class _HeadlessSimulator {
   final _HeadlessOutputFormat outputFormat;
   final IOSink? output;
   final bool includeTimestamps;
-  final bool includeLegalTurnCount;
   final double epsilon;
   final PlayerAgent Function(String playerId, int seat) agentFactory;
 
@@ -22,7 +21,6 @@ class _HeadlessSimulator {
     required this.outputFormat,
     required this.output,
     required this.includeTimestamps,
-    required this.includeLegalTurnCount,
     required this.epsilon,
     required this.agentFactory,
   });
@@ -51,13 +49,13 @@ class _HeadlessSimulator {
         outputFormat == _HeadlessOutputFormat.csv && output != null
         ? _CsvEventWriter(output: output!, includeTimestamps: includeTimestamps)
         : null;
-    final rlWriter =
-        outputFormat == _HeadlessOutputFormat.rlJsonl && output != null
-        ? _RlTransitionWriter(
-            output: output!,
-            episode: episodeNumber,
-            includeLegalTurnCount: includeLegalTurnCount,
-          )
+    final bcWriter =
+        outputFormat == _HeadlessOutputFormat.bcJsonl && output != null
+        ? _BcTransitionWriter(output: output!, episode: episodeNumber)
+        : null;
+    final summaryWriter =
+        outputFormat == _HeadlessOutputFormat.summary && output != null
+        ? _SummaryWriter(output: output!, episode: episodeNumber)
         : null;
 
     var snapshot = engine.buildSnapshot(state);
@@ -68,9 +66,11 @@ class _HeadlessSimulator {
 
     while (true) {
       if (snapshot.scoreState.gameComplete) {
+        summaryWriter?.emit(snapshot);
         return;
       }
       if (roundsLimit != null && completedRounds >= roundsLimit!) {
+        summaryWriter?.emit(snapshot);
         return;
       }
 
@@ -99,6 +99,7 @@ class _HeadlessSimulator {
           'warning,episode_abandoned,$episodeNumber,'
           'step=$steps,player=${snapshot.currentPlayerId}',
         );
+        summaryWriter?.emit(snapshot);
         return;
       }
 
@@ -125,11 +126,10 @@ class _HeadlessSimulator {
 
       snapshot = engine.buildSnapshot(state);
       csvWriter?.processSnapshot(snapshot);
-      rlWriter?.emitTransition(
+      bcWriter?.emitTransition(
         before: before,
         action: appliedAction,
         after: snapshot,
-        step: steps,
       );
 
       if (!before.scoreState.roundComplete &&
@@ -251,13 +251,24 @@ class _HeadlessSimulator {
     if (hand.isEmpty) return null;
 
     final legalTurns = generateLegalTurns(snapshot.deck, List<Card>.from(hand));
+
+    // Honour any active wish: if the wish must be fulfilled and this turn
+    // doesn't fulfil it, skip it. mahJong() returns true when the wish is
+    // active and the turn fails to satisfy it.
+    final wishFiltered = <TichuTurn>[
+      for (final turn in legalTurns)
+        if (!mahJong(snapshot.deck, turn, hand)) turn,
+    ];
+
+    // Pass legality also requires non-empty deck and that the wish (if any)
+    // does not need to be fulfilled by this player on this turn.
     final canPass =
         snapshot.deck.turn.type != TurnType.empty &&
         snapshot.deck.turn.type != TurnType.none &&
         !mahJong(snapshot.deck, TichuTurn(TurnType.none, const []), hand);
 
     final actions = <GameAction>[
-      for (final turn in legalTurns)
+      for (final turn in wishFiltered)
         PlayTurnAction(
           playerId: playerId,
           cards: List<Card>.from(turn.cards),

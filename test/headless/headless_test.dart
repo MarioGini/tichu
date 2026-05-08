@@ -146,75 +146,69 @@ void main() {
     }
   });
 
-  test('headless rl-jsonl output writes transitions', () async {
-    final tempDir = await Directory.systemTemp.createTemp(
-      'tichu_headless_rl_jsonl_',
-    );
-    final outputFile = File('${tempDir.path}/episode.jsonl');
+  test(
+    'headless bc-jsonl output writes minimal training transitions',
+    () async {
+      final tempDir = await Directory.systemTemp.createTemp(
+        'tichu_headless_bc_jsonl_',
+      );
+      final outputFile = File('${tempDir.path}/episode.jsonl');
 
-    try {
-      await headless.main([
-        '--seed=3',
-        '--target-score=50',
-        '--episodes=2',
-        '--format=rl-jsonl',
-        '--output=${outputFile.path}',
-      ]);
+      try {
+        await headless.main([
+          '--seed=3',
+          '--target-score=50',
+          '--episodes=2',
+          '--format=bc-jsonl',
+          '--output=${outputFile.path}',
+        ]);
 
-      final lines = await outputFile.readAsLines();
-      expect(lines, isNotEmpty);
+        final lines = await outputFile.readAsLines();
+        expect(lines, isNotEmpty);
 
-      final first = jsonDecode(lines.first) as Map<String, dynamic>;
-      expect(first['episode'], isA<int>());
-      expect(first['seq'], isA<int>());
-      expect(first['step'], isA<int>());
-      expect(first['state_key'], isA<String>());
-      expect(first['next_state_key'], isA<String>());
-      expect(first['state'], isA<Map<String, dynamic>>());
-      expect(first['next_state'], isA<Map<String, dynamic>>());
-      expect(first['action'], isA<Map<String, dynamic>>());
-      expect(first['action_key'], isA<String>());
-      expect(first['legal_actions_enumerated'], isA<bool>());
-      expect(first['player_id'], isA<String>());
-      expect(first['action_type'], isA<String>());
-      expect(first['reward'], isA<num>());
-      expect(first['done'], isA<bool>());
-
-      if (first['legal_actions_enumerated'] == true) {
-        final legal = (first['legal_action_keys'] as List<dynamic>)
-            .map((final item) => item.toString())
-            .toSet();
-        final actionKey = first['action_key'] as String;
-        expect(legal.contains(actionKey), isTrue);
+        final first = jsonDecode(lines.first) as Map<String, dynamic>;
+        expect(first['episode'], isA<int>());
+        expect(first['team'], isA<int>());
+        expect(first['state_features'], isA<List<dynamic>>());
+        expect((first['state_features'] as List).length, 46);
+        expect(first['legal_play_action_features'], isA<List<dynamic>>());
+        final legal = first['legal_play_action_features'] as List;
+        expect(legal.length, greaterThanOrEqualTo(2));
+        expect((legal.first as List).length, 20);
+        expect(first['legal_play_chosen_index'], isA<int>());
+        final chosen = first['legal_play_chosen_index'] as int;
+        expect(chosen, greaterThanOrEqualTo(0));
+        expect(chosen, lessThan(legal.length));
+      } finally {
+        await tempDir.delete(recursive: true);
       }
-    } finally {
-      await tempDir.delete(recursive: true);
-    }
-  });
+    },
+  );
 
-  test('headless runner accepts rl policy through AI interfaces', () async {
+  test('headless summary output writes one line per match', () async {
     final tempDir = await Directory.systemTemp.createTemp(
-      'tichu_headless_rl_policy_',
+      'tichu_headless_summary_',
     );
-    final policyFile = File('${tempDir.path}/policy.json');
-    final outputFile = File('${tempDir.path}/game.csv');
-
-    await policyFile.writeAsString(
-      jsonEncode(<String, Object?>{'state_action_values': <String, Object?>{}}),
-    );
+    final outputFile = File('${tempDir.path}/eval.jsonl');
 
     try {
       await headless.main([
-        '--seed=11',
+        '--seed=4',
         '--target-score=50',
-        '--rounds=1',
-        '--rl-policy=${policyFile.path}',
+        '--episodes=3',
+        '--format=summary',
         '--output=${outputFile.path}',
       ]);
 
-      expect(outputFile.existsSync(), isTrue);
       final lines = await outputFile.readAsLines();
-      expect(lines, isNotEmpty);
+      expect(lines.length, 3);
+      for (final line in lines) {
+        final row = jsonDecode(line) as Map<String, dynamic>;
+        expect(row['episode'], isA<int>());
+        expect(row['team_one_total'], isA<int>());
+        expect(row['team_two_total'], isA<int>());
+        expect(row['done'], isA<bool>());
+      }
     } finally {
       await tempDir.delete(recursive: true);
     }

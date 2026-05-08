@@ -173,7 +173,8 @@ class IsmctsSearch {
       if (child.visits == 0) {
         ucb = double.infinity; // Unvisited — explore first.
       } else {
-        ucb = child.meanValue +
+        ucb =
+            child.meanValue +
             explorationConstant * sqrt(lnParentVisits / child.visits);
       }
 
@@ -194,23 +195,16 @@ class IsmctsSearch {
     required final String playerId,
     required final int myTeam,
   }) {
-    // Try value network first.
-    if (valueNetwork != null) {
-      return _evaluateWithNetwork(
-        snapshot: snapshot,
-        playerId: playerId,
-        myTeam: myTeam,
-      );
-    }
-
-    // Fall back to heuristic rollout.
-    return _heuristicRollout(
-      engine: engine,
-      state: state,
-      myTeam: myTeam,
-    );
+    // NOTE: the network is currently a Q(s, a) head trained on full
+    // (state, action) features. Querying it as V(s) by zeroing the action
+    // features is out-of-distribution and unreliable; until a true value
+    // head exists, always use heuristic rollouts. The valueNetwork* fields
+    // are kept for future use.
+    return _heuristicRollout(engine: engine, state: state, myTeam: myTeam);
   }
 
+  // Kept private for future restoration once a true V(s) head is trained.
+  // ignore: unused_element
   double _evaluateWithNetwork({
     required final GameSnapshot snapshot,
     required final String playerId,
@@ -310,13 +304,11 @@ class IsmctsSearch {
     final hand = state.hands[playerId] ?? const <Card>[];
     if (hand.isEmpty) return PassAction(playerId: playerId);
 
-    final legalTurns = generateLegalTurns(
-      snapshot.deck,
-      List<Card>.from(hand),
-    );
+    final legalTurns = generateLegalTurns(snapshot.deck, List<Card>.from(hand));
 
     if (legalTurns.isEmpty) {
-      final canPass = snapshot.deck.turn.type != TurnType.empty &&
+      final canPass =
+          snapshot.deck.turn.type != TurnType.empty &&
           snapshot.deck.turn.type != TurnType.none &&
           !mahJong(snapshot.deck, TichuTurn(TurnType.none, const []), hand);
       if (canPass) return PassAction(playerId: playerId);

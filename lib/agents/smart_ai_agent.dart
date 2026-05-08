@@ -109,10 +109,14 @@ class SmartAiAgent extends PlayerAgent {
     }
 
     final generatedTurns = generateLegalTurns(deck, List<Card>.from(hand));
-    var legalTurns = LegalPlayGuard.strictLegalTurnsFromCandidates(
+    // generatedTurns are already type-normalised, drawn from `hand`, and
+    // satisfy validTurn(deck, .). The move generator does NOT enforce
+    // active wishes, so we filter only that — much cheaper than the full
+    // strictLegalTurnsFromCandidates path.
+    var legalTurns = LegalPlayGuard.filterMoveGeneratorTurns(
       deck: deck,
       hand: hand,
-      candidates: generatedTurns,
+      moveGeneratorTurns: generatedTurns,
     );
 
     if (legalTurns.isEmpty) {

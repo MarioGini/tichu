@@ -10,35 +10,31 @@ import 'package:tichu/game/turn/tichu_data.dart';
 /// Encodes game state as a dense float vector for MLP consumption.
 /// All features are normalized to roughly [-1, 1] or [0, 1] ranges.
 ///
-/// **State features** (38 floats) — indices 0-37
-/// **Hand structure features** (8 floats) — indices 38-45
-///   38: pair_count / 7
-///   39: triplet_count / 4
-///   40: straight_count / 4
-///   41: fullHouse_count / 4
-///   42: pairStraight_count / 4
-///   43: bomb_count / 2
-///   44: max_combo_size / 14
-///   45: singleton_fraction (cards not in any multi-card combo / hand_size)
-/// **Opponent features** (6 floats) — indices 46-51
-///   46-48: opponent hand sizes / 14 (sorted ascending)
-///   49: partner_called_tichu (0/1)
-///   50: any_opponent_called_tichu (0/1)
-///   51: any_opponent_called_grand (0/1)
-/// **Action features** (12 floats) — indices 52-63
-///   52-57: action type one-hot (single, pair, triple, straight, bomb, pass)
-///   58: action_value / 25
-///   59: action_card_count / 14
-///   60: is_phoenix_play (0/1)
-///   61: is_dragon_play (0/1)
-///   62: is_dog_play (0/1)
-///   63: relative_strength (action_value - deck_value) / 25, clamped ±1
+/// **Authoritative layout lives in `rl/schema/feature_spec.json`.**
+/// Both Python (rl/data.py) and Dart (this file) consume the same spec.
+/// `test/agents/feature_layout_test.dart` asserts the Dart constants below
+/// match the JSON spec; do not edit constants without editing the spec.
+///
+/// **State features** (32 floats) — indices 0-31
+/// **Hand structure features** (8 floats) — indices 32-39
+/// **Opponent features** (6 floats) — indices 40-45
+/// **Action features** (20 floats) — indices 46-65
+///
+/// Total: 66 floats per (state, action) pair.
 
-const stateFeatureCount = 46;
-const opponentFeatureCount = 6;
-const stateAndOpponentFeatureCount = stateFeatureCount + opponentFeatureCount;
-const actionFeatureCount = 12;
-const totalFeatureCount = stateAndOpponentFeatureCount + actionFeatureCount;
+const int stateFeatureCount = 32;
+const int handStructureFeatureCount = 8;
+const int opponentFeatureCount = 6;
+const int stateOffset = 0;
+const int handStructureOffset = stateOffset + stateFeatureCount; // 32
+const int opponentOffset =
+    handStructureOffset + handStructureFeatureCount; // 40
+const int actionOffset = opponentOffset + opponentFeatureCount; // 46
+const int stateAndOpponentFeatureCount =
+    stateFeatureCount + handStructureFeatureCount + opponentFeatureCount; // 46
+const int actionFeatureCount = 20;
+const int totalFeatureCount =
+    stateAndOpponentFeatureCount + actionFeatureCount; // 66
 
 /// Encode the game state for [playerId] into a fixed-size float vector.
 List<double> encodeStateFeatures({
@@ -100,15 +96,9 @@ List<double> encodeStateFeatures({
           CardFace.five ||
           CardFace.six:
         lowCount++;
-      case CardFace.seven ||
-          CardFace.eight ||
-          CardFace.nine ||
-          CardFace.ten:
+      case CardFace.seven || CardFace.eight || CardFace.nine || CardFace.ten:
         midCount++;
-      case CardFace.jack ||
-          CardFace.queen ||
-          CardFace.king ||
-          CardFace.ace:
+      case CardFace.jack || CardFace.queen || CardFace.king || CardFace.ace:
         highCount++;
       case CardFace.none:
     }
@@ -124,8 +114,7 @@ List<double> encodeStateFeatures({
   features[13] = hasDog ? 1.0 : 0.0;
   features[14] = (snapshot.hasBombByPlayer[playerId] ?? false) ? 1.0 : 0.0;
   features[15] = (snapshot.canBombByPlayer[playerId] ?? false) ? 1.0 : 0.0;
-  features[16] =
-      (snapshot.canCallTichuByPlayer[playerId] ?? false) ? 1.0 : 0.0;
+  features[16] = (snapshot.canCallTichuByPlayer[playerId] ?? false) ? 1.0 : 0.0;
 
   // Deck state.
   final deckType = snapshot.deck.turn.type;
@@ -153,8 +142,7 @@ List<double> encodeStateFeatures({
   final wish = snapshot.activeWish;
   if (wish != CardFace.none) {
     features[25] = _faceValue(wish) / 14.0;
-    features[26] =
-        hand.any((final c) => c.face == wish) ? 1.0 : 0.0;
+    features[26] = hand.any((final c) => c.face == wish) ? 1.0 : 0.0;
   }
 
   features[27] = snapshot.consecutivePasses / 3.0;
@@ -166,8 +154,7 @@ List<double> encodeStateFeatures({
   features[29] = ((ownScore - oppScore) / 500.0).clamp(-1.0, 1.0);
 
   // Own tichu call.
-  final ownCall =
-      snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none;
+  final ownCall = snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none;
   if (ownCall == TichuCall.tichu) {
     features[30] = 1.0;
   } else if (ownCall == TichuCall.grandTichu) {
@@ -205,8 +192,7 @@ List<double> encodeStateFeatures({
           pairStraightCount++;
         case TurnType.bomb:
           bombCount++;
-        case TurnType.single || TurnType.dog || TurnType.none ||
-             TurnType.empty:
+        case TurnType.single || TurnType.dog || TurnType.none || TurnType.empty:
           break;
       }
       if (turn.cards.length > maxComboSize) {
@@ -223,7 +209,8 @@ List<double> encodeStateFeatures({
     features[38] = maxComboSize / 14.0;
 
     // Estimate singleton fraction: how many cards aren't in multi-card combos.
-    final multiCardCount = pairCount * 2 +
+    final multiCardCount =
+        pairCount * 2 +
         tripletCount * 3 +
         straightCount * 5 +
         fullHouseCount * 5 +
@@ -255,8 +242,7 @@ List<double> encodeStateFeatures({
   var anyOppTichu = false;
   var anyOppGrand = false;
   for (final opp in table.opponents) {
-    final oppCall =
-        snapshot.scoreState.tichuCalls[opp.id] ?? TichuCall.none;
+    final oppCall = snapshot.scoreState.tichuCalls[opp.id] ?? TichuCall.none;
     if (oppCall == TichuCall.tichu) anyOppTichu = true;
     if (oppCall == TichuCall.grandTichu) anyOppGrand = true;
   }
@@ -272,43 +258,86 @@ List<double> encodeActionFeatures({
   required final DeckState deck,
   required final bool isPass,
 }) {
+  // Schema v3 layout (20 floats). Indices follow rl/schema/feature_spec.json.
   final features = List<double>.filled(actionFeatureCount, 0.0);
 
   if (isPass) {
-    features[5] = 1.0; // pass slot
+    features[0] = 1.0; // type_pass
     return features;
   }
 
-  // Action type one-hot.
+  // Action type one-hot (mutually exclusive).
   switch (play.type) {
     case TurnType.single:
-      features[0] = 1.0;
-    case TurnType.pair:
-      features[0] = 0.5;
       features[1] = 1.0;
-    case TurnType.triplet:
+    case TurnType.pair:
       features[2] = 1.0;
-    case TurnType.straight || TurnType.pairStraight || TurnType.fullHouse:
+    case TurnType.triplet:
       features[3] = 1.0;
-    case TurnType.bomb:
+    case TurnType.fullHouse:
       features[4] = 1.0;
+    case TurnType.straight:
+      features[5] = 1.0;
+    case TurnType.pairStraight:
+      features[6] = 1.0;
+    case TurnType.bomb:
+      features[7] = 1.0;
     case TurnType.none || TurnType.empty || TurnType.dog:
       break;
   }
 
-  features[6] = play.value / 25.0;
-  features[7] = play.cards.length / 14.0;
+  features[8] = play.value / 25.0; // action_value
+  features[9] = play.cards.length / 14.0; // action_card_count
 
-  // Special card flags.
+  // Special card flags + per-rank-bucket histograms.
+  var lowPlayed = 0;
+  var midPlayed = 0;
+  var highPlayed = 0;
+  var maxRank = 0;
   for (final card in play.cards) {
-    if (card.face == CardFace.phoenix) features[8] = 1.0;
-    if (card.face == CardFace.dragon) features[9] = 1.0;
-    if (card.face == CardFace.dog) features[10] = 1.0;
+    switch (card.face) {
+      case CardFace.phoenix:
+        features[10] = 1.0;
+      case CardFace.dragon:
+        features[11] = 1.0;
+        if (15 > maxRank) maxRank = 15;
+      case CardFace.dog:
+        features[12] = 1.0;
+      case CardFace.mahJong:
+        features[13] = 1.0;
+        if (1 > maxRank) maxRank = 1;
+      case CardFace.two ||
+          CardFace.three ||
+          CardFace.four ||
+          CardFace.five ||
+          CardFace.six:
+        lowPlayed++;
+        final r = _faceValue(card.face).toInt();
+        if (r > maxRank) maxRank = r;
+      case CardFace.seven || CardFace.eight || CardFace.nine || CardFace.ten:
+        midPlayed++;
+        final r = _faceValue(card.face).toInt();
+        if (r > maxRank) maxRank = r;
+      case CardFace.jack || CardFace.queen || CardFace.king || CardFace.ace:
+        highPlayed++;
+        final r = _faceValue(card.face).toInt();
+        if (r > maxRank) maxRank = r;
+      case CardFace.none:
+        break;
+    }
   }
+  features[14] = lowPlayed / 14.0;
+  features[15] = midPlayed / 14.0;
+  features[16] = highPlayed / 14.0;
+  features[17] = maxRank / 15.0; // dragon = 15
 
-  // Relative strength vs deck.
+  // Relative strength vs deck (clamped) and a binary "beats deck" cue.
   final deckValue = deck.turn.value;
-  features[11] = ((play.value - deckValue) / 25.0).clamp(-1.0, 1.0);
+  features[18] = ((play.value - deckValue) / 25.0).clamp(-1.0, 1.0);
+  features[19] =
+      (deck.turn.type == TurnType.empty || deck.turn.type == TurnType.none)
+      ? 1.0
+      : (play.value > deckValue ? 1.0 : 0.0);
 
   return features;
 }
@@ -322,11 +351,7 @@ List<double> encodeStateActionFeatures({
   final bool isPass = false,
 }) {
   final state = encodeStateFeatures(snapshot: snapshot, playerId: playerId);
-  final action = encodeActionFeatures(
-    play: play,
-    deck: deck,
-    isPass: isPass,
-  );
+  final action = encodeActionFeatures(play: play, deck: deck, isPass: isPass);
   return [...state, ...action];
 }
 
@@ -358,8 +383,11 @@ double _faceValue(final CardFace face) {
       return 13;
     case CardFace.ace:
       return 14;
-    case CardFace.mahJong || CardFace.phoenix || CardFace.dragon ||
-         CardFace.dog || CardFace.none:
+    case CardFace.mahJong ||
+        CardFace.phoenix ||
+        CardFace.dragon ||
+        CardFace.dog ||
+        CardFace.none:
       return 0;
   }
 }

@@ -1,29 +1,30 @@
-"""JSONL data loading and feature encoding for Tichu RL training.
+"""JSONL feature encoder shared between Python (training) and Dart.
 
-Reads the transition JSONL produced by the Dart headless runner and encodes
-each (state, action) pair into the same 64-dimensional feature vector that
-the Dart-side feature_encoder.dart uses for inference.
+Encodes a transition JSONL row from the Dart headless runner into the
+fixed-length feature vector defined by ``rl/schema/feature_spec.json``.
 
-This is the single source of truth for Python-side feature encoding.  Any
-change here MUST be mirrored in lib/agents/nn/feature_encoder.dart.
+Only used as a fallback path: the preferred ``--format=bc-jsonl`` output
+already contains the pre-encoded state vector, so the BC trainer skips
+this re-encoding entirely. We keep ``encode_transition`` for compatibility
+with legacy ``--format=rl-jsonl`` files.
 """
 
 from __future__ import annotations
 
-import json
 from collections import defaultdict
-from pathlib import Path
 
 import numpy as np
-import torch
-from torch.utils.data import Dataset
 
-# Must match Dart feature_encoder.dart constants.
-STATE_FEATURE_COUNT = 46       # 0-31: core state, 32-39: hand structure, 40-45: opponent
-OPPONENT_FEATURE_COUNT = 6
-STATE_AND_OPP_COUNT = STATE_FEATURE_COUNT + OPPONENT_FEATURE_COUNT  # 52
-ACTION_FEATURE_COUNT = 12
-TOTAL_FEATURE_COUNT = STATE_AND_OPP_COUNT + ACTION_FEATURE_COUNT    # 64
+# Authoritative layout lives in rl/schema/feature_spec.json. The Dart side
+# loads the same file (see lib/agents/nn/feature_layout.dart and the schema
+# test under test/agents/feature_layout_test.dart).
+from schema import (
+    ACTION_OFFSET,
+    HAND_STRUCTURE_OFFSET,
+    OPPONENT_OFFSET,
+    STATE_OFFSET,
+    TOTAL_FEATURE_COUNT,
+)
 
 _RANK_MAP = {
     "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
@@ -56,9 +57,9 @@ def encode_transition(row: dict) -> np.ndarray | None:
         return None
 
     f = np.zeros(TOTAL_FEATURE_COUNT, dtype=np.float32)
-    i = 0
+    i = STATE_OFFSET
 
-    # ── state features (38) ──────────────────────────────────────────────
+    # ── state features (32) ──────────────────────────────────────
     f[i] = _num(state.get("team", 0));                            i += 1  # 0
     f[i] = float(state.get("current_player_id") == state.get("player_id")); i += 1  # 1
 
@@ -141,6 +142,8 @@ def encode_transition(row: dict) -> np.ndarray | None:
     f[i] = float(own_call == "tichu");       i += 1  # 30
     f[i] = float(own_call == "grandTichu");  i += 1  # 31
 
+    assert i == HAND_STRUCTURE_OFFSET, f"state group misaligned: i={i}"
+
     # ── hand structure features (8) ──────────────────────────────────────
     # We approximate from the hand token list.  The Dart side uses
     # generateLegalTurns() for exact counts; here we estimate from face
@@ -187,6 +190,8 @@ def encode_transition(row: dict) -> np.ndarray | None:
     f[i] = max_combo / 14.0;         i += 1  # 38
     f[i] = singleton_frac;           i += 1  # 39
 
+    assert i == OPPONENT_OFFSET, f"hand_structure group misaligned: i={i}"
+
     # ── opponent features (6) ────────────────────────────────────────────
     opp_counts = state.get("opponent_card_counts", {})
     opp_map = opp_counts if isinstance(opp_counts, dict) else {}
@@ -206,8 +211,9 @@ def encode_transition(row: dict) -> np.ndarray | None:
     f[i] = float(partner_called);   i += 1  # 43
     f[i] = float(any_opp_tichu);    i += 1  # 44
     f[i] = float(any_opp_grand);    i += 1  # 45
-
-    # ── action features (12) ─────────────────────────────────────────────
+    assert i == ACTION_OFFSET, f"opponent group misaligned: i={i}"
+    # ── action features (20) ─────────────────────────────────────────────
+    # Schema v3 layout: see rl/schema/feature_spec.json.
     action = row.get("action", {})
     action_map = action if isinstance(action, dict) else {}
     action_type = str(action_map.get("type", row.get("action_type", "")))
@@ -215,36 +221,79 @@ def encode_transition(row: dict) -> np.ndarray | None:
     action_card_list = action_cards if isinstance(action_cards, list) else []
 
     if action_type == "pass":
-        f[i + 5] = 1.0  # pass slot
+        f[i + 0] = 1.0  # type_pass
     elif action_type == "play":
         shape_key = str(row.get("action_shape_key", ""))
         action_key = str(row.get("action_key", ""))
         key = shape_key if shape_key else action_key
         turn_type = _extract_turn_type(key)
 
+        # Type one-hot (mutually exclusive).
         if turn_type == "single":
-            f[i] = 1.0
+            f[i + 1] = 1.0
         elif turn_type == "pair":
-            f[i] = 0.5; f[i + 1] = 1.0
-        elif turn_type in ("triple", "triplet"):
             f[i + 2] = 1.0
-        elif turn_type in ("straight", "pairStraight", "fullHouse"):
+        elif turn_type in ("triple", "triplet"):
             f[i + 3] = 1.0
-        elif turn_type == "bomb":
+        elif turn_type == "fullHouse":
             f[i + 4] = 1.0
+        elif turn_type == "straight":
+            f[i + 5] = 1.0
+        elif turn_type == "pairStraight":
+            f[i + 6] = 1.0
+        elif turn_type == "bomb":
+            f[i + 7] = 1.0
 
         deck_value = _num(state.get("deck_value", 0))
         action_value = _extract_action_value(key)
-        f[i + 6] = action_value / 25.0
-        f[i + 7] = len(action_card_list) / 14.0
+        f[i + 8] = action_value / 25.0
+        f[i + 9] = len(action_card_list) / 14.0
 
+        # Special card flags + per-rank histograms + max rank.
+        low_played = mid_played = high_played = 0
+        max_rank = 0
         for card in action_card_list:
             s = str(card) if card is not None else ""
-            if s.startswith("phoenix"): f[i + 8] = 1.0
-            if s.startswith("dragon"):  f[i + 9] = 1.0
-            if s.startswith("dog"):     f[i + 10] = 1.0
+            if s.startswith("phoenix"):
+                f[i + 10] = 1.0
+                continue
+            if s.startswith("dragon"):
+                f[i + 11] = 1.0
+                if 15 > max_rank:
+                    max_rank = 15
+                continue
+            if s.startswith("dog"):
+                f[i + 12] = 1.0
+                continue
+            if s.startswith("mahJong") or s.startswith("mah"):
+                f[i + 13] = 1.0
+                if 1 > max_rank:
+                    max_rank = 1
+                continue
+            face = s.split("-")[0] if "-" in s else s.split(":")[0]
+            r = _rank(face)
+            if r <= 0:
+                continue
+            if r <= 6:
+                low_played += 1
+            elif r <= 10:
+                mid_played += 1
+            else:
+                high_played += 1
+            if r > max_rank:
+                max_rank = r
+        f[i + 14] = low_played / 14.0
+        f[i + 15] = mid_played / 14.0
+        f[i + 16] = high_played / 14.0
+        f[i + 17] = max_rank / 15.0
 
-        f[i + 11] = max(-1.0, min(1.0, (action_value - deck_value) / 25.0))
+        deck_type = str(state.get("deck_type", "empty"))
+        f[i + 18] = max(-1.0, min(1.0, (action_value - deck_value) / 25.0))
+        f[i + 19] = (
+            1.0
+            if deck_type in ("empty", "none")
+            else (1.0 if action_value > deck_value else 0.0)
+        )
 
     return f
 
@@ -262,200 +311,3 @@ def _extract_action_value(key: str) -> float:
         except ValueError:
             pass
     return 0.0
-
-
-# ── Data loading ─────────────────────────────────────────────────────────────
-
-def load_episodes(path: Path) -> list[list[dict]]:
-    """Load a JSONL file into a list of episodes (each a list of transitions)."""
-    by_episode: dict[int, list[dict]] = defaultdict(list)
-    with path.open("r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            ep = int(row.get("episode", 0))
-            by_episode[ep].append(row)
-    return [by_episode[k] for k in sorted(by_episode)]
-
-
-def compute_mc_returns(
-    episodes: list[list[dict]],
-    gamma: float = 0.99,
-) -> list[tuple[dict, float]]:
-    """Compute Monte Carlo returns for each transition, partitioned by team."""
-    samples: list[tuple[dict, float]] = []
-    for episode in episodes:
-        by_team: dict[int, list[dict]] = defaultdict(list)
-        for row in episode:
-            team = int(row.get("team", 0))
-            by_team[team].append(row)
-
-        for team_rows in by_team.values():
-            g = 0.0
-            for row in reversed(team_rows):
-                reward = float(row.get("reward", 0))
-                disc_raw = row.get("discount")
-                if isinstance(disc_raw, (int, float)):
-                    discount = float(disc_raw)
-                elif isinstance(row.get("done"), bool):
-                    discount = 0.0 if row["done"] else 1.0
-                else:
-                    discount = 1.0
-                g = reward + gamma * discount * g
-                samples.append((row, g))
-    return samples
-
-
-# ── PyTorch Dataset ──────────────────────────────────────────────────────────
-
-class TransitionDataset(Dataset):
-    """Lazily‑encoded dataset of (feature_vector, mc_return) pairs."""
-
-    def __init__(
-        self,
-        samples: list[tuple[dict, float]],
-        target_mean: float = 0.0,
-        target_std: float = 1.0,
-    ) -> None:
-        features: list[np.ndarray] = []
-        targets: list[float] = []
-        for row, mc_return in samples:
-            f = encode_transition(row)
-            if f is None:
-                continue
-            features.append(f)
-            targets.append(mc_return)
-
-        self.features = torch.from_numpy(np.stack(features))  # (N, 50) float32
-        raw_targets = np.array(targets, dtype=np.float32)
-
-        # Normalise targets and expose stats (needed for denormalisation).
-        self.target_mean = target_mean
-        self.target_std = target_std
-        if target_mean == 0.0 and target_std == 1.0:
-            # Auto‑compute from data.
-            self.target_mean = float(raw_targets.mean())
-            self.target_std = float(raw_targets.std()) if len(raw_targets) > 1 else 1.0
-            if self.target_std < 1e-8:
-                self.target_std = 1.0
-
-        self.targets = torch.from_numpy(
-            (raw_targets - self.target_mean) / self.target_std
-        ).unsqueeze(1)  # (N, 1)
-
-    def __len__(self) -> int:
-        return len(self.features)
-
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.features[idx], self.targets[idx]
-
-
-class PreEncodedTransitionDataset(Dataset):
-    """Dataset backed by pre-encoded feature and return tensors."""
-
-    def __init__(
-        self,
-        features: torch.Tensor,
-        raw_targets: torch.Tensor,
-        target_mean: float = 0.0,
-        target_std: float = 1.0,
-    ) -> None:
-        self.features = features.to(torch.float32).contiguous()
-
-        raw = raw_targets.to(torch.float32).cpu().numpy()
-        self.target_mean = target_mean
-        self.target_std = target_std
-        if target_mean == 0.0 and target_std == 1.0:
-            self.target_mean = float(raw.mean())
-            self.target_std = float(raw.std()) if len(raw) > 1 else 1.0
-            if self.target_std < 1e-8:
-                self.target_std = 1.0
-
-        normalized = (raw - self.target_mean) / self.target_std
-        self.targets = torch.from_numpy(normalized).unsqueeze(1)
-
-    def __len__(self) -> int:
-        return len(self.features)
-
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
-        return self.features[idx], self.targets[idx]
-
-
-def build_training_tensors_from_jsonl(
-    path: Path,
-    gamma: float = 0.99,
-) -> tuple[np.ndarray, np.ndarray, dict[str, str]]:
-    """Create encoded features and MC-return targets from transition JSONL."""
-    episodes = load_episodes(path)
-    samples = compute_mc_returns(episodes, gamma=gamma)
-
-    features: list[np.ndarray] = []
-    returns: list[float] = []
-    for row, mc_return in samples:
-        encoded = encode_transition(row)
-        if encoded is None:
-            continue
-        features.append(encoded)
-        returns.append(mc_return)
-
-    if not features:
-        raise ValueError(f"No encodable samples found in {path}")
-
-    feature_tensor = np.stack(features).astype(np.float32)
-    return_tensor = np.asarray(returns, dtype=np.float32)
-    metadata = {
-        "format": "tichu_train_dataset_v1",
-        "source": str(path),
-        "episodes": str(len(episodes)),
-        "samples": str(len(return_tensor)),
-        "feature_count": str(feature_tensor.shape[1]),
-        "gamma": str(gamma),
-    }
-    return feature_tensor, return_tensor, metadata
-
-
-def save_training_tensors_safetensors(
-    features: np.ndarray,
-    returns: np.ndarray,
-    output_path: Path,
-    metadata: dict[str, str] | None = None,
-) -> None:
-    """Persist training tensors in safetensors format."""
-    from safetensors.torch import save_file as st_save
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    tensors = {
-        "features": torch.from_numpy(features).contiguous(),
-        "returns": torch.from_numpy(returns).contiguous(),
-    }
-    header = {
-        "format": "tichu_train_dataset_v1",
-        "samples": str(features.shape[0]),
-        "feature_count": str(features.shape[1]),
-    }
-    if metadata:
-        header.update(metadata)
-    st_save(tensors, str(output_path), metadata=header)
-
-
-def load_training_tensors_safetensors(
-    path: Path,
-) -> tuple[torch.Tensor, torch.Tensor, dict[str, str]]:
-    """Load pre-encoded training tensors from safetensors."""
-    from safetensors import safe_open
-    from safetensors.torch import load_file as st_load
-
-    tensors = st_load(str(path))
-    if "features" not in tensors or "returns" not in tensors:
-        raise ValueError(
-            f"{path} must contain 'features' and 'returns' tensors"
-        )
-
-    with safe_open(str(path), framework="pt", device="cpu") as reader:
-        metadata = dict(reader.metadata() or {})
-
-    features = tensors["features"].to(torch.float32).cpu().contiguous()
-    returns = tensors["returns"].to(torch.float32).view(-1).cpu().contiguous()
-    return features, returns, metadata

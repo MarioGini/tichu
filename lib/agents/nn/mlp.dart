@@ -48,7 +48,12 @@ class Mlp {
   // ── Inference ───────────────────────────────────────────────────────────
 
   /// Forward pass into pre-allocated [_buffers].  Returns the output buffer.
-  Float64List _forward(final List<double> input) {
+  ///
+  /// The input is a [Float64List] so the hot inner loop can use typed
+  /// indexing for the first layer (subsequent layers already use the
+  /// pre-allocated typed buffers). Callers that already have a typed input
+  /// (e.g. via [predictBuffer]) avoid an allocation/copy.
+  Float64List _forwardTyped(final Float64List input) {
     var inBuf = input;
     var inLen = input.length;
 
@@ -65,7 +70,6 @@ class Mlp {
         for (var i = 0; i < inLen; i++) {
           sum += w[base + i] * inBuf[i];
         }
-        // ReLU for hidden layers, linear for output.
         out[j] = isHidden && sum < 0 ? 0.0 : sum;
       }
 
@@ -83,11 +87,23 @@ class Mlp {
         'Expected input of size $inputSize, got ${input.length}.',
       );
     }
-    return List<double>.from(_forward(input));
+    final typed = input is Float64List ? input : Float64List.fromList(input);
+    return List<double>.from(_forwardTyped(typed));
   }
 
   /// Compute Q-value for a single state-action pair (output size == 1).
-  double predict(final List<double> input) => _forward(input)[0];
+  double predict(final List<double> input) {
+    final typed = input is Float64List ? input : Float64List.fromList(input);
+    return _forwardTyped(typed)[0];
+  }
+
+  /// Predict directly from a pre-filled [Float64List]. The caller is
+  /// responsible for sizing the buffer to [inputSize] and filling it on
+  /// every call; this entry point skips both the type check and the
+  /// allocation in [predict].
+  double predictBuffer(final Float64List input) {
+    return _forwardTyped(input)[0];
+  }
 
   // ── Safetensors loading ─────────────────────────────────────────────────
 

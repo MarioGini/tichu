@@ -9,40 +9,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-import shutil
 import statistics
-import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import torch
 from safetensors.torch import save_file as st_save
 
-
-REPO = Path(__file__).resolve().parent.parent
-
-
-def _ensure_dart_on_path() -> None:
-    dart = shutil.which("dart") or shutil.which("dart.bat")
-    if dart:
-        return
-    for candidate in [Path(r"C:\flutter\flutter\bin"), Path.home() / "flutter" / "bin"]:
-        if (candidate / "dart").exists() or (candidate / "dart.bat").exists():
-            os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
-            return
-    raise RuntimeError("'dart' not found on PATH")
-
-
-def _run(cmd: list[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        cmd,
-        cwd=str(REPO),
-        capture_output=True,
-        text=True,
-        shell=(sys.platform == "win32"),
-    )
+from headless_runner import run_headless_sharded
 
 
 def main() -> None:
@@ -52,33 +26,33 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=7777)
     parser.add_argument("--episodes", type=int, default=100)
     parser.add_argument("--target-score", type=int, default=1000)
+    parser.add_argument(
+        "--shards",
+        type=int,
+        default=0,
+        help="Parallel headless workers (0 = auto = cpu_count - 1)",
+    )
     args = parser.parse_args()
-
-    _ensure_dart_on_path()
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="tichu_eval_") as td:
         temp_jsonl = Path(td) / "eval.jsonl"
-        cmd = [
-            "dart", "run", "lib/headless/headless.dart",
-            f"--seed={args.seed}",
+
+        base_args = [
             f"--target-score={args.target_score}",
-            f"--episodes={args.episodes}",
             "--mixed",
             f"--nn-policy={args.nn_policy}",
-            "--format=rl-jsonl",
-            f"--output={temp_jsonl}",
+            "--format=summary",
         ]
-
-        result = _run(cmd)
-        if result.returncode != 0:
-            raise RuntimeError(
-                "Evaluation failed\n"
-                f"stdout:\n{result.stdout}\n"
-                f"stderr:\n{result.stderr}"
-            )
+        run_headless_sharded(
+            base_args=base_args,
+            seed=args.seed,
+            episodes=args.episodes,
+            output_path=temp_jsonl,
+            shards=args.shards or None,
+        )
 
         winners: list[int] = []
         team_one_totals: list[int] = []
@@ -91,13 +65,11 @@ def main() -> None:
                 if not s:
                     continue
                 row = json.loads(s)
-                if not row.get("done"):
-                    continue
-                score = row.get("next_state", {}).get("score", {})
-                w = score.get("winning_team")
+                # Each line in --format=summary mode is one finished match.
+                w = row.get("winner")
                 winners.append(int(w) if w is not None else -1)
-                t1 = int(score.get("team_one_total", 0))
-                t2 = int(score.get("team_two_total", 0))
+                t1 = int(row.get("team_one_total", 0))
+                t2 = int(row.get("team_two_total", 0))
                 team_one_totals.append(t1)
                 team_two_totals.append(t2)
                 margins.append(t1 - t2)

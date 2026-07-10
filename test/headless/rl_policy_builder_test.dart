@@ -14,8 +14,12 @@ void main() {
         jsonEncode({
           'episode': 1,
           'seq': 1,
+          'team': 0,
           'state_key': 's1',
+          'state_key_coarse': 'c1',
           'action_key': 'a1',
+          'policy_action_key': 'p1',
+          'action_type': 'play',
           'reward': 1,
           'discount': 1,
           'done': false,
@@ -23,8 +27,11 @@ void main() {
         jsonEncode({
           'episode': 1,
           'seq': 2,
+          'team': 1,
           'state_key': 's2',
+          'state_key_coarse': 'c2',
           'action_key': 'a2',
+          'action_type': 'schupf',
           'reward': 2,
           'discount': 1,
           'done': false,
@@ -32,8 +39,12 @@ void main() {
         jsonEncode({
           'episode': 1,
           'seq': 3,
+          'team': 0,
           'state_key': 's3',
+          'state_key_coarse': 'c1',
           'action_key': 'a3',
+          'policy_action_key': 'p3',
+          'action_type': 'play',
           'reward': 3,
           'discount': 0,
           'done': true,
@@ -60,21 +71,23 @@ void main() {
           jsonDecode(await policyFile.readAsString()) as Map<String, dynamic>;
 
       final builder = decoded['builder'] as Map<String, dynamic>;
-      expect(builder['algorithm'], 'monte_carlo_state_action_returns');
+      expect(builder['algorithm'], 'monte_carlo_conservative_advantage');
       expect(builder['gamma'], 0.5);
       expect(builder['episodes_seen'], 1);
-      expect(builder['transitions_used'], 3);
+      expect(builder['transitions_seen'], 3);
+      expect(builder['transitions_used'], 2);
 
       final stateActionValues =
           decoded['state_action_values'] as Map<String, dynamic>;
+      expect(stateActionValues, isEmpty);
 
-      final s1 = stateActionValues['s1'] as Map<String, dynamic>;
-      final s2 = stateActionValues['s2'] as Map<String, dynamic>;
-      final s3 = stateActionValues['s3'] as Map<String, dynamic>;
+      final coarseStateActionValues =
+          decoded['coarse_state_action_values'] as Map<String, dynamic>;
+      final c1 = coarseStateActionValues['c1'] as Map<String, dynamic>;
 
-      expect((s1['a1'] as num).toDouble(), closeTo(2.75, 1e-9));
-      expect((s2['a2'] as num).toDouble(), closeTo(3.5, 1e-9));
-      expect((s3['a3'] as num).toDouble(), closeTo(3.0, 1e-9));
+      expect(c1, isNot(contains('p1')));
+      expect((c1['p3'] as num).toDouble(), closeTo(1.125, 1e-9));
+      expect(coarseStateActionValues, isNot(contains('c2')));
     } finally {
       await tempDir.delete(recursive: true);
     }

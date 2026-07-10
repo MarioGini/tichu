@@ -97,7 +97,9 @@ def _summarize_transition_file(path: Path) -> dict[str, object]:
     }
 
 
-def _policy_coverage(eval_jsonl: Path, policy_json: Path) -> dict[str, float | int]:
+def _policy_coverage(
+    eval_jsonl: Path, policy_json: Path, policy_team: int
+) -> dict[str, float | int]:
     policy = json.loads(policy_json.read_text(encoding="utf-8"))
     table = policy.get("state_action_values", {})
     if not isinstance(table, dict):
@@ -121,10 +123,13 @@ def _policy_coverage(eval_jsonl: Path, policy_json: Path) -> dict[str, float | i
             if not line:
                 continue
             row = json.loads(line)
+            if row.get("action_type") != "play" or row.get("team") != policy_team:
+                continue
             state_key = row.get("state_key")
             coarse_state_key = row.get("state_key_coarse")
             action_key = row.get("action_key")
             action_shape_key = row.get("action_shape_key")
+            policy_action_key = row.get("policy_action_key")
             if not isinstance(state_key, str) or not isinstance(action_key, str):
                 continue
 
@@ -135,9 +140,16 @@ def _policy_coverage(eval_jsonl: Path, policy_json: Path) -> dict[str, float | i
             exact_action_hit = False
             if exact_hit:
                 exact_state_hit += 1
-                exact_action_hit = action_key in exact_actions or (
-                    isinstance(action_shape_key, str)
-                    and action_shape_key in exact_actions
+                exact_action_hit = (
+                    (
+                        isinstance(policy_action_key, str)
+                        and policy_action_key in exact_actions
+                    )
+                    or action_key in exact_actions
+                    or (
+                        isinstance(action_shape_key, str)
+                        and action_shape_key in exact_actions
+                    )
                 )
                 if exact_action_hit:
                     exact_state_action_hit += 1
@@ -151,9 +163,16 @@ def _policy_coverage(eval_jsonl: Path, policy_json: Path) -> dict[str, float | i
             coarse_action_hit = False
             if coarse_hit:
                 coarse_state_hit += 1
-                coarse_action_hit = action_key in coarse_actions or (
-                    isinstance(action_shape_key, str)
-                    and action_shape_key in coarse_actions
+                coarse_action_hit = (
+                    (
+                        isinstance(policy_action_key, str)
+                        and policy_action_key in coarse_actions
+                    )
+                    or action_key in coarse_actions
+                    or (
+                        isinstance(action_shape_key, str)
+                        and action_shape_key in coarse_actions
+                    )
                 )
                 if coarse_action_hit:
                     coarse_state_action_hit += 1
@@ -253,7 +272,10 @@ def main() -> int:
 
     policy_json = workdir / "policy.json"
     eval_baseline = workdir / "eval_baseline.jsonl"
-    eval_policy = workdir / "eval_policy.jsonl"
+    eval_policy_team0 = workdir / "eval_policy_team0.jsonl"
+    eval_policy_team1 = workdir / "eval_policy_team1.jsonl"
+    stats_policy_team0 = workdir / "stats_policy_team0.json"
+    stats_policy_team1 = workdir / "stats_policy_team1.json"
 
     try:
         # --- Iterative self-play loop ---
@@ -350,25 +372,44 @@ def main() -> int:
             ],
             cwd=repo,
         )
-        # Policy: learned policy on the same eval seed (no epsilon).
-        _run(
-            [
-                "dart",
-                "run",
-                "lib/headless/headless.dart",
-                f"--seed={args.eval_seed}",
-                f"--target-score={args.target_score}",
-                f"--episodes={args.episodes}",
-                "--format=rl-jsonl",
-                f"--rl-policy={policy_json}",
-                f"--output={eval_policy}",
-            ],
-            cwd=repo,
-        )
+        # Mixed-team evaluation. Run once with policy on seats 0/2, then swap
+        # to seats 1/3 so seat/deal bias cannot masquerade as policy strength.
+        for policy_team, output_path, stats_path in (
+            (0, eval_policy_team0, stats_policy_team0),
+            (1, eval_policy_team1, stats_policy_team1),
+        ):
+            _run(
+                [
+                    "dart",
+                    "run",
+                    "lib/headless/headless.dart",
+                    f"--seed={args.eval_seed}",
+                    f"--target-score={args.target_score}",
+                    f"--episodes={args.episodes}",
+                    "--format=rl-jsonl",
+                    f"--rl-policy={policy_json}",
+                    f"--rl-policy-team={policy_team}",
+                    f"--rl-stats-output={stats_path}",
+                    f"--output={output_path}",
+                ],
+                cwd=repo,
+            )
 
         baseline_summary = _summarize_transition_file(eval_baseline)
-        policy_summary = _summarize_transition_file(eval_policy)
-        coverage_summary = _policy_coverage(eval_policy, policy_json)
+        policy_team0_summary = _summarize_transition_file(eval_policy_team0)
+        policy_team1_summary = _summarize_transition_file(eval_policy_team1)
+        coverage_team0 = _policy_coverage(eval_policy_team0, policy_json, 0)
+        coverage_team1 = _policy_coverage(eval_policy_team1, policy_json, 1)
+        runtime_stats_team0 = json.loads(stats_policy_team0.read_text(encoding="utf-8"))
+        runtime_stats_team1 = json.loads(stats_policy_team1.read_text(encoding="utf-8"))
+        mixed_policy_win_rate = (
+            float(policy_team0_summary["team0_win_rate"])
+            + float(policy_team1_summary["team1_win_rate"])
+        ) / 2
+        mixed_policy_margin = (
+            float(policy_team0_summary["avg_margin_t0_minus_t1"])
+            - float(policy_team1_summary["avg_margin_t0_minus_t1"])
+        ) / 2
         policy_entries_exact = _count_policy_entries(policy_json, "state_action_values")
         policy_entries_coarse = _count_policy_entries(
             policy_json, "coarse_state_action_values"
@@ -391,8 +432,20 @@ def main() -> int:
             "policy_table_entries_coarse": policy_entries_coarse,
             "policy_table_entries": policy_entries,
             "baseline": baseline_summary,
-            "policy": policy_summary,
-            "policy_coverage": coverage_summary,
+            "mixed_evaluation": {
+                "policy_team0": policy_team0_summary,
+                "policy_team1": policy_team1_summary,
+                "policy_win_rate": mixed_policy_win_rate,
+                "policy_avg_margin": mixed_policy_margin,
+            },
+            "policy_coverage": {
+                "policy_team0": coverage_team0,
+                "policy_team1": coverage_team1,
+            },
+            "policy_runtime_stats": {
+                "policy_team0": runtime_stats_team0,
+                "policy_team1": runtime_stats_team1,
+            },
             "artifacts": str(workdir),
         }
 

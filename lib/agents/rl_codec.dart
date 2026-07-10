@@ -24,6 +24,30 @@ String encodeRlPlayActionKeyFromTurn(final TichuTurn turn) =>
 String encodeRlPlayShapeKeyFromTurn(final TichuTurn turn) =>
     'play_shape:${turn.type.name}:${turn.value.toStringAsFixed(1)}:${turn.cards.length}';
 
+String encodeRlPolicyPlayActionKey({
+  required final TichuTurn turn,
+  required final DeckState deck,
+  required final int handSize,
+}) {
+  final isLeading =
+      deck.turn.type == TurnType.empty ||
+      deck.turn.type == TurnType.none ||
+      deck.turn.type == TurnType.dog;
+  final tempo = isLeading
+      ? 'lead'
+      : turn.type == TurnType.bomb
+      ? 'bomb'
+      : _responseMarginBucket(turn.value - deck.turn.value);
+  return [
+    'play_policy',
+    turn.type.name,
+    'n${turn.cards.length}',
+    _valueBand(turn.value),
+    tempo,
+    turn.cards.length == handSize ? 'finish' : 'continue',
+  ].join(':');
+}
+
 String encodeRlPlayShapeKeyFromCards(final List<Card> cards) {
   try {
     final turn = getTurn(List<Card>.from(cards));
@@ -174,62 +198,20 @@ String buildRlCoarseStateKey({
   final oppScore = _teamScore(snapshot.scoreState, team == 0 ? 1 : 0);
   final scoreGapBucket = ((ownScore - oppScore) / 25).round().clamp(-20, 20);
 
-  var lowCount = 0;
-  var midCount = 0;
-  var highCount = 0;
-  var specialCount = 0;
-  var hasMahJong = false;
-  var hasPhoenix = false;
-  var hasDragon = false;
-  var hasDog = false;
-
-  for (final card in hand) {
-    switch (card.face) {
-      case CardFace.mahJong:
-        hasMahJong = true;
-        specialCount++;
-      case CardFace.phoenix:
-        hasPhoenix = true;
-        specialCount++;
-      case CardFace.dragon:
-        hasDragon = true;
-        specialCount++;
-      case CardFace.dog:
-        hasDog = true;
-        specialCount++;
-      case CardFace.two ||
-          CardFace.three ||
-          CardFace.four ||
-          CardFace.five ||
-          CardFace.six:
-        lowCount++;
-      case CardFace.seven || CardFace.eight || CardFace.nine || CardFace.ten:
-        midCount++;
-      case CardFace.jack || CardFace.queen || CardFace.king || CardFace.ace:
-        highCount++;
-      case CardFace.none:
-    }
-  }
-
-  final oppCounts = _sortedOpponentCounts(snapshot, playerId).values.toList()
-    ..sort();
-  final oppBuckets = oppCounts.map(_countBucket).join('.');
-
-  final deckValueBucket = _deckValueBucket(snapshot.deck.turn);
+  final table = TableRelationships(snapshot, playerId);
+  final opponentCounts = table.opponents
+      .map((final opponent) => snapshot.hands[opponent.id]?.length ?? 0)
+      .toList();
+  final nearestOpponent = opponentCounts.isEmpty
+      ? 0
+      : opponentCounts.reduce((final a, final b) => a < b ? a : b);
+  final partnerCount = snapshot.hands[table.partnerId]?.length ?? 0;
   final activeWish = snapshot.activeWish;
   final hasWishInHand =
       activeWish != CardFace.none &&
       hand.any((final card) => card.face == activeWish);
-
-  // Who is currently winning the trick? Categorize as self/partner/opponent.
   final trickWinnerRelation = _trickWinnerRelation(snapshot, playerId);
-
-  // How many players have already finished this round?
-  final playersOut = snapshot.scoreState.finishOrder.length;
-
-  // Tichu call state: own call + any opponent call.
   final ownCall = snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none;
-  final table = TableRelationships(snapshot, playerId);
   final partnerCall =
       snapshot.scoreState.tichuCalls[table.partnerId ?? ''] ?? TichuCall.none;
   final anyOppCall = table.opponents.any(
@@ -238,24 +220,41 @@ String buildRlCoarseStateKey({
         TichuCall.none,
   );
 
+  final callPressure = ownCall != TichuCall.none
+      ? 'self'
+      : partnerCall != TichuCall.none
+      ? 'partner'
+      : anyOppCall
+      ? 'opponent'
+      : 'none';
+  final wishState = activeWish == CardFace.none
+      ? 'none'
+      : hasWishInHand
+      ? 'have'
+      : 'missing';
+  final scorePosition = scoreGapBucket < -1
+      ? 'behind'
+      : scoreGapBucket > 1
+      ? 'ahead'
+      : 'close';
+  final isLeading =
+      snapshot.deck.turn.type == TurnType.empty ||
+      snapshot.deck.turn.type == TurnType.none ||
+      snapshot.deck.turn.type == TurnType.dog;
+
   return [
-    'team=$team',
-    'phase=${snapshot.phase.name}',
-    'curr=${snapshot.currentPlayerId == playerId ? 1 : 0}',
-    'deck=${snapshot.deck.turn.type.name}:$deckValueBucket',
+    'v=2',
+    'mode=${isLeading ? 'lead' : 'follow'}',
+    'deck=${snapshot.deck.turn.type.name}:${_valueBand(snapshot.deck.turn.value)}',
     'trick_win=$trickWinnerRelation',
-    'wish=${activeWish.name}:${hasWishInHand ? 1 : 0}',
+    'wish=$wishState',
     'passes=${snapshot.consecutivePasses.clamp(0, 3)}',
-    'hand_n=${hand.length}',
-    'hand_lmh=$lowCount.$midCount.$highCount',
-    'specials=$specialCount:${hasMahJong ? 1 : 0}${hasPhoenix ? 1 : 0}${hasDragon ? 1 : 0}${hasDog ? 1 : 0}',
+    'hand=${_countBucket(hand.length)}',
     'bomb=${(snapshot.hasBombByPlayer[playerId] ?? false) ? 1 : 0}',
-    'can_bomb=${(snapshot.canBombByPlayer[playerId] ?? false) ? 1 : 0}',
-    'can_tichu=${(snapshot.canCallTichuByPlayer[playerId] ?? false) ? 1 : 0}',
-    'calls=${ownCall.name}.${partnerCall.name}.${anyOppCall ? 1 : 0}',
-    'out=$playersOut',
-    'opp=$oppBuckets',
-    'gap=$scoreGapBucket',
+    'partner=${_countBucket(partnerCount)}',
+    'opp_min=${_countBucket(nearestOpponent)}',
+    'call=$callPressure',
+    'gap=$scorePosition',
   ].join('|');
 }
 
@@ -286,18 +285,23 @@ int _teamScore(final ScoreState scoreState, final int team) {
   return scoreState.teamTwoTotal + scoreState.teamTwoRound;
 }
 
-String _deckValueBucket(final TichuTurn turn) {
-  if (turn.type == TurnType.empty || turn.type == TurnType.none) {
-    return 'none';
-  }
-  if (turn.type == TurnType.bomb) {
-    return 'bomb_${turn.cards.length}';
-  }
-  final bucket = (turn.value / 2).floor();
-  return bucket.clamp(-5, 20).toString();
+String _valueBand(final double value) {
+  if (value <= 0) return 'none';
+  if (value <= 5) return 'low';
+  if (value <= 9) return 'mid';
+  if (value <= 12) return 'high';
+  if (value <= 14) return 'top';
+  return 'special';
+}
+
+String _responseMarginBucket(final double margin) {
+  if (margin <= 1) return 'just';
+  if (margin <= 3) return 'small';
+  return 'large';
 }
 
 String _countBucket(final int count) {
+  if (count <= 0) return '0';
   if (count <= 1) return '1';
   if (count <= 3) return '3';
   if (count <= 5) return '5';

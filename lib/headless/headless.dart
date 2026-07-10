@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:tichu/agents/hand_evaluator.dart';
+import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
 import 'package:tichu/agents/rl_codec.dart';
 import 'package:tichu/agents/rl_policy_play_selection_strategy.dart';
@@ -39,8 +40,11 @@ Future<void> main(final List<String> args) async {
   final random = config.seed == null ? Random() : Random(config.seed);
 
   final rlPolicy = await _loadRlPolicy(config.rlPolicyPath);
+  final rlStats = RlPolicySelectionStats();
   final agentFactory = _buildAgentFactory(
     rlPolicy: rlPolicy,
+    rlPolicyTeam: config.rlPolicyTeam,
+    rlStats: rlStats,
     useMcts: config.useMcts,
     mctsDeterminizations: config.mctsDeterminizations,
     random: random,
@@ -62,6 +66,11 @@ Future<void> main(final List<String> args) async {
 
   try {
     await simulator.run();
+    if (config.rlStatsOutputPath != null) {
+      final statsFile = File(config.rlStatsOutputPath!);
+      await statsFile.create(recursive: true);
+      await statsFile.writeAsString(jsonEncode(rlStats.toJson()));
+    }
   } finally {
     if (outputSink != null) {
       await outputSink.flush();
@@ -81,7 +90,7 @@ class _HeadlessSimulator {
   final bool includeTimestamps;
   final bool includeLegalTurnCount;
   final double epsilon;
-  final PlayerAgent Function(String playerId) agentFactory;
+  final PlayerAgent Function(GamePlayer player) agentFactory;
 
   _HeadlessSimulator({
     required this.random,
@@ -106,7 +115,7 @@ class _HeadlessSimulator {
   Future<void> _runEpisode(final int episodeNumber) async {
     final players = _buildAutomatedPlayers();
     final agents = {
-      for (final player in players) player.id: agentFactory(player.id),
+      for (final player in players) player.id: agentFactory(player),
     };
     final engine = GameEngineImpl(random: random);
     final state = engine.createGame(
@@ -316,11 +325,22 @@ class _HeadlessSimulator {
       return null;
     }
 
-    final legalTurns = generateLegalTurns(snapshot.deck, List<Card>.from(hand));
-    final canPass =
-        snapshot.deck.turn.type != TurnType.empty &&
-        snapshot.deck.turn.type != TurnType.none &&
-        !mahJong(snapshot.deck, TichuTurn(TurnType.none, const []), hand);
+    var legalTurns = LegalPlayGuard.strictLegalTurnsFromCandidates(
+      deck: snapshot.deck,
+      hand: hand,
+      candidates: generateLegalTurns(snapshot.deck, List<Card>.from(hand)),
+    );
+    if (legalTurns.isEmpty) {
+      final recovered = LegalPlayGuard.firstLegalTurnBruteForce(
+        deck: snapshot.deck,
+        hand: hand,
+      );
+      if (recovered != null) {
+        legalTurns = [recovered];
+      }
+    }
+
+    final canPass = LegalPlayGuard.canPass(deck: snapshot.deck, hand: hand);
 
     final actions = <GameAction>[
       for (final turn in legalTurns)
@@ -750,9 +770,14 @@ class _CsvEventWriter {
 
 class _RewardResult {
   final double total;
+  final double learningTotal;
   final Map<String, double> breakdown;
 
-  const _RewardResult({required this.total, required this.breakdown});
+  const _RewardResult({
+    required this.total,
+    required this.learningTotal,
+    required this.breakdown,
+  });
 }
 
 class _RlTransitionWriter {
@@ -784,6 +809,13 @@ class _RlTransitionWriter {
     final reward = rewardResult.total;
     final actionKey = encodeRlActionKey(action);
     final actionShapeKey = encodeRlActionShapeKey(action);
+    final policyActionKey = action is PlayTurnAction
+        ? encodeRlPolicyPlayActionKey(
+            turn: getTurn(List<Card>.from(action.cards)),
+            deck: before.deck,
+            handSize: (before.hands[action.playerId] ?? const <Card>[]).length,
+          )
+        : null;
     final stateKey = buildRlStateKey(
       snapshot: before,
       playerId: action.playerId,
@@ -827,6 +859,7 @@ class _RlTransitionWriter {
       'next_state': nextStateObs,
       'action_key': actionKey,
       'action_shape_key': actionShapeKey,
+      'policy_action_key': policyActionKey,
       'action': _actionPayload(action),
       'legal_action_keys': legalActionKeys,
       'legal_actions_enumerated': legalActionKeys != null,
@@ -846,6 +879,7 @@ class _RlTransitionWriter {
           ? action.targetPlayerId
           : null,
       'reward': reward,
+      'learning_reward': rewardResult.learningTotal,
       'reward_breakdown': rewardResult.breakdown,
       'done': after.scoreState.gameComplete,
       'discount': after.scoreState.gameComplete ? 0.0 : 1.0,
@@ -1007,7 +1041,11 @@ class _RlTransitionWriter {
         finishReward +
         tichuReward;
 
-    return _RewardResult(total: total, breakdown: breakdown);
+    return _RewardResult(
+      total: total,
+      learningTotal: scoreDelta,
+      breakdown: breakdown,
+    );
   }
 
   /// Compute the average group size if we greedily decompose the hand into
@@ -1207,6 +1245,8 @@ class _HeadlessConfig {
   final bool includeTimestamps;
   final bool includeLegalTurnCount;
   final String? rlPolicyPath;
+  final int? rlPolicyTeam;
+  final String? rlStatsOutputPath;
   final double epsilon;
   final bool useMcts;
   final int mctsDeterminizations;
@@ -1223,6 +1263,8 @@ class _HeadlessConfig {
     required this.includeTimestamps,
     required this.includeLegalTurnCount,
     required this.rlPolicyPath,
+    required this.rlPolicyTeam,
+    required this.rlStatsOutputPath,
     required this.epsilon,
     required this.useMcts,
     required this.mctsDeterminizations,
@@ -1242,6 +1284,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var includeTimestamps = true;
   var includeLegalTurnCount = false;
   String? rlPolicyPath;
+  int? rlPolicyTeam;
+  String? rlStatsOutputPath;
   var outputProvided = false;
   var showHelp = false;
   var epsilon = 0.0;
@@ -1318,6 +1362,26 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       continue;
     }
 
+    if (arg.startsWith('--rl-policy-team=')) {
+      final value = arg.split('=').last;
+      if (value == 'all') {
+        rlPolicyTeam = null;
+      } else {
+        final parsed = int.tryParse(value);
+        if (parsed == 0 || parsed == 1) {
+          rlPolicyTeam = parsed;
+        } else {
+          throw ArgumentError('--rl-policy-team must be 0, 1, or all.');
+        }
+      }
+      continue;
+    }
+
+    if (arg.startsWith('--rl-stats-output=')) {
+      rlStatsOutputPath = arg.split('=').last;
+      continue;
+    }
+
     if (arg.startsWith('--output=')) {
       outputPath = arg.split('=').last;
       outputProvided = true;
@@ -1363,6 +1427,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     includeTimestamps: includeTimestamps,
     includeLegalTurnCount: includeLegalTurnCount,
     rlPolicyPath: rlPolicyPath,
+    rlPolicyTeam: rlPolicyTeam,
+    rlStatsOutputPath: rlStatsOutputPath,
     epsilon: epsilon,
     useMcts: useMcts,
     mctsDeterminizations: mctsDeterminizations,
@@ -1378,7 +1444,10 @@ void _printUsage() {
   stdout.writeln(
     '       [--format=csv|rl-jsonl|none] [--output=path] [--no-timestamps]',
   );
-  stdout.writeln('       [--rl-legal-count] [--rl-policy=policy.json] [--rl]');
+  stdout.writeln(
+    '       [--rl-legal-count] [--rl-policy=policy.json] [--rl-policy-team=0|1|all] [--rl]',
+  );
+  stdout.writeln('       [--rl-stats-output=policy_stats.json]');
   stdout.writeln(
     '       [--epsilon=0.1] [--mcts] [--mcts-determinizations=20]',
   );
@@ -1437,17 +1506,19 @@ Future<RlPolicyTable?> _loadRlPolicy(final String? path) async {
   return table;
 }
 
-PlayerAgent Function(String playerId) _buildAgentFactory({
+PlayerAgent Function(GamePlayer player) _buildAgentFactory({
   required final RlPolicyTable? rlPolicy,
+  final int? rlPolicyTeam,
+  final RlPolicySelectionStats? rlStats,
   final bool useMcts = false,
   final int mctsDeterminizations = 20,
   final Random? random,
 }) {
   if (useMcts) {
-    return (final playerId) => SmartAiAgent(
-      playerId,
+    return (final player) => SmartAiAgent(
+      player.id,
       playSelectionStrategy: MctsPlaySelectionStrategy(
-        playerId: playerId,
+        playerId: player.id,
         numDeterminizations: mctsDeterminizations,
         random: random,
       ),
@@ -1455,14 +1526,21 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
   }
 
   if (rlPolicy == null || rlPolicy.isEmpty) {
-    return SmartAiAgent.new;
+    return (final player) => SmartAiAgent(player.id);
   }
 
-  return (final playerId) => SmartAiAgent(
-    playerId,
-    playSelectionStrategy: RlPolicyPlaySelectionStrategy(
-      playerId: playerId,
-      policy: rlPolicy,
-    ),
-  );
+  return (final player) {
+    final team = player.seat.isEven ? 0 : 1;
+    if (rlPolicyTeam != null && team != rlPolicyTeam) {
+      return SmartAiAgent(player.id);
+    }
+    return SmartAiAgent(
+      player.id,
+      playSelectionStrategy: RlPolicyPlaySelectionStrategy(
+        playerId: player.id,
+        policy: rlPolicy,
+        stats: rlStats,
+      ),
+    );
+  };
 }

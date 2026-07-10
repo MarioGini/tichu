@@ -20,7 +20,7 @@
             "properties": {
                 "algorithm": {
                     "type": "string",
-                    "const": "monte_carlo_state_action_returns"
+                    "const": "monte_carlo_conservative_advantage"
                 },
                 "gamma": {
                     "type": "number",
@@ -36,6 +36,10 @@
                     "minimum": 0
                 },
                 "transitions_used": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "transitions_seen": {
                     "type": "integer",
                     "minimum": 0
                 },

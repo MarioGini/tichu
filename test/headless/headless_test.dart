@@ -146,6 +146,16 @@ void main() {
     }
   });
 
+  test('epsilon exploration only selects legal actions', () async {
+    await headless.main([
+      '--seed=124',
+      '--target-score=100',
+      '--episodes=20',
+      '--epsilon=1',
+      '--format=none',
+    ]);
+  });
+
   test('headless rl-jsonl output writes transitions', () async {
     final tempDir = await Directory.systemTemp.createTemp(
       'tichu_headless_rl_jsonl_',
@@ -178,6 +188,7 @@ void main() {
       expect(first['player_id'], isA<String>());
       expect(first['action_type'], isA<String>());
       expect(first['reward'], isA<num>());
+      expect(first['learning_reward'], isA<num>());
       expect(first['done'], isA<bool>());
 
       if (first['legal_actions_enumerated'] == true) {
@@ -198,9 +209,17 @@ void main() {
     );
     final policyFile = File('${tempDir.path}/policy.json');
     final outputFile = File('${tempDir.path}/game.csv');
+    final statsFile = File('${tempDir.path}/policy_stats.json');
 
     await policyFile.writeAsString(
-      jsonEncode(<String, Object?>{'state_action_values': <String, Object?>{}}),
+      jsonEncode(<String, Object?>{
+        'state_action_values': <String, Object?>{},
+        'coarse_state_action_values': <String, Object?>{
+          'unused-test-state': <String, Object?>{
+            'play_policy:single:n1:low:lead:continue': 1,
+          },
+        },
+      }),
     );
 
     try {
@@ -209,12 +228,18 @@ void main() {
         '--target-score=50',
         '--rounds=1',
         '--rl-policy=${policyFile.path}',
+        '--rl-policy-team=0',
+        '--rl-stats-output=${statsFile.path}',
         '--output=${outputFile.path}',
       ]);
 
       expect(outputFile.existsSync(), isTrue);
       final lines = await outputFile.readAsLines();
       expect(lines, isNotEmpty);
+      final stats =
+          jsonDecode(await statsFile.readAsString()) as Map<String, dynamic>;
+      expect(stats['invocations'], greaterThan(0));
+      expect(stats['fallbacks'], greaterThan(0));
     } finally {
       await tempDir.delete(recursive: true);
     }

@@ -182,16 +182,26 @@ void main() {
         const {},
         coarseStateActionValues: {
           coarseStateKey: {
-            encodeRlPlayActionKeyFromTurn(single): 1,
-            encodeRlPlayActionKeyFromTurn(pair): 10,
+            encodeRlPolicyPlayActionKey(
+              turn: single,
+              deck: aiEmptyDeck(),
+              handSize: hand.length,
+            ): 1,
+            encodeRlPolicyPlayActionKey(
+              turn: pair,
+              deck: aiEmptyDeck(),
+              handSize: hand.length,
+            ): 10,
           },
         },
       );
+      final stats = RlPolicySelectionStats();
 
       final strategy = RlPolicyPlaySelectionStrategy(
         playerId: aiTestSelfId,
         policy: policy,
         fallback: const _FirstPlayFallback(),
+        stats: stats,
       );
 
       final selected = strategy.selectPlay(
@@ -201,6 +211,45 @@ void main() {
         hand,
       );
       expect(selected, equals(pair));
+      expect(stats.invocations, 1);
+      expect(stats.coarseStateHits, 1);
+      expect(stats.coarseSelections, 1);
+      expect(stats.fallbacks, 0);
+    });
+
+    test('coarse state key is shared across equivalent player seats', () {
+      final snapshot = aiSnapshot(myHand: aiDefaultHand());
+
+      final keys = aiTestPlayers
+          .map(
+            (final player) =>
+                buildRlCoarseStateKey(snapshot: snapshot, playerId: player.id),
+          )
+          .toSet();
+
+      expect(keys, hasLength(1));
+    });
+
+    test('policy action key generalizes concrete cards in same value band', () {
+      final four = TichuTurn(TurnType.single, [
+        Card(CardFace.four, CardColor.red),
+      ]);
+      final five = TichuTurn(TurnType.single, [
+        Card(CardFace.five, CardColor.blue),
+      ]);
+
+      expect(
+        encodeRlPolicyPlayActionKey(
+          turn: four,
+          deck: aiEmptyDeck(),
+          handSize: 5,
+        ),
+        encodeRlPolicyPlayActionKey(
+          turn: five,
+          deck: aiEmptyDeck(),
+          handSize: 5,
+        ),
+      );
     });
 
     test('parses policy from state_action_values json map', () {

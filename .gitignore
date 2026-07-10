@@ -22,6 +22,10 @@
 .pub/
 build/
 
+# Python RL tooling
+__pycache__/
+*.py[cod]
+
 # Android related
 **/android/**/gradle-wrapper.jar
 **/android/.gradle

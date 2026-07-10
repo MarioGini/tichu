@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 Future<void> main(final List<String> args) async {
   final config = _parseArgs(args);
@@ -113,6 +114,8 @@ class _Transition {
   final String? stateKeyCoarse;
   final String actionKey;
   final String? actionShapeKey;
+  final String? policyActionKey;
+  final String? actionType;
   final double reward;
   final double discount;
 
@@ -124,6 +127,8 @@ class _Transition {
     required this.stateKeyCoarse,
     required this.actionKey,
     required this.actionShapeKey,
+    required this.policyActionKey,
+    required this.actionType,
     required this.reward,
     required this.discount,
   });
@@ -134,7 +139,9 @@ class _Transition {
     final stateKeyCoarse = json['state_key_coarse'];
     final actionKey = json['action_key'];
     final actionShapeKey = json['action_shape_key'];
-    final reward = json['reward'];
+    final policyActionKey = json['policy_action_key'];
+    final actionType = json['action_type'];
+    final reward = json['learning_reward'] ?? json['reward'];
     final discount = json['discount'];
     final done = json['done'];
     final team = json['team'];
@@ -162,6 +169,8 @@ class _Transition {
       stateKeyCoarse: stateKeyCoarse is String ? stateKeyCoarse : null,
       actionKey: actionKey,
       actionShapeKey: actionShapeKey is String ? actionShapeKey : null,
+      policyActionKey: policyActionKey is String ? policyActionKey : null,
+      actionType: actionType is String ? actionType : null,
       reward: reward.toDouble(),
       discount: normalizedDiscount,
     );
@@ -170,14 +179,25 @@ class _Transition {
 
 class _StateActionAccumulator {
   double sumReturns = 0;
+  double sumSquaredReturns = 0;
   int samples = 0;
 
   void add(final double value) {
     sumReturns += value;
+    sumSquaredReturns += value * value;
     samples++;
   }
 
   double get mean => samples == 0 ? 0 : sumReturns / samples;
+
+  double get standardError {
+    if (samples < 2) return 0;
+    final variance =
+        ((sumSquaredReturns - (sumReturns * sumReturns / samples)) /
+                (samples - 1))
+            .clamp(0, double.infinity);
+    return math.sqrt(variance / samples);
+  }
 }
 
 class _MonteCarloPolicyBuilder {
@@ -185,6 +205,7 @@ class _MonteCarloPolicyBuilder {
   final int minSamples;
 
   int episodesSeen = 0;
+  int transitionsSeen = 0;
   int transitionsUsed = 0;
 
   final Map<String, Map<String, _StateActionAccumulator>> _accumulators = {};
@@ -260,10 +281,11 @@ class _MonteCarloPolicyBuilder {
 
     return {
       'builder': {
-        'algorithm': 'monte_carlo_state_action_returns',
+        'algorithm': 'monte_carlo_conservative_advantage',
         'gamma': gamma,
         'min_samples': minSamples,
         'episodes_seen': episodesSeen,
+        'transitions_seen': transitionsSeen,
         'transitions_used': transitionsUsed,
         'generated_at_utc': DateTime.now().toUtc().toIso8601String(),
       },
@@ -278,54 +300,35 @@ class _MonteCarloPolicyBuilder {
     }
 
     episodesSeen++;
+    transitionsSeen += episodeTransitions.length;
 
-    // Partition transitions by team so each team's return only includes
-    // rewards from its own actions (no cross-team credit assignment noise).
-    final byTeam = <int, List<_Transition>>{};
-    for (final t in episodeTransitions) {
-      byTeam.putIfAbsent(t.team, () => <_Transition>[]).add(t);
-    }
-
-    for (final teamTransitions in byTeam.values) {
+    // Build a zero-sum return for each team over the complete timeline. An
+    // opponent's progress or score is negative reward rather than an event
+    // that disappears from the return entirely.
+    for (final team in const [0, 1]) {
       var g = 0.0;
-      for (final transition in teamTransitions.reversed) {
-        g = transition.reward + gamma * transition.discount * g;
-        transitionsUsed++;
+      for (final transition in episodeTransitions.reversed) {
+        final teamReward = transition.team == team
+            ? transition.reward
+            : -transition.reward;
+        g = teamReward + gamma * transition.discount * g;
 
-        _accumulate(
-          _accumulators,
-          transition.stateKey,
-          transition.actionKey,
-          g,
-        );
-        if (transition.actionShapeKey != null &&
-            transition.actionShapeKey != transition.actionKey) {
-          _accumulate(
-            _accumulators,
-            transition.stateKey,
-            transition.actionShapeKey!,
-            g,
-          );
+        if (transition.team != team || transition.actionType != 'play') {
+          continue;
         }
 
+        final policyActionKey =
+            transition.policyActionKey ?? transition.actionShapeKey;
         final coarseStateKey = transition.stateKeyCoarse;
-        if (coarseStateKey != null && coarseStateKey.isNotEmpty) {
-          _accumulate(
-            _coarseAccumulators,
-            coarseStateKey,
-            transition.actionKey,
-            g,
-          );
-          if (transition.actionShapeKey != null &&
-              transition.actionShapeKey != transition.actionKey) {
-            _accumulate(
-              _coarseAccumulators,
-              coarseStateKey,
-              transition.actionShapeKey!,
-              g,
-            );
-          }
+        if (policyActionKey == null ||
+            policyActionKey.isEmpty ||
+            coarseStateKey == null ||
+            coarseStateKey.isEmpty) {
+          continue;
         }
+
+        transitionsUsed++;
+        _accumulate(_coarseAccumulators, coarseStateKey, policyActionKey, g);
       }
     }
   }
@@ -352,15 +355,33 @@ class _MonteCarloPolicyBuilder {
     final sortedStates = source.keys.toList()..sort();
     for (final stateKey in sortedStates) {
       final actionAcc = source[stateKey]!;
-      final sortedActions = actionAcc.keys.toList()..sort();
+      final eligible = actionAcc.entries
+          .where((final entry) => entry.value.samples >= minSamples)
+          .toList();
+      if (eligible.length < 2) {
+        continue;
+      }
+
+      final totalSamples = eligible.fold<int>(
+        0,
+        (final total, final entry) => total + entry.value.samples,
+      );
+      final stateMean =
+          eligible.fold<double>(
+            0,
+            (final total, final entry) => total + entry.value.sumReturns,
+          ) /
+          totalSamples;
+      eligible.sort((final a, final b) => a.key.compareTo(b.key));
 
       final actionValues = <String, Object?>{};
-      for (final actionKey in sortedActions) {
-        final acc = actionAcc[actionKey]!;
-        if (acc.samples < minSamples) {
-          continue;
+      for (final entry in eligible) {
+        final advantage = entry.value.mean - stateMean;
+        final conservativeAdvantage =
+            advantage - 1.96 * entry.value.standardError;
+        if (conservativeAdvantage > 0) {
+          actionValues[entry.key] = conservativeAdvantage;
         }
-        actionValues[actionKey] = acc.mean;
       }
 
       if (actionValues.isNotEmpty) {

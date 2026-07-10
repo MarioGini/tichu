@@ -4,6 +4,24 @@ import 'package:tichu/agents/rl_codec.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
+class RlPolicySelectionStats {
+  int invocations = 0;
+  int exactStateHits = 0;
+  int coarseStateHits = 0;
+  int exactSelections = 0;
+  int coarseSelections = 0;
+  int fallbacks = 0;
+
+  Map<String, int> toJson() => {
+    'invocations': invocations,
+    'exact_state_hits': exactStateHits,
+    'coarse_state_hits': coarseStateHits,
+    'exact_selections': exactSelections,
+    'coarse_selections': coarseSelections,
+    'fallbacks': fallbacks,
+  };
+}
+
 class RlPolicyTable {
   final Map<String, Map<String, double>> _stateActionValues;
   final Map<String, Map<String, double>> _coarseStateActionValues;
@@ -83,11 +101,13 @@ class RlPolicyPlaySelectionStrategy implements PlaySelectionStrategy {
   final String playerId;
   final RlPolicyTable policy;
   final PlaySelectionStrategy fallback;
+  final RlPolicySelectionStats? stats;
 
   const RlPolicyPlaySelectionStrategy({
     required this.playerId,
     required this.policy,
     this.fallback = const DefaultPlaySelectionStrategy(),
+    this.stats,
   });
 
   @override
@@ -97,6 +117,7 @@ class RlPolicyPlaySelectionStrategy implements PlaySelectionStrategy {
     final DeckState deck,
     final List<Card> hand,
   ) {
+    stats?.invocations++;
     if (plays.isEmpty) {
       throw ArgumentError.value(plays, 'plays', 'Must not be empty.');
     }
@@ -122,6 +143,7 @@ class RlPolicyPlaySelectionStrategy implements PlaySelectionStrategy {
     }
 
     if (policy.isEmpty) {
+      stats?.fallbacks++;
       return fallback.selectPlay(snapshot, legalPlays, deck, hand);
     }
 
@@ -135,21 +157,42 @@ class RlPolicyPlaySelectionStrategy implements PlaySelectionStrategy {
     );
 
     final exactValues = policy.valuesForState(exactStateKey);
-    final bestExact = _selectBestPlayFromValues(legalPlays, exactValues);
+    if (exactValues != null && exactValues.isNotEmpty) {
+      stats?.exactStateHits++;
+    }
+    final bestExact = _selectBestPlayFromValues(
+      snapshot,
+      hand,
+      legalPlays,
+      exactValues,
+    );
     if (bestExact != null) {
+      stats?.exactSelections++;
       return bestExact;
     }
 
     final coarseValues = policy.valuesForCoarseState(coarseStateKey);
-    final bestCoarse = _selectBestPlayFromValues(legalPlays, coarseValues);
+    if (coarseValues != null && coarseValues.isNotEmpty) {
+      stats?.coarseStateHits++;
+    }
+    final bestCoarse = _selectBestPlayFromValues(
+      snapshot,
+      hand,
+      legalPlays,
+      coarseValues,
+    );
     if (bestCoarse != null) {
+      stats?.coarseSelections++;
       return bestCoarse;
     }
 
+    stats?.fallbacks++;
     return fallback.selectPlay(snapshot, legalPlays, deck, hand);
   }
 
   TichuTurn? _selectBestPlayFromValues(
+    final GameSnapshot snapshot,
+    final List<Card> hand,
     final List<TichuTurn> legalPlays,
     final Map<String, double>? stateValues,
   ) {
@@ -161,9 +204,17 @@ class RlPolicyPlaySelectionStrategy implements PlaySelectionStrategy {
     var bestValue = double.negativeInfinity;
 
     for (final play in legalPlays) {
+      final policyKey = encodeRlPolicyPlayActionKey(
+        turn: play,
+        deck: snapshot.deck,
+        handSize: hand.length,
+      );
       final exactKey = encodeRlPlayActionKeyFromTurn(play);
       final shapeKey = encodeRlPlayShapeKeyFromTurn(play);
-      final policyValue = stateValues[exactKey] ?? stateValues[shapeKey];
+      final policyValue =
+          stateValues[policyKey] ??
+          stateValues[exactKey] ??
+          stateValues[shapeKey];
       if (policyValue == null) {
         continue;
       }

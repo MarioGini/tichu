@@ -1,0 +1,96 @@
+{
+    "version": 3,
+    "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes.",
+    "groups": [
+        {
+            "name": "state",
+            "size": 32,
+            "features": [
+                "team",
+                "is_current_player",
+                "phase_grand_tichu",
+                "phase_schupf",
+                "phase_play",
+                "hand_size",
+                "low_count",
+                "mid_count",
+                "high_count",
+                "special_count",
+                "has_mahjong",
+                "has_phoenix",
+                "has_dragon",
+                "has_dog",
+                "has_bomb",
+                "can_bomb",
+                "can_call_tichu",
+                "deck_empty",
+                "deck_normal",
+                "deck_bomb",
+                "deck_value",
+                "deck_card_count",
+                "trick_winner_self",
+                "trick_winner_partner",
+                "trick_winner_opponent",
+                "active_wish",
+                "has_wish_in_hand",
+                "consecutive_passes",
+                "finish_order_progress",
+                "score_gap",
+                "own_call_tichu",
+                "own_call_grand_tichu"
+            ]
+        },
+        {
+            "name": "hand_structure",
+            "size": 8,
+            "features": [
+                "pair_count",
+                "triplet_count",
+                "straight_count",
+                "full_house_count",
+                "pair_straight_count",
+                "bomb_count",
+                "max_combo_size",
+                "singleton_fraction"
+            ]
+        },
+        {
+            "name": "opponent",
+            "size": 6,
+            "features": [
+                "opp_count_min",
+                "opp_count_mid",
+                "opp_count_max",
+                "partner_called",
+                "any_opp_tichu",
+                "any_opp_grand"
+            ]
+        },
+        {
+            "name": "action",
+            "size": 20,
+            "features": [
+                "type_pass",
+                "type_single",
+                "type_pair",
+                "type_triplet",
+                "type_full_house",
+                "type_straight",
+                "type_pair_straight",
+                "type_bomb",
+                "action_value",
+                "action_card_count",
+                "is_phoenix_play",
+                "is_dragon_play",
+                "is_dog_play",
+                "is_mahjong_play",
+                "low_played",
+                "mid_played",
+                "high_played",
+                "highest_played_rank",
+                "relative_strength",
+                "beats_deck"
+            ]
+        }
+    ]
+}

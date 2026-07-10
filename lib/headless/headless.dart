@@ -5,8 +5,10 @@ import 'dart:math';
 import 'package:tichu/agents/hand_evaluator.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
+import 'package:tichu/agents/nn/feature_encoder.dart';
+import 'package:tichu/agents/nn/mlp.dart';
+import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/rl_codec.dart';
-import 'package:tichu/agents/rl_policy_play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -21,6 +23,11 @@ import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/turn_handler.dart';
 import 'package:tichu/game/turn/wish_logic.dart';
+
+part 'headless_simulator.dart';
+part 'csv_event_writer.dart';
+part 'bc_transition_writer.dart';
+part 'summary_writer.dart';
 
 const _defaultTargetScore = 1000;
 const _defaultEpisodes = 1;
@@ -46,9 +53,27 @@ Future<void> main(final List<String> args) async {
     rlPolicyTeam: config.rlPolicyTeam,
     rlStats: rlStats,
     useMcts: config.useMcts,
+    useIsmcts: config.useIsmcts,
     mctsDeterminizations: config.mctsDeterminizations,
+    ismctsSimulations: config.ismctsSimulations,
     random: random,
   );
+  final opponentFactory = opponentPolicy != null
+      ? _buildAgentFactory(nnPolicy: opponentPolicy, random: random)
+      : _buildAgentFactory(nnPolicy: null, random: random);
+
+  final PlayerAgent Function(String, int) agentFactory;
+  if (opponentPolicy != null) {
+    // Self-play mode: team0 (even seats) plays the loaded NN policy,
+    // team1 (odd seats) plays the frozen opponent policy.
+    agentFactory = (final playerId, final seat) =>
+        seat.isEven ? policyFactory(playerId) : opponentFactory(playerId);
+  } else if (config.mixed) {
+    agentFactory = (final playerId, final seat) =>
+        seat.isEven ? policyFactory(playerId) : opponentFactory(playerId);
+  } else {
+    agentFactory = (final playerId, final _) => policyFactory(playerId);
+  }
 
   final simulator = _HeadlessSimulator(
     random: random,
@@ -59,7 +84,6 @@ Future<void> main(final List<String> args) async {
     outputFormat: config.outputFormat,
     output: outputSink,
     includeTimestamps: config.includeTimestamps,
-    includeLegalTurnCount: config.includeLegalTurnCount,
     epsilon: config.epsilon,
     agentFactory: agentFactory,
   );
@@ -1250,6 +1274,9 @@ class _HeadlessConfig {
   final double epsilon;
   final bool useMcts;
   final int mctsDeterminizations;
+  final bool useIsmcts;
+  final int ismctsSimulations;
+  final bool mixed;
 
   const _HeadlessConfig({
     required this.seed,
@@ -1268,10 +1295,13 @@ class _HeadlessConfig {
     required this.epsilon,
     required this.useMcts,
     required this.mctsDeterminizations,
+    required this.useIsmcts,
+    required this.ismctsSimulations,
+    required this.mixed,
   });
 }
 
-enum _HeadlessOutputFormat { csv, rlJsonl, none }
+enum _HeadlessOutputFormat { csv, bcJsonl, summary, none }
 
 _HeadlessConfig _parseArgs(final List<String> args) {
   int? seed;
@@ -1291,6 +1321,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var epsilon = 0.0;
   var useMcts = false;
   var mctsDeterminizations = 20;
+  var useIsmcts = false;
+  var ismctsSimulations = 100;
+  var mixed = false;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -1306,47 +1339,33 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       continue;
     }
     if (arg.startsWith('--rounds=')) {
-      final parsedRounds = int.tryParse(arg.split('=').last);
-      if (parsedRounds != null && parsedRounds > 0) {
-        rounds = parsedRounds;
-      }
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) rounds = p;
       continue;
     }
-
     if (arg.startsWith('--episodes=')) {
-      final parsedEpisodes = int.tryParse(arg.split('=').last);
-      if (parsedEpisodes != null && parsedEpisodes > 0) {
-        episodes = parsedEpisodes;
-      }
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) episodes = p;
       continue;
     }
-
     if (arg.startsWith('--max-steps=')) {
-      final parsedMaxSteps = int.tryParse(arg.split('=').last);
-      if (parsedMaxSteps != null && parsedMaxSteps > 0) {
-        maxStepsPerEpisode = parsedMaxSteps;
-      }
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) maxStepsPerEpisode = p;
       continue;
     }
-
     if (arg.startsWith('--format=')) {
-      final formatValue = arg.split('=').last;
-      switch (formatValue) {
+      switch (arg.split('=').last) {
         case 'csv':
           outputFormat = _HeadlessOutputFormat.csv;
-        case 'rl-jsonl':
-          outputFormat = _HeadlessOutputFormat.rlJsonl;
+        case 'bc-jsonl':
+          outputFormat = _HeadlessOutputFormat.bcJsonl;
+        case 'summary':
+          outputFormat = _HeadlessOutputFormat.summary;
         case 'none':
           outputFormat = _HeadlessOutputFormat.none;
       }
       continue;
     }
-
-    if (arg == '--rl') {
-      outputFormat = _HeadlessOutputFormat.rlJsonl;
-      continue;
-    }
-
     if (arg == '--no-timestamps') {
       includeTimestamps = false;
       continue;
@@ -1387,31 +1406,48 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       outputProvided = true;
       continue;
     }
-
     if (arg.startsWith('--epsilon=')) {
-      final parsed = double.tryParse(arg.split('=').last);
-      if (parsed != null && parsed >= 0 && parsed <= 1) {
-        epsilon = parsed;
-      }
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) epsilon = p;
       continue;
     }
-
     if (arg == '--mcts') {
       useMcts = true;
       continue;
     }
-
     if (arg.startsWith('--mcts-determinizations=')) {
-      final parsed = int.tryParse(arg.split('=').last);
-      if (parsed != null && parsed > 0) {
-        mctsDeterminizations = parsed;
-      }
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) mctsDeterminizations = p;
       useMcts = true;
+      continue;
+    }
+    if (arg.startsWith('--nn-policy=')) {
+      nnPolicyPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--opponent-policy=')) {
+      opponentPolicyPath = arg.split('=').last;
+      continue;
+    }
+    if (arg == '--ismcts') {
+      useIsmcts = true;
+      continue;
+    }
+    if (arg.startsWith('--ismcts-simulations=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) ismctsSimulations = p;
+      useIsmcts = true;
+      continue;
+    }
+    if (arg == '--mixed') {
+      mixed = true;
       continue;
     }
   }
 
-  if (!outputProvided && outputFormat == _HeadlessOutputFormat.rlJsonl) {
+  if (!outputProvided &&
+      (outputFormat == _HeadlessOutputFormat.bcJsonl ||
+          outputFormat == _HeadlessOutputFormat.summary)) {
     outputPath = 'game.jsonl';
   }
 
@@ -1432,6 +1468,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     epsilon: epsilon,
     useMcts: useMcts,
     mctsDeterminizations: mctsDeterminizations,
+    useIsmcts: useIsmcts,
+    ismctsSimulations: ismctsSimulations,
+    mixed: mixed,
   );
 }
 
@@ -1453,31 +1492,13 @@ void _printUsage() {
   );
 }
 
+// ── Players & Agent Factory ───────────────────────────────────────────────
+
 List<GamePlayer> _buildAutomatedPlayers() => const [
-  GamePlayer(
-    id: 'auto_1',
-    name: 'Opponent 1',
-    seat: 0,
-    type: PlayerType.automated,
-  ),
-  GamePlayer(
-    id: 'auto_2',
-    name: 'Opponent 2',
-    seat: 1,
-    type: PlayerType.automated,
-  ),
-  GamePlayer(
-    id: 'auto_3',
-    name: 'Opponent 3',
-    seat: 2,
-    type: PlayerType.automated,
-  ),
-  GamePlayer(
-    id: 'auto_4',
-    name: 'Opponent 4',
-    seat: 3,
-    type: PlayerType.automated,
-  ),
+  GamePlayer(id: 'auto_1', name: 'P1', seat: 0, type: PlayerType.automated),
+  GamePlayer(id: 'auto_2', name: 'P2', seat: 1, type: PlayerType.automated),
+  GamePlayer(id: 'auto_3', name: 'P3', seat: 2, type: PlayerType.automated),
+  GamePlayer(id: 'auto_4', name: 'P4', seat: 3, type: PlayerType.automated),
 ];
 
 String _cardToken(final Card card) {
@@ -1487,23 +1508,29 @@ String _cardToken(final Card card) {
   return '${card.face.name}-${card.color.name}';
 }
 
-Future<RlPolicyTable?> _loadRlPolicy(final String? path) async {
-  if (path == null || path.isEmpty) {
-    return null;
-  }
+class _NnPolicyData {
+  final Mlp network;
+  final double targetMean;
+  final double targetStd;
+
+  const _NnPolicyData({
+    required this.network,
+    required this.targetMean,
+    required this.targetStd,
+  });
+}
+
+Future<_NnPolicyData?> _loadNnPolicy(final String? path) async {
+  if (path == null || path.isEmpty) return null;
 
   final file = File(path);
   if (!file.existsSync()) {
-    throw StateError('RL policy file does not exist: $path');
+    throw StateError('NN policy file does not exist: $path');
   }
 
-  final jsonText = await file.readAsString();
-  final decoded = jsonDecode(jsonText);
-  final table = RlPolicyTable.fromJsonObject(decoded);
-  if (table.isEmpty) {
-    stderr.writeln('warning,rl_policy_empty,$path');
-  }
-  return table;
+  final bytes = await file.readAsBytes();
+  final (network, mean, std) = Mlp.fromSafetensorsBytes(bytes);
+  return _NnPolicyData(network: network, targetMean: mean, targetStd: std);
 }
 
 PlayerAgent Function(GamePlayer player) _buildAgentFactory({
@@ -1511,9 +1538,25 @@ PlayerAgent Function(GamePlayer player) _buildAgentFactory({
   final int? rlPolicyTeam,
   final RlPolicySelectionStats? rlStats,
   final bool useMcts = false,
+  final bool useIsmcts = false,
   final int mctsDeterminizations = 20,
+  final int ismctsSimulations = 100,
   final Random? random,
 }) {
+  if (useIsmcts) {
+    return (final playerId) => SmartAiAgent(
+      playerId,
+      playSelectionStrategy: IsmctsPlaySelectionStrategy(
+        playerId: playerId,
+        numSimulations: ismctsSimulations,
+        valueNetwork: nnPolicy?.network,
+        valueNetworkMean: nnPolicy?.targetMean,
+        valueNetworkStd: nnPolicy?.targetStd,
+        random: random,
+      ),
+    );
+  }
+
   if (useMcts) {
     return (final player) => SmartAiAgent(
       player.id,

@@ -6,40 +6,52 @@ import 'package:tichu/services/transport/dto/dto_helpers.dart';
 @immutable
 class CreateGameLobbyRequestDto {
   final String displayName;
+  final String gameName;
   final int targetScore;
-  final int? preferredSeat;
+  final int? preferredTeam;
+  final String visibility;
 
   const CreateGameLobbyRequestDto({
     required this.displayName,
+    required this.gameName,
     required this.targetScore,
-    required this.preferredSeat,
+    required this.preferredTeam,
+    required this.visibility,
   });
 
   factory CreateGameLobbyRequestDto.fromDomain(
     final CreateGameLobbyRequest request,
   ) => CreateGameLobbyRequestDto(
     displayName: request.displayName,
+    gameName: request.gameName,
     targetScore: request.targetScore,
-    preferredSeat: request.preferredSeat,
+    preferredTeam: request.preferredTeam,
+    visibility: request.visibility.name,
   );
 
   factory CreateGameLobbyRequestDto.fromJson(final Map<String, dynamic> json) =>
       CreateGameLobbyRequestDto(
         displayName: json['displayName'] as String,
+        gameName: (json['gameName'] as String?) ?? '',
         targetScore: (json['targetScore'] as num).toInt(),
-        preferredSeat: (json['preferredSeat'] as num?)?.toInt(),
+        preferredTeam: (json['preferredTeam'] as num?)?.toInt(),
+        visibility: (json['visibility'] as String?) ?? 'public',
       );
 
   Map<String, dynamic> toJson() => {
     'displayName': displayName,
+    'gameName': gameName,
     'targetScore': targetScore,
-    'preferredSeat': preferredSeat,
+    'preferredTeam': preferredTeam,
+    'visibility': visibility,
   };
 
   CreateGameLobbyRequest toDomain() => CreateGameLobbyRequest(
     displayName: displayName,
+    gameName: gameName,
     targetScore: targetScore,
-    preferredSeat: preferredSeat,
+    preferredTeam: preferredTeam,
+    visibility: enumByName(GameLobbyVisibility.values, visibility),
   );
 }
 
@@ -47,12 +59,12 @@ class CreateGameLobbyRequestDto {
 class JoinGameLobbyRequestDto {
   final String joinCode;
   final String displayName;
-  final int? preferredSeat;
+  final int? preferredTeam;
 
   const JoinGameLobbyRequestDto({
     required this.joinCode,
     required this.displayName,
-    required this.preferredSeat,
+    required this.preferredTeam,
   });
 
   factory JoinGameLobbyRequestDto.fromDomain(
@@ -60,26 +72,26 @@ class JoinGameLobbyRequestDto {
   ) => JoinGameLobbyRequestDto(
     joinCode: request.joinCode,
     displayName: request.displayName,
-    preferredSeat: request.preferredSeat,
+    preferredTeam: request.preferredTeam,
   );
 
   factory JoinGameLobbyRequestDto.fromJson(final Map<String, dynamic> json) =>
       JoinGameLobbyRequestDto(
         joinCode: json['joinCode'] as String,
         displayName: json['displayName'] as String,
-        preferredSeat: (json['preferredSeat'] as num?)?.toInt(),
+        preferredTeam: (json['preferredTeam'] as num?)?.toInt(),
       );
 
   Map<String, dynamic> toJson() => {
     'joinCode': joinCode,
     'displayName': displayName,
-    'preferredSeat': preferredSeat,
+    'preferredTeam': preferredTeam,
   };
 
   JoinGameLobbyRequest toDomain() => JoinGameLobbyRequest(
     joinCode: joinCode,
     displayName: displayName,
-    preferredSeat: preferredSeat,
+    preferredTeam: preferredTeam,
   );
 }
 
@@ -205,8 +217,10 @@ class GameLobbySnapshotDto {
   final String localPlayerId;
   final String hostPlayerId;
   final String? matchId;
+  final String gameName;
   final int targetScore;
   final String state;
+  final String visibility;
   final bool canStart;
   final bool isLocalPlayerHost;
   final List<GameLobbySeatSnapshotDto> seats;
@@ -217,8 +231,10 @@ class GameLobbySnapshotDto {
     required this.localPlayerId,
     required this.hostPlayerId,
     required this.matchId,
+    required this.gameName,
     required this.targetScore,
     required this.state,
+    required this.visibility,
     required this.canStart,
     required this.isLocalPlayerHost,
     required this.seats,
@@ -231,8 +247,10 @@ class GameLobbySnapshotDto {
         localPlayerId: snapshot.localPlayerId,
         hostPlayerId: snapshot.hostPlayerId,
         matchId: snapshot.matchId,
+        gameName: snapshot.gameName,
         targetScore: snapshot.targetScore,
         state: snapshot.state.name,
+        visibility: snapshot.visibility.name,
         canStart: snapshot.canStart,
         isLocalPlayerHost: snapshot.isLocalPlayerHost,
         seats: [
@@ -248,8 +266,10 @@ class GameLobbySnapshotDto {
         localPlayerId: json['localPlayerId'] as String,
         hostPlayerId: json['hostPlayerId'] as String,
         matchId: json['matchId'] as String?,
+        gameName: (json['gameName'] as String?) ?? '',
         targetScore: (json['targetScore'] as num).toInt(),
         state: json['state'] as String,
+        visibility: (json['visibility'] as String?) ?? 'public',
         canStart: json['canStart'] as bool? ?? false,
         isLocalPlayerHost: json['isLocalPlayerHost'] as bool? ?? false,
         seats: decodeMapList(
@@ -263,8 +283,10 @@ class GameLobbySnapshotDto {
     'localPlayerId': localPlayerId,
     'hostPlayerId': hostPlayerId,
     'matchId': matchId,
+    'gameName': gameName,
     'targetScore': targetScore,
     'state': state,
+    'visibility': visibility,
     'canStart': canStart,
     'isLocalPlayerHost': isLocalPlayerHost,
     'seats': [for (final seat in seats) seat.toJson()],
@@ -276,10 +298,75 @@ class GameLobbySnapshotDto {
     localPlayerId: localPlayerId,
     hostPlayerId: hostPlayerId,
     matchId: matchId,
+    gameName: gameName,
     targetScore: targetScore,
     state: enumByName(GameLobbyState.values, state),
+    visibility: enumByName(GameLobbyVisibility.values, visibility),
     canStart: canStart,
     isLocalPlayerHost: isLocalPlayerHost,
     seats: [for (final seat in seats) seat.toDomain()],
+  );
+}
+
+@immutable
+class GameLobbyListEntryDto {
+  final String lobbyId;
+  final String gameName;
+  final String hostDisplayName;
+  final int targetScore;
+  final String visibility;
+  final int occupiedSeats;
+  final int totalSeats;
+
+  const GameLobbyListEntryDto({
+    required this.lobbyId,
+    required this.gameName,
+    required this.hostDisplayName,
+    required this.targetScore,
+    required this.visibility,
+    required this.occupiedSeats,
+    required this.totalSeats,
+  });
+
+  factory GameLobbyListEntryDto.fromDomain(final GameLobbyListEntry entry) =>
+      GameLobbyListEntryDto(
+        lobbyId: entry.lobbyId,
+        gameName: entry.gameName,
+        hostDisplayName: entry.hostDisplayName,
+        targetScore: entry.targetScore,
+        visibility: entry.visibility.name,
+        occupiedSeats: entry.occupiedSeats,
+        totalSeats: entry.totalSeats,
+      );
+
+  factory GameLobbyListEntryDto.fromJson(final Map<String, dynamic> json) =>
+      GameLobbyListEntryDto(
+        lobbyId: json['lobbyId'] as String,
+        gameName: (json['gameName'] as String?) ?? '',
+        hostDisplayName: json['hostDisplayName'] as String,
+        targetScore: (json['targetScore'] as num).toInt(),
+        visibility: (json['visibility'] as String?) ?? 'public',
+        occupiedSeats: (json['occupiedSeats'] as num).toInt(),
+        totalSeats: (json['totalSeats'] as num?)?.toInt() ?? 4,
+      );
+
+  Map<String, dynamic> toJson() => {
+    'lobbyId': lobbyId,
+    'gameName': gameName,
+    'hostDisplayName': hostDisplayName,
+    'targetScore': targetScore,
+    'visibility': visibility,
+    'occupiedSeats': occupiedSeats,
+    'totalSeats': totalSeats,
+  };
+
+  GameLobbyListEntry toDomain() => GameLobbyListEntry(
+    lobbyId: lobbyId,
+    gameName: gameName,
+    hostDisplayName: hostDisplayName,
+    targetScore: targetScore,
+    visibility: enumByName(GameLobbyVisibility.values, visibility),
+    occupiedSeats: occupiedSeats,
+    totalSeats: totalSeats,
   );
 }

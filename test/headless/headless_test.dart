@@ -158,16 +158,16 @@ void main() {
 
   test('headless rl-jsonl output writes transitions', () async {
     final tempDir = await Directory.systemTemp.createTemp(
-      'tichu_headless_rl_jsonl_',
+      'tichu_headless_summary_',
     );
-    final outputFile = File('${tempDir.path}/episode.jsonl');
+    final outputFile = File('${tempDir.path}/eval.jsonl');
 
     try {
       await headless.main([
-        '--seed=3',
+        '--seed=4',
         '--target-score=50',
-        '--episodes=2',
-        '--format=rl-jsonl',
+        '--episodes=3',
+        '--format=summary',
         '--output=${outputFile.path}',
       ]);
 

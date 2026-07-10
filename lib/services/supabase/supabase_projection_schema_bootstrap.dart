@@ -182,6 +182,45 @@ create policy tichu_match_connection_views_select_own
     to authenticated
     using (auth.uid()::text = auth_user_id)
 ''',
+    '''
+create table if not exists public.tichu_authority_lobbies (
+    lobby_id text primary key,
+    state jsonb not null,
+    updated_at timestamptz not null default timezone('utc', now())
+)
+''',
+    '''
+create table if not exists public.tichu_authority_actions (
+    match_id text not null,
+    lobby_id text not null,
+    seq integer not null,
+    action jsonb not null,
+    created_at timestamptz not null default timezone('utc', now()),
+    primary key (match_id, seq)
+)
+''',
+    '''
+create index if not exists tichu_authority_actions_match_idx
+    on public.tichu_authority_actions (match_id, seq asc)
+''',
+    '''
+grant all on public.tichu_authority_lobbies to service_role
+''',
+    '''
+grant all on public.tichu_authority_actions to service_role
+''',
+    '''
+revoke all on public.tichu_authority_lobbies from anon
+''',
+    '''
+revoke all on public.tichu_authority_actions from anon
+''',
+    '''
+revoke all on public.tichu_authority_lobbies from authenticated
+''',
+    '''
+revoke all on public.tichu_authority_actions from authenticated
+''',
   ];
 
   Future<void> ensureReady() async {

@@ -21,9 +21,9 @@ final List<_PlayerSeed> _playerSeeds = <_PlayerSeed>[
 
 class _PlayerSeed {
   final String displayName;
-  final int preferredSeat;
+  final int seat;
 
-  const _PlayerSeed(this.displayName, this.preferredSeat);
+  const _PlayerSeed(this.displayName, this.seat);
 }
 
 class _StaticMultiplayerEngine implements GameEngine {
@@ -195,10 +195,12 @@ Future<List<GameSessionHandle>> _createHumanTable(
   final LocalGameTableService service,
 ) async {
   final host = await service.createLobby(
-    CreateGameLobbyRequest(
-      displayName: _playerSeeds.first.displayName,
-      preferredSeat: _playerSeeds.first.preferredSeat,
-    ),
+    CreateGameLobbyRequest(displayName: _playerSeeds.first.displayName),
+  );
+  await service.claimSeat(
+    host.lobbyId,
+    accessToken: host.accessToken,
+    seat: _playerSeeds.first.seat,
   );
   await service.setReadyState(
     host.lobbyId,
@@ -216,8 +218,12 @@ Future<List<GameSessionHandle>> _createHumanTable(
       JoinGameLobbyRequest(
         joinCode: lobby.joinCode!,
         displayName: seed.displayName,
-        preferredSeat: seed.preferredSeat,
       ),
+    );
+    await service.claimSeat(
+      handle.lobbyId,
+      accessToken: handle.accessToken,
+      seat: seed.seat,
     );
     await service.setReadyState(
       handle.lobbyId,

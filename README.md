@@ -233,7 +233,7 @@ Useful headless options:
 - `--episodes=N`: run multiple self-play episodes in one invocation.
 - `--rounds=N`: cap each episode to N completed rounds.
 - `--max-steps=N`: safety cap to prevent accidental infinite episodes.
-- `--format=csv|rl-jsonl|none`: choose event CSV, RL JSONL, or no file output.
+- `--format=csv|none`: choose event CSV or no file output.
 - `--no-timestamps`: disable wall-clock timestamps in CSV rows.
 - `--rl-legal-count`: include per-state legal-turn counts in RL JSONL output.
 - `--rl-policy=policy.json`: load a policy table and apply it through `PlaySelectionStrategy` in `SmartAiAgent`.

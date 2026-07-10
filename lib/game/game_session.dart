@@ -12,16 +12,22 @@ enum GameLobbyState {
 
 enum GameLobbySeatState { open, occupied, locked }
 
+enum GameLobbyVisibility { public, private }
+
 @immutable
 class CreateGameLobbyRequest {
   final String displayName;
+  final String gameName;
   final int targetScore;
-  final int? preferredSeat;
+  final int? preferredTeam;
+  final GameLobbyVisibility visibility;
 
   const CreateGameLobbyRequest({
     required this.displayName,
+    this.gameName = '',
     this.targetScore = 1000,
-    this.preferredSeat,
+    this.preferredTeam,
+    this.visibility = GameLobbyVisibility.public,
   });
 }
 
@@ -29,12 +35,12 @@ class CreateGameLobbyRequest {
 class JoinGameLobbyRequest {
   final String joinCode;
   final String displayName;
-  final int? preferredSeat;
+  final int? preferredTeam;
 
   const JoinGameLobbyRequest({
     required this.joinCode,
     required this.displayName,
-    this.preferredSeat,
+    this.preferredTeam,
   });
 }
 
@@ -97,8 +103,10 @@ class GameLobbySnapshot {
   final String localPlayerId;
   final String hostPlayerId;
   final String? matchId;
+  final String gameName;
   final int targetScore;
   final GameLobbyState state;
+  final GameLobbyVisibility visibility;
   final bool canStart;
   final bool isLocalPlayerHost;
   final List<GameLobbySeatSnapshot> seats;
@@ -109,11 +117,34 @@ class GameLobbySnapshot {
     required this.localPlayerId,
     required this.hostPlayerId,
     this.matchId,
+    this.gameName = '',
     required this.targetScore,
     required this.state,
+    this.visibility = GameLobbyVisibility.public,
     required this.canStart,
     required this.isLocalPlayerHost,
     this.seats = const <GameLobbySeatSnapshot>[],
+  });
+}
+
+@immutable
+class GameLobbyListEntry {
+  final String lobbyId;
+  final String gameName;
+  final String hostDisplayName;
+  final int targetScore;
+  final GameLobbyVisibility visibility;
+  final int occupiedSeats;
+  final int totalSeats;
+
+  const GameLobbyListEntry({
+    required this.lobbyId,
+    required this.gameName,
+    required this.hostDisplayName,
+    required this.targetScore,
+    required this.visibility,
+    required this.occupiedSeats,
+    this.totalSeats = 4,
   });
 }
 
@@ -125,6 +156,8 @@ abstract interface class GameSessionService {
   Future<GameSessionHandle> createLobby(final CreateGameLobbyRequest request);
 
   Future<GameSessionHandle> joinLobby(final JoinGameLobbyRequest request);
+
+  Future<List<GameLobbyListEntry>> listGames();
 
   Stream<GameLobbySnapshot> watchLobby(
     final String lobbyId, {
@@ -151,6 +184,11 @@ abstract interface class GameSessionService {
   });
 
   Future<void> leaveLobby(
+    final String lobbyId, {
+    required final String accessToken,
+  });
+
+  Future<void> sendHeartbeat(
     final String lobbyId, {
     required final String accessToken,
   });

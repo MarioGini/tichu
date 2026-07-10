@@ -19,10 +19,20 @@ String encodeRlTurnKey(final TichuTurn turn) {
 }
 
 String encodeRlPlayActionKeyFromTurn(final TichuTurn turn) =>
-    'play:${encodeRlTurnKey(turn)}';
+    'play:${encodeRlTurnKey(_canonicalTurnForRl(turn))}';
 
 String encodeRlPlayShapeKeyFromTurn(final TichuTurn turn) =>
-    'play_shape:${turn.type.name}:${turn.value.toStringAsFixed(1)}:${turn.cards.length}';
+    () {
+      final canonical = _canonicalTurnForRl(turn);
+      return 'play_shape:${canonical.type.name}:${canonical.value.toStringAsFixed(1)}:${canonical.cards.length}';
+    }();
+
+TichuTurn _canonicalTurnForRl(final TichuTurn turn) {
+  if (turn.type == TurnType.dog) {
+    return TichuTurn(TurnType.single, List<Card>.from(turn.cards));
+  }
+  return turn;
+}
 
 String encodeRlPolicyPlayActionKey({
   required final TichuTurn turn,

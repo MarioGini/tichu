@@ -5,6 +5,7 @@ on:
     branches: ["develop"]
   pull_request:
     branches: ["develop"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -19,12 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: 3.50.0
-          cache: true
-      - run: flutter pub get --enforce-lockfile
+      - uses: ./.github/actions/setup-flutter
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze --fatal-infos --fatal-warnings
       - run: dart fix --dry-run
@@ -39,14 +35,38 @@ jobs:
         target: [web, linux]
     steps:
       - uses: actions/checkout@v7
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: 3.50.0
-          cache: true
       - if: matrix.target == 'linux'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y ninja-build libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-      - run: flutter pub get --enforce-lockfile
-      - run: flutter build ${{ matrix.target }}
+      - uses: ./.github/actions/setup-flutter
+      - if: matrix.target == 'linux'
+        run: flutter build linux
+      # The web build doubles as the GitHub Pages bundle, so it is built with
+      # the Pages base href and uploaded for the deploy job.
+      - if: matrix.target == 'web'
+        run: flutter build web --base-href "/${{ github.event.repository.name }}/"
+      - if: matrix.target == 'web'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: build/web
+
+  deploy:
+    name: Deploy Pages
+    # Only deploy develop, and only after analyze, tests and builds passed.
+    if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
+    needs: [analyze_test, build]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6
+      - id: deployment
+        uses: actions/deploy-pages@v5

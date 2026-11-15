@@ -1,0 +1,13 @@
+name: Setup Flutter
+description: Install the pinned Flutter SDK (cached) and fetch packages from pubspec.lock.
+
+runs:
+  using: composite
+  steps:
+    - uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        flutter-version: 3.50.0
+        cache: true
+    - shell: bash
+      run: flutter pub get --enforce-lockfile

@@ -52,7 +52,7 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart)
 - If active wish exists, prefer turns containing wished face.
 - Filter out wish-violating turns via wish logic.
 - Code: [play_tactics_policy.dart](play_tactics_policy.dart),
-  [../../game/turn/wish_logic.dart](../../game/turn/wish_logic.dart)
+  [../game/turn/wish_logic.dart](../game/turn/wish_logic.dart)
 
 ### R6 — Mahjong Wish Selection
 - Preferred wish source is the last card schupfed to next player (right in this
@@ -63,13 +63,13 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart)
 
 ### R7 — Tichu Calling Thresholds
 - Implemented from the CS229 paper using rounded logistic-feature indices.
-- **Grand Tichu (8 cards):** compute
-  `Ig = NAce + 3*NDragon + 3*NPhoenix + 3*NBomb` and call when `Ig >= 2`.
+- **Grand Tichu (8 cards):** the heuristic never calls Grand Tichu. Grand
+  Tichu (and optionally Tichu) calls can instead come from learned call-value
+  nets (`NnTichuCallStrategy`, see [rl/README.md](../../rl/README.md)).
 - **Tichu (14 cards):** compute
   `It = 2*NAce - 2*NDog + 6*NDragon + 6*NPhoenix + 5*NBomb + NStraight - NSmallSingleton(2..7)`
   and call when `It >= 7`.
-- Grand Tichu is evaluated during grand-tichu phase from the initial 8-card
-  view; Tichu is evaluated on full hand state.
+- Tichu is evaluated on full hand state.
 - Delayed Tichu timing for automated opponents is decided in the AI layer at
   first legal call opportunity (`selectAction`), not in backend orchestration.
 - Team constraint in AI: never call Tichu when partner already has any call
@@ -133,19 +133,19 @@ Code: [turn_scorer.dart](turn_scorer.dart)
 
 ## 5) Verification Map (tests)
 - Agent orchestration and tactical behavior:
-  [smart_ai_agent_test.dart](../../../test/agents/smart_ai_agent_test.dart)
+  [smart_ai_agent_test.dart](../../test/agents/smart_ai_agent_test.dart)
 - Tactical policy rules:
-  [play_tactics_policy_test.dart](../../../test/agents/play_tactics_policy_test.dart)
+  [play_tactics_policy_test.dart](../../test/agents/play_tactics_policy_test.dart)
 - Schupf rules:
-  [schupf_strategy_test.dart](../../../test/agents/schupf_strategy_test.dart)
+  [schupf_strategy_test.dart](../../test/agents/schupf_strategy_test.dart)
 - Dragon give rules:
-  [dragon_give_strategy_test.dart](../../../test/agents/dragon_give_strategy_test.dart)
+  [dragon_give_strategy_test.dart](../../test/agents/dragon_give_strategy_test.dart)
 - Wish rules:
-  [wish_strategy_test.dart](../../../test/agents/wish_strategy_test.dart)
+  [wish_strategy_test.dart](../../test/agents/wish_strategy_test.dart)
 - Tichu-call thresholds:
-  [tichu_call_strategy_test.dart](../../../test/agents/tichu_call_strategy_test.dart)
+  [tichu_call_strategy_test.dart](../../test/agents/tichu_call_strategy_test.dart)
 - Turn scoring policy:
-  [turn_scorer_test.dart](../../../test/agents/turn_scorer_test.dart)
+  [turn_scorer_test.dart](../../test/agents/turn_scorer_test.dart)
 
 ---
 

@@ -34,9 +34,9 @@ this you pay a 2.5 s VM cold-start per invocation.
 dart compile exe lib/headless/headless.dart -o build/bin/headless
 ```
 
-To regenerate from scratch (`evaluate_policy.py` and `self_play.py` accept
-`--shards=N` to fan headless work across CPU cores; default `0` =
-`cpu_count - 1`; `bc_pretrain.py` generates its data in a single process):
+To regenerate from scratch (`bc_pretrain.py`, `evaluate_policy.py`,
+`self_play.py` and `call_train.py` accept `--shards=N` to fan headless work
+across CPU cores; default `0` = `cpu_count - 1`):
 
 ```bash
 uv run --project rl python rl/bc_pretrain.py \
@@ -63,14 +63,14 @@ uv run --project rl python rl/evaluate_policy.py \
 - `headless_runner.py` shards an episode count across N processes (one per
   shard, distinct seed), then concatenates the JSONL output. On an 8-core
   box this is ~6× wallclock for typical 300+ episode jobs.
-- Training stays on **CPU**: the 58k-param net is too small to benefit from
+- Training stays on **CPU**: the ~100k-param net is too small to benefit from
   a GPU, so the project installs the CPU-only PyTorch build.
 
 ## Architecture
 
 ### Feature schema (single source of truth)
 
-`rl/schema/feature_spec.json` (v4) defines the 253-dim feature vector
+`rl/schema/feature_spec.json` (v4) defines the 252-dim feature vector
 consumed by both Python (training) and Dart (inference). Layout:
 
 | Group           | Size | Indices | Content                                          |
@@ -82,7 +82,7 @@ consumed by both Python (training) and Dart (inference). Layout:
 | seats           | 27   | 149-175 | left/partner/right: cards, finish, calls, points |
 | self            | 15   | 176-190 | own calls, round and match score context         |
 | hand_structure  | 10   | 191-200 | singles/pairs/runs/bombs, est. plays to finish   |
-| action          | 52   | 201-252 | type, strength, beaters, cards used, hand after  |
+| action          | 51   | 201-251 | type, strength, beaters, cards used, hand after  |
 
 Only Dart encodes features (`lib/agents/nn/feature_encoder.dart`); the
 headless `--format=bc-jsonl` output carries them pre-encoded, so Python never
@@ -98,14 +98,14 @@ inference time).
 
 ### Training pipelines
 
-There are now two Python entry points:
+Python entry points:
 
 1. **`bc_pretrain.py`** — behavioural cloning. Generates heuristic-vs-heuristic
    episodes, then teaches the Q-net to assign the highest Q-value among
    legal actions to the action the heuristic chose. Produces a policy
    roughly at heuristic-parity (~50 % win rate vs heuristic).
 
-   - `--episodes`, `--epochs`, `--hidden`, `--lr`, `--batch-size`
+   - `--episodes`, `--epochs`, `--hidden`, `--lr`, `--decisions-per-batch`
    - `--init-from=prev.safetensors` warm-start from a previous policy
    - `--anchor-policy=prev.safetensors --kl-weight=0.5` add a KL pull to a
      previous policy (use to prevent catastrophic forgetting when fine-tuning)
@@ -118,6 +118,15 @@ There are now two Python entry points:
    plays vs current best, fine-tune with KL anchor to best, duplicate-evaluate
    vs heuristic, promote on a significant paired gain. `--algo=awr` (default)
    trains with `awr_train.py`; `--algo=bc` is the old winners-only BC.
+
+3. **`awr_train.py`** — advantage-weighted regression. Fits a value net
+   V(s) on the 201 state features to the round point difference (own team
+   minus opponents, incl. Tichu bonuses, /100), then fine-tunes the policy
+   with cross-entropy weighted by `min(exp((R - V(s)) / beta), max_weight)`
+   plus a KL anchor. Uses all decisions, exploration moves included.
+   `--value-output` saves V(s) (`target_std=100`, so Dart reads points);
+   `headless --ismcts --value-net=value.safetensors` uses it as the leaf
+   evaluator instead of heuristic rollouts.
 
 4. **`call_train.py`** — call-value nets. Data comes from
    `headless --call-epsilon=p`, which flips Tichu / Grand Tichu decisions
@@ -135,15 +144,6 @@ There are now two Python entry points:
        --output=rl/outputs/eval_calls.safetensors --episodes=200 --target-score=500
    ```
 
-3. **`awr_train.py`** — advantage-weighted regression. Fits a value net
-   V(s) on the 201 state features to the round point difference (own team
-   minus opponents, incl. Tichu bonuses, /100), then fine-tunes the policy
-   with cross-entropy weighted by `min(exp((R - V(s)) / beta), max_weight)`
-   plus a KL anchor. Uses all decisions, exploration moves included.
-   `--value-output` saves V(s) (`target_std=100`, so Dart reads points);
-   `headless --ismcts --value-net=value.safetensors` uses it as the leaf
-   evaluator instead of heuristic rollouts.
-
 ### What the NN controls
 
 `NnPlaySelectionStrategy` is a `FullTurnPolicy`: `SmartAiAgent` hands it
@@ -154,9 +154,9 @@ NN players. Schupf, Dragon gift and wish choice are still heuristic.
 
 Tichu / Grand Tichu calls can come from call-value nets
 (`NnTichuCallStrategy`, `headless --tichu-net=.. --grand-net=..`): Q(s, call)
-on the 201 state features + a call flag, predicting the round point
-difference. The agent calls when Q(s, 1) − Q(s, 0) > margin. Without nets the
-heuristic decides (it never calls Grand Tichu).
+on `[state, flag, flag × state]` (201 state features, call flag), predicting
+the round point difference. The agent calls when Q(s, 1) − Q(s, 0) > margin.
+Without nets the heuristic decides (it never calls Grand Tichu).
 
 ### Evaluation
 
@@ -175,7 +175,7 @@ Only two RL-relevant formats remain:
   `evaluate_policy.py` consumes this. ~50 lines for a 50-match eval.
 - **`--format=bc-jsonl`** — one JSONL line per play-phase decision with
   ≥2 legal actions: `episode`, `round`, `team`, `state_features` (201 floats),
-  `legal_play_action_features` (n × 52 floats), `legal_play_chosen_index`,
+  `legal_play_action_features` (n × 51 floats), `legal_play_chosen_index`,
   and `explore: true` when the move came from ε-exploration (BC skips those).
   The legal set is exactly what the NN scores at inference: wish-filtered
   plays plus pass when legal. Bookkeeping rows without features:

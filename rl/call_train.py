@@ -38,6 +38,18 @@ from schema import ACTION_OFFSET, SPEC
 SCALE = 100.0
 
 
+RECEIVED = 3 * 56  # one-hot received schupf card from left, partner, right
+FEATURES = ACTION_OFFSET + RECEIVED  # = Dart callFeatureCount
+
+
+def received_onehot(received: list[int] | None) -> list[float]:
+    out = [0.0] * RECEIVED
+    for block, slot in enumerate(received or []):
+        if slot is not None and slot >= 0:
+            out[block * 56 + slot] = 1.0
+    return out
+
+
 def call_input(state: list[float], called: bool) -> list[float]:
     """[state, flag, flag * state] — must match Dart ``callNetInput``."""
     f = 1.0 if called else 0.0
@@ -45,7 +57,7 @@ def call_input(state: list[float], called: bool) -> list[float]:
 
 
 def _with_flag(x: torch.Tensor, flag: float) -> torch.Tensor:
-    n = ACTION_OFFSET
+    n = FEATURES
     out = x.clone()
     out[:, n] = flag
     out[:, n + 1 :] = x[:, :n] * flag
@@ -77,7 +89,7 @@ def load_calls(jsonl: Path, kind: str) -> tuple[torch.Tensor, torch.Tensor, torc
         if len(state) != ACTION_OFFSET:
             raise ValueError(f"state_features len {len(state)} != {ACTION_OFFSET}")
         called = bool(r["called"])
-        xs.append(call_input(state, called))
+        xs.append(call_input(state + received_onehot(r.get("received")), called))
         ys.append((own - opp) / SCALE)
         # The heuristic's own choice: flipped back for explored rows.
         heur.append(called != bool(r.get("explore", False)))
@@ -154,7 +166,7 @@ def export(model: QNetwork, path: Path, *, kind: str, val_mse: float, n: int) ->
 
 def fit_kind(jsonl: Path, kind: str, output: Path, args: argparse.Namespace) -> None:
     x, y, heur = load_calls(jsonl, kind)
-    called = x[:, ACTION_OFFSET] > 0.5
+    called = x[:, FEATURES] > 0.5
     print(
         f"[{kind}] rows={x.shape[0]}  called={int(called.sum())}  "
         f"mean R | call={float(y[called].mean()) if called.any() else float('nan'):+.3f}  "

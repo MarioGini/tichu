@@ -49,6 +49,21 @@ abstract final class SchupfFeatures {
     return out;
   }
 
+  /// Bomb-safety convention shared with the heuristic: normal cards with an
+  /// odd rank go to the left opponent, even ranks to the right (specials go
+  /// anywhere). Partners both follow it, so an opponent never receives two
+  /// cards of the same rank from us.
+  static bool allowedLeft(final Card c) =>
+      !_isNormal(c) || c.value.toInt().isOdd;
+  static bool allowedRight(final Card c) =>
+      !_isNormal(c) || c.value.toInt().isEven;
+
+  static bool _isNormal(final Card c) =>
+      c.face != CardFace.dragon &&
+      c.face != CardFace.phoenix &&
+      c.face != CardFace.dog &&
+      c.face != CardFace.mahJong;
+
   /// Full feature vector (used for logging and tests; inference uses the
   /// incremental path in [NnSchupfStrategy]).
   static Float64List encode({
@@ -118,25 +133,38 @@ class NnSchupfStrategy implements SchupfStrategy {
     var bestL = 0;
     var bestP = 1;
     var bestR = 2;
-    for (var l = 0; l < hand.length; l++) {
-      for (var p = 0; p < hand.length; p++) {
-        if (p == l) continue;
-        for (var r = 0; r < hand.length; r++) {
-          if (r == l || r == p) continue;
-          work.setAll(0, pre);
-          network
-            ..addFirstLayerColumn(work, SchupfFeatures.leftOffset + slots[l])
-            ..addFirstLayerColumn(work, SchupfFeatures.partnerOffset + slots[p])
-            ..addFirstLayerColumn(work, SchupfFeatures.rightOffset + slots[r]);
-          final q = network.predictFromFirstLayer(work);
-          if (q > best) {
-            best = q;
-            bestL = l;
-            bestP = p;
-            bestR = r;
+    // First pass respects the bomb-safety convention; only if no candidate
+    // satisfies it (rare) is every assignment considered.
+    for (final strict in [true, false]) {
+      for (var l = 0; l < hand.length; l++) {
+        if (strict && !SchupfFeatures.allowedLeft(hand[l])) continue;
+        for (var p = 0; p < hand.length; p++) {
+          if (p == l) continue;
+          for (var r = 0; r < hand.length; r++) {
+            if (r == l || r == p) continue;
+            if (strict && !SchupfFeatures.allowedRight(hand[r])) continue;
+            work.setAll(0, pre);
+            network
+              ..addFirstLayerColumn(work, SchupfFeatures.leftOffset + slots[l])
+              ..addFirstLayerColumn(
+                work,
+                SchupfFeatures.partnerOffset + slots[p],
+              )
+              ..addFirstLayerColumn(
+                work,
+                SchupfFeatures.rightOffset + slots[r],
+              );
+            final q = network.predictFromFirstLayer(work);
+            if (q > best) {
+              best = q;
+              bestL = l;
+              bestP = p;
+              bestR = r;
+            }
           }
         }
       }
+      if (best > double.negativeInfinity) break;
     }
 
     return SchupfAction(

@@ -355,9 +355,13 @@ class _HeadlessSimulator {
     final changes = roll < 0.7 ? 1 : (roll < 0.95 ? 2 : 3);
     final slots = [0, 1, 2]..shuffle(random);
     for (final slot in slots.take(changes)) {
+      // Stay within the bomb-safety convention for the opponents' cards.
       final pool = [
         for (final c in hand)
-          if (!chosen.any((final x) => _sameCard(x, c))) c,
+          if (!chosen.any((final x) => _sameCard(x, c)) &&
+              (slot != 0 || SchupfFeatures.allowedLeft(c)) &&
+              (slot != 2 || SchupfFeatures.allowedRight(c)))
+            c,
       ];
       if (pool.isEmpty) break;
       chosen[slot] = pool[random.nextInt(pool.length)];
@@ -366,9 +370,15 @@ class _HeadlessSimulator {
       // Also explore who gets which card.
       final a = random.nextInt(3);
       final b = random.nextInt(3);
-      final t = chosen[a];
-      chosen[a] = chosen[b];
-      chosen[b] = t;
+      final swapped = [...chosen];
+      swapped[a] = chosen[b];
+      swapped[b] = chosen[a];
+      if (SchupfFeatures.allowedLeft(swapped[0]) &&
+          SchupfFeatures.allowedRight(swapped[2])) {
+        chosen
+          ..clear()
+          ..addAll(swapped);
+      }
     }
     return SchupfAction(
       playerId: base.playerId,

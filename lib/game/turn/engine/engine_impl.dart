@@ -273,6 +273,7 @@ class GameEngineImpl implements GameEngine {
       },
       grandTichuDecisions: Map<String, bool>.from(state.grandTichuDecisions),
       schupfCompletedPlayers: List<String>.from(state.schupfSelections.keys),
+      schupfSelections: Map<String, SchupfAction>.from(state.schupfSelections),
       schupfReceipts: Map<String, List<SchupfReceipt>>.from(
         state.schupfReceipts,
       ),

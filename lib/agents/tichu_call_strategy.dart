@@ -46,8 +46,13 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
     final String playerId,
   ) async {
     final hand = snapshot.hands[playerId] ?? const <Card>[];
-    return _tichuIndex(hand) >= _tichuIndexThreshold;
+    return isTichuHand(hand);
   }
+
+  /// Whether [hand] is strong enough for the heuristic to call Tichu. Also
+  /// used before the exchange to decide whether to keep strong cards.
+  bool isTichuHand(final List<Card> hand) =>
+      _tichuIndex(hand) >= _tichuIndexThreshold;
 
   int _tichuIndex(final List<Card> hand) {
     final nAce = _countFace(hand, CardFace.ace);

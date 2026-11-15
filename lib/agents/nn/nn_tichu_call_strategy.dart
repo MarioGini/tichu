@@ -1,22 +1,68 @@
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
+import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/game_snapshot.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
 
-/// Input width of a call-value network: `[state, flag, flag * state]` with
-/// flag 1 = call, 0 = no call. The `flag * state` block lets the effect of
-/// calling depend on the hand directly (a single flag input was learned as
-/// a near-constant offset).
-const int callNetInputSize = 2 * stateFeatureCount + 1;
+/// One-hot card slots received in this round's schupf from the left
+/// opponent, the partner and the right opponent (3 × 56); all zeros before
+/// the exchange. Lets a Tichu decision react to the partner's pass (a strong
+/// card usually means "you go").
+const int receivedFeatureCount = 3 * 56;
 
-/// Builds the call-network input for [state] and [call].
-List<double> callNetInput(
-  final List<double> state, {
-  required final bool call,
-}) {
-  final f = call ? 1.0 : 0.0;
-  return [...state, f, for (final x in state) x * f];
+/// Per-decision call features: state features + received cards.
+const int callFeatureCount = stateFeatureCount + receivedFeatureCount;
+
+/// Input width of a call-value network: `[x, flag, flag * x]` with
+/// x = call features and flag 1 = call, 0 = no call. The `flag * x` block
+/// lets the effect of calling depend on the hand directly (a single flag
+/// input was learned as a near-constant offset).
+const int callNetInputSize = 2 * callFeatureCount + 1;
+
+/// Received schupf cards of [playerId] as [receivedFeatureCount] values.
+List<double> receivedSchupfFeatures(
+  final GameSnapshot snapshot,
+  final String playerId,
+) {
+  final out = List<double>.filled(receivedFeatureCount, 0);
+  for (final (block, card) in receivedSchupfCards(snapshot, playerId)) {
+    if (card != null) out[block * 56 + cardSlot(card)] = 1;
+  }
+  return out;
 }
+
+/// `(block, card)` for left opponent (0), partner (1), right opponent (2).
+List<(int, Card?)> receivedSchupfCards(
+  final GameSnapshot snapshot,
+  final String playerId,
+) {
+  final table = TableRelationships(snapshot, playerId);
+  final left = table.playerBySeat(table.leftSeat()).id;
+  final right = table.playerBySeat(table.rightSeat()).id;
+  final partner = table.partnerId;
+  final sel = snapshot.schupfSelections;
+  return [
+    // My left neighbour passes to me as their right.
+    (0, sel[left]?.toRight),
+    (1, partner == null ? null : sel[partner]?.toPartner),
+    // My right neighbour passes to me as their left.
+    (2, sel[right]?.toLeft),
+  ];
+}
+
+/// Builds the call-network input for call features [x] and [call].
+List<double> callNetInput(final List<double> x, {required final bool call}) {
+  final f = call ? 1.0 : 0.0;
+  return [...x, f, for (final v in x) v * f];
+}
+
+/// Call features (state + received cards) of [playerId].
+List<double> callFeatures(final GameSnapshot snapshot, final String playerId) =>
+    [
+      ...encodeStateFeatures(snapshot: snapshot, playerId: playerId),
+      ...receivedSchupfFeatures(snapshot, playerId),
+    ];
 
 /// Tichu / Grand Tichu decisions from learned call-value networks.
 ///
@@ -60,7 +106,8 @@ class NnTichuCallStrategy implements TichuCallStrategy {
           net.inputSize,
           'network.inputSize',
           'Call network must take $callNetInputSize inputs '
-              '([state, flag, flag * state]). Retrain with rl/call_train.py.',
+              '([x, flag, flag * x], x = state + received schupf cards). '
+              'Retrain with rl/call_train.py.',
         );
       }
     }
@@ -73,9 +120,9 @@ class NnTichuCallStrategy implements TichuCallStrategy {
     final GameSnapshot snapshot,
     final String playerId,
   ) {
-    final state = encodeStateFeatures(snapshot: snapshot, playerId: playerId);
-    final qCall = network.predict(callNetInput(state, call: true));
-    final qNoCall = network.predict(callNetInput(state, call: false));
+    final x = callFeatures(snapshot, playerId);
+    final qCall = network.predict(callNetInput(x, call: true));
+    final qNoCall = network.predict(callNetInput(x, call: false));
     return (qCall - qNoCall) * scale;
   }
 

@@ -52,6 +52,11 @@ class _BcTransitionWriter {
           snapshot: snapshot,
           playerId: playerId,
         ),
+        // Received schupf cards [from left, partner, right] (-1 = none yet).
+        'received': [
+          for (final (_, card) in receivedSchupfCards(snapshot, playerId))
+            if (card == null) -1 else cardSlot(card),
+        ],
       }),
     );
   }

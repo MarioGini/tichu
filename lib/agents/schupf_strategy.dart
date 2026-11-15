@@ -1,3 +1,4 @@
+import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
@@ -47,19 +48,21 @@ class DefaultSchupfStrategy implements SchupfStrategy {
 
     final (leftId, partnerId, rightId) = _seatIds(snapshot, playerId);
     final tichuCalls = snapshot.scoreState.tichuCalls;
-    final selfGrand = tichuCalls[playerId] == TichuCall.grandTichu;
-    final partnerGrand =
-        partnerId != null && tichuCalls[partnerId] == TichuCall.grandTichu;
-    final leftGrand =
-        leftId != null && tichuCalls[leftId] == TichuCall.grandTichu;
-    final rightGrand =
-        rightId != null && tichuCalls[rightId] == TichuCall.grandTichu;
+    bool called(final String? id) =>
+        id != null && (tichuCalls[id] ?? TichuCall.none) != TichuCall.none;
+    // "Going out first" intent: an actual (Grand) Tichu call, or — for me —
+    // a hand the heuristic would call Tichu with after the exchange.
+    final selfGoing =
+        called(playerId) || const DefaultTichuCallStrategy().isTichuHand(hand);
+    final partnerGrand = called(partnerId);
+    final leftGrand = called(leftId);
+    final rightGrand = called(rightId);
 
     Card? toLeft;
     Card? toRight;
 
-    // If an opponent called Grand Tichu, prefer giving them the Dog.
-    // If partner called Grand Tichu, keep Dog for support plays.
+    // If an opponent called (Grand) Tichu, prefer giving them the Dog.
+    // If partner called, keep Dog for support plays.
     if (!partnerGrand &&
         (leftGrand || rightGrand) &&
         remaining.any((final c) => c.face == CardFace.dog)) {
@@ -76,25 +79,9 @@ class DefaultSchupfStrategy implements SchupfStrategy {
       }
     }
 
-    // Prefer splitting low pairs to opponents (reduces bomb potential).
-    if (toLeft == null && toRight == null) {
-      final pairFace = _lowestPairFace(remaining, maxValue: 7);
-      if (pairFace != null) {
-        final pairCards = remaining
-            .where((final c) => c.face == pairFace)
-            .take(2)
-            .toList();
-        if (pairCards.length == 2) {
-          toLeft = pairCards.first;
-          toRight = pairCards.last;
-          remaining.remove(toLeft);
-          remaining.remove(toRight);
-        }
-      }
-    }
-
-    // Fill any missing opponent slots with low cards, preferring odd to left
-    // and even to right to reduce overlap with partner.
+    // Fill the opponent slots with low cards: odd ranks to the left, even
+    // ranks to the right. Both partners follow this convention, so an
+    // opponent never gets two cards of the same rank from us (no bomb gift).
     final normalPool = _normalCandidates(remaining);
     if (toLeft == null) {
       final pick =
@@ -113,9 +100,9 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     }
 
     // Partner card strategy:
-    // - Partner called Grand Tichu: give strongest non-Dog card if possible.
-    // - Self called Grand Tichu: keep strength and give partner the 3rd low.
-    // - Otherwise: give strongest regular card.
+    // - Partner called (Grand) Tichu: give strongest non-Dog card if possible.
+    // - I called, or my hand is a Tichu hand: keep strength, give a low card.
+    // - Otherwise: give strongest regular card (support the partner).
     Card toPartner;
     if (partnerGrand) {
       final nonDog = remaining
@@ -128,8 +115,9 @@ class DefaultSchupfStrategy implements SchupfStrategy {
         remaining.sort((final a, final b) => b.value.compareTo(a.value));
         toPartner = remaining.first;
       }
-    } else if (selfGrand) {
-      toPartner = _pickLowest(remaining);
+    } else if (selfGoing) {
+      final normal = _normalCandidates(remaining);
+      toPartner = _pickLowest(normal.isNotEmpty ? normal : remaining);
     } else {
       final partnerPool = _normalCandidates(remaining);
       if (partnerPool.isNotEmpty) {
@@ -187,41 +175,21 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     return candidates.first;
   }
 
+  static const double _maxParityValue = 10;
+
   Card? _pickLowestByParity(
     final List<Card> pool, {
     required final bool isEven,
   }) {
+    // Only low cards: never hand an opponent a high card just for parity.
     final candidates = pool
-        .where((final c) => c.value.toInt().isEven == isEven)
+        .where(
+          (final c) =>
+              c.value.toInt().isEven == isEven && c.value <= _maxParityValue,
+        )
         .toList();
     if (candidates.isEmpty) return null;
     candidates.sort((final a, final b) => a.value.compareTo(b.value));
     return candidates.first;
-  }
-
-  CardFace? _lowestPairFace(
-    final List<Card> hand, {
-    required final int maxValue,
-  }) {
-    final counts = <CardFace, int>{};
-    for (final card in hand) {
-      if (card.face == CardFace.dragon ||
-          card.face == CardFace.phoenix ||
-          card.face == CardFace.dog ||
-          card.face == CardFace.mahJong) {
-        continue;
-      }
-      counts[card.face] = (counts[card.face] ?? 0) + 1;
-    }
-    final sortedFaces = counts.keys.toList()
-      ..sort(
-        (final a, final b) => Card.getValue(a).compareTo(Card.getValue(b)),
-      );
-    for (final face in sortedFaces) {
-      if ((counts[face] ?? 0) >= 2 && Card.getValue(face) <= maxValue) {
-        return face;
-      }
-    }
-    return null;
   }
 }

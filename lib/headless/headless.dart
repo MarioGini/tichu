@@ -7,6 +7,7 @@ import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/mcts/ismcts_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
+import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';

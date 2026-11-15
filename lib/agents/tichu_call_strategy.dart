@@ -66,11 +66,38 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
   /// Besides the index, a Tichu hand needs at least [_minControls] controls
   /// (Dragon, Phoenix, Aces, bombs): exact counterfactual measurements showed
   /// calls with fewer controls lose ~20–30 points on average.
-  bool isTichuHand(final List<Card> hand) =>
-      _tichuIndex(hand) >= _tichuIndexThreshold &&
-      controlCount(hand) >= _minControls;
+  ///
+  /// The Dog or many low singles make a hand much harder to play out
+  /// (measured: 36 % success with the Dog vs 65 % without; ~55 % with 4+
+  /// unpaired cards below 10 vs ~70 % with 2), so such hands need one more
+  /// control.
+  bool isTichuHand(final List<Card> hand) {
+    final hasDog = hand.any((final c) => c.face == CardFace.dog);
+    final needed = hasDog || _lowSingles(hand) >= 4
+        ? _minControls + 1
+        : _minControls;
+    return _tichuIndex(hand) >= _tichuIndexThreshold &&
+        controlCount(hand) >= needed;
+  }
 
   static const int _minControls = 3;
+
+  /// Unpaired normal cards below ten.
+  static int _lowSingles(final List<Card> hand) {
+    final counts = <CardFace, int>{};
+    for (final c in hand) {
+      if (c.face == CardFace.dragon ||
+          c.face == CardFace.phoenix ||
+          c.face == CardFace.dog ||
+          c.face == CardFace.mahJong) {
+        continue;
+      }
+      counts[c.face] = (counts[c.face] ?? 0) + 1;
+    }
+    return counts.entries
+        .where((final e) => e.value == 1 && Card.getValue(e.key) < 10)
+        .length;
+  }
 
   /// Dragon + Phoenix + Aces + bombs.
   static int controlCount(final List<Card> hand) =>

@@ -44,7 +44,7 @@ def _side_stats(rounds: list[dict], team: int) -> dict[str, float]:
     calls = collections.Counter()
     made = collections.Counter()
     for r in rounds:
-        for t, kind, ok in r.get("calls", []):
+        for t, kind, ok, *_ in r.get("calls", []):
             if t == team:
                 calls[kind] += 1
                 made[kind] += int(ok)

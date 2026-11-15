@@ -72,6 +72,25 @@ class SmartAiAgent extends PlayerAgent {
     return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
   }
 
+  bool _holdBackForPartnerTichu(
+    final GameSnapshot snapshot,
+    final TableRelationships table,
+  ) {
+    final partnerId = table.partnerId;
+    if (partnerId == null) return false;
+    final partnerCall =
+        snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
+    if (partnerCall == TichuCall.none) return false;
+    if (snapshot.scoreState.finishOrder.isNotEmpty) return false;
+    if ((snapshot.hands[partnerId] ?? const <Card>[]).isEmpty) return false;
+    for (final opponent in table.opponents) {
+      if ((snapshot.hands[opponent.id] ?? const <Card>[]).length <= 2) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   bool _partnerAlreadyCalled(final GameSnapshot snapshot) {
     final table = TableRelationships(snapshot, playerId);
     final partnerId = table.partnerId;
@@ -134,6 +153,20 @@ class SmartAiAgent extends PlayerAgent {
         return PassAction(playerId: playerId);
       }
       throw StateError('No legal turn and pass is illegal for current state.');
+    }
+
+    // Partner called Tichu: don't go out ahead of them (a quarter of the
+    // heuristic's failed Tichus were the caller's own partner finishing
+    // first), unless an opponent is about to go out.
+    if (_holdBackForPartnerTichu(snapshot, table)) {
+      final nonFinishing = legalTurns
+          .where((final turn) => turn.cards.length != hand.length)
+          .toList();
+      if (nonFinishing.isNotEmpty) {
+        legalTurns = nonFinishing;
+      } else if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {
+        return PassAction(playerId: playerId);
+      }
     }
 
     final finishingTurns = legalTurns

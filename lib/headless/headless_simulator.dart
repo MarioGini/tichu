@@ -47,6 +47,9 @@ class _HeadlessSimulator {
   var _lastActionExplored = false;
 
   _BcTransitionWriter? _bcWriter;
+
+  /// Hand sizes by seat at the moment the first player went out this round.
+  Map<int, int>? _cardsAtFirstOut;
   final _preSchupfDecided = <String>{};
   var _preSchupfRound = -1;
   final _tichuDecided = <String>{};
@@ -211,7 +214,15 @@ class _HeadlessSimulator {
       if (!before.scoreState.roundComplete &&
           snapshot.scoreState.roundComplete) {
         completedRounds++;
-        bcWriter?.emitRoundEnd(snapshot);
+        bcWriter?.emitRoundEnd(snapshot, cardsLeftAtFirstOut: _cardsAtFirstOut);
+        _cardsAtFirstOut = null;
+      } else if (_cardsAtFirstOut == null &&
+          snapshot.scoreState.finishOrder.isNotEmpty) {
+        // Remember how close everyone was when the first player went out.
+        _cardsAtFirstOut = {
+          for (final p in snapshot.players)
+            p.seat: (snapshot.hands[p.id] ?? const <Card>[]).length,
+        };
       }
     }
   }

@@ -49,6 +49,11 @@ class _BcTransitionWriter {
         'call': kind,
         // Exact R(call) - R(no call) for this deal, in points (optional).
         'cf': ?counterfactual,
+        'seat': snapshot.players.firstWhere((final p) => p.id == playerId).seat,
+        'hand': [
+          for (final c in snapshot.hands[playerId] ?? const <Card>[])
+            cardSlot(c),
+        ],
         'oracle': _oracle(snapshot, playerId),
         'called': called,
         if (explored) 'explore': true,
@@ -93,7 +98,10 @@ class _BcTransitionWriter {
     );
   }
 
-  void emitRoundEnd(final GameSnapshot after) {
+  void emitRoundEnd(
+    final GameSnapshot after, {
+    final Map<int, int>? cardsLeftAtFirstOut,
+  }) {
     final score = after.scoreState;
     output.writeln(
       jsonEncode(<String, Object?>{
@@ -106,6 +114,15 @@ class _BcTransitionWriter {
         'finish_teams': [
           for (final id in score.finishOrder) _teamForPlayer(after, id),
         ],
+        'finish_seats': [
+          for (final id in score.finishOrder)
+            after.players.firstWhere((final p) => p.id == id).seat,
+        ],
+        // Cards each seat still held when the first player went out.
+        if (cardsLeftAtFirstOut != null)
+          'cards_left_at_first_out': [
+            for (var seat = 0; seat < 4; seat++) cardsLeftAtFirstOut[seat] ?? 0,
+          ],
         // Calls as [team, "tichu"|"grandTichu", succeeded (went out first)].
         'calls': [
           for (final e in score.tichuCalls.entries)
@@ -115,6 +132,7 @@ class _BcTransitionWriter {
                 e.value.name,
                 score.finishOrder.isNotEmpty &&
                     score.finishOrder.first == e.key,
+                after.players.firstWhere((final p) => p.id == e.key).seat,
               ],
         ],
       }),

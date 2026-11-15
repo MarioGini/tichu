@@ -30,6 +30,32 @@ class _BcTransitionWriter {
 
   _BcTransitionWriter({required this.output, required this.episode});
 
+  /// One row per explored/logged Tichu or Grand Tichu decision:
+  ///   {"episode", "round", "team", "call": "tichu"|"grand",
+  ///    "called": bool, "explore": bool, "state_features": [...]}
+  void emitCallDecision({
+    required final String kind,
+    required final GameSnapshot snapshot,
+    required final String playerId,
+    required final bool called,
+    required final bool explored,
+  }) {
+    output.writeln(
+      jsonEncode(<String, Object?>{
+        'episode': episode,
+        'round': snapshot.scoreState.roundNumber,
+        'team': _teamForPlayer(snapshot, playerId),
+        'call': kind,
+        'called': called,
+        if (explored) 'explore': true,
+        'state_features': encodeStateFeatures(
+          snapshot: snapshot,
+          playerId: playerId,
+        ),
+      }),
+    );
+  }
+
   void emitRoundEnd(final GameSnapshot after) {
     final score = after.scoreState;
     output.writeln(

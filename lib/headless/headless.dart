@@ -8,12 +8,15 @@ import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
+import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/move_generator.dart';
@@ -46,6 +49,8 @@ Future<void> main(final List<String> args) async {
   final nnPolicy = await _loadNnPolicy(config.nnPolicyPath);
   final opponentPolicy = await _loadNnPolicy(config.opponentPolicyPath);
   final valueNet = await _loadNnPolicy(config.valueNetPath);
+  final tichuNet = await _loadNnPolicy(config.tichuNetPath);
+  final grandNet = await _loadNnPolicy(config.grandNetPath);
   final policyFactory = _buildAgentFactory(
     nnPolicy: nnPolicy,
     useMcts: config.useMcts,
@@ -53,6 +58,8 @@ Future<void> main(final List<String> args) async {
     mctsDeterminizations: config.mctsDeterminizations,
     ismctsSimulations: config.ismctsSimulations,
     valueNet: valueNet,
+    tichuNet: tichuNet,
+    grandNet: grandNet,
     random: random,
   );
   final opponentFactory = opponentPolicy != null
@@ -86,6 +93,7 @@ Future<void> main(final List<String> args) async {
     agentFactory: agentFactory,
     episodeOffset: config.episodeOffset,
     dealSeed: config.dealSeed,
+    callEpsilon: config.callEpsilon,
   );
 
   try {
@@ -122,6 +130,9 @@ class _HeadlessConfig {
   final int episodeOffset;
   final int? dealSeed;
   final String? valueNetPath;
+  final String? tichuNetPath;
+  final String? grandNetPath;
+  final double callEpsilon;
 
   const _HeadlessConfig({
     required this.seed,
@@ -145,6 +156,9 @@ class _HeadlessConfig {
     required this.episodeOffset,
     required this.dealSeed,
     required this.valueNetPath,
+    required this.tichuNetPath,
+    required this.grandNetPath,
+    required this.callEpsilon,
   });
 }
 
@@ -173,6 +187,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var episodeOffset = 0;
   int? dealSeed;
   String? valueNetPath;
+  String? tichuNetPath;
+  String? grandNetPath;
+  var callEpsilon = 0.0;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -270,6 +287,19 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 0) episodeOffset = p;
       continue;
     }
+    if (arg.startsWith('--tichu-net=')) {
+      tichuNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--grand-net=')) {
+      grandNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--call-epsilon=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) callEpsilon = p;
+      continue;
+    }
     if (arg.startsWith('--value-net=')) {
       valueNetPath = arg.split('=').last;
       continue;
@@ -311,6 +341,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     episodeOffset: episodeOffset,
     dealSeed: dealSeed,
     valueNetPath: valueNetPath,
+    tichuNetPath: tichuNetPath,
+    grandNetPath: grandNetPath,
+    callEpsilon: callEpsilon,
   );
 }
 
@@ -324,6 +357,7 @@ void _printUsage() {
   stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
   stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
   stdout.writeln('       [--ismcts --value-net=value.safetensors]');
+  stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
   stdout.writeln('       [--epsilon=0.1] [--mcts] [--ismcts]');
 }
 
@@ -375,11 +409,23 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
   final int mctsDeterminizations = 20,
   final int ismctsSimulations = 100,
   final _NnPolicyData? valueNet,
+  final _NnPolicyData? tichuNet,
+  final _NnPolicyData? grandNet,
   final Random? random,
 }) {
+  final TichuCallStrategy? callStrategy =
+      tichuNet == null && grandNet == null
+      ? null
+      : NnTichuCallStrategy(
+          tichuNetwork: tichuNet?.network,
+          grandTichuNetwork: grandNet?.network,
+          tichuScale: tichuNet?.targetStd ?? 100,
+          grandTichuScale: grandNet?.targetStd ?? 100,
+        );
   if (useIsmcts) {
     return (final playerId) => SmartAiAgent(
       playerId,
+      tichuCallStrategy: callStrategy,
       playSelectionStrategy: IsmctsPlaySelectionStrategy(
         playerId: playerId,
         numSimulations: ismctsSimulations,
@@ -394,6 +440,7 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
   if (useMcts) {
     return (final playerId) => SmartAiAgent(
       playerId,
+      tichuCallStrategy: callStrategy,
       playSelectionStrategy: MctsPlaySelectionStrategy(
         playerId: playerId,
         numDeterminizations: mctsDeterminizations,
@@ -405,6 +452,7 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
   if (nnPolicy != null) {
     return (final playerId) => SmartAiAgent(
       playerId,
+      tichuCallStrategy: callStrategy,
       playSelectionStrategy: NnPlaySelectionStrategy(
         playerId: playerId,
         network: nnPolicy.network,
@@ -412,5 +460,6 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
     );
   }
 
-  return SmartAiAgent.new;
+  return (final playerId) =>
+      SmartAiAgent(playerId, tichuCallStrategy: callStrategy);
 }

@@ -41,6 +41,7 @@ def _run_side(
     shards: int,
     swap: bool,
     out: Path,
+    extra_args: list[str],
 ) -> dict[int, tuple[float, int]]:
     """Run one seating; return {episode: (policy_score, policy_margin)}.
 
@@ -55,6 +56,7 @@ def _run_side(
     ]
     if opponent_policy:
         base_args.append(f"--opponent-policy={opponent_policy}")
+    base_args.extend(extra_args)
     if swap:
         base_args.append("--swap-teams")
     run_headless_sharded(
@@ -104,7 +106,14 @@ def evaluate(
     shards: int = 0,
     duplicate: bool = True,
     opponent_policy: str = "",
+    tichu_net: str = "",
+    grand_net: str = "",
 ) -> dict[str, float]:
+    extra_args = []
+    if tichu_net:
+        extra_args.append(f"--tichu-net={tichu_net}")
+    if grand_net:
+        extra_args.append(f"--grand-net={grand_net}")
     output.parent.mkdir(parents=True, exist_ok=True)
     deal_seed = seed
     with tempfile.TemporaryDirectory(prefix="tichu_eval_") as td:
@@ -120,6 +129,7 @@ def evaluate(
                 shards=shards,
                 swap=swap,
                 out=Path(td) / f"eval_{i}.jsonl",
+                extra_args=extra_args,
             )
             for i, swap in enumerate(sides)
         ]
@@ -155,6 +165,8 @@ def evaluate(
         "format": "tichu_eval_summary_v2",
         "policy_path": str(Path(nn_policy)),
         "opponent_policy": opponent_policy or "heuristic",
+        "tichu_net": tichu_net,
+        "grand_net": grand_net,
         "seed": str(seed),
         "duplicate": "1" if duplicate else "0",
         "episodes_requested": str(episodes),
@@ -208,6 +220,8 @@ def main() -> None:
         default="",
         help="Evaluate against this NN policy instead of the heuristic",
     )
+    parser.add_argument("--tichu-net", default="", help="Call-value net for Tichu")
+    parser.add_argument("--grand-net", default="", help="Call-value net for Grand Tichu")
     parser.add_argument(
         "--no-duplicate",
         dest="duplicate",
@@ -231,6 +245,8 @@ def main() -> None:
         shards=args.shards,
         duplicate=args.duplicate,
         opponent_policy=args.opponent_policy,
+        tichu_net=args.tichu_net,
+        grand_net=args.grand_net,
     )
     print(f"Saved eval summary: {args.output}")
     print(

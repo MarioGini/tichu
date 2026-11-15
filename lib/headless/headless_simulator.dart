@@ -21,8 +21,16 @@ class _HeadlessSimulator {
   /// on agent decisions, which enables duplicate (team-swapped) evaluation.
   final int? dealSeed;
 
+  /// Probability of flipping a Tichu / Grand Tichu decision (exploration
+  /// for training call-value nets). Only the first Tichu opportunity per
+  /// player and round is explored and logged.
+  final double callEpsilon;
+
   /// Set by [_selectAction] when the returned action came from ε-exploration.
   var _lastActionExplored = false;
+
+  _BcTransitionWriter? _bcWriter;
+  final _tichuDecided = <String>{};
 
   _HeadlessSimulator({
     required this.random,
@@ -37,6 +45,7 @@ class _HeadlessSimulator {
     required this.agentFactory,
     this.episodeOffset = 0,
     this.dealSeed,
+    this.callEpsilon = 0,
   });
 
   Future<void> run() async {
@@ -71,6 +80,8 @@ class _HeadlessSimulator {
         outputFormat == _HeadlessOutputFormat.bcJsonl && output != null
         ? _BcTransitionWriter(output: output!, episode: episodeNumber)
         : null;
+    _bcWriter = bcWriter;
+    _tichuDecided.clear();
     final summaryWriter =
         outputFormat == _HeadlessOutputFormat.summary && output != null
         ? _SummaryWriter(output: output!, episode: episodeNumber)
@@ -188,7 +199,16 @@ class _HeadlessSimulator {
         throw StateError('No agent registered for ${currentPlayer.id}.');
       }
 
-      final shouldCall = await agent.shouldCallGrandTichu(snapshot);
+      var shouldCall = await agent.shouldCallGrandTichu(snapshot);
+      final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
+      if (explored) shouldCall = !shouldCall;
+      _bcWriter?.emitCallDecision(
+        kind: 'grand',
+        snapshot: snapshot,
+        playerId: currentPlayer.id,
+        called: shouldCall,
+        explored: explored,
+      );
       return GrandTichuDecisionAction(
         playerId: currentPlayer.id,
         call: shouldCall,
@@ -239,6 +259,33 @@ class _HeadlessSimulator {
       if (randomAction != null) {
         _lastActionExplored = true;
         return randomAction;
+      }
+    }
+
+    final tichuKey =
+        '${snapshot.scoreState.roundNumber}:${currentPlayer.id}';
+    if (snapshot.phase == GamePhase.play &&
+        (snapshot.canCallTichuByPlayer[currentPlayer.id] ?? false) &&
+        (snapshot.scoreState.tichuCalls[currentPlayer.id] ?? TichuCall.none) ==
+            TichuCall.none &&
+        _tichuDecided.add(tichuKey)) {
+      var shouldCall = await agent.shouldCallTichu(snapshot);
+      final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
+      if (explored) shouldCall = !shouldCall;
+      _bcWriter?.emitCallDecision(
+        kind: 'tichu',
+        snapshot: snapshot,
+        playerId: currentPlayer.id,
+        called: shouldCall,
+        explored: explored,
+      );
+      if (shouldCall) return CallTichuAction(playerId: currentPlayer.id);
+      try {
+        return await agent.selectTurn(snapshot);
+        // Agents signal "no legal action" with StateError.
+        // ignore: avoid_catching_errors
+      } on StateError {
+        return null;
       }
     }
 

@@ -55,7 +55,10 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async => false;
+  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async {
+    if (_partnerAlreadyCalled(snapshot)) return false;
+    return tichuCallStrategy.shouldCallGrandTichu(snapshot, playerId);
+  }
 
   @override
   Future<bool> shouldCallTichu(final GameSnapshot snapshot) async {

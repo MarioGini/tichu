@@ -9,9 +9,12 @@ import 'package:tichu/widgets/player_state_frame.dart';
 
 /// Displays the player's hand cards, scaling to fit the parent's constraints.
 ///
-/// Uses `LayoutBuilder` to read available height, then derives card scale
-/// from that. No manual overhead constants — just:
-///   scale = availableHeight / (cardHeight + selectionOffset)
+/// Card size is the smaller of
+///  * the height fit: availableHeight / (cardHeight + selectionOffset), and
+///  * the width fit: a full 14-card hand overlaps so that every card still
+///    shows its rank corner ([visibleFraction] of a card width).
+/// Sizing for a full hand keeps cards the same size all round long (as in
+/// most mobile card games) instead of growing as the hand empties.
 class HandDisplay extends StatelessWidget {
   const HandDisplay({
     super.key,
@@ -31,6 +34,12 @@ class HandDisplay extends StatelessWidget {
   final bool isFinished;
   final int? finishPosition;
   final Widget? header;
+
+  /// Share of a card's width left visible when cards overlap.
+  static const double visibleFraction = 0.40;
+
+  /// Hand size the card size is computed for.
+  static const int referenceHandSize = 14;
 
   @override
   Widget build(final BuildContext context) {
@@ -53,8 +62,15 @@ class HandDisplay extends StatelessWidget {
         final cardBudget =
             availH - containerPad - selOffset - headerH - positionH - 1.0;
 
-        // Scale cards to fit the budget.
-        final scale = (cardBudget / CardWidget.normalHeight).clamp(0.25, 1.0);
+        // Scale cards to fit the height budget and the width of a full hand.
+        const framePad = 16.0;
+        final widthScale =
+            (availW - framePad) /
+            (CardWidget.normalWidth *
+                (1 + (referenceHandSize - 1) * visibleFraction));
+        final scale = math
+            .min(cardBudget / CardWidget.normalHeight, widthScale)
+            .clamp(0.25, 1.0);
         final cardW = CardWidget.normalWidth * scale;
         final cardH = CardWidget.normalHeight * scale;
         final spacing = 8.0 * scale;

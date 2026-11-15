@@ -97,22 +97,50 @@ class GameBoard extends StatelessWidget {
         final rowHeight = math.max(opSize, trickH);
         final hPad = isPortrait ? 4.0 : 8.0;
 
+        final topSection = [
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: SizedBox.square(dimension: opSize, child: topOpponent),
+          ),
+          if (reserveTopPendingSlot)
+            SizedBox(
+              height: topPendingH,
+              child: Center(
+                child: SizedBox(width: sideSlotW, child: topPendingSlot),
+              ),
+            ),
+          const SizedBox(height: 4),
+        ];
+        if (isPortrait) {
+          // Phone portrait, like most mobile card games: the table takes all
+          // free space (partner on top, opponents at the side edges, a large
+          // trick in the middle), the action buttons sit directly above the
+          // hand, and the hand is anchored to the bottom edge.
+          return Column(
+            children: [
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (final context, final table) =>
+                      _portraitTable(table.maxWidth, table.maxHeight),
+                ),
+              ),
+              actionBar,
+              Padding(
+                padding: EdgeInsets.fromLTRB(hPad, 2, hPad, 6),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: h * 0.34),
+                  child: handArea,
+                ),
+              ),
+            ],
+          );
+        }
+
         return PlayedCardSizeScope(
           cardScale: playedCardScale,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: SizedBox.square(dimension: opSize, child: topOpponent),
-              ),
-              if (reserveTopPendingSlot)
-                SizedBox(
-                  height: topPendingH,
-                  child: Center(
-                    child: SizedBox(width: sideSlotW, child: topPendingSlot),
-                  ),
-                ),
-              const SizedBox(height: 4),
+              ...topSection,
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: hPad),
                 child: SizedBox(
@@ -167,4 +195,78 @@ class GameBoard extends StatelessWidget {
       },
     ),
   );
+
+  Widget _portraitTable(final double w, final double h) {
+    const pad = 4.0;
+    const gap = 4.0;
+    final op = math.min(w * 0.22, math.min(h * 0.2, 96)).toDouble();
+    // Trick: as large as the space between the side opponents allows.
+    final trickW = math.min<double>(w - 2 * (op + pad + gap), 300);
+    final trickH = math
+        .min(h - 2 * (op + gap) - 8, CardWidget.normalHeight + 56)
+        .clamp(80.0, 400.0);
+    final laneH = math.max(0, trickH - 44).toDouble();
+    final playedCardScale =
+        (math.max(0, laneH - 8) / (CardWidget.normalHeight + 8)).clamp(
+          0.25,
+          1.0,
+        );
+    final pendingH = math.min(laneH * 0.6, op);
+    final pendingW = CardWidget.normalWidth * playedCardScale * 1.6;
+
+    return PlayedCardSizeScope(
+      cardScale: playedCardScale,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: pad,
+            left: (w - op) / 2,
+            child: SizedBox.square(dimension: op, child: topOpponent),
+          ),
+          if (reserveTopPendingSlot)
+            Positioned(
+              top: pad + op + gap,
+              left: (w - pendingW) / 2,
+              width: pendingW,
+              height: pendingH,
+              child: topPendingSlot,
+            ),
+          Positioned(
+            left: pad,
+            top: (h - op) / 2,
+            child: SizedBox.square(dimension: op, child: leftOpponent),
+          ),
+          if (reserveSidePendingSlots)
+            Positioned(
+              left: pad,
+              top: (h + op) / 2 + gap,
+              width: op,
+              height: pendingH,
+              child: leftPendingSlot,
+            ),
+          Positioned(
+            right: pad,
+            top: (h - op) / 2,
+            child: SizedBox.square(dimension: op, child: rightOpponent),
+          ),
+          if (reserveSidePendingSlots)
+            Positioned(
+              right: pad,
+              top: (h + op) / 2 + gap,
+              width: op,
+              height: pendingH,
+              child: rightPendingSlot,
+            ),
+          Positioned(
+            left: (w - trickW) / 2,
+            top: (h - trickH) / 2 + op * 0.25,
+            width: trickW,
+            height: trickH,
+            child: trickArea,
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -2,15 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/mcts/ismcts_play_selection_strategy.dart';
 import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
-import 'package:tichu/agents/nn/mlp.dart';
-import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
-import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
+import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
-import 'package:tichu/agents/tichu_call_strategy.dart';
+import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -46,25 +45,29 @@ Future<void> main(final List<String> args) async {
 
   final random = config.seed == null ? Random() : Random(config.seed);
 
-  final nnPolicy = await _loadNnPolicy(config.nnPolicyPath);
-  final opponentPolicy = await _loadNnPolicy(config.opponentPolicyPath);
-  final valueNet = await _loadNnPolicy(config.valueNetPath);
-  final tichuNet = await _loadNnPolicy(config.tichuNetPath);
-  final grandNet = await _loadNnPolicy(config.grandNetPath);
+  // The policy team uses every learned component given on the command line;
+  // the opponent team uses --opponent-policy for play (or the heuristic) and
+  // heuristic calls / schupf.
+  final policyConfig = BotConfig(
+    play: await _loadNet(config.nnPolicyPath),
+    tichu: await _loadNet(config.tichuNetPath),
+    grandTichu: await _loadNet(config.grandNetPath),
+    schupf: await _loadNet(config.schupfNetPath),
+  );
+  final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = _buildAgentFactory(
-    nnPolicy: nnPolicy,
+    config: policyConfig,
     useMcts: config.useMcts,
     useIsmcts: config.useIsmcts,
     mctsDeterminizations: config.mctsDeterminizations,
     ismctsSimulations: config.ismctsSimulations,
-    valueNet: valueNet,
-    tichuNet: tichuNet,
-    grandNet: grandNet,
+    valueNet: await _loadNet(config.valueNetPath),
     random: random,
   );
-  final opponentFactory = opponentPolicy != null
-      ? _buildAgentFactory(nnPolicy: opponentPolicy, random: random)
-      : _buildAgentFactory(nnPolicy: null, random: random);
+  final opponentFactory = _buildAgentFactory(
+    config: BotConfig(play: opponentPolicy),
+    random: random,
+  );
 
   final PlayerAgent Function(String, int) agentFactory;
   if (opponentPolicy != null || config.mixed) {
@@ -94,6 +97,7 @@ Future<void> main(final List<String> args) async {
     episodeOffset: config.episodeOffset,
     dealSeed: config.dealSeed,
     callEpsilon: config.callEpsilon,
+    schupfEpsilon: config.schupfEpsilon,
   );
 
   try {
@@ -133,6 +137,8 @@ class _HeadlessConfig {
   final String? tichuNetPath;
   final String? grandNetPath;
   final double callEpsilon;
+  final String? schupfNetPath;
+  final double schupfEpsilon;
 
   const _HeadlessConfig({
     required this.seed,
@@ -159,6 +165,8 @@ class _HeadlessConfig {
     required this.tichuNetPath,
     required this.grandNetPath,
     required this.callEpsilon,
+    required this.schupfNetPath,
+    required this.schupfEpsilon,
   });
 }
 
@@ -190,6 +198,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   String? tichuNetPath;
   String? grandNetPath;
   var callEpsilon = 0.0;
+  String? schupfNetPath;
+  var schupfEpsilon = 0.0;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -295,6 +305,15 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       grandNetPath = arg.split('=').last;
       continue;
     }
+    if (arg.startsWith('--schupf-net=')) {
+      schupfNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--schupf-epsilon=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) schupfEpsilon = p;
+      continue;
+    }
     if (arg.startsWith('--call-epsilon=')) {
       final p = double.tryParse(arg.split('=').last);
       if (p != null && p >= 0 && p <= 1) callEpsilon = p;
@@ -344,6 +363,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     tichuNetPath: tichuNetPath,
     grandNetPath: grandNetPath,
     callEpsilon: callEpsilon,
+    schupfNetPath: schupfNetPath,
+    schupfEpsilon: schupfEpsilon,
   );
 }
 
@@ -358,6 +379,7 @@ void _printUsage() {
   stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
   stdout.writeln('       [--ismcts --value-net=value.safetensors]');
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
+  stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
   stdout.writeln('       [--epsilon=0.1] [--mcts] [--ismcts]');
 }
 
@@ -377,56 +399,30 @@ String _cardToken(final Card card) {
   return '${card.face.name}-${card.color.name}';
 }
 
-class _NnPolicyData {
-  final Mlp network;
-  final double targetMean;
-  final double targetStd;
-
-  const _NnPolicyData({
-    required this.network,
-    required this.targetMean,
-    required this.targetStd,
-  });
-}
-
-Future<_NnPolicyData?> _loadNnPolicy(final String? path) async {
+Future<LoadedNet?> _loadNet(final String? path) async {
   if (path == null || path.isEmpty) return null;
-
   final file = File(path);
   if (!file.existsSync()) {
-    throw StateError('NN policy file does not exist: $path');
+    throw StateError('Network file does not exist: $path');
   }
-
-  final bytes = await file.readAsBytes();
-  final (network, mean, std) = Mlp.fromSafetensorsBytes(bytes);
-  return _NnPolicyData(network: network, targetMean: mean, targetStd: std);
+  return LoadedNet.fromBytes(await file.readAsBytes());
 }
 
+/// Agent factory for one team: a [BotConfig] (learned components or the
+/// heuristic), optionally with a search player for the play phase.
 PlayerAgent Function(String playerId) _buildAgentFactory({
-  required final _NnPolicyData? nnPolicy,
+  required final BotConfig config,
   final bool useMcts = false,
   final bool useIsmcts = false,
   final int mctsDeterminizations = 20,
   final int ismctsSimulations = 100,
-  final _NnPolicyData? valueNet,
-  final _NnPolicyData? tichuNet,
-  final _NnPolicyData? grandNet,
+  final LoadedNet? valueNet,
   final Random? random,
 }) {
-  final TichuCallStrategy? callStrategy =
-      tichuNet == null && grandNet == null
-      ? null
-      : NnTichuCallStrategy(
-          tichuNetwork: tichuNet?.network,
-          grandTichuNetwork: grandNet?.network,
-          tichuScale: tichuNet?.targetStd ?? 100,
-          grandTichuScale: grandNet?.targetStd ?? 100,
-        );
   if (useIsmcts) {
-    return (final playerId) => SmartAiAgent(
+    return (final playerId) => config.build(
       playerId,
-      tichuCallStrategy: callStrategy,
-      playSelectionStrategy: IsmctsPlaySelectionStrategy(
+      playOverride: IsmctsPlaySelectionStrategy(
         playerId: playerId,
         numSimulations: ismctsSimulations,
         valueNetwork: valueNet?.network,
@@ -436,30 +432,15 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
       ),
     );
   }
-
   if (useMcts) {
-    return (final playerId) => SmartAiAgent(
+    return (final playerId) => config.build(
       playerId,
-      tichuCallStrategy: callStrategy,
-      playSelectionStrategy: MctsPlaySelectionStrategy(
+      playOverride: MctsPlaySelectionStrategy(
         playerId: playerId,
         numDeterminizations: mctsDeterminizations,
         random: random,
       ),
     );
   }
-
-  if (nnPolicy != null) {
-    return (final playerId) => SmartAiAgent(
-      playerId,
-      tichuCallStrategy: callStrategy,
-      playSelectionStrategy: NnPlaySelectionStrategy(
-        playerId: playerId,
-        network: nnPolicy.network,
-      ),
-    );
-  }
-
-  return (final playerId) =>
-      SmartAiAgent(playerId, tichuCallStrategy: callStrategy);
+  return config.build;
 }

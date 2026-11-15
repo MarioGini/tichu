@@ -13,7 +13,7 @@ part of 'headless.dart';
 ///    "legal_play_action_features": [[...actionFeatureCount...], ...],
 ///    "legal_play_chosen_index": 3}
 ///
-/// The legal set is exactly what [NnPlaySelectionStrategy] scores at
+/// The legal set is exactly what `NnPlaySelectionStrategy` scores at
 /// inference: wish-filtered legal plays, plus pass when legal.
 ///
 /// Decisions taken by ε-exploration are flagged `"explore": true` so BC can
@@ -52,6 +52,33 @@ class _BcTransitionWriter {
           snapshot: snapshot,
           playerId: playerId,
         ),
+      }),
+    );
+  }
+
+  /// One row per schupf decision (features built in Python from it, see
+  /// `SchupfFeatures`):
+  ///   {"episode", "round", "team", "schupf": true, "hand": [slots...],
+  ///    "left": slot, "partner": slot, "right": slot,
+  ///    "context": [gt_me, gt_partner, gt_left, gt_right], "explore"?}
+  void emitSchupfDecision({
+    required final GameSnapshot snapshot,
+    required final SchupfAction action,
+    required final bool explored,
+  }) {
+    final hand = snapshot.hands[action.playerId] ?? const <Card>[];
+    output.writeln(
+      jsonEncode(<String, Object?>{
+        'episode': episode,
+        'round': snapshot.scoreState.roundNumber,
+        'team': _teamForPlayer(snapshot, action.playerId),
+        'schupf': true,
+        'hand': [for (final c in hand) cardSlot(c)],
+        'left': cardSlot(action.toLeft),
+        'partner': cardSlot(action.toPartner),
+        'right': cardSlot(action.toRight),
+        'context': SchupfFeatures.context(snapshot, action.playerId),
+        if (explored) 'explore': true,
       }),
     );
   }

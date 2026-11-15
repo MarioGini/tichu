@@ -18,8 +18,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 /// for training.
 ///
 /// Falls back to [DefaultPlaySelectionStrategy] when the network is null.
-class NnPlaySelectionStrategy
-    implements PlaySelectionStrategy, FullTurnPolicy {
+class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   final String playerId;
   final Mlp network;
   final PlaySelectionStrategy fallback;

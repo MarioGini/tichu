@@ -130,6 +130,71 @@ class Mlp {
   /// allocation in [predict].
   double predictBuffer(final Float64List input) => _forwardTyped(input)[0];
 
+  // ── Incremental first layer ─────────────────────────────────────────────
+  //
+  // For inputs that differ only in a few sparse entries (e.g. scoring every
+  // schupf candidate: same hand, different one-hot card slots), compute the
+  // first layer's pre-activation once and add weight columns per candidate.
+
+  /// `W0 · input + b0` (first layer, before ReLU) as a new buffer.
+  Float64List firstLayerPreActivation(final Float64List input) {
+    final w = _weights[0];
+    final b = _biases[0];
+    final inLen = inputSize;
+    final out = Float64List(b.length);
+    for (var j = 0; j < b.length; j++) {
+      var sum = b[j];
+      final base = j * inLen;
+      for (var i = 0; i < inLen; i++) {
+        final x = input[i];
+        if (x != 0) sum += w[base + i] * x;
+      }
+      out[j] = sum;
+    }
+    return out;
+  }
+
+  /// Adds `scale * W0[:, inputIndex]` to [pre].
+  void addFirstLayerColumn(
+    final Float64List pre,
+    final int inputIndex, [
+    final double scale = 1.0,
+  ]) {
+    final w = _weights[0];
+    final inLen = inputSize;
+    for (var j = 0; j < pre.length; j++) {
+      pre[j] += w[j * inLen + inputIndex] * scale;
+    }
+  }
+
+  /// Output (first unit) given the first layer's pre-activation [pre].
+  double predictFromFirstLayer(final Float64List pre) {
+    if (numLayers == 1) return pre[0];
+    var inBuf = _buffers[0];
+    for (var j = 0; j < pre.length; j++) {
+      inBuf[j] = pre[j] < 0 ? 0.0 : pre[j];
+    }
+    var inLen = pre.length;
+    for (var l = 1; l < numLayers; l++) {
+      final w = _weights[l];
+      final b = _biases[l];
+      final outLen = b.length;
+      final out = _buffers[l];
+      final isHidden = l < numLayers - 1;
+      for (var j = 0; j < outLen; j++) {
+        var sum = b[j];
+        final base = j * inLen;
+        for (var i = 0; i < inLen; i++) {
+          sum += w[base + i] * inBuf[i];
+        }
+        out[j] = isHidden && sum < 0 ? 0.0 : sum;
+      }
+      inBuf = out;
+      inLen = outLen;
+    }
+    return _buffers.last[0];
+  }
+
   // ── Safetensors loading ─────────────────────────────────────────────────
 
   /// Load weights from a safetensors binary file.

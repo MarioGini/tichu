@@ -77,6 +77,28 @@ class SmartAiAgent extends PlayerAgent {
     return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
   }
 
+  TichuTurn? _bombForValuableTrick(
+    final GameSnapshot snapshot,
+    final DeckState deck,
+    final List<TichuTurn> plays,
+    final TableRelationships table,
+  ) {
+    if (deck.turn.type == TurnType.empty || deck.turn.type == TurnType.none) {
+      return null;
+    }
+    final winnerId = deck.currentWinner.isNotEmpty
+        ? deck.currentWinner
+        : snapshot.lastPlayedBy;
+    if (winnerId == null || !table.isOpponent(winnerId)) return null;
+    final dragonOnTop =
+        deck.turn.type == TurnType.single &&
+        deck.turn.cards.any((final c) => c.face == CardFace.dragon);
+    if (!dragonOnTop && snapshot.trickPoints < 25) return null;
+    final bombs = plays.where((final t) => t.type == TurnType.bomb).toList()
+      ..sort((final a, final b) => a.value.compareTo(b.value));
+    return bombs.isEmpty ? null : bombs.first;
+  }
+
   bool _holdBackForPartnerTichu(
     final GameSnapshot snapshot,
     final TableRelationships table,
@@ -308,6 +330,18 @@ class SmartAiAgent extends PlayerAgent {
         hand,
       );
       return _buildPlayAction(snapshot, selected, deck, hand);
+    }
+
+    // Bomb a valuable trick an opponent is winning: the Dragon (bombing it
+    // wins the trick normally, Dragon points included) or 25+ points.
+    final valuableBomb = _bombForValuableTrick(
+      snapshot,
+      deck,
+      validPlays,
+      table,
+    );
+    if (valuableBomb != null) {
+      return _buildPlayAction(snapshot, valuableBomb, deck, hand);
     }
 
     final opponentThreatWinning = playTacticsPolicy

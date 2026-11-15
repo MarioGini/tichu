@@ -1,3 +1,4 @@
+import 'package:tichu/agents/hand_shape.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
@@ -62,7 +63,42 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
           (snapshot.scoreState.tichuCalls[p.id] ?? TichuCall.none) !=
               TichuCall.none,
     );
-    return !opponentCalled && isTichuHand(hand);
+    if (options.strictTichu) {
+      // Hand-strength rule: harder (higher threshold) once an opponent has
+      // called, but not forbidden.
+      return tichuStrength(hand) >=
+          (opponentCalled ? strengthThresholdVsCall : strengthThreshold);
+    }
+    return !opponentCalled && _legacyTichuHand(hand);
+  }
+
+  /// Calibrated on exact counterfactual call values (3,475 first-Tichu
+  /// decisions, heuristic self-play): -0.1 maximises the value of calls
+  /// (+3.5 pts per decision; legacy rule -0.3) while players call 18.6 % of
+  /// the time, i.e. ~34 % of rounds per team.
+  static const double strengthThreshold = -0.1;
+
+  /// Threshold when an opponent already called Tichu (best value +1.3 pts
+  /// per decision at 4.4 % calls; lower thresholds lose up to -18).
+  static const double strengthThresholdVsCall = 0.5;
+
+  /// How likely [hand] goes out first: sure trick-winners (to take the lead
+  /// back) against the number of plays the hand needs to go out.
+  ///
+  ///   winners = Dragon 1.0 + Phoenix 0.8 + 0.7 per Ace + 1.2 per bomb
+  ///             + 0.2 per King
+  ///   strength = winners - 0.35 * plays-to-go-out - 0.7 if holding the Dog
+  static double tichuStrength(final List<Card> hand) {
+    final shape = HandShape.fromCards(hand);
+    double count(final CardFace f) =>
+        hand.where((final c) => c.face == f).length.toDouble();
+    final winners =
+        count(CardFace.dragon) +
+        0.8 * count(CardFace.phoenix) +
+        0.7 * count(CardFace.ace) +
+        1.2 * shape.bombs +
+        0.2 * count(CardFace.king);
+    return winners - 0.35 * shape.estPlays - 0.7 * count(CardFace.dog);
   }
 
   /// Whether [hand] is strong enough for the heuristic to call Tichu. Also
@@ -76,7 +112,11 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
   /// (measured: 36 % success with the Dog vs 65 % without; ~55 % with 4+
   /// unpaired cards below 10 vs ~70 % with 2), so such hands need one more
   /// control.
-  bool isTichuHand(final List<Card> hand) {
+  bool isTichuHand(final List<Card> hand) => options.strictTichu
+      ? tichuStrength(hand) >= strengthThreshold
+      : _legacyTichuHand(hand);
+
+  bool _legacyTichuHand(final List<Card> hand) {
     final hasDog = hand.any((final c) => c.face == CardFace.dog);
     final needed = options.strictTichu && (hasDog || _lowSingles(hand) >= 4)
         ? _minControls + 1

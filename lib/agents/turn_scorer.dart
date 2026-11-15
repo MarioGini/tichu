@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -29,6 +31,10 @@ class PolicyWeights {
   final double preferNaturalTrumpResponse;
   final double sureTrickCapture;
 
+  /// Penalty per point (5 / 10 / K) of my own cards played into a trick I
+  /// am not sure to win.
+  final double pointGift;
+
   const PolicyWeights({
     this.lowLeadPreference = 2,
     this.controlPreservation = 3,
@@ -51,6 +57,7 @@ class PolicyWeights {
     this.preserveFlexibleTrump = 8,
     this.preferNaturalTrumpResponse = 6,
     this.sureTrickCapture = 4,
+    this.pointGift = 0.15,
   });
 }
 
@@ -82,7 +89,10 @@ class TurnScorer {
         deck.turn.type == TurnType.dog;
 
     final isEarly = hand.length >= 9;
-    final trickPoints = isLeading ? 0 : pointsForCards(deck.turn.cards);
+    // Points of the whole trick so far (not just the top combination).
+    final trickPoints = isLeading
+        ? 0
+        : math.max(snapshot.trickPoints, pointsForCards(deck.turn.cards));
     final opponentTichuNearFinish = _opponentTichuNearFinish(
       snapshot,
       playerId,
@@ -145,6 +155,12 @@ class TurnScorer {
 
     if (!isLeading && trickPoints != 0) {
       score += weights.trickPointCapture * trickPoints;
+    }
+
+    // Don't feed own point cards into a trick we are not sure to win.
+    if (!sureWin && !opponentTichuNearFinishWinning) {
+      final ownPoints = pointsForCards(play.cards);
+      if (ownPoints > 0) score -= weights.pointGift * ownPoints;
     }
 
     final beforeSingles = _countLowSingletons(hand);

@@ -96,6 +96,34 @@ void main() {
       expect(tracker.state.rounds.last.roundEndType, RoundEndType.normal);
     });
 
+    test('last player is the first player\'s partner: tricks stay in the team, '
+        'hand goes to the opponents', () {
+      tracker.recordTrick(_playerTwoId, [_card(CardFace.ten, CardColor.red)]);
+      // P3 (partner of the first-out P1) finishes last with won tricks
+      // worth 20 and 15 points still in hand.
+      tracker.recordTrick(_playerThreeId, [
+        _card(CardFace.king, CardColor.green),
+        _card(CardFace.ten, CardColor.black),
+      ]);
+
+      tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerFourId, const <Card>[]);
+      tracker.recordPlayerFinished(_playerThreeId, const <Card>[]);
+
+      tracker.finalizeRound(
+        _handsWithLast(_playerThreeId, [
+          _card(CardFace.ten, CardColor.blue),
+          _card(CardFace.five, CardColor.green),
+        ]),
+      );
+
+      // Team one (P1, P3): P3's tricks (20) go to P1.
+      expect(tracker.state.teamOneRound, 20);
+      // Team two (P2, P4): own trick (10) + P3's hand (15).
+      expect(tracker.state.teamTwoRound, 25);
+    });
+
     test('applies tichu and grand tichu bonuses', () {
       tracker.recordPlayerFinished(_playerOneId, const <Card>[]);
       tracker.recordPlayerFinished(_playerTwoId, const <Card>[]);

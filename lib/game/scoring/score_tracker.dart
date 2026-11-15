@@ -305,19 +305,18 @@ class LocalScoreTracker implements ScoreTracker {
     var t1 = 0;
     var t2 = 0;
 
+    // Official rule: the last player gives the tricks they won to the
+    // player who went out first, and the cards left in their hand to the
+    // opposing team. (When the last player is the first player's partner,
+    // the tricks stay in the team and the hand goes to the opponents.)
     for (final MapEntry(:key, :value) in _capturedCards.entries) {
       final pts = pointsForCards(value);
-      if (key == last) {
-        // Last finisher's tricks go to opposing team.
-        _isTeamOne(key) ? t2 += pts : t1 += pts;
-      } else {
-        _isTeamOne(key) ? t1 += pts : t2 += pts;
-      }
+      final team = key == last ? first : key;
+      _isTeamOne(team) ? t1 += pts : t2 += pts;
     }
 
-    // Last finisher's remaining hand goes to first finisher's team.
     final handPts = pointsForCards(hands[last] ?? const <Card>[]);
-    _isTeamOne(first) ? t1 += handPts : t2 += handPts;
+    _isTeamOne(last) ? t2 += handPts : t1 += handPts;
 
     return (t1, t2);
   }

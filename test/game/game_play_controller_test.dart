@@ -141,49 +141,6 @@ void main() {
       expect(canPass, isTrue);
     });
 
-    test('canEnableBomb is false when deck empty and not human turn', () {
-      final bombHand = [
-        Card(CardFace.ten, CardColor.green),
-        Card(CardFace.ten, CardColor.red),
-        Card(CardFace.ten, CardColor.blue),
-        Card(CardFace.ten, CardColor.black),
-      ];
-      final snapshot = buildPlayerSnapshot(
-        currentPlayerId: testOpponentLeftId,
-        hand: bombHand,
-        deck: DeckState(TichuTurn(TurnType.empty, const []), CardFace.none),
-      );
-
-      final enabled = controller.canEnableBomb(
-        snapshot: snapshot,
-        humanId: testHumanId,
-        hand: snapshot.hand,
-      );
-
-      expect(enabled, isFalse);
-    });
-
-    test('canEnableBomb is true when human can slam a bomb', () {
-      final bombHand = [
-        Card(CardFace.ten, CardColor.green),
-        Card(CardFace.ten, CardColor.red),
-        Card(CardFace.ten, CardColor.blue),
-        Card(CardFace.ten, CardColor.black),
-      ];
-      final snapshot = buildPlayerSnapshot(
-        currentPlayerId: testHumanId,
-        hand: bombHand,
-      );
-
-      final enabled = controller.canEnableBomb(
-        snapshot: snapshot,
-        humanId: testHumanId,
-        hand: snapshot.hand,
-      );
-
-      expect(enabled, isTrue);
-    });
-
     test('shouldAutoSelectFinisher is true when full hand is a legal turn', () {
       final fullHouseHand = [
         Card(CardFace.five, CardColor.green),

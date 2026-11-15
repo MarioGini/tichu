@@ -106,25 +106,6 @@ class GamePlayController {
     return true;
   }
 
-  bool canEnableBomb({
-    required final PlayerSnapshot snapshot,
-    required final String humanId,
-    required final List<Card> hand,
-  }) {
-    if (snapshot.phase != GamePhase.play) return false;
-    if (snapshot.pendingDragonGiveBy == humanId) return false;
-    if (!_turnRules.hasBomb(hand)) return false;
-
-    final isHumanTurn = snapshot.currentPlayerId == humanId;
-    final deckType = snapshot.deck.turn.type;
-    if (!isHumanTurn &&
-        (deckType == TurnType.empty || deckType == TurnType.none)) {
-      return false;
-    }
-
-    return true;
-  }
-
   bool shouldAutoSelectFinisher({
     required final PlayerSnapshot snapshot,
     required final String humanId,

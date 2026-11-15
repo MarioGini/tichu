@@ -58,9 +58,9 @@ Future<void> loadFonts() async {
   await roboto.load();
   final icons = File('$dir/MaterialIcons-Regular.otf');
   if (icons.existsSync()) {
-    await (FontLoader('MaterialIcons')..addFont(
-          Future.value(ByteData.sublistView(icons.readAsBytesSync())),
-        ))
+    await (FontLoader(
+          'MaterialIcons',
+        )..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync()))))
         .load();
   }
 }

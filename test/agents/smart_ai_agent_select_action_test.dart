@@ -8,6 +8,12 @@ import 'package:tichu/game/scoring/score_tracker.dart';
 import 'ai_test_fixtures.dart';
 
 class _AlwaysCallTichuStrategy implements TichuCallStrategy {
+  @override
+  Future<bool> shouldCallTichuBeforeSchupf(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async => false;
+
   const _AlwaysCallTichuStrategy();
 
   @override
@@ -24,6 +30,12 @@ class _AlwaysCallTichuStrategy implements TichuCallStrategy {
 }
 
 class _NeverCallTichuStrategy implements TichuCallStrategy {
+  @override
+  Future<bool> shouldCallTichuBeforeSchupf(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async => false;
+
   const _NeverCallTichuStrategy();
 
   @override

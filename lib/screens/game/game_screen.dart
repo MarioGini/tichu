@@ -20,6 +20,7 @@ import 'package:tichu/screens/game/widgets/grand_tichu_banner.dart';
 import 'package:tichu/screens/game/widgets/options_dialog.dart';
 import 'package:tichu/screens/game/widgets/player_hand_area.dart';
 import 'package:tichu/screens/game/widgets/schupf_layout.dart';
+import 'package:tichu/screens/game/widgets/score_bar.dart';
 import 'package:tichu/screens/game/widgets/tichu_celebration_overlay.dart';
 import 'package:tichu/screens/game/widgets/trick_event_overlay.dart';
 import 'package:tichu/screens/game/widgets/wish_dialog.dart';
@@ -666,7 +667,12 @@ class _GameScreenState extends State<GameScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tichu'),
+        title: scoreState == null
+            ? const Text('Tichu')
+            : ScoreBar(
+                scoreState: scoreState,
+                isTeamOne: (_resolveSelfSeat(snapshot) ?? 0).isEven,
+              ),
         actions: [
           IconButton(
             tooltip: 'Options',

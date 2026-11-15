@@ -38,8 +38,12 @@ def _ensure_dart_on_path() -> None:
 def headless_command_prefix() -> list[str]:
     """Return the argv prefix to invoke headless.
 
-    Uses the compiled exe when present; otherwise falls back to ``dart run``.
+    Uses ``$TICHU_HEADLESS`` when set, else the compiled exe when present,
+    else ``dart run``.
     """
+    override = os.environ.get("TICHU_HEADLESS")
+    if override:
+        return [override]
     if COMPILED_EXE.exists():
         return [str(COMPILED_EXE)]
     _ensure_dart_on_path()
@@ -94,12 +98,19 @@ def run_headless_sharded(
     output_path: Path,
     shards: int | None = None,
     seed_stride: int = 1_000_000,
+    deal_seed: int | None = None,
 ) -> Path:
     """Run headless workers in parallel and concatenate their JSONL output.
 
     Each shard gets ``ceil(episodes/shards)`` episodes and a unique seed
-    derived as ``seed + shard_index * seed_stride``. ``base_args`` should NOT
-    contain ``--seed=``, ``--episodes=``, or ``--output=``.
+    derived as ``seed + shard_index * seed_stride``. Shards also get an
+    ``--episode-offset`` so episode numbers are globally unique (1..episodes)
+    in the concatenated output. ``base_args`` should NOT contain ``--seed=``,
+    ``--episodes=``, ``--output=``, ``--episode-offset=`` or ``--deal-seed=``.
+
+    With ``deal_seed`` set, deals depend only on (deal_seed, episode number),
+    so the same call with different agents (or ``--swap-teams``) replays the
+    same deals regardless of the shard count.
 
     Threads (not processes) are used because each worker just spawns a
     headless subprocess and waits on it.
@@ -112,9 +123,12 @@ def run_headless_sharded(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    extra = [f"--deal-seed={deal_seed}"] if deal_seed is not None else []
+
     if shards == 1:
         run_headless(
             base_args
+            + extra
             + [f"--seed={seed}", f"--episodes={episodes}", f"--output={output_path}"]
         )
         return output_path
@@ -130,9 +144,10 @@ def run_headless_sharded(
                 shard_seed = seed + i * seed_stride
                 shard_path = Path(td) / f"shard_{i:02d}.jsonl"
                 shard_paths.append(shard_path)
-                shard_args = list(base_args) + [
+                shard_args = list(base_args) + extra + [
                     f"--seed={shard_seed}",
                     f"--episodes={ep_count}",
+                    f"--episode-offset={i * per_shard}",
                     f"--output={shard_path}",
                 ]
                 shard_futures.append(pool.submit(_run_shard, shard_args))

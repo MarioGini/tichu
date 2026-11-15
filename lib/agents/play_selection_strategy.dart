@@ -11,6 +11,21 @@ abstract class PlaySelectionStrategy {
   );
 }
 
+/// A play strategy that decides the whole turn itself: any legal play or a
+/// pass. `SmartAiAgent` then skips its tactical shortcuts (partner support
+/// pass, lead tactics, singleton responses, ...) and only keeps the hard
+/// rules (play out when possible, wish enforcement via `legalTurns`).
+abstract interface class FullTurnPolicy {
+  /// Returns the chosen play, or `null` to pass (only when [canPass]).
+  TichuTurn? selectTurnOrPass(
+    final GameSnapshot snapshot,
+    final List<TichuTurn> legalTurns,
+    final DeckState deck,
+    final List<Card> hand, {
+    required final bool canPass,
+  });
+}
+
 class DefaultPlaySelectionStrategy implements PlaySelectionStrategy {
   final TurnScorer turnScorer;
 

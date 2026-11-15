@@ -55,12 +55,21 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async => false;
+  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async {
+    if (_partnerAlreadyCalled(snapshot)) return false;
+    return tichuCallStrategy.shouldCallGrandTichu(snapshot, playerId);
+  }
 
   @override
   Future<bool> shouldCallTichu(final GameSnapshot snapshot) async {
     if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallTichu(snapshot, playerId);
+  }
+
+  @override
+  Future<bool> shouldCallTichuBeforeSchupf(final GameSnapshot snapshot) async {
+    if (_partnerAlreadyCalled(snapshot)) return false;
+    return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
   }
 
   bool _partnerAlreadyCalled(final GameSnapshot snapshot) {
@@ -137,6 +146,19 @@ class SmartAiAgent extends PlayerAgent {
         deck,
         hand,
       );
+      return _buildPlayAction(snapshot, selected, deck, hand);
+    }
+
+    if (playSelectionStrategy case final FullTurnPolicy fullTurn) {
+      final canPass = LegalPlayGuard.canPass(deck: deck, hand: hand);
+      final selected = fullTurn.selectTurnOrPass(
+        snapshot,
+        legalTurns,
+        deck,
+        hand,
+        canPass: canPass,
+      );
+      if (selected == null) return PassAction(playerId: playerId);
       return _buildPlayAction(snapshot, selected, deck, hand);
     }
 

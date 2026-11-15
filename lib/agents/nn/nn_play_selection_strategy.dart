@@ -13,8 +13,12 @@ import 'package:tichu/game/turn/tichu_data.dart';
 /// into a fixed-size feature vector and runs it through the MLP to get a
 /// Q-value estimate. Picks the action with the highest Q-value.
 ///
+/// As a [FullTurnPolicy] it decides the whole turn (including passing), so
+/// the action set it sees at inference matches the one the BC writer records
+/// for training.
+///
 /// Falls back to [DefaultPlaySelectionStrategy] when the network is null.
-class NnPlaySelectionStrategy implements PlaySelectionStrategy {
+class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   final String playerId;
   final Mlp network;
   final PlaySelectionStrategy fallback;
@@ -76,6 +80,32 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
       return legalPlays.first;
     }
 
+    return _argmax(snapshot, legalPlays, canPass: false)!;
+  }
+
+  @override
+  TichuTurn? selectTurnOrPass(
+    final GameSnapshot snapshot,
+    final List<TichuTurn> legalTurns,
+    final DeckState deck,
+    final List<Card> hand, {
+    required final bool canPass,
+  }) {
+    if (legalTurns.isEmpty) {
+      if (canPass) return null;
+      throw StateError('No legal plays and pass is illegal.');
+    }
+    if (legalTurns.length == 1 && !canPass) return legalTurns.first;
+    return _argmax(snapshot, legalTurns, canPass: canPass);
+  }
+
+  /// Highest-Q play among [plays], or `null` when [canPass] and the pass
+  /// action scores strictly highest.
+  TichuTurn? _argmax(
+    final GameSnapshot snapshot,
+    final List<TichuTurn> plays, {
+    required final bool canPass,
+  }) {
     final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
     final stateFeatures = encoder.stateFeatures;
 
@@ -90,7 +120,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
     TichuTurn? bestPlay;
     var bestValue = double.negativeInfinity;
 
-    for (final play in legalPlays) {
+    for (final play in plays) {
       encoder.writeActionFeatures(play, buffer, stateLen);
       final qValue = network.predictBuffer(buffer);
 
@@ -105,6 +135,16 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
       }
     }
 
-    return bestPlay ?? legalPlays.first;
+    if (canPass) {
+      encoder.writeActionFeatures(
+        TichuTurn(TurnType.none, const <Card>[]),
+        buffer,
+        stateLen,
+        isPass: true,
+      );
+      if (network.predictBuffer(buffer) > bestValue) return null;
+    }
+
+    return bestPlay ?? plays.first;
   }
 }

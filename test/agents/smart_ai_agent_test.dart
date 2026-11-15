@@ -733,7 +733,7 @@ void main() {
     );
 
     test(
-      'plays normally when partner is winning high trick without tichu call',
+      'passes when partner is winning a high trick without tichu call',
       () async {
         final hand = [
           Card(CardFace.ace, CardColor.red),
@@ -762,9 +762,37 @@ void main() {
         );
 
         final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PlayTurnAction>());
+        expect(action, isA<PassAction>());
       },
     );
+
+    test('may take over a low single from the partner', () async {
+      final hand = [
+        Card(CardFace.ace, CardColor.red),
+        Card(CardFace.nine, CardColor.blue),
+      ];
+      final deckTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.four, CardColor.black),
+      ]);
+      final deck = DeckState(deckTurn, CardFace.none);
+      final snapshot = _snapshot(
+        myHand: hand,
+        deck: deck,
+        otherHands: {
+          _leftId: _defaultHand(),
+          _partnerId: [
+            Card(CardFace.three, CardColor.red),
+            Card(CardFace.five, CardColor.green),
+          ],
+          _rightId: _defaultHand(),
+        },
+        lastPlayedBy: _partnerId,
+        lastPlayedTurn: deckTurn,
+      );
+
+      final action = await agent.selectTurn(snapshot);
+      expect(action, isA<PlayTurnAction>());
+    });
 
     test(
       'plays a stronger interrupt when opponent tichu is near finish',

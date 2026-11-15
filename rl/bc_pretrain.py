@@ -21,35 +21,13 @@ import os
 import shutil
 import tempfile
 import time
-import warnings
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-warnings.filterwarnings(
-    "ignore",
-    message=r".*is not currently supported on the DML backend.*",
-    category=UserWarning,
-)
-
-from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT  # noqa: E402
-
-
-REPO = Path(__file__).resolve().parent.parent
-RL_DIR = Path(__file__).resolve().parent
-OUTPUTS = RL_DIR / "outputs"
-
-
-def _ensure_dart_on_path() -> None:
-    if shutil.which("dart"):
-        return
-    candidate = Path.home() / "flutter" / "bin"
-    if (candidate / "dart").exists():
-        os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
-        return
-    raise RuntimeError("'dart' not found on PATH")
+from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT
 
 
 # ── Flat BC dataset ──────────────────────────────────────────────────────────
@@ -112,8 +90,11 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
                 if not line:
                     continue
                 row = json.loads(line)
-                last_by_ep[int(row.get("episode", 0))] = row
+                if row.get("episode_end"):
+                    last_by_ep[int(row.get("episode", 0))] = row
         for ep, row in last_by_ep.items():
+            if not row.get("episode_end"):
+                continue
             t1 = float(row.get("team_one_total", 0.0))
             t2 = float(row.get("team_two_total", 0.0))
             if t1 > t2:
@@ -129,6 +110,7 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
     skipped_no_legal = 0
     skipped_single_action = 0
     skipped_loser = 0
+    skipped_explore = 0
 
     with jsonl.open("r", encoding="utf-8") as fh:
         for line in fh:
@@ -136,6 +118,12 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
             if not line:
                 continue
             row = json.loads(line)
+            if row.get("episode_end") or row.get("round_end"):
+                continue
+            if row.get("explore"):
+                # ε-exploration moves are not the behaviour policy's choice.
+                skipped_explore += 1
+                continue
 
             if winners_only:
                 ep = int(row.get("episode", 0))
@@ -184,7 +172,7 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
         raise ValueError(
             f"No usable BC rows in {jsonl}. Hints: skipped_no_legal="
             f"{skipped_no_legal}, skipped_single_action={skipped_single_action},"
-            f" skipped_loser={skipped_loser}"
+            f" skipped_loser={skipped_loser}, skipped_explore={skipped_explore}"
         )
 
     inputs_np = np.concatenate(inputs_chunks, axis=0)
@@ -216,7 +204,7 @@ class QNetwork(nn.Module):
 def _select_device() -> torch.device:
     """Pick the best compute device for our tiny MLP.
 
-    The net is tiny (~58k params, ~14k-row batches; ~80 ms/step on an
+    The net is tiny (~100k params, ~14k-row batches; ~80 ms/step on an
     8-core CPU with MKL), so CPU is the right default unless a real CUDA GPU
     is present.
     """
@@ -318,8 +306,12 @@ def _bc_step(
     require_grad: bool,
     anchor_model: nn.Module | None = None,
     kl_weight: float = 0.0,
+    weights: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """One forward pass over the chosen batch of decisions.
+
+    ``weights`` (D,) optionally weights each decision's cross-entropy term
+    (advantage-weighted regression); it is indexed by ``decision_idx``.
 
     Returns (total_loss, per-decision boolean correctness, kl_loss).
     """
@@ -357,7 +349,11 @@ def _bc_step(
     chosen_logits = logits[chosen_in_batch]                 # (K,)
 
     losses = lse - chosen_logits                            # (K,)
-    bc_loss = losses.mean()
+    if weights is None:
+        bc_loss = losses.mean()
+    else:
+        w = weights[decision_idx]
+        bc_loss = (losses * w).sum() / w.sum().clamp_min(1e-8)
     correct = (chosen_logits >= max_per - 1e-6)             # (K,) bool
 
     # Optional KL anchor: KL(current || anchor) over the legal-action softmax.
@@ -474,6 +470,12 @@ def main() -> None:
         help="Reuse an existing JSONL instead of regenerating from headless",
     )
     p.add_argument(
+        "--shards",
+        type=int,
+        default=0,
+        help="Parallel headless workers for data generation (0 = cpu_count - 1)",
+    )
+    p.add_argument(
         "--winners-only",
         action="store_true",
         help="Train BC on decisions made by the winning team only",
@@ -500,8 +502,6 @@ def main() -> None:
     )
     args = p.parse_args()
 
-    _ensure_dart_on_path()
-
     cleanup_jsonl: Path | None = None
     if args.jsonl:
         jsonl_path = Path(args.jsonl)
@@ -517,6 +517,7 @@ def main() -> None:
             episodes=args.episodes,
             target_score=args.target_score,
             output=jsonl_path,
+            shards=args.shards,
         )
 
     print("Building BC dataset...", flush=True)

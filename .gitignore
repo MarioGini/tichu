@@ -115,3 +115,5 @@ uv.lock
 
 # RL training artifacts
 rl/outputs/
+.claude/worktrees/
+tool/ui_preview/out/

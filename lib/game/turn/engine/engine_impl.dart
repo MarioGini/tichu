@@ -49,6 +49,7 @@ class GameEngineImpl implements GameEngine {
     state.scoreTracker.startNewRound(players);
     state.grandTichuDecisions.clear();
     state.schupfSelections.clear();
+    state.completedSchupfSelections.clear();
     state.schupfReceipts.clear();
     state.schupfPendingAdditions.clear();
     state.playersWhoPlayedCardsThisRound.clear();
@@ -84,6 +85,7 @@ class GameEngineImpl implements GameEngine {
     state.playersWhoPlayedCardsThisRound.clear();
     state.grandTichuDecisions.clear();
     state.schupfSelections.clear();
+    state.completedSchupfSelections.clear();
     state.schupfReceipts.clear();
     state.schupfPendingAdditions.clear();
     state.scoreTracker.startNewRound(state.players);
@@ -93,6 +95,7 @@ class GameEngineImpl implements GameEngine {
   void startGame(final GameEngineState state) {
     state.grandTichuDecisions.clear();
     state.schupfSelections.clear();
+    state.completedSchupfSelections.clear();
     state.schupfReceipts.clear();
     state.schupfPendingAdditions.clear();
     state.lastDragonGiveBy = null;
@@ -231,7 +234,11 @@ class GameEngineImpl implements GameEngine {
             ),
             state.deck.wish,
           )
-          ..currentWinner = state.deck.currentWinner
+          // The engine never sets deck.currentWinner itself; the player who
+          // played the current top combination is the trick's winner so far.
+          ..currentWinner = state.deck.currentWinner.isNotEmpty
+              ? state.deck.currentWinner
+              : (_trickActive(state.deck) ? state.lastPlayedBy ?? '' : '')
           ..cardStack = List<Card>.from(state.deck.cardStack);
 
     return GameSnapshot(
@@ -273,6 +280,11 @@ class GameEngineImpl implements GameEngine {
       },
       grandTichuDecisions: Map<String, bool>.from(state.grandTichuDecisions),
       schupfCompletedPlayers: List<String>.from(state.schupfSelections.keys),
+      schupfSelections: Map<String, SchupfAction>.from(
+        state.schupfSelections.isNotEmpty
+            ? state.schupfSelections
+            : state.completedSchupfSelections,
+      ),
       schupfReceipts: Map<String, List<SchupfReceipt>>.from(
         state.schupfReceipts,
       ),
@@ -396,4 +408,7 @@ class GameEngineImpl implements GameEngine {
     final GameEngineState state,
     final String playerId,
   ) => opponentIdsForPlayer(state, playerId);
+
+  static bool _trickActive(final DeckState deck) =>
+      deck.turn.type != TurnType.empty && deck.turn.type != TurnType.none;
 }

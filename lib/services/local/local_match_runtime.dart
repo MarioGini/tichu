@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -28,7 +28,7 @@ class LocalMatchRuntime {
     final Map<String, PlayerAgent>? automatedAgents,
   }) : _engine = engine ?? GameEngineImpl(random: random),
        _aiRunner = AiTurnRunner(
-         agentFactory: agentFactory ?? SmartAiAgent.new,
+         agentFactory: agentFactory ?? BotConfig.heuristic.build,
        ) {
     _aiRunner.engine = _engine;
     if (automatedAgents != null) {

@@ -12,6 +12,45 @@ class _HeadlessSimulator {
   final double epsilon;
   final PlayerAgent Function(String playerId, int seat) agentFactory;
 
+  /// Added to the local episode index, so shards emit globally unique
+  /// episode numbers (episode = episodeOffset + 1 .. episodeOffset + N).
+  final int episodeOffset;
+
+  /// When set, deals come from `Random(dealSeed ^ episode-hash)` instead of
+  /// the shared [random]. Deals then depend only on (dealSeed, episode), not
+  /// on agent decisions, which enables duplicate (team-swapped) evaluation.
+  final int? dealSeed;
+
+  /// Probability of replacing a schupf selection with a random perturbation
+  /// (exploration for training the schupf net). Schupf rows are always
+  /// logged in bc-jsonl output.
+  final double schupfEpsilon;
+
+  /// Probability of flipping a Tichu / Grand Tichu decision (exploration
+  /// for training call-value nets). Only the first Tichu opportunity per
+  /// player and round is explored and logged.
+  final double callEpsilon;
+
+  /// Log, for every play/pass decision, what the heuristic would have done
+  /// (`shadow_index` in bc-jsonl) — used by `rl/analyze_games.py`.
+  final bool shadowHeuristic;
+
+  /// Label each logged Tichu decision with its exact counterfactual value
+  /// (round forked and played both ways), see [_counterfactualCall].
+  final bool counterfactualCalls;
+
+  /// Omit play/pass rows from bc-jsonl (call / schupf / round data only).
+  final bool skipPlayRows;
+  final _shadowAgents = <String, SmartAiAgent>{};
+
+  /// Set by [_selectAction] when the returned action came from ε-exploration.
+  var _lastActionExplored = false;
+
+  _BcTransitionWriter? _bcWriter;
+  final _preSchupfDecided = <String>{};
+  var _preSchupfRound = -1;
+  final _tichuDecided = <String>{};
+
   _HeadlessSimulator({
     required this.random,
     required this.targetScore,
@@ -23,11 +62,35 @@ class _HeadlessSimulator {
     required this.includeTimestamps,
     required this.epsilon,
     required this.agentFactory,
+    this.episodeOffset = 0,
+    this.dealSeed,
+    this.callEpsilon = 0,
+    this.schupfEpsilon = 0,
+    this.shadowHeuristic = false,
+    this.skipPlayRows = false,
+    this.counterfactualCalls = false,
   });
+
+  Future<GameAction?> _shadowHeuristicTurn(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async {
+    final agent = _shadowAgents.putIfAbsent(
+      playerId,
+      () => SmartAiAgent(playerId),
+    );
+    try {
+      return await agent.selectTurn(snapshot);
+      // Agents signal "no legal action" with StateError.
+      // ignore: avoid_catching_errors
+    } on StateError {
+      return null;
+    }
+  }
 
   Future<void> run() async {
     for (var episode = 0; episode < episodes; episode++) {
-      await _runEpisode(episode + 1);
+      await _runEpisode(episodeOffset + episode + 1);
     }
   }
 
@@ -37,7 +100,11 @@ class _HeadlessSimulator {
       for (final player in players)
         player.id: agentFactory(player.id, player.seat),
     };
-    final engine = GameEngineImpl(random: random);
+    final engine = GameEngineImpl(
+      random: dealSeed == null
+          ? random
+          : Random(_mixSeed(dealSeed!, episodeNumber)),
+    );
     final state = engine.createGame(
       gameId: 'headless_episode_$episodeNumber',
       players: players,
@@ -53,6 +120,8 @@ class _HeadlessSimulator {
         outputFormat == _HeadlessOutputFormat.bcJsonl && output != null
         ? _BcTransitionWriter(output: output!, episode: episodeNumber)
         : null;
+    _bcWriter = bcWriter;
+    _tichuDecided.clear();
     final summaryWriter =
         outputFormat == _HeadlessOutputFormat.summary && output != null
         ? _SummaryWriter(output: output!, episode: episodeNumber)
@@ -65,12 +134,10 @@ class _HeadlessSimulator {
     var steps = 0;
 
     while (true) {
-      if (snapshot.scoreState.gameComplete) {
+      if (snapshot.scoreState.gameComplete ||
+          (roundsLimit != null && completedRounds >= roundsLimit!)) {
         summaryWriter?.emit(snapshot);
-        return;
-      }
-      if (roundsLimit != null && completedRounds >= roundsLimit!) {
-        summaryWriter?.emit(snapshot);
+        bcWriter?.emitEpisodeEnd(snapshot);
         return;
       }
 
@@ -100,9 +167,15 @@ class _HeadlessSimulator {
           'step=$steps,player=${snapshot.currentPlayerId}',
         );
         summaryWriter?.emit(snapshot);
+        bcWriter?.emitEpisodeEnd(snapshot);
         return;
       }
 
+      final explored = _lastActionExplored;
+      final shadow =
+          shadowHeuristic && (action is PlayTurnAction || action is PassAction)
+          ? await _shadowHeuristicTurn(snapshot, action.playerId)
+          : null;
       final before = snapshot;
       final appliedAction = _applyActionWithRecovery(
         engine: engine,
@@ -117,7 +190,7 @@ class _HeadlessSimulator {
       }
 
       if (appliedAction is PassAction) {
-        _notifyMctsPass(
+        _notifyIsmctsPass(
           agents: agents,
           passPlayerId: appliedAction.playerId,
           deckTurn: before.deck.turn,
@@ -126,15 +199,19 @@ class _HeadlessSimulator {
 
       snapshot = engine.buildSnapshot(state);
       csvWriter?.processSnapshot(snapshot);
-      bcWriter?.emitTransition(
-        before: before,
-        action: appliedAction,
-        after: snapshot,
-      );
+      if (!skipPlayRows) {
+        bcWriter?.emitTransition(
+          before: before,
+          action: appliedAction,
+          explored: explored,
+          shadow: shadow,
+        );
+      }
 
       if (!before.scoreState.roundComplete &&
           snapshot.scoreState.roundComplete) {
         completedRounds++;
+        bcWriter?.emitRoundEnd(snapshot);
       }
     }
   }
@@ -145,98 +222,140 @@ class _HeadlessSimulator {
     required final GameSnapshot snapshot,
     required final Map<String, PlayerAgent> agents,
   }) async {
-    final receiptPlayerId = _nextReceiptPlayerId(state);
-    if (receiptPlayerId != null) {
-      return AcknowledgeSchupfAction(playerId: receiptPlayerId);
+    _lastActionExplored = false;
+    final round = state.scoreTracker.state.roundNumber;
+    if (round != _preSchupfRound) {
+      _preSchupfRound = round;
+      _preSchupfDecided.clear();
+    }
+    var request = AgentDecisions.next(
+      engine,
+      state,
+      preSchupfDecided: _preSchupfDecided,
+    );
+    // Pre-schupf Tichu: every player decides before anyone passes.
+    while (request is PreSchupfTichuRequest) {
+      final playerId = request.playerId;
+      _preSchupfDecided.add(playerId);
+      final agent = agents[playerId];
+      if (agent == null) {
+        throw StateError('No agent registered for $playerId.');
+      }
+      var shouldCall = await agent.shouldCallTichuBeforeSchupf(snapshot);
+      final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
+      if (explored) shouldCall = !shouldCall;
+      _bcWriter?.emitCallDecision(
+        kind: 'pre',
+        snapshot: snapshot,
+        playerId: playerId,
+        called: shouldCall,
+        explored: explored,
+        counterfactual: counterfactualCalls && _bcWriter != null
+            ? await _counterfactualCall(engine, state, playerId, 'pre')
+            : null,
+      );
+      if (shouldCall) return CallTichuAction(playerId: playerId);
+      request = AgentDecisions.next(
+        engine,
+        state,
+        preSchupfDecided: _preSchupfDecided,
+      );
+    }
+    if (request == null) {
+      throw StateError('No pending decision in phase ${state.phase}.');
+    }
+    final agent = agents[request.playerId];
+    if (agent == null) {
+      throw StateError('No agent registered for ${request.playerId}.');
     }
 
-    if (state.phase == GamePhase.grandTichu) {
-      final currentPlayer = state.players[state.currentPlayerIndex];
-      if (state.grandTichuDecisions.containsKey(currentPlayer.id)) {
-        state.currentPlayerIndex =
-            (state.currentPlayerIndex + 1) % state.players.length;
-        return _selectAction(
+    // Training-only hooks around the shared decision logic: exploration of
+    // calls / schupf / plays, and logging of call and schupf decisions.
+    switch (request) {
+      case GrandTichuRequest(:final playerId):
+        var shouldCall = await agent.shouldCallGrandTichu(snapshot);
+        final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
+        if (explored) shouldCall = !shouldCall;
+        _bcWriter?.emitCallDecision(
+          kind: 'grand',
+          snapshot: snapshot,
+          playerId: playerId,
+          called: shouldCall,
+          explored: explored,
+          counterfactual: counterfactualCalls && _bcWriter != null
+              ? await _counterfactualCall(engine, state, playerId, 'grand')
+              : null,
+        );
+        return GrandTichuDecisionAction(playerId: playerId, call: shouldCall);
+      case SchupfRequest(:final playerId):
+        var selection = await agent.selectSchupfCards(snapshot);
+        final explored =
+            schupfEpsilon > 0 && random.nextDouble() < schupfEpsilon;
+        if (explored) {
+          selection = _perturbSchupf(
+            selection,
+            snapshot.hands[playerId] ?? const <Card>[],
+          );
+        }
+        _bcWriter?.emitSchupfDecision(
+          snapshot: snapshot,
+          action: selection,
+          explored: explored,
+        );
+        return selection;
+      case TurnRequest(:final playerId):
+        return _selectTurn(
           engine: engine,
           state: state,
           snapshot: snapshot,
-          agents: agents,
+          playerId: playerId,
+          agent: agent,
         );
-      }
-
-      final agent = agents[currentPlayer.id];
-      if (agent == null) {
-        throw StateError('No agent registered for ${currentPlayer.id}.');
-      }
-
-      if (epsilon > 0 && random.nextDouble() < epsilon) {
-        return GrandTichuDecisionAction(
-          playerId: currentPlayer.id,
-          call: random.nextBool(),
-        );
-      }
-
-      final shouldCall = await agent.shouldCallGrandTichu(snapshot);
-      return GrandTichuDecisionAction(
-        playerId: currentPlayer.id,
-        call: shouldCall,
-      );
+      case SchupfReceiptRequest() ||
+          DragonGiveRequest() ||
+          PreSchupfTichuRequest():
+        return AgentDecisions.resolve(request, agent, snapshot, state);
     }
+  }
 
-    if (state.phase == GamePhase.schupf) {
-      for (final player in state.players) {
-        if (state.schupfSelections.containsKey(player.id)) {
-          continue;
-        }
-        final agent = agents[player.id];
-        if (agent == null) {
-          throw StateError('No agent registered for ${player.id}.');
-        }
-        return agent.selectSchupfCards(snapshot);
-      }
-      throw StateError('Schupf phase active but no player can schupfen.');
-    }
-
-    if (state.pendingDragonGiveBy != null) {
-      final winnerId = state.pendingDragonGiveBy!;
-      final opponentIds = engine.opponentIds(state, winnerId);
-      if (opponentIds.isEmpty) {
-        throw StateError('No valid dragon target available for $winnerId.');
-      }
-
-      if (epsilon > 0 && random.nextDouble() < epsilon) {
-        final randomTarget = opponentIds[random.nextInt(opponentIds.length)];
-        return GiveDragonAction(
-          playerId: winnerId,
-          targetPlayerId: randomTarget,
-        );
-      }
-
-      final preferredSeat = agents[winnerId]?.selectDragonGive(snapshot);
-      final targetId = _resolveDragonTarget(
-        state: state,
-        opponentIds: opponentIds,
-        preferredSeat: preferredSeat,
-      );
-
-      return GiveDragonAction(playerId: winnerId, targetPlayerId: targetId);
-    }
-
-    final currentPlayer = state.players[state.currentPlayerIndex];
-    final agent = agents[currentPlayer.id];
-    if (agent == null) {
-      throw StateError('No agent registered for ${currentPlayer.id}.');
-    }
-
-    if (epsilon > 0 &&
-        snapshot.phase == GamePhase.play &&
-        random.nextDouble() < epsilon) {
-      final randomAction = _pickRandomLegalAction(snapshot, currentPlayer.id);
+  Future<GameAction?> _selectTurn({
+    required final GameEngine engine,
+    required final GameEngineState state,
+    required final GameSnapshot snapshot,
+    required final String playerId,
+    required final PlayerAgent agent,
+  }) async {
+    if (epsilon > 0 && random.nextDouble() < epsilon) {
+      final randomAction = _pickRandomLegalAction(snapshot, playerId);
       if (randomAction != null) {
+        _lastActionExplored = true;
         return randomAction;
       }
     }
 
     try {
+      final tichuKey = '${snapshot.scoreState.roundNumber}:$playerId';
+      if ((snapshot.canCallTichuByPlayer[playerId] ?? false) &&
+          (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
+              TichuCall.none &&
+          _tichuDecided.add(tichuKey)) {
+        // First Tichu opportunity this round: explore + log the decision.
+        var shouldCall = await agent.shouldCallTichu(snapshot);
+        final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
+        if (explored) shouldCall = !shouldCall;
+        _bcWriter?.emitCallDecision(
+          kind: 'tichu',
+          snapshot: snapshot,
+          playerId: playerId,
+          called: shouldCall,
+          explored: explored,
+          counterfactual: counterfactualCalls && _bcWriter != null
+              ? await _counterfactualCall(engine, state, playerId, 'tichu')
+              : null,
+        );
+        if (shouldCall) return CallTichuAction(playerId: playerId);
+        return await agent.selectTurn(snapshot);
+      }
       return await agent.selectAction(snapshot);
       // Agents signal "no legal action" with StateError.
       // ignore: avoid_catching_errors
@@ -244,6 +363,127 @@ class _HeadlessSimulator {
       return null;
     }
   }
+
+  /// Exact value of calling Tichu now for [playerId]'s team, in round
+  /// points: the round is forked and played out twice with fresh,
+  /// non-exploring agents — once with the call, once with the player never
+  /// calling this round — and the team's point differences are subtracted.
+  /// The deal is fixed and the bots are deterministic, so this label has no
+  /// card-luck noise at all.
+  ///
+  /// [kind]: 'tichu' (play phase; the no-call branch never calls this
+  /// round), 'grand' (Grand Tichu decision; no-call = declines, then plays
+  /// on normally) or 'pre' (before the schupf; no-call = continues
+  /// normally, may still call Tichu later).
+  Future<double?> _counterfactualCall(
+    final GameEngine engine,
+    final GameEngineState state,
+    final String playerId,
+    final String kind,
+  ) async {
+    final team =
+        state.players.firstWhere((final p) => p.id == playerId).seat % 2;
+    Future<int?> playOut({required final bool call}) async {
+      final fork = state.copy();
+      final forkAgents = {
+        for (final p in fork.players) p.id: agentFactory(p.id, p.seat),
+      };
+      final preDecided = {..._preSchupfDecided};
+      if (kind == 'grand') {
+        engine.applyAction(
+          fork,
+          GrandTichuDecisionAction(playerId: playerId, call: call),
+        );
+      } else if (call) {
+        engine.applyAction(fork, CallTichuAction(playerId: playerId));
+      }
+      if (kind == 'pre') preDecided.add(playerId);
+      for (var steps = 0; steps < 5000; steps++) {
+        final score = fork.scoreTracker.state;
+        if (score.roundComplete) {
+          final diff = score.teamOneRound - score.teamTwoRound;
+          return team == 0 ? diff : -diff;
+        }
+        final request = AgentDecisions.next(
+          engine,
+          fork,
+          preSchupfDecided: preDecided,
+        );
+        if (request == null) return null;
+        if (request is PreSchupfTichuRequest) preDecided.add(request.playerId);
+        final agent = forkAgents[request.playerId]!;
+        final snap = engine.buildSnapshot(fork);
+        GameAction? action;
+        try {
+          // The decider keeps the counterfactual: no Tichu in the
+          // no-call branch (selectTurn never calls).
+          action =
+              kind == 'tichu' &&
+                  request is TurnRequest &&
+                  request.playerId == playerId
+              ? await agent.selectTurn(snap)
+              : await AgentDecisions.resolve(request, agent, snap, fork);
+          // Agents signal "no legal action" with StateError.
+          // ignore: avoid_catching_errors
+        } on StateError {
+          return null;
+        }
+        if (action == null) continue;
+        engine.applyAction(fork, action);
+      }
+      return null;
+    }
+
+    final withCall = await playOut(call: true);
+    final without = await playOut(call: false);
+    if (withCall == null || without == null) return null;
+    return (withCall - without).toDouble();
+  }
+
+  /// Replace one to three (mostly one) of the passed cards with random other
+  /// hand cards, and sometimes swap destinations.
+  SchupfAction _perturbSchupf(final SchupfAction base, final List<Card> hand) {
+    final chosen = [base.toLeft, base.toPartner, base.toRight];
+    // Mostly small changes, so the data covers choices near the heuristic's.
+    final roll = random.nextDouble();
+    final changes = roll < 0.7 ? 1 : (roll < 0.95 ? 2 : 3);
+    final slots = [0, 1, 2]..shuffle(random);
+    for (final slot in slots.take(changes)) {
+      // Stay within the bomb-safety convention for the opponents' cards.
+      final pool = [
+        for (final c in hand)
+          if (!chosen.any((final x) => _sameCard(x, c)) &&
+              (slot != 0 || SchupfFeatures.allowedLeft(c)) &&
+              (slot != 2 || SchupfFeatures.allowedRight(c)))
+            c,
+      ];
+      if (pool.isEmpty) break;
+      chosen[slot] = pool[random.nextInt(pool.length)];
+    }
+    if (random.nextBool()) {
+      // Also explore who gets which card.
+      final a = random.nextInt(3);
+      final b = random.nextInt(3);
+      final swapped = [...chosen];
+      swapped[a] = chosen[b];
+      swapped[b] = chosen[a];
+      if (SchupfFeatures.allowedLeft(swapped[0]) &&
+          SchupfFeatures.allowedRight(swapped[2])) {
+        chosen
+          ..clear()
+          ..addAll(swapped);
+      }
+    }
+    return SchupfAction(
+      playerId: base.playerId,
+      toLeft: chosen[0],
+      toPartner: chosen[1],
+      toRight: chosen[2],
+    );
+  }
+
+  static bool _sameCard(final Card a, final Card b) =>
+      a.face == b.face && a.color == b.color;
 
   GameAction? _pickRandomLegalAction(
     final GameSnapshot snapshot,
@@ -398,30 +638,7 @@ class _HeadlessSimulator {
     return !mahJong(snapshot.deck, TichuTurn(TurnType.none, const []), hand);
   }
 
-  String? _nextReceiptPlayerId(final GameEngineState state) {
-    for (final player in state.players) {
-      final receipts = state.schupfReceipts[player.id];
-      if (receipts != null && receipts.isNotEmpty) return player.id;
-    }
-    return null;
-  }
-
-  String _resolveDragonTarget({
-    required final GameEngineState state,
-    required final List<String> opponentIds,
-    required final int? preferredSeat,
-  }) {
-    if (preferredSeat != null) {
-      for (final player in state.players) {
-        if (player.seat == preferredSeat && opponentIds.contains(player.id)) {
-          return player.id;
-        }
-      }
-    }
-    return opponentIds.first;
-  }
-
-  void _notifyMctsPass({
+  void _notifyIsmctsPass({
     required final Map<String, PlayerAgent> agents,
     required final String passPlayerId,
     required final TichuTurn deckTurn,
@@ -429,13 +646,18 @@ class _HeadlessSimulator {
     for (final agent in agents.values) {
       if (agent is SmartAiAgent) {
         final strategy = agent.playSelectionStrategy;
-        if (strategy is MctsPlaySelectionStrategy) {
-          strategy.recordPass(passPlayerId: passPlayerId, deckTurn: deckTurn);
-        }
         if (strategy is IsmctsPlaySelectionStrategy) {
           strategy.recordPass(passPlayerId: passPlayerId, deckTurn: deckTurn);
         }
       }
     }
+  }
+
+  /// SplitMix-style mix of (seed, episode) into a 32-bit Random seed.
+  static int _mixSeed(final int seed, final int episode) {
+    var z = (seed * 0x9E3779B1 + episode * 0x85EBCA77) & 0xFFFFFFFF;
+    z = ((z ^ (z >> 16)) * 0x7FEB352D) & 0xFFFFFFFF;
+    z = ((z ^ (z >> 15)) * 0x846CA68B) & 0xFFFFFFFF;
+    return z ^ (z >> 16);
   }
 }

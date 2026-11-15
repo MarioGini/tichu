@@ -31,8 +31,6 @@ class TurnRulesAdapter {
   List<TichuTurn> bombsInHand(final List<Card> hand) =>
       getBombs(List<Card>.from(hand));
 
-  bool hasBomb(final List<Card> hand) => hasBombInHand(hand);
-
   TichuTurn? firstPlayableBomb(final DeckState deck, final List<Card> hand) {
     for (final bomb in bombsInHand(hand)) {
       final updated = tryApplyTurn(deck, bomb.cards, CardFace.none, hand: hand);

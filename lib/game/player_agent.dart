@@ -15,6 +15,11 @@ abstract class PlayerAgent {
 
   Future<bool> shouldCallTichu(final GameSnapshot snapshot);
 
+  /// Whether to call Tichu during the schupf phase, before passing cards.
+  /// Defaults to no.
+  Future<bool> shouldCallTichuBeforeSchupf(final GameSnapshot snapshot) async =>
+      false;
+
   Future<SchupfAction> selectSchupfCards(final GameSnapshot snapshot);
 
   Future<GameAction> selectTurn(final GameSnapshot snapshot);

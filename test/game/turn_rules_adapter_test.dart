@@ -49,7 +49,7 @@ void main() {
       expect(legal.any((final turn) => turn.type == TurnType.single), isTrue);
     });
 
-    test('hasBomb identifies quartet bomb in hand', () {
+    test('bombsInHand identifies quartet bomb in hand', () {
       final bombHand = [
         Card(CardFace.ten, CardColor.green),
         Card(CardFace.ten, CardColor.red),
@@ -57,7 +57,6 @@ void main() {
         Card(CardFace.ten, CardColor.black),
       ];
 
-      expect(adapter.hasBomb(bombHand), isTrue);
       expect(adapter.bombsInHand(bombHand), isNotEmpty);
     });
 

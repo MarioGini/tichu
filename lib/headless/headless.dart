@@ -2,17 +2,21 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:tichu/agents/bot_config.dart';
+import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/mcts/ismcts_play_selection_strategy.dart';
-import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
-import 'package:tichu/agents/nn/mlp.dart';
-import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
+import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
+import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/table_relationships.dart';
+import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/move_generator.dart';
@@ -42,26 +46,39 @@ Future<void> main(final List<String> args) async {
 
   final random = config.seed == null ? Random() : Random(config.seed);
 
-  final nnPolicy = await _loadNnPolicy(config.nnPolicyPath);
-  final opponentPolicy = await _loadNnPolicy(config.opponentPolicyPath);
+  // The policy team uses every learned component given on the command line;
+  // the opponent team uses --opponent-policy for play (or the heuristic) and
+  // heuristic calls / schupf.
+  final policyConfig = BotConfig(
+    play: await _loadNet(config.nnPolicyPath),
+    tichu: await _loadNet(config.tichuNetPath),
+    grandTichu: await _loadNet(config.grandNetPath),
+    preSchupfTichu: await _loadNet(config.preTichuNetPath),
+    schupf: await _loadNet(config.schupfNetPath),
+  );
+  final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = _buildAgentFactory(
-    nnPolicy: nnPolicy,
-    useMcts: config.useMcts,
+    config: policyConfig,
     useIsmcts: config.useIsmcts,
-    mctsDeterminizations: config.mctsDeterminizations,
     ismctsSimulations: config.ismctsSimulations,
+    valueNet: await _loadNet(config.valueNetPath),
     random: random,
   );
-  final opponentFactory = opponentPolicy != null
-      ? _buildAgentFactory(nnPolicy: opponentPolicy, random: random)
-      : _buildAgentFactory(nnPolicy: null, random: random);
+  final opponentFactory = _buildAgentFactory(
+    config: BotConfig(play: opponentPolicy),
+    random: random,
+  );
 
   final PlayerAgent Function(String, int) agentFactory;
   if (opponentPolicy != null || config.mixed) {
     // Self-play / mixed mode: team0 (even seats) plays the loaded policy,
     // team1 (odd seats) plays the frozen opponent policy (or the heuristic).
+    // --swap-teams flips this so duplicate evaluation can replay the same
+    // deals with the policy on the other seats.
     agentFactory = (final playerId, final seat) =>
-        seat.isEven ? policyFactory(playerId) : opponentFactory(playerId);
+        seat.isEven != config.swapTeams
+        ? policyFactory(playerId)
+        : opponentFactory(playerId);
   } else {
     agentFactory = (final playerId, final _) => policyFactory(playerId);
   }
@@ -77,6 +94,13 @@ Future<void> main(final List<String> args) async {
     includeTimestamps: config.includeTimestamps,
     epsilon: config.epsilon,
     agentFactory: agentFactory,
+    episodeOffset: config.episodeOffset,
+    dealSeed: config.dealSeed,
+    callEpsilon: config.callEpsilon,
+    schupfEpsilon: config.schupfEpsilon,
+    shadowHeuristic: config.shadowHeuristic,
+    skipPlayRows: config.skipPlayRows,
+    counterfactualCalls: config.counterfactualCalls,
   );
 
   try {
@@ -104,11 +128,22 @@ class _HeadlessConfig {
   final String? nnPolicyPath;
   final String? opponentPolicyPath;
   final double epsilon;
-  final bool useMcts;
-  final int mctsDeterminizations;
   final bool useIsmcts;
   final int ismctsSimulations;
   final bool mixed;
+  final bool swapTeams;
+  final int episodeOffset;
+  final int? dealSeed;
+  final String? valueNetPath;
+  final String? tichuNetPath;
+  final String? grandNetPath;
+  final double callEpsilon;
+  final String? schupfNetPath;
+  final String? preTichuNetPath;
+  final double schupfEpsilon;
+  final bool shadowHeuristic;
+  final bool skipPlayRows;
+  final bool counterfactualCalls;
 
   const _HeadlessConfig({
     required this.seed,
@@ -123,11 +158,22 @@ class _HeadlessConfig {
     required this.nnPolicyPath,
     required this.opponentPolicyPath,
     required this.epsilon,
-    required this.useMcts,
-    required this.mctsDeterminizations,
     required this.useIsmcts,
     required this.ismctsSimulations,
     required this.mixed,
+    required this.swapTeams,
+    required this.episodeOffset,
+    required this.dealSeed,
+    required this.valueNetPath,
+    required this.tichuNetPath,
+    required this.grandNetPath,
+    required this.callEpsilon,
+    required this.schupfNetPath,
+    required this.preTichuNetPath,
+    required this.schupfEpsilon,
+    required this.shadowHeuristic,
+    required this.skipPlayRows,
+    required this.counterfactualCalls,
   });
 }
 
@@ -147,11 +193,22 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var outputProvided = false;
   var showHelp = false;
   var epsilon = 0.0;
-  var useMcts = false;
-  var mctsDeterminizations = 20;
   var useIsmcts = false;
   var ismctsSimulations = 100;
   var mixed = false;
+  var swapTeams = false;
+  var episodeOffset = 0;
+  int? dealSeed;
+  String? valueNetPath;
+  String? tichuNetPath;
+  String? grandNetPath;
+  var callEpsilon = 0.0;
+  String? schupfNetPath;
+  String? preTichuNetPath;
+  var schupfEpsilon = 0.0;
+  var shadowHeuristic = false;
+  var skipPlayRows = false;
+  var counterfactualCalls = false;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -208,16 +265,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 0 && p <= 1) epsilon = p;
       continue;
     }
-    if (arg == '--mcts') {
-      useMcts = true;
-      continue;
-    }
-    if (arg.startsWith('--mcts-determinizations=')) {
-      final p = int.tryParse(arg.split('=').last);
-      if (p != null && p > 0) mctsDeterminizations = p;
-      useMcts = true;
-      continue;
-    }
     if (arg.startsWith('--nn-policy=')) {
       nnPolicyPath = arg.split('=').last;
       continue;
@@ -240,6 +287,64 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       mixed = true;
       continue;
     }
+    if (arg == '--swap-teams') {
+      swapTeams = true;
+      continue;
+    }
+    if (arg.startsWith('--episode-offset=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p >= 0) episodeOffset = p;
+      continue;
+    }
+    if (arg.startsWith('--tichu-net=')) {
+      tichuNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--grand-net=')) {
+      grandNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg == '--counterfactual-calls') {
+      counterfactualCalls = true;
+      continue;
+    }
+    if (arg == '--skip-play-rows') {
+      skipPlayRows = true;
+      continue;
+    }
+    if (arg == '--shadow-heuristic') {
+      shadowHeuristic = true;
+      continue;
+    }
+    if (arg.startsWith('--pre-tichu-net=')) {
+      preTichuNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--schupf-net=')) {
+      schupfNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--schupf-epsilon=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) schupfEpsilon = p;
+      continue;
+    }
+    if (arg.startsWith('--call-epsilon=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) callEpsilon = p;
+      continue;
+    }
+    if (arg.startsWith('--value-net=')) {
+      valueNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--deal-seed=')) {
+      dealSeed = int.tryParse(arg.split('=').last);
+      continue;
+    }
+    stderr.writeln('Unknown argument: $arg');
+    exitCode = 64;
+    showHelp = true;
   }
 
   if (!outputProvided &&
@@ -261,11 +366,22 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     nnPolicyPath: nnPolicyPath,
     opponentPolicyPath: opponentPolicyPath,
     epsilon: epsilon,
-    useMcts: useMcts,
-    mctsDeterminizations: mctsDeterminizations,
     useIsmcts: useIsmcts,
     ismctsSimulations: ismctsSimulations,
     mixed: mixed,
+    swapTeams: swapTeams,
+    episodeOffset: episodeOffset,
+    dealSeed: dealSeed,
+    valueNetPath: valueNetPath,
+    tichuNetPath: tichuNetPath,
+    grandNetPath: grandNetPath,
+    callEpsilon: callEpsilon,
+    schupfNetPath: schupfNetPath,
+    preTichuNetPath: preTichuNetPath,
+    schupfEpsilon: schupfEpsilon,
+    shadowHeuristic: shadowHeuristic,
+    skipPlayRows: skipPlayRows,
+    counterfactualCalls: counterfactualCalls,
   );
 }
 
@@ -273,12 +389,20 @@ void _printUsage() {
   stdout.writeln('Headless Tichu automated-opponent runner');
   stdout.writeln('Usage: dart run lib/headless/headless.dart [--seed=N]');
   stdout.writeln('       [--target-score=N] [--rounds=N] [--episodes=N]');
+  stdout.writeln('       [--max-steps=N]');
   stdout.writeln('       [--format=csv|bc-jsonl|summary|none] [--output=path]');
   stdout.writeln('       [--no-timestamps]');
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
-  stdout.writeln('       [--rl-policy=policy.json] [--rl-policy-team=0|1|all]');
-  stdout.writeln('       [--rl-stats-output=policy_stats.json]');
-  stdout.writeln('       [--epsilon=0.1] [--mcts] [--ismcts]');
+  stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
+  stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
+  stdout.writeln('       [--ismcts] [--ismcts-simulations=N]');
+  stdout.writeln('       [--value-net=value.safetensors]');
+  stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
+  stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
+  stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
+  stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
+  stdout.writeln('       [--counterfactual-calls]');
+  stdout.writeln('       [--epsilon=0.1]');
 }
 
 // ── Players & Agent Factory ───────────────────────────────────────────────
@@ -297,73 +421,36 @@ String _cardToken(final Card card) {
   return '${card.face.name}-${card.color.name}';
 }
 
-class _NnPolicyData {
-  final Mlp network;
-  final double targetMean;
-  final double targetStd;
-
-  const _NnPolicyData({
-    required this.network,
-    required this.targetMean,
-    required this.targetStd,
-  });
-}
-
-Future<_NnPolicyData?> _loadNnPolicy(final String? path) async {
+Future<LoadedNet?> _loadNet(final String? path) async {
   if (path == null || path.isEmpty) return null;
-
   final file = File(path);
   if (!file.existsSync()) {
-    throw StateError('NN policy file does not exist: $path');
+    throw StateError('Network file does not exist: $path');
   }
-
-  final bytes = await file.readAsBytes();
-  final (network, mean, std) = Mlp.fromSafetensorsBytes(bytes);
-  return _NnPolicyData(network: network, targetMean: mean, targetStd: std);
+  return LoadedNet.fromBytes(await file.readAsBytes());
 }
 
+/// Agent factory for one team: a [BotConfig] (learned components or the
+/// heuristic), optionally with a search player for the play phase.
 PlayerAgent Function(String playerId) _buildAgentFactory({
-  required final _NnPolicyData? nnPolicy,
-  final bool useMcts = false,
+  required final BotConfig config,
   final bool useIsmcts = false,
-  final int mctsDeterminizations = 20,
   final int ismctsSimulations = 100,
+  final LoadedNet? valueNet,
   final Random? random,
 }) {
   if (useIsmcts) {
-    return (final playerId) => SmartAiAgent(
+    return (final playerId) => config.build(
       playerId,
-      playSelectionStrategy: IsmctsPlaySelectionStrategy(
+      playOverride: IsmctsPlaySelectionStrategy(
         playerId: playerId,
         numSimulations: ismctsSimulations,
-        valueNetwork: nnPolicy?.network,
-        valueNetworkMean: nnPolicy?.targetMean,
-        valueNetworkStd: nnPolicy?.targetStd,
+        valueNetwork: valueNet?.network,
+        valueNetworkMean: valueNet?.targetMean,
+        valueNetworkStd: valueNet?.targetStd,
         random: random,
       ),
     );
   }
-
-  if (useMcts) {
-    return (final playerId) => SmartAiAgent(
-      playerId,
-      playSelectionStrategy: MctsPlaySelectionStrategy(
-        playerId: playerId,
-        numDeterminizations: mctsDeterminizations,
-        random: random,
-      ),
-    );
-  }
-
-  if (nnPolicy != null) {
-    return (final playerId) => SmartAiAgent(
-      playerId,
-      playSelectionStrategy: NnPlaySelectionStrategy(
-        playerId: playerId,
-        network: nnPolicy.network,
-      ),
-    );
-  }
-
-  return SmartAiAgent.new;
+  return config.build;
 }

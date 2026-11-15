@@ -8,12 +8,17 @@ Per iteration:
   1. Generate self-play episodes: team0 = current candidate, team1 = best so
      far. Headless emits per-decision JSONL with legal action features and
      the chosen action index.
-  2. Train a new candidate via ``bc_pretrain.py`` on the WON team's
-     decisions only, warm-started from the current candidate, with a KL
-     anchor that pulls the new policy back toward the previous best to
-     prevent catastrophic forgetting.
-  3. Evaluate the new candidate vs the heuristic. If it improves on the best
-     policy we have so far (by win rate vs heuristic), promote it.
+  2. Train a new candidate, warm-started from the current candidate with a
+     KL anchor to the previous best (prevents catastrophic forgetting):
+     ``--algo=awr`` (default): ``awr_train.py`` — advantage-weighted
+       regression on all decisions, advantages from a value net V(s) fit
+       to round point differences (saved as value_policy.safetensors).
+     ``--algo=bc``: ``bc_pretrain.py`` on the winning team's decisions
+       (old behaviour; mostly imitates lucky hands).
+  3. Evaluate the new candidate vs the heuristic (duplicate deals, same seed
+     every iteration). Promote it to best only if its paired per-deal win
+     rate beats the best policy's by more than ``--promote-z`` standard
+     errors; otherwise (by default) the next iteration restarts from best.
 
 Exit conditions:
   * ``--iterations`` reached, OR
@@ -36,8 +41,6 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-
-from safetensors import safe_open
 
 
 REPO = Path(__file__).resolve().parent.parent
@@ -137,6 +140,42 @@ def _train_candidate(
     _run(cmd, label="train")
 
 
+def _train_candidate_awr(
+    *,
+    jsonl: Path,
+    output: Path,
+    init_from: Path,
+    anchor: Path,
+    kl_weight: float,
+    epochs: int,
+    lr: float,
+    decisions_per_batch: int,
+    seed: int,
+    beta: float,
+    value_path: Path,
+) -> None:
+    cmd = [
+        sys.executable,
+        str(RL_DIR / "awr_train.py"),
+        f"--jsonl={jsonl}",
+        f"--output={output}",
+        f"--init-from={init_from}",
+        f"--anchor-policy={anchor}",
+        f"--kl-weight={kl_weight}",
+        f"--epochs={epochs}",
+        f"--lr={lr}",
+        f"--decisions-per-batch={decisions_per_batch}",
+        f"--seed={seed}",
+        f"--beta={beta}",
+        f"--value-init={value_path}",
+        f"--value-output={value_path}",
+    ]
+    res = _run(cmd, label="awr")
+    for line in res.stdout.splitlines():
+        if line.startswith("  value:") or line.startswith("AWR data"):
+            print("   " + line.strip())
+
+
 def _evaluate(
     *,
     policy: Path,
@@ -146,26 +185,18 @@ def _evaluate(
     target_score: int,
     shards: int = 0,
 ) -> dict[str, float]:
-    cmd = [
-        sys.executable,
-        str(RL_DIR / "evaluate_policy.py"),
-        f"--nn-policy={policy}",
-        f"--output={output_eval}",
-        f"--seed={seed}",
-        f"--episodes={episodes}",
-        f"--target-score={target_score}",
-        f"--shards={shards}",
-    ]
-    _run(cmd, label="eval")
-    with safe_open(str(output_eval), framework="pt", device="cpu") as reader:
-        meta = reader.metadata() or {}
-    return {
-        "matches": float(meta.get("matches", 0)),
-        "team0_wins": float(meta.get("team0_wins", 0)),
-        "team1_wins": float(meta.get("team1_wins", 0)),
-        "win_rate": float(meta.get("team0_win_rate_non_tie", 0)),
-        "avg_margin": float(meta.get("avg_margin_t0_minus_t1", 0)),
-    }
+    from evaluate_policy import evaluate
+
+    print(f"  [eval] {policy.name} seed={seed} deals={episodes}", flush=True)
+    return evaluate(
+        nn_policy=str(policy),
+        output=output_eval,
+        seed=seed,
+        episodes=episodes,
+        target_score=target_score,
+        shards=shards,
+        duplicate=True,
+    )
 
 
 def _bootstrap_bc(
@@ -257,6 +288,19 @@ def main() -> None:
         help="Train only on decisions made by the winning team in self-play (default on)",
     )
     p.add_argument("--no-winners-only", dest="winners_only", action="store_false")
+    p.add_argument("--algo", choices=["awr", "bc"], default="awr")
+    p.add_argument("--beta", type=float, default=1.0, help="AWR temperature")
+    p.add_argument(
+        "--promote-z",
+        type=float,
+        default=1.0,
+        help="Promote only if paired win-rate gain > promote_z * SE",
+    )
+    p.add_argument(
+        "--keep-rejected",
+        action="store_true",
+        help="Continue from a rejected candidate instead of reverting to best",
+    )
     p.add_argument(
         "--shards",
         type=int,
@@ -308,9 +352,10 @@ def main() -> None:
 
     # Initial eval to know the starting win rate.
     print("\nInitial eval vs heuristic...")
+    best_eval_path = OUTPUTS / "eval_best.safetensors"
     initial_eval = _evaluate(
         policy=candidate_path,
-        output_eval=OUTPUTS / "eval_initial.safetensors",
+        output_eval=best_eval_path,
         seed=args.eval_seed,
         episodes=args.eval_episodes,
         target_score=args.eval_target_score,
@@ -318,11 +363,13 @@ def main() -> None:
     )
     print(
         f"  initial: wins={int(initial_eval['team0_wins'])}/{int(initial_eval['matches'])}  "
-        f"rate={initial_eval['win_rate']:.2f}%  margin={initial_eval['avg_margin']:.1f}"
+        f"rate={initial_eval['win_rate']:.2f}% ± {initial_eval['win_rate_se']:.2f}  "
+        f"margin={initial_eval['avg_margin']:.1f}"
     )
     best_win_rate = initial_eval["win_rate"]
-    if not best_path.exists():
-        shutil.copy2(candidate_path, best_path)
+    # The initial eval is of the candidate, so best must be the candidate too
+    # for the paired comparison against eval_best to be meaningful.
+    shutil.copy2(candidate_path, best_path)
     history.append({"iter": 0, "stage": "initial", **initial_eval})
 
     consecutive_above = 1 if best_win_rate > args.target_win_rate else 0
@@ -361,23 +408,38 @@ def main() -> None:
                 f"anchor={best_path.name} kl={args.kl_weight} "
                 f"winners_only={args.winners_only}"
             )
-            _train_candidate(
-                jsonl=sp_jsonl,
-                output=new_candidate,
-                init_from=candidate_path,
-                anchor=best_path,
-                kl_weight=args.kl_weight,
-                epochs=args.epochs,
-                hidden=args.hidden,
-                lr=args.lr,
-                decisions_per_batch=args.decisions_per_batch,
-                seed=seed_sp + 7,
-                device=args.device,
-                winners_only=args.winners_only,
-            )
+            if args.algo == "awr":
+                _train_candidate_awr(
+                    jsonl=sp_jsonl,
+                    output=new_candidate,
+                    init_from=candidate_path,
+                    anchor=best_path,
+                    kl_weight=args.kl_weight,
+                    epochs=args.epochs,
+                    lr=args.lr,
+                    decisions_per_batch=args.decisions_per_batch,
+                    seed=seed_sp + 7,
+                    beta=args.beta,
+                    value_path=OUTPUTS / "value_policy.safetensors",
+                )
+            else:
+                _train_candidate(
+                    jsonl=sp_jsonl,
+                    output=new_candidate,
+                    init_from=candidate_path,
+                    anchor=best_path,
+                    kl_weight=args.kl_weight,
+                    epochs=args.epochs,
+                    hidden=args.hidden,
+                    lr=args.lr,
+                    decisions_per_batch=args.decisions_per_batch,
+                    seed=seed_sp + 7,
+                    device=args.device,
+                    winners_only=args.winners_only,
+                )
 
             # 3) Evaluate vs heuristic.
-            eval_path = OUTPUTS / "eval_iter.safetensors"
+            eval_path = td_path / f"eval_iter{i}.safetensors"
             print(f"\n3) Evaluate vs heuristic ({args.eval_episodes} matches)")
             metrics = _evaluate(
                 policy=new_candidate,
@@ -387,27 +449,35 @@ def main() -> None:
                 target_score=args.eval_target_score,
                 shards=args.shards,
             )
+            from evaluate_policy import compare_evals
+
+            diff, diff_se = compare_evals(eval_path, best_eval_path)
             print(
                 f"   wins={int(metrics['team0_wins'])}/{int(metrics['matches'])}  "
-                f"rate={metrics['win_rate']:.2f}%  "
-                f"margin={metrics['avg_margin']:.1f}"
+                f"rate={metrics['win_rate']:.2f}% ± {metrics['win_rate_se']:.2f}  "
+                f"margin={metrics['avg_margin']:.1f}  "
+                f"vs best: {diff:+.2f} ± {diff_se:.2f} pp"
             )
 
-            # Always promote the new candidate to "current" so the next
-            # iteration's self-play sees the latest learning. Promote to
-            # best only if it improves win rate vs heuristic.
-            shutil.copy2(new_candidate, candidate_path)
-            improved = metrics["win_rate"] > best_win_rate
+            improved = diff > 0 and diff > args.promote_z * diff_se
             if improved:
                 shutil.copy2(new_candidate, best_path)
+                shutil.copy2(eval_path, best_eval_path)
                 best_win_rate = metrics["win_rate"]
                 print(f"   * NEW BEST: {best_win_rate:.2f}%")
+            if improved or args.keep_rejected:
+                shutil.copy2(new_candidate, candidate_path)
+            else:
+                shutil.copy2(best_path, candidate_path)
+                print("   rejected: next iteration restarts from best")
 
             history.append(
                 {
                     "iter": i,
                     "promoted_to_best": improved,
                     **metrics,
+                    "diff_vs_best": diff,
+                    "diff_vs_best_se": diff_se,
                     "elapsed_s": time.time() - t0,
                 }
             )

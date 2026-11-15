@@ -149,5 +149,59 @@ void main() {
         expect(action.toPartner.face, CardFace.dragon);
       },
     );
+
+    test(
+      'keeps strength and gives partner a low card with a Tichu hand',
+      () async {
+        final snapshot = aiSnapshot(
+          myHand: [
+            Card(CardFace.dragon, CardColor.special),
+            Card(CardFace.phoenix, CardColor.special),
+            Card(CardFace.ace, CardColor.red),
+            Card(CardFace.ace, CardColor.blue),
+            Card(CardFace.king, CardColor.green),
+            Card(CardFace.two, CardColor.red),
+            Card(CardFace.three, CardColor.blue),
+            Card(CardFace.four, CardColor.green),
+            Card(CardFace.six, CardColor.black),
+          ],
+        );
+        final action = await strategy.selectSchupfCards(snapshot, aiTestSelfId);
+        expect(action.toPartner.value, lessThanOrEqualTo(6));
+      },
+    );
+
+    test('gives best card to a partner who announced Tichu', () async {
+      final snapshot = aiSnapshot(
+        myHand: [
+          Card(CardFace.ace, CardColor.red),
+          Card(CardFace.two, CardColor.red),
+          Card(CardFace.three, CardColor.blue),
+          Card(CardFace.four, CardColor.green),
+          Card(CardFace.nine, CardColor.black),
+        ],
+        tichuCalls: {aiTestPartnerId: TichuCall.tichu},
+      );
+      final action = await strategy.selectSchupfCards(snapshot, aiTestSelfId);
+      expect(action.toPartner.face, CardFace.ace);
+    });
+
+    test(
+      'passes odd ranks left and even ranks right (no bomb gifts)',
+      () async {
+        final snapshot = aiSnapshot(
+          myHand: [
+            Card(CardFace.two, CardColor.red),
+            Card(CardFace.three, CardColor.blue),
+            Card(CardFace.four, CardColor.green),
+            Card(CardFace.five, CardColor.black),
+            Card(CardFace.king, CardColor.red),
+          ],
+        );
+        final action = await strategy.selectSchupfCards(snapshot, aiTestSelfId);
+        expect(action.toLeft.value.toInt().isOdd, isTrue);
+        expect(action.toRight.value.toInt().isEven, isTrue);
+      },
+    );
   });
 }

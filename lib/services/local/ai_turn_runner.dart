@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -30,6 +31,9 @@ class AiTurnRunner {
 
   final Map<String, PlayerAgent> _automatedAgents = {};
   final Set<String> _automatedTurnsInFlight = {};
+
+  /// `gameId:round:playerId` of bots already asked about a pre-schupf Tichu.
+  final Set<String> _preSchupfDecided = {};
   Duration automatedActionDelay = const Duration(seconds: 1);
 
   void addAgents(final Map<String, PlayerAgent> agents) =>
@@ -102,7 +106,7 @@ class AiTurnRunner {
         (final p) => p.id == pendingId,
       );
       if (pendingPlayer.type == PlayerType.automated) {
-        _autoResolveDragonGive(state, pendingId, buildSnapshot);
+        await _autoResolveDragonGive(state, pendingId, buildSnapshot);
         emitSnapshot();
         if (state.engineState.pendingDragonGiveBy == null) {
           await runAutomatedPlayers(
@@ -126,7 +130,12 @@ class AiTurnRunner {
     _automatedTurnsInFlight.add(inFlightKey);
     try {
       final snapshot = buildSnapshot();
-      final action = await agent.selectAction(snapshot);
+      final action = await AgentDecisions.resolve(
+        TurnRequest(currentPlayer.id),
+        agent,
+        snapshot,
+        state.engineState,
+      );
       state.pendingOpponentAction = action;
       state.pendingOpponentPlayerId = currentPlayer.id;
       state.pendingOpponentCards
@@ -140,6 +149,9 @@ class AiTurnRunner {
     }
   }
 
+  bool _isAutomated(final GamePlayer player) =>
+      player.type == PlayerType.automated;
+
   // ── Grand Tichu ─────────────────────────────────────────────────────
 
   Future<void> _resolveGrandTichu(
@@ -147,29 +159,25 @@ class AiTurnRunner {
     final GameSnapshot Function() buildSnapshot,
   ) async {
     while (state.engineState.phase == GamePhase.grandTichu) {
-      final currentPlayer =
-          state.engineState.players[state.engineState.currentPlayerIndex];
+      final request = AgentDecisions.next(
+        _engine,
+        state.engineState,
+        include: _isAutomated,
+      );
+      if (request is! GrandTichuRequest) return;
 
-      if (state.engineState.grandTichuDecisions.containsKey(currentPlayer.id)) {
-        state.engineState.currentPlayerIndex =
-            (state.engineState.currentPlayerIndex + 1) %
-            state.engineState.players.length;
-        continue;
-      }
-
-      if (currentPlayer.type != PlayerType.automated) return;
-
-      final agent = _automatedAgents[currentPlayer.id];
+      final agent = _automatedAgents[request.playerId];
       if (agent == null) return;
 
-      final snapshot = buildSnapshot();
-      final shouldCall = await agent.shouldCallGrandTichu(snapshot);
+      final action = await AgentDecisions.resolve(
+        request,
+        agent,
+        buildSnapshot(),
+        state.engineState,
+      );
       if (state.engineState.phase != GamePhase.grandTichu) return;
 
-      _engine.applyAction(
-        state.engineState,
-        GrandTichuDecisionAction(playerId: currentPlayer.id, call: shouldCall),
-      );
+      _engine.applyAction(state.engineState, action!);
     }
   }
 
@@ -180,6 +188,37 @@ class AiTurnRunner {
     final GameSnapshot Function() buildSnapshot,
     final void Function() emitSnapshot,
   ) async {
+    // Bots may announce Tichu before anyone passes, so partners can react
+    // in the exchange (same decision order as in headless training).
+    final round = state.engineState.scoreTracker.state.roundNumber;
+    final decided = <String>{
+      for (final key in _preSchupfDecided)
+        if (key.startsWith('${state.engineState.gameId}:$round:'))
+          key.split(':').last,
+    };
+    while (true) {
+      final request = AgentDecisions.next(
+        _engine,
+        state.engineState,
+        include: _isAutomated,
+        preSchupfDecided: decided,
+      );
+      if (request is! PreSchupfTichuRequest) break;
+      decided.add(request.playerId);
+      _preSchupfDecided.add(
+        '${state.engineState.gameId}:$round:${request.playerId}',
+      );
+      final agent = _automatedAgents[request.playerId];
+      if (agent == null) continue;
+      final call = await AgentDecisions.resolve(
+        request,
+        agent,
+        buildSnapshot(),
+        state.engineState,
+      );
+      if (call != null) _engine.applyAction(state.engineState, call);
+    }
+
     final snapshot = buildSnapshot();
     for (final player in state.engineState.players) {
       if (state.engineState.phase != GamePhase.schupf) return;
@@ -189,7 +228,14 @@ class AiTurnRunner {
       final agent = _automatedAgents[player.id];
       if (agent == null) continue;
 
-      final selection = await agent.selectSchupfCards(snapshot);
+      final selection =
+          (await AgentDecisions.resolve(
+                SchupfRequest(player.id),
+                agent,
+                snapshot,
+                state.engineState,
+              ))!
+              as SchupfAction;
       if (state.engineState.phase != GamePhase.schupf) return;
 
       state.pendingOpponentPlayerId = player.id;
@@ -236,31 +282,23 @@ class AiTurnRunner {
 
   // ── Dragon give ─────────────────────────────────────────────────────
 
-  void _autoResolveDragonGive(
+  Future<void> _autoResolveDragonGive(
     final LocalGameState state,
     final String winnerId,
     final GameSnapshot Function() buildSnapshot,
-  ) {
+  ) async {
     final opponentIds = _engine.opponentIds(state.engineState, winnerId);
     if (opponentIds.isEmpty) return;
-
     final agent = _automatedAgents[winnerId];
-    final snapshot = buildSnapshot();
-    final seat = agent?.selectDragonGive(snapshot);
-    final target = state.engineState.players.firstWhere(
-      (final player) => player.seat == seat,
-      orElse: () => state.engineState.players.firstWhere(
-        (final player) => opponentIds.contains(player.id),
-      ),
-    );
-    final targetId = opponentIds.contains(target.id)
-        ? target.id
-        : opponentIds.first;
+    if (agent == null) return;
 
-    _engine.applyAction(
+    final action = await AgentDecisions.resolve(
+      DragonGiveRequest(winnerId, opponentIds),
+      agent,
+      buildSnapshot(),
       state.engineState,
-      GiveDragonAction(playerId: winnerId, targetPlayerId: targetId),
     );
+    _engine.applyAction(state.engineState, action!);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────

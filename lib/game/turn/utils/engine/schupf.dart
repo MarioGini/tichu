@@ -123,6 +123,10 @@ void _maybeFinalizeSchupf(final GameEngineState state) {
     );
   }
 
+  // Keep the round's exchange visible (bots read what they were passed).
+  state.completedSchupfSelections
+    ..clear()
+    ..addAll(state.schupfSelections);
   state.schupfSelections.clear();
 
   // Merge received cards directly into hands so _startingPlayerIndex

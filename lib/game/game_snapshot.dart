@@ -1,4 +1,5 @@
 import 'package:meta/meta.dart';
+import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -36,6 +37,12 @@ class GameSnapshot {
   final List<String> schupfCompletedPlayers;
   final Map<String, List<SchupfReceipt>> schupfReceipts;
 
+  /// This round's schupf choices by player (kept for the whole round), so a
+  /// bot can see what it was passed — e.g. a strong card from the partner.
+  /// Like [hands], this full snapshot holds everyone's data; agents must
+  /// only read what their player is entitled to see.
+  final Map<String, SchupfAction> schupfSelections;
+
   const GameSnapshot({
     required this.gameId,
     required this.players,
@@ -63,6 +70,7 @@ class GameSnapshot {
     required this.grandTichuDecisions,
     required this.schupfCompletedPlayers,
     required this.schupfReceipts,
+    this.schupfSelections = const {},
   });
 }
 

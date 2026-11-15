@@ -1,12 +1,10 @@
 import 'package:tichu/agents/dragon_give_strategy.dart';
-import 'package:tichu/agents/game_state_tracker.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
-import 'package:tichu/agents/turn_scorer.dart';
 import 'package:tichu/agents/wish_strategy.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -24,7 +22,6 @@ class SmartAiAgent extends PlayerAgent {
   @override
   final String playerId;
 
-  final GameStateTracker gameStateTracker;
   final TichuCallStrategy tichuCallStrategy;
   final SchupfStrategy schupfStrategy;
   late final PlaySelectionStrategy playSelectionStrategy;
@@ -36,15 +33,13 @@ class SmartAiAgent extends PlayerAgent {
 
   SmartAiAgent(
     this.playerId, {
-    final GameStateTracker? gameStateTracker,
     final TichuCallStrategy? tichuCallStrategy,
     final SchupfStrategy? schupfStrategy,
     final PlaySelectionStrategy? playSelectionStrategy,
     final PlayTacticsPolicy? playTacticsPolicy,
     final WishStrategy? wishStrategy,
     final DragonGiveStrategy? dragonGiveStrategy,
-  }) : gameStateTracker = gameStateTracker ?? GameStateTracker(),
-       tichuCallStrategy =
+  }) : tichuCallStrategy =
            tichuCallStrategy ?? const DefaultTichuCallStrategy(),
        schupfStrategy = schupfStrategy ?? const DefaultSchupfStrategy(),
        playTacticsPolicy = playTacticsPolicy ?? const PlayTacticsPolicy(),
@@ -52,10 +47,7 @@ class SmartAiAgent extends PlayerAgent {
        dragonGiveStrategy =
            dragonGiveStrategy ?? const DefaultDragonGiveStrategy() {
     this.playSelectionStrategy =
-        playSelectionStrategy ??
-        DefaultPlaySelectionStrategy(
-          turnScorer: TurnScorer(tracker: this.gameStateTracker),
-        );
+        playSelectionStrategy ?? const DefaultPlaySelectionStrategy();
   }
 
   // ---------------------------------------------------------------------------
@@ -99,7 +91,6 @@ class SmartAiAgent extends PlayerAgent {
   @override
   Future<GameAction> selectTurn(final GameSnapshot snapshot) async {
     _syncRound(snapshot);
-    gameStateTracker.update(snapshot, playerId);
     final hand = List<Card>.from(snapshot.hands[playerId] ?? []);
     final deck = snapshot.deck;
     final table = TableRelationships(snapshot, playerId);
@@ -354,10 +345,8 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  int selectDragonGive(final GameSnapshot snapshot) {
-    gameStateTracker.update(snapshot, playerId);
-    return dragonGiveStrategy.selectDragonGive(snapshot, playerId);
-  }
+  int selectDragonGive(final GameSnapshot snapshot) =>
+      dragonGiveStrategy.selectDragonGive(snapshot, playerId);
 
   CardFace _selectMahjongWish(
     final GameSnapshot snapshot,

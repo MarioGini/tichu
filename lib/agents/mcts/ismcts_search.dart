@@ -136,9 +136,11 @@ class IsmctsSearch {
 
     try {
       engine.applyAction(state, selectedAction);
+      // The engine rejects actions illegal in this determinization.
+      // ignore: avoid_catching_errors
     } on StateError {
       // Illegal in this determinization — neutral.
-      return 0.0;
+      return 0;
     }
 
     // Evaluate: either use value network or heuristic rollout.
@@ -194,14 +196,12 @@ class IsmctsSearch {
     required final GameSnapshot snapshot,
     required final String playerId,
     required final int myTeam,
-  }) {
-    // NOTE: the network is currently a Q(s, a) head trained on full
-    // (state, action) features. Querying it as V(s) by zeroing the action
-    // features is out-of-distribution and unreliable; until a true value
-    // head exists, always use heuristic rollouts. The valueNetwork* fields
-    // are kept for future use.
-    return _heuristicRollout(engine: engine, state: state, myTeam: myTeam);
-  }
+  }) => // NOTE: the network is currently a Q(s, a) head trained on full
+      // (state, action) features. Querying it as V(s) by zeroing the action
+      // features is out-of-distribution and unreliable; until a true value
+      // head exists, always use heuristic rollouts. The valueNetwork* fields
+      // are kept for future use.
+      _heuristicRollout(engine: engine, state: state, myTeam: myTeam);
 
   // Kept private for future restoration once a true V(s) head is trained.
   // ignore: unused_element
@@ -215,17 +215,15 @@ class IsmctsSearch {
       playerId: playerId,
     );
     // Use a "no-op" action encoding for state value estimation.
-    final dummyAction = List<double>.filled(actionFeatureCount, 0.0);
+    final dummyAction = List<double>.filled(actionFeatureCount, 0);
     final input = [...stateFeatures, ...dummyAction];
 
-    var value = valueNetwork!.predict(input);
+    final value = valueNetwork!.predict(input);
 
     // Denormalize if normalization stats are available.
     final std = valueNetworkStd ?? 1.0;
     final mean = valueNetworkMean ?? 0.0;
-    value = value * std + mean;
-
-    return value;
+    return value * std + mean;
   }
 
   double _heuristicRollout({
@@ -249,6 +247,8 @@ class IsmctsSearch {
 
       try {
         engine.applyAction(state, action);
+        // The engine rejects actions illegal in this determinization.
+        // ignore: avoid_catching_errors
       } on StateError {
         break;
       }
@@ -325,7 +325,6 @@ class IsmctsSearch {
     return PlayTurnAction(
       playerId: playerId,
       cards: List<Card>.from(selected.cards),
-      inputWish: CardFace.none,
     );
   }
 
@@ -369,9 +368,7 @@ class IsmctsSearch {
       state.pendingDragonGiveTargets.addAll(snapshot.pendingDragonGiveTargets);
     }
 
-    for (final playerId in snapshot.scoreState.finishOrder) {
-      state.finishedPlayers.add(playerId);
-    }
+    state.finishedPlayers.addAll(snapshot.scoreState.finishOrder);
 
     for (final player in snapshot.players) {
       if (snapshot.hands[player.id] != null &&

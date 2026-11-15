@@ -205,23 +205,21 @@ class LocalGameTableService
   }
 
   @override
-  Future<List<GameLobbyListEntry>> listGames() async {
-    return <GameLobbyListEntry>[
-      for (final lobby in _lobbies.values)
-        if (lobby.state == GameLobbyState.assembling ||
-            lobby.state == GameLobbyState.readyCheck)
-          GameLobbyListEntry(
-            lobbyId: lobby.lobbyId,
-            gameName: lobby.gameName,
-            hostDisplayName: _hostDisplayName(lobby),
-            targetScore: lobby.targetScore,
-            visibility: lobby.visibility,
-            occupiedSeats: lobby.seats
-                .where((final s) => s.state == GameLobbySeatState.occupied)
-                .length,
-          ),
-    ];
-  }
+  Future<List<GameLobbyListEntry>> listGames() async => <GameLobbyListEntry>[
+    for (final lobby in _lobbies.values)
+      if (lobby.state == GameLobbyState.assembling ||
+          lobby.state == GameLobbyState.readyCheck)
+        GameLobbyListEntry(
+          lobbyId: lobby.lobbyId,
+          gameName: lobby.gameName,
+          hostDisplayName: _hostDisplayName(lobby),
+          targetScore: lobby.targetScore,
+          visibility: lobby.visibility,
+          occupiedSeats: lobby.seats
+              .where((final s) => s.state == GameLobbySeatState.occupied)
+              .length,
+        ),
+  ];
 
   String _hostDisplayName(final _LocalLobbyState lobby) {
     final host = lobby.participantsByPlayerId[lobby.hostPlayerId];

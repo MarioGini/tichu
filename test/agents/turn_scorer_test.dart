@@ -9,6 +9,46 @@ void main() {
   const scorer = TurnScorer();
 
   group('TurnScorer', () {
+    test('spends an ace freely once nothing unseen can beat it', () {
+      final ace = Card(CardFace.ace, CardColor.red);
+      final hand = [
+        ace,
+        Card(CardFace.three, CardColor.blue),
+        Card(CardFace.five, CardColor.green),
+        Card(CardFace.seven, CardColor.black),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.jack, CardColor.blue),
+        Card(CardFace.queen, CardColor.green),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.four, CardColor.black),
+      ];
+      final deck = DeckState(
+        TichuTurn(TurnType.single, [Card(CardFace.king, CardColor.green)]),
+        CardFace.none,
+      )..currentWinner = aiTestLeftId;
+      final play = TichuTurn(TurnType.single, [ace]);
+
+      double scoreWith(final List<Card> rightHand) => scorer.scoreTurn(
+        aiSnapshot(
+          myHand: hand,
+          deck: deck,
+          otherHands: {
+            aiTestLeftId: [Card(CardFace.six, CardColor.red)],
+            aiTestPartnerId: [Card(CardFace.eight, CardColor.red)],
+            aiTestRightId: rightHand,
+          },
+        ),
+        aiTestSelfId,
+        play,
+        deck,
+        hand,
+      );
+
+      final dragonOut = scoreWith([Card(CardFace.dragon, CardColor.special)]);
+      final dragonGone = scoreWith([Card(CardFace.ten, CardColor.red)]);
+      expect(dragonGone, greaterThan(dragonOut));
+    });
+
     test('scores immediate hand-emptying play as 1000', () {
       final hand = [Card(CardFace.king, CardColor.red)];
       final play = TichuTurn(TurnType.single, hand);

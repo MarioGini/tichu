@@ -10,7 +10,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 /// Play selection strategy using Information Set MCTS (IS-MCTS).
 ///
-/// Wraps [IsmctsSearch] to integrate with [SmartAiAgent] via the
+/// Wraps [IsmctsSearch] to integrate with `SmartAiAgent` via the
 /// [PlaySelectionStrategy] interface. Maintains a [BeliefTracker] across
 /// decisions to constrain hand sampling based on observed passes.
 ///
@@ -69,11 +69,7 @@ class IsmctsPlaySelectionStrategy implements PlaySelectionStrategy {
 
     final candidates = <GameAction>[
       for (final play in plays)
-        PlayTurnAction(
-          playerId: playerId,
-          cards: List<Card>.from(play.cards),
-          inputWish: CardFace.none,
-        ),
+        PlayTurnAction(playerId: playerId, cards: List<Card>.from(play.cards)),
     ];
 
     final search = IsmctsSearch(

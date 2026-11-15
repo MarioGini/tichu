@@ -11,6 +11,10 @@ analyzer:
     unused_local_variable: error
     dead_code: error
     avoid_print: error
+  exclude:
+    - build/**
+    - web/**
+    - linux/**
 
 linter:
   rules:
@@ -18,7 +22,6 @@ linter:
     public_member_api_docs: false        # too noisy for app code
     cascade_invocations: false           # fights sequential state mutation
     use_late_for_private_fields_and_variables: false # override fields with defaults
-    prefer_final_parameters: false       # VGA chose avoid_final_parameters; we pick neither extreme
     always_put_required_named_parameters_first: false # clashes with logical param grouping
     sort_constructors_first: false        # too much churn for little benefit
 
@@ -48,7 +51,6 @@ linter:
     prefer_int_literals: true
     prefer_null_aware_method_calls: true
     prefer_single_quotes: true
-    unnecessary_await_in_return: true
     unnecessary_breaks: true
     unnecessary_lambdas: true
     unnecessary_library_directive: true
@@ -83,7 +85,7 @@ linter:
     deprecated_consistency: true
     deprecated_member_use_from_same_package: true
     discarded_futures: true
-    do_not_use_environment: true
+    do_not_use_environment: false # compile-time backend config is intentional
     document_ignores: true
     literal_only_boolean_expressions: true
     missing_whitespace_between_adjacent_strings: true
@@ -101,7 +103,6 @@ linter:
     type_annotate_public_apis: true
     unawaited_futures: true
     unnecessary_ignore: true
-    use_if_null_to_convert_nulls_to_bools: true
     unnecessary_null_aware_operator_on_extension_on_nullable: true
 
     # ── Flutter-specific ──
@@ -113,7 +114,6 @@ linter:
     # ── Modern Dart ──
     avoid_multiple_declarations_per_line: true
     avoid_positional_boolean_parameters: true
-    avoid_private_typedef_functions: true
     avoid_unused_constructor_parameters: true
     flutter_style_todos: true
     implicit_reopen: true

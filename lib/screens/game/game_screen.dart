@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' hide Card;
+import 'package:material_ui/material_ui.dart' hide Card;
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/driver_ui_projector.dart';
 import 'package:tichu/game/game_actions.dart';

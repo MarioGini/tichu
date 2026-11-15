@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// In-game options dialog for adjusting opponent delay, auto-pass, and sound.
 class OptionsDialog extends StatefulWidget {

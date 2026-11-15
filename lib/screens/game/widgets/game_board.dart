@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:tichu/widgets/card_widget.dart';
 import 'package:tichu/widgets/game_gradient_background.dart';

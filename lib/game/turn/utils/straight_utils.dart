@@ -24,7 +24,9 @@ List<Card> removeDuplicates(final List<Card> cards) {
 // Returns all possible straights in the list with the desired length. The
 // phoenix is not used to create straights by adding at the lower end. Straight
 // bombs are not converted to bombs.
-List<TichuTurn> getStraights(List<Card> cards, final int desiredLength) {
+List<TichuTurn> getStraights(final List<Card> input, final int desiredLength) {
+  // Work on a copy: callers pass live hands.
+  final cards = List<Card>.of(input);
   final straights = <TichuTurn>[];
 
   // To find straights, we remove duplicates, dragon and dog.
@@ -122,8 +124,11 @@ List<TichuTurn> getStraights(List<Card> cards, final int desiredLength) {
 
 // Adds straight permutations which are all possible shorter straight
 // combinations that are possible within a longer straight.
-List<TichuTurn> getStraightPermutations(final List<Card> cards) {
-  assert(isStraight(cards), 'cards must form a valid straight');
+List<TichuTurn> getStraightPermutations(final List<Card> input) {
+  assert(isStraight(input), 'cards must form a valid straight');
+  // Sort explicitly: slicing below relies on descending order, and
+  // phoenix-padded inputs are not sorted.
+  final cards = List<Card>.of(input)..sort(compareCards);
   final straightPermutations = <TichuTurn>[TichuTurn(TurnType.straight, cards)];
   var currentPermutationLength = cards.length - 1;
 
@@ -138,7 +143,8 @@ List<TichuTurn> getStraightPermutations(final List<Card> cards) {
 }
 
 // Returns true when the cards form a valid straight.
-bool isStraight(final List<Card> cards) {
+bool isStraight(final List<Card> input) {
+  final cards = List<Card>.of(input);
   var isStraight = true;
 
   // Straights cannot contain dragon or dog, and must consist of at least five

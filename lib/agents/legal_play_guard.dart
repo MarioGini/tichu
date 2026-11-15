@@ -11,9 +11,9 @@ class LegalPlayGuard {
   /// Use this when ``candidates`` is **untrusted** (came from another agent,
   /// disk, the network, etc.). Each candidate is fully re-validated:
   /// hand-containment, normalisation via [getTurn], wish enforcement, and
-  /// [validTurn] against the deck.
+  /// `validTurn` against the deck.
   ///
-  /// When the candidates already come from [generateLegalTurns] you should
+  /// When the candidates already come from `generateLegalTurns` you should
   /// prefer [filterMoveGeneratorTurns] which skips the redundant
   /// re-normalisation and hand-containment check (they are guaranteed by
   /// construction). That fast-path is ~3-4× cheaper per decision.
@@ -27,10 +27,10 @@ class LegalPlayGuard {
       )
       .toList(growable: false);
 
-  /// Fast-path filter for turns produced by [generateLegalTurns]. Skips the
+  /// Fast-path filter for turns produced by `generateLegalTurns`. Skips the
   /// re-normalisation and hand-containment checks that
   /// [strictLegalTurnsFromCandidates] performs, keeping only the wish
-  /// enforcement check ([mahJong]) which the move generator does not apply.
+  /// enforcement check (`mahJong`) which the move generator does not apply.
   static List<TichuTurn> filterMoveGeneratorTurns({
     required final DeckState deck,
     required final List<Card> hand,

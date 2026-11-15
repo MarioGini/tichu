@@ -2,19 +2,28 @@
 name = "tichu-rl"
 version = "0.1.0"
 description = "PyTorch RL training for Tichu AI"
-requires-python = ">=3.11"
+# The RL tooling is supported on Linux only (see [tool.uv] environments).
+requires-python = ">=3.12"
 dependencies = [
-    "torch>=2.0",
-    "numpy>=1.24",
-    "tensorboard>=2.14",
-    "tqdm>=4.65",
-    "safetensors>=0.4",
-    "torch-directml>=0.2.5.dev240914",
+    "numpy>=2.5.4",
+    "safetensors>=0.8.0",
+    "torch>=2.15.0",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.uv]
+# Scripts are run in place (`uv run --project rl python rl/<script>.py`);
+# there is no package to build or install.
+package = false
+# Linux is the only supported dev environment for RL: lock and resolve for
+# Linux only, so uv refuses to sync on other platforms.
+environments = ["sys_platform == 'linux'"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["."]
+# Training runs on CPU; PyPI's Linux torch wheels pull in ~4 GB of CUDA
+# libraries, so torch comes from PyTorch's CPU-only index instead.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }

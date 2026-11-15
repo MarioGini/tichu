@@ -91,7 +91,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     setState(() {
       _showBombOverlay = true;
     });
-    unawaited(_bombController.forward(from: 0));
+    _bombController.forward(from: 0);
   }
 
   @override

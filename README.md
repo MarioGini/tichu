@@ -200,34 +200,6 @@ Run bounded rounds (useful for repeatable stress tests and fast samples):
 dart run lib/headless/headless.dart --seed=42 --target-score=100000 --rounds=50
 ```
 
-Generate RL-oriented transition data as JSONL (one transition per line):
-
-```
-dart run lib/headless/headless.dart --seed=42 --episodes=200 --format=rl-jsonl --output=trajectories.jsonl
-```
-
-Use a trained policy table (state/action values) through the existing AI play
-selection interface:
-
-```
-dart run lib/headless/headless.dart --seed=42 --episodes=50 --rl-policy=policy.json --format=rl-jsonl --output=policy_run.jsonl
-```
-
-Build `policy.json` directly from transition trajectories:
-
-```
-dart run tool/rl/build_policy_from_transitions.dart \
- --input=trajectories.jsonl \
- --output=policy.json \
- --gamma=0.99 \
- --min-samples=2
-```
-
-Policy schema reference:
-
-- `tool/rl/policy.schema.json`
-- `tool/rl/README.md`
-
 Useful headless options:
 
 - `--episodes=N`: run multiple self-play episodes in one invocation.
@@ -235,23 +207,10 @@ Useful headless options:
 - `--max-steps=N`: safety cap to prevent accidental infinite episodes.
 - `--format=csv|none`: choose event CSV or no file output.
 - `--no-timestamps`: disable wall-clock timestamps in CSV rows.
-- `--rl-legal-count`: include per-state legal-turn counts in RL JSONL output.
-- `--rl-policy=policy.json`: load a policy table and apply it through `PlaySelectionStrategy` in `SmartAiAgent`.
-- `--rl-policy-team=0|1|all`: apply the policy to one partnership for mixed-team evaluation, or all seats for self-play.
-- `--rl-stats-output=stats.json`: write actual policy invocations, selections, state hits, and heuristic fallbacks.
 
-For fastest training data generation, prefer `--format=rl-jsonl` or `--format=none` and keep `--target-score` low or `--rounds` bounded.
-
-RL JSONL transitions now include:
-
-- `state_key`, `next_state_key`
-- full actor-perspective `state` and `next_state`
-- structured `action` plus exact, shape, and actor-relative `policy_action_key`
-- `legal_action_keys` when enumerable, `action_index`, diagnostic `reward`, team-score `learning_reward`, `done`, `discount`
-
-The policy comparison tool evaluates learned and heuristic partnerships head
-to head, then swaps seats on the same seeds. See [tool/rl/README.md](tool/rl/README.md)
-for iterative training, conservative policy construction, and coverage metrics.
+For training data use `--format=bc-jsonl` (see [rl/README.md](rl/README.md));
+for fast dry runs use `--format=none` and keep `--target-score` low or
+`--rounds` bounded.
 
 ## Rules explainer (scoring)
 

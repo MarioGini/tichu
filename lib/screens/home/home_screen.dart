@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:tichu/game/game_session.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/screens/game/game_screen.dart';
@@ -56,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _games = games;
         });
       }
-    } catch (_) {}
+    } on Object catch (_) {}
   }
 
   Future<void> _showCreateGameDialog() async {
@@ -184,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     try {
       await action();
-    } catch (error) {
+    } on Object catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -305,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 vertical: 8,
                               ),
                               itemCount: publicGames.length,
-                              separatorBuilder: (_, __) =>
+                              separatorBuilder: (_, _) =>
                                   const Divider(height: 1),
                               itemBuilder: (final context, final index) =>
                                   _buildGameTile(context, publicGames[index]),
@@ -327,7 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ) {
     final title = entry.gameName.isNotEmpty
         ? entry.gameName
-        : '${entry.hostDisplayName}\'s Game';
+        : "${entry.hostDisplayName}'s Game";
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       leading: CircleAvatar(
@@ -372,7 +372,7 @@ class _CreateGameDialogState extends State<_CreateGameDialog> {
   static const List<int> _scoreOptions = [500, 1000, 1500, 2000];
 
   late final TextEditingController _gameNameController = TextEditingController(
-    text: '${widget.displayName}\'s Game',
+    text: "${widget.displayName}'s Game",
   );
   int _targetScore = 1000;
   int _preferredTeam = 0;

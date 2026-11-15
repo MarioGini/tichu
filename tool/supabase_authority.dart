@@ -49,11 +49,7 @@ Future<void> main(final List<String> args) async {
   final tableService = LocalGameTableService(
     projectionStore: projectionStore,
     stateStore: stateStore,
-    heartbeatConfig: const HeartbeatConfig(
-      sweepInterval: Duration(seconds: 10),
-      timeout: Duration(seconds: 30),
-      enabled: true,
-    ),
+    heartbeatConfig: const HeartbeatConfig(enabled: true),
   );
 
   final authorityServer = SupabaseAuthorityServer(

@@ -9,10 +9,7 @@ void main() {
 
     setUp(() {
       service = LocalGameTableService(
-        heartbeatConfig: const HeartbeatConfig(
-          timeout: Duration.zero,
-          enabled: false,
-        ),
+        heartbeatConfig: const HeartbeatConfig(timeout: Duration.zero),
       );
     });
 

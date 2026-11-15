@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:tichu/screens/home/home_screen.dart';
 import 'package:tichu/services/multiplayer/configured_multiplayer_backend.dart';
@@ -11,7 +11,7 @@ Future<void> main() async {
   try {
     final multiplayerBackend = await createConfiguredMultiplayerBackend();
     runApp(MyApp(multiplayerBackend: multiplayerBackend));
-  } catch (error) {
+  } on Object catch (error) {
     runApp(_BootstrapErrorApp(error: error));
   }
 }

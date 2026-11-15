@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' hide Card;
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/widgets/opponent_display.dart';
 import 'package:tichu/widgets/overlapping_card_row.dart';

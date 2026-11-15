@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/screens/game/widgets/trick_event_overlay.dart';
 import 'package:tichu/widgets/game_gradient_background.dart';
@@ -61,7 +61,7 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
 
     if (_celebrationMessage != null) {
       _showCelebration = true;
-      unawaited(_celebrationController.forward());
+      _celebrationController.forward();
     }
   }
 

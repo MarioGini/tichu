@@ -64,11 +64,7 @@ class MctsPlaySelectionStrategy implements PlaySelectionStrategy {
     // Convert TichuTurns into PlayTurnActions for the search.
     final candidates = <GameAction>[
       for (final play in plays)
-        PlayTurnAction(
-          playerId: playerId,
-          cards: List<Card>.from(play.cards),
-          inputWish: CardFace.none,
-        ),
+        PlayTurnAction(playerId: playerId, cards: List<Card>.from(play.cards)),
     ];
 
     final search = MctsSearch(

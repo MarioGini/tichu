@@ -24,8 +24,8 @@ void main() {
       groups = (spec['groups'] as List).cast<Map<String, dynamic>>();
     });
 
-    test('schema version is current (v3)', () {
-      expect(spec['version'], 3);
+    test('schema version is current (v4)', () {
+      expect(spec['version'], 4);
     });
 
     test('group sizes match listed feature names', () {
@@ -37,39 +37,38 @@ void main() {
           size,
           reason: "group '${g['name']}': size=$size but ${names.length} names",
         );
+        expect(
+          names.toSet().length,
+          names.length,
+          reason: "group '${g['name']}' has duplicate feature names",
+        );
       }
     });
 
-    int sizeOf(final String name) {
-      return groups.firstWhere((final g) => g['name'] == name)['size'] as int;
-    }
-
-    test('Dart per-group counts match schema', () {
-      expect(stateFeatureCount, sizeOf('state'));
-      expect(handStructureFeatureCount, sizeOf('hand_structure'));
-      expect(opponentFeatureCount, sizeOf('opponent'));
-      expect(actionFeatureCount, sizeOf('action'));
-    });
-
-    test('Dart group offsets are contiguous and match schema order', () {
-      var offset = 0;
-      final expected = <String, int>{};
-      for (final g in groups) {
-        expected[g['name'] as String] = offset;
-        offset += g['size'] as int;
-      }
-      expect(stateOffset, expected['state']);
-      expect(handStructureOffset, expected['hand_structure']);
-      expect(opponentOffset, expected['opponent']);
-      expect(actionOffset, expected['action']);
-    });
-
-    test('Dart total feature count matches schema sum', () {
-      final total = groups.fold<int>(
-        0,
-        (final acc, final g) => acc + (g['size'] as int),
+    test('Dart groups match schema order, sizes and offsets', () {
+      final dart = <(String, int, int)>[
+        ('hand', handOffset, handFeatureCount),
+        ('played', playedOffset, playedFeatureCount),
+        ('unseen', unseenOffset, unseenFeatureCount),
+        ('trick', trickOffset, trickFeatureCount),
+        ('seats', seatsOffset, seatsFeatureCount),
+        ('self', selfOffset, selfFeatureCount),
+        ('hand_structure', handStructureOffset, handStructureFeatureCount),
+        ('action', actionOffset, actionFeatureCount),
+      ];
+      expect(
+        groups.map((final g) => g['name']).toList(),
+        dart.map((final d) => d.$1).toList(),
       );
-      expect(totalFeatureCount, total);
+      var offset = 0;
+      for (var i = 0; i < groups.length; i++) {
+        final (name, dartOffset, dartSize) = dart[i];
+        expect(dartOffset, offset, reason: '$name offset');
+        expect(dartSize, groups[i]['size'], reason: '$name size');
+        offset += groups[i]['size'] as int;
+      }
+      expect(stateFeatureCount, actionOffset);
+      expect(totalFeatureCount, offset);
     });
   });
 }

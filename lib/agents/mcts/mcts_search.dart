@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:tichu/agents/mcts/belief_tracker.dart';
 import 'package:tichu/agents/mcts/hand_sampler.dart';
-import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/game/engine_state.dart';
@@ -65,6 +64,8 @@ class RolloutSimulator {
     // Apply the candidate action.
     try {
       engine.applyAction(state, firstAction);
+      // The engine rejects actions illegal in this determinization.
+      // ignore: avoid_catching_errors
     } on StateError {
       // Illegal action in this determinization — return neutral.
       return const RolloutResult(0);
@@ -77,12 +78,6 @@ class RolloutSimulator {
       // NOTE: value-network early stop is disabled. The current network is
       // a Q(s, a) head; querying it as V(s) with zeroed action features is
       // out-of-distribution. Re-enable once a true value head is trained.
-      // ignore: dead_code
-      if (false && valueNetwork != null && steps >= earlyStopDepth) {
-        final snap = engine.buildSnapshot(state);
-        return _evaluateWithNetwork(snap, myTeam);
-      }
-
       final snap = engine.buildSnapshot(state);
       final action = _selectRolloutAction(
         engine: engine,
@@ -93,6 +88,8 @@ class RolloutSimulator {
 
       try {
         engine.applyAction(state, action);
+        // The engine rejects actions illegal in this determinization.
+        // ignore: avoid_catching_errors
       } on StateError {
         break;
       }
@@ -152,9 +149,7 @@ class RolloutSimulator {
     }
 
     // Mark finished players.
-    for (final playerId in snapshot.scoreState.finishOrder) {
-      state.finishedPlayers.add(playerId);
-    }
+    state.finishedPlayers.addAll(snapshot.scoreState.finishOrder);
 
     // Track who has played cards this round (for tichu call eligibility).
     for (final player in snapshot.players) {
@@ -165,39 +160,6 @@ class RolloutSimulator {
     }
 
     return state;
-  }
-
-  /// Evaluate a position using the value network.
-  RolloutResult _evaluateWithNetwork(
-    final GameSnapshot snapshot,
-    final int myTeam,
-  ) {
-    final playerId = snapshot.currentPlayerId;
-    final stateFeatures = encodeStateFeatures(
-      snapshot: snapshot,
-      playerId: playerId,
-    );
-    final dummyAction = List<double>.filled(actionFeatureCount, 0.0);
-    final input = [...stateFeatures, ...dummyAction];
-
-    var value = valueNetwork!.predict(input);
-    // Denormalize.
-    value = value * valueNetworkStd + valueNetworkMean;
-
-    // Flip sign if we're evaluating from the opponent's perspective.
-    final evalTeam =
-        snapshot.players
-            .firstWhere(
-              (final p) => p.id == playerId,
-              orElse: () => snapshot.players.first,
-            )
-            .seat
-            .isEven
-        ? 0
-        : 1;
-    if (evalTeam != myTeam) value = -value;
-
-    return RolloutResult(value);
   }
 
   GameAction? _selectRolloutAction({
@@ -268,7 +230,6 @@ class RolloutSimulator {
     return PlayTurnAction(
       playerId: playerId,
       cards: List<Card>.from(selected.cards),
-      inputWish: CardFace.none,
     );
   }
 }
@@ -280,7 +241,7 @@ class RolloutSimulator {
 ///   2. Play the candidate move, then run a heuristic rollout to round-end.
 ///   3. Record the outcome.
 ///
-/// After [numRollouts] total rollouts, pick the move with the highest
+/// After `numRollouts` total rollouts, pick the move with the highest
 /// average score delta.
 ///
 /// This is the same approach used in world-class Bridge AI (GIB, Wbridge5)

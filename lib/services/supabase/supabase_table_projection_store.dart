@@ -109,7 +109,7 @@ class SupabaseTableProjectionStore implements GameTableProjectionStore {
     if (response is List) {
       return response
           .whereType<Map<dynamic, dynamic>>()
-          .map((final row) => Map<String, dynamic>.from(row))
+          .map(Map<String, dynamic>.from)
           .toList();
     }
     return const <Map<String, dynamic>>[];

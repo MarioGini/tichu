@@ -14,7 +14,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 ///      that opponent's hand could have beaten it (they would have played).
 ///
 /// Uses rejection sampling: draw a uniform deal, check constraints, retry if
-/// violated. Falls back to unconstrained after [maxRetries] to avoid hanging.
+/// violated. Falls back to unconstrained after `maxRetries` to avoid hanging.
 class HandSampler {
   final Random _random;
   static const _maxRetries = 50;
@@ -217,8 +217,10 @@ class HandSampler {
 
 /// A TichuTurn with an explicitly set value (bypassing the normal calculation).
 class _FixedValueTurn extends TichuTurn {
-  @override
-  final double value;
+  final double _fixedValue;
 
-  _FixedValueTurn(super.type, super.cards, this.value);
+  _FixedValueTurn(super.type, super.cards, this._fixedValue);
+
+  @override
+  double get value => _fixedValue;
 }

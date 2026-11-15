@@ -57,8 +57,8 @@ class ConnectedCards {
   int get hashCode => beginIdx + 5 * endIdx;
 }
 
-List<ConnectedCards> findConnectedCards(final List<Card> cards) {
-  cards.sort(compareCards);
+List<ConnectedCards> findConnectedCards(final List<Card> input) {
+  final cards = List<Card>.of(input)..sort(compareCards);
   final connected = <ConnectedCards>[];
   var beginIdx = 0;
   var endIdx = 0;

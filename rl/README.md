@@ -2,76 +2,87 @@
 
 This folder uses `uv` + PyTorch and persists artifacts only as `.safetensors`.
 
-All commands below are run from repo root `c:\repos\tichu`.
+**Linux is the only supported dev environment for the RL tooling.** The uv
+project is locked for Linux only, and PyTorch comes from the CPU-only wheel
+index (no CUDA download). All commands below are run from the repo root.
+
+One-time setup:
+
+```bash
+uv sync --project rl
+```
 
 ## Quick start
 
-The shipped policy at `rl/outputs/policy.safetensors` was produced by
-behavioural cloning of the heuristic agent. It currently beats the heuristic
-~53 % of the time over multi-hundred-game evals (see "Results" below).
+There is currently no trained policy: the feature schema moved to v4 and all
+older policies were deleted. Train a new one with the commands below.
 
 **Before any RL command, compile the Dart headless runner once.** Every
-Python script auto-detects `build/bin/headless.exe` and uses it; without
+Python script auto-detects `build/bin/headless` and uses it; without
 this you pay a 2.5 s VM cold-start per invocation.
 
-```powershell
-dart compile exe lib\headless\headless.dart -o build\bin\headless.exe
+```bash
+dart compile exe lib/headless/headless.dart -o build/bin/headless
 ```
 
-To regenerate from scratch (all RL scripts accept `--shards=N` to fan
-headless work across CPU cores; default `0` = `cpu_count - 1`):
+To regenerate from scratch (`evaluate_policy.py` and `self_play.py` accept
+`--shards=N` to fan headless work across CPU cores; default `0` =
+`cpu_count - 1`; `bc_pretrain.py` generates its data in a single process):
 
-```powershell
-$env:PYTHONIOENCODING='utf-8'
-uv run --project rl python rl\bc_pretrain.py `
-    --output=rl\outputs\policy.safetensors `
-    --episodes=200 --epochs=15 `
-    --hidden=256,128,64 --seed=2024 --target-score=100 `
-    --shards=7
+```bash
+uv run --project rl python rl/bc_pretrain.py \
+    --output=rl/outputs/policy.safetensors \
+    --episodes=200 --epochs=15 \
+    --hidden=256,128,64 --seed=2024 --target-score=100
 ```
 
 To evaluate against the heuristic:
 
-```powershell
-uv run --project rl python rl\evaluate_policy.py `
-    --nn-policy=rl\outputs\policy.safetensors `
-    --output=rl\outputs\eval.safetensors `
-    --seed=12345 --episodes=300 --target-score=1000 `
+```bash
+uv run --project rl python rl/evaluate_policy.py \
+    --nn-policy=rl/outputs/policy.safetensors \
+    --output=rl/outputs/eval.safetensors \
+    --seed=12345 --episodes=300 --target-score=1000 \
     --shards=7
 ```
 
 ### Performance notes
 
-- The compiled `headless.exe` is roughly 12× faster on cold start than
+- The compiled `build/bin/headless` is roughly 12× faster on cold start than
   `dart run lib/headless/headless.dart` (250 ms vs 2.5 s) and ~2.5× faster
   in steady state.
 - `headless_runner.py` shards an episode count across N processes (one per
   shard, distinct seed), then concatenates the JSONL output. On an 8-core
   box this is ~6× wallclock for typical 300+ episode jobs.
-- Training stays on **CPU**. On hardware without a real CUDA GPU
-  (Intel UHD via DirectML in this repo), DirectML is both slower than
-  MKL/MKLDNN for our 58k-param net AND crashes inside autograd's
-  ready-queue lookup when fused Adam ops fall back to CPU mid-step. CPU is
-  the safe default; opt back into DirectML with `TICHU_TRAIN_DEVICE=directml`.
+- Training stays on **CPU**: the 58k-param net is too small to benefit from
+  a GPU, so the project installs the CPU-only PyTorch build.
 
 ## Architecture
 
 ### Feature schema (single source of truth)
 
-`rl/schema/feature_spec.json` defines the 66-dim feature vector consumed by
-both Python (training) and Dart (inference). Layout:
+`rl/schema/feature_spec.json` (v4) defines the 253-dim feature vector
+consumed by both Python (training) and Dart (inference). Layout:
 
-| Group           | Size | Indices |
-|-----------------|------|---------|
-| state           | 32   | 0-31    |
-| hand_structure  |  8   | 32-39   |
-| opponent        |  6   | 40-45   |
-| action          | 20   | 46-65   |
+| Group           | Size | Indices | Content                                          |
+|-----------------|------|---------|--------------------------------------------------|
+| hand            | 56   | 0-55    | my cards (bitmap)                                |
+| played          | 56   | 56-111  | cards out of play this round (bitmap)            |
+| unseen          | 17   | 112-128 | per-rank count held by the other three players   |
+| trick           | 20   | 129-148 | trick type/value/points, winner seat, wish       |
+| seats           | 27   | 149-175 | left/partner/right: cards, finish, calls, points |
+| self            | 15   | 176-190 | own calls, round and match score context         |
+| hand_structure  | 10   | 191-200 | singles/pairs/runs/bombs, est. plays to finish   |
+| action          | 52   | 201-252 | type, strength, beaters, cards used, hand after  |
+
+Only Dart encodes features (`lib/agents/nn/feature_encoder.dart`); the
+headless `--format=bc-jsonl` output carries them pre-encoded, so Python never
+re-encodes. Policies trained on an older schema are rejected at load time.
 
 The Python loader is `rl/schema/__init__.py`; the Dart constants live in
 `lib/agents/nn/feature_encoder.dart` and are asserted against the JSON spec
-by `test/agents/feature_layout_test.dart`. **Edit the JSON, run the Dart
-test, then update both encoders.** Mismatches caused a silent, catastrophic
+by `test/agents/feature_layout_test.dart`. **Edit the JSON, then the Dart
+encoder, then run the Dart tests.** Mismatches caused a silent, catastrophic
 bug in the previous iteration (action features ended up at different
 indices on each side, so trained nets saw zero action information at
 inference time).
@@ -98,10 +109,6 @@ There are now two Python entry points:
    plays vs current best, BC train on winners-only with KL anchor, evaluate
    the new policy vs heuristic, promote if better.
 
-The legacy MC-RL trainer (`generate_train_dataset.py`, `train.py`,
-`iterate.py`) is gone — that pipeline produced policies that
-catastrophically forgot BC and never improved on heuristic.
-
 ### Headless output formats
 
 Only two RL-relevant formats remain:
@@ -109,8 +116,8 @@ Only two RL-relevant formats remain:
 - **`--format=summary`** — one JSONL line per finished match.
   `evaluate_policy.py` consumes this. ~50 lines for a 50-match eval.
 - **`--format=bc-jsonl`** — one JSONL line per play-phase decision with
-  ≥2 legal actions: `state_features` (46 floats), `legal_play_action_features`
-  (n × 20 floats), `legal_play_chosen_index`. `bc_pretrain.py` consumes this.
+  ≥2 legal actions: `state_features` (201 floats), `legal_play_action_features`
+  (n × 52 floats), `legal_play_chosen_index`. `bc_pretrain.py` consumes this.
 
 (`csv` and `none` are still around for ad-hoc debugging and dry runs.)
 
@@ -124,21 +131,7 @@ Only two RL-relevant formats remain:
 - `--ismcts`, `--ismcts-simulations=N` Information-Set MCTS player.
 - `--mcts`, `--mcts-determinizations=N` plain MCTS player.
 
-## Results (May 2026)
-
-Across cumulative evaluation matches:
-
-| Policy          | Matches | Wins | Win rate | Avg margin |
-|-----------------|---------|------|----------|------------|
-| BC (256,128,64) |     580 |  309 |   53.3 % |       +50  |
-| BC (384,192,96) |     300 |  152 |   50.7 % |       −23  |
-| BC winners-only |     300 |  133 |   44.3 % |       −55  |
-
-The winning recipe is the **smaller** BC net trained on **fewer** episodes:
-when you push validation accuracy past 99.9 %, the model literally is the
-heuristic (which is by design 50/50 against itself). The 53.3 % comes from
-the small accuracy gap allowing the net to generalise away from heuristic
-edge-case mistakes.
+## Next steps
 
 To beat the heuristic by a wider margin requires one of:
 
@@ -160,4 +153,3 @@ To beat the heuristic by a wider margin requires one of:
   `target_std` (stored in safetensors metadata; Dart `Mlp.fromSafetensorsBytes`
   reads them back). BC pretrain uses `mean=0`, `std=1` and trains on raw
   Q-logits via cross-entropy.
-- DirectML is auto-detected for GPU acceleration on Windows.

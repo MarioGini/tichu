@@ -44,11 +44,11 @@ set state = excluded.state, updated_at = excluded.updated_at
       );
       final lobbies = <String, Map<String, dynamic>>{};
       for (final row in result) {
-        final lobbyId = row[0] as String;
+        final lobbyId = row[0]! as String;
         final stateRaw = row[1];
         final state = stateRaw is String
             ? Map<String, dynamic>.from(jsonDecode(stateRaw) as Map)
-            : Map<String, dynamic>.from(stateRaw as Map);
+            : Map<String, dynamic>.from(stateRaw! as Map);
         lobbies[lobbyId] = state;
       }
       return lobbies;
@@ -118,7 +118,7 @@ values (
       return <Map<String, dynamic>>[
         for (final row in result)
           Map<String, dynamic>.from(
-            (row[0] is String ? jsonDecode(row[0] as String) : row[0]) as Map,
+            (row[0] is String ? jsonDecode(row[0]! as String) : row[0]) as Map,
           ),
       ];
     } finally {

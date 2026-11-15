@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:tichu/game/game_session.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/screens/game/game_screen.dart';
@@ -43,7 +43,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   @override
   void dispose() {
-    _lobbySubscription?.cancel();
+    unawaited(_lobbySubscription?.cancel());
     super.dispose();
   }
 
@@ -101,7 +101,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
         widget.sessionHandle.lobbyId,
         accessToken: widget.sessionHandle.accessToken,
         seat: seat,
-        type: PlayerType.human,
       );
     });
   }
@@ -169,7 +168,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     });
     try {
       await action();
-    } catch (error) {
+    } on Object catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -404,8 +403,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     ),
                   ),
                   if (isLocalSeat)
-                    Chip(
-                      label: const Text('You'),
+                    const Chip(
+                      label: Text('You'),
                       visualDensity: VisualDensity.compact,
                     ),
                 ],

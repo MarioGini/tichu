@@ -238,6 +238,8 @@ class _HeadlessSimulator {
 
     try {
       return await agent.selectAction(snapshot);
+      // Agents signal "no legal action" with StateError.
+      // ignore: avoid_catching_errors
     } on StateError {
       return null;
     }
@@ -269,11 +271,7 @@ class _HeadlessSimulator {
 
     final actions = <GameAction>[
       for (final turn in wishFiltered)
-        PlayTurnAction(
-          playerId: playerId,
-          cards: List<Card>.from(turn.cards),
-          inputWish: CardFace.none,
-        ),
+        PlayTurnAction(playerId: playerId, cards: List<Card>.from(turn.cards)),
       if (canPass) PassAction(playerId: playerId),
     ];
 

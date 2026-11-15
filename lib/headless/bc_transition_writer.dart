@@ -4,14 +4,13 @@ part of 'headless.dart';
 ///
 /// This is a minimal-by-design writer: it skips everything BC training does
 /// not consume (raw observations, reward breakdowns, both state keys, etc.)
-/// to keep the JSONL ~80 % smaller and ~5× faster to write than the legacy
-/// RL transition writer it replaced.
+/// to keep the JSONL small and fast to write.
 ///
 /// One row per play-phase decision where the actor has more than one legal
 /// action and chose either a play or a pass. Rows look like:
 ///   {"episode": 1, "team": 0,
-///    "state_features": [...46 floats...],
-///    "legal_play_action_features": [[...20...], [...20...], ...],
+///    "state_features": [...stateFeatureCount floats...],
+///    "legal_play_action_features": [[...actionFeatureCount...], ...],
 ///    "legal_play_chosen_index": 3,
 ///    "done": true, "winner": 0,         // only on the very last row
 ///    "team_one_total": 105, "team_two_total": 95}
@@ -86,32 +85,32 @@ class _BcTransitionWriter {
       snapshot.hands[chosen.playerId] ?? const <Card>[],
     );
     final legalTurns = generateLegalTurns(snapshot.deck, hand);
+    final encoder = FeatureEncoder(
+      snapshot: snapshot,
+      playerId: chosen.playerId,
+    );
     final canPass = _canPass(snapshot, hand);
 
     final features = <List<double>>[];
     var chosenIndex = -1;
 
-    final chosenKey = encodeRlActionKey(chosen);
+    final chosenKey = chosen is PlayTurnAction ? _cardKey(chosen.cards) : null;
     for (final turn in legalTurns) {
-      final feat = encodeActionFeatures(
-        play: turn,
-        deck: snapshot.deck,
-        isPass: false,
-      );
-      final key = encodeRlPlayActionKeyFromCards(turn.cards);
-      if (chosenIndex < 0 && key == chosenKey) {
+      final feat = encoder.actionFeatures(turn);
+      if (chosenIndex < 0 &&
+          chosenKey != null &&
+          _cardKey(turn.cards) == chosenKey) {
         chosenIndex = features.length;
       }
       features.add(feat);
     }
 
     if (canPass) {
-      final passFeat = encodeActionFeatures(
-        play: TichuTurn(TurnType.none, const <Card>[]),
-        deck: snapshot.deck,
+      final passFeat = encoder.actionFeatures(
+        TichuTurn(TurnType.none, const <Card>[]),
         isPass: true,
       );
-      if (chosenIndex < 0 && chosenKey == 'pass') {
+      if (chosenIndex < 0 && chosen is PassAction) {
         chosenIndex = features.length;
       }
       features.add(passFeat);
@@ -119,5 +118,12 @@ class _BcTransitionWriter {
 
     if (chosenIndex < 0) return null;
     return (features: features, chosenIndex: chosenIndex);
+  }
+
+  /// Order-independent identity of a card set (phoenix matches by face, so
+  /// its assigned value does not matter).
+  static String _cardKey(final List<Card> cards) {
+    final slots = [for (final c in cards) cardSlot(c)]..sort();
+    return slots.join(',');
   }
 }

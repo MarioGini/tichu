@@ -2,9 +2,11 @@ import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/card_utils.dart';
 
 List<TichuTurn> getPairStraights(
-  final List<Card> cards,
+  final List<Card> input,
   final int desiredLength,
 ) {
+  // Work on a copy: callers pass live hands.
+  final cards = List<Card>.of(input);
   final pairStraights = <TichuTurn>[];
 
   cards.removeWhere(
@@ -141,8 +143,11 @@ TichuTurn addPhoenixPadding(
 
 // Adds all permutations of shorter straights that are present in longer
 // straights.
-List<TichuTurn> getPairStraightPermutations(final List<Card> cards) {
-  assert(isPairStraight(cards), 'cards must form a valid pair straight');
+List<TichuTurn> getPairStraightPermutations(final List<Card> input) {
+  assert(isPairStraight(input), 'cards must form a valid pair straight');
+  // Sort explicitly: slicing below relies on descending order, and
+  // phoenix-padded inputs are not sorted.
+  final cards = List<Card>.of(input)..sort(compareCards);
   final pairStraightPermutations = <TichuTurn>[
     TichuTurn(TurnType.pairStraight, cards),
   ];
@@ -160,7 +165,8 @@ List<TichuTurn> getPairStraightPermutations(final List<Card> cards) {
 }
 
 // Return true when cards form a valid pair straight.
-bool isPairStraight(final List<Card> cards) {
+bool isPairStraight(final List<Card> input) {
+  final cards = List<Card>.of(input);
   var isPairStraight = true;
 
   // Pair straights cannot contain dragon or dog, and must consist of an even

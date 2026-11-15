@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart' hide Card;
 import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/screens/game/widgets/options_dialog.dart';
 

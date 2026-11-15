@@ -14,7 +14,7 @@ class SoundEffects {
 
   static bool get enabled => _enabled;
 
-  // ignore: avoid_positional_boolean_parameters, simple toggle API
+  // ignore: simple toggle API
   static void setEnabled(final bool value) {
     _enabled = value;
     if (!value) {

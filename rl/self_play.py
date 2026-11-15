@@ -46,12 +46,12 @@ OUTPUTS = RL_DIR / "outputs"
 
 
 def _ensure_dart_on_path() -> None:
-    if shutil.which("dart") or shutil.which("dart.bat"):
+    if shutil.which("dart"):
         return
-    for candidate in [Path(r"C:\flutter\flutter\bin"), Path.home() / "flutter" / "bin"]:
-        if (candidate / "dart").exists() or (candidate / "dart.bat").exists():
-            os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
-            return
+    candidate = Path.home() / "flutter" / "bin"
+    if (candidate / "dart").exists():
+        os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
+        return
     raise RuntimeError("'dart' not found on PATH")
 
 
@@ -62,7 +62,6 @@ def _run(cmd: list[str], label: str) -> subprocess.CompletedProcess:
         cwd=str(REPO),
         capture_output=True,
         text=True,
-        shell=(sys.platform == "win32"),
         env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
     if res.returncode != 0:
@@ -242,7 +241,7 @@ def main() -> None:
     p.add_argument("--lr", type=float, default=2e-4)
     p.add_argument("--decisions-per-batch", type=int, default=512)
     p.add_argument("--kl-weight", type=float, default=0.5)
-    p.add_argument("--device", default="cpu", choices=["auto", "cpu", "cuda", "directml"])
+    p.add_argument("--device", default="cpu", choices=["auto", "cpu", "cuda"])
     p.add_argument("--base-seed", type=int, default=10000)
     p.add_argument("--eval-seed", type=int, default=12345)
     p.add_argument(

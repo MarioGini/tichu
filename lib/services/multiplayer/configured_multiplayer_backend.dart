@@ -13,7 +13,10 @@ Future<MultiplayerBackend> createConfiguredMultiplayerBackend() async {
       return LocalMultiplayerBackend();
     case 'supabase':
       final config = SupabaseMultiplayerConfig.fromEnvironment();
-      await Supabase.initialize(url: config.url, anonKey: config.anonKey);
+      await Supabase.initialize(
+        url: config.url,
+        publishableKey: config.anonKey,
+      );
       final client = Supabase.instance.client;
       if (client.auth.currentSession == null) {
         await client.auth.signInAnonymously();

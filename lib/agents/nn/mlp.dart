@@ -31,6 +31,33 @@ class Mlp {
   /// allocation during forward().
   final List<Float64List> _buffers;
 
+  // ── Random init (for tests / MCTS value baseline) ──────────────────────
+
+  factory Mlp({required final List<int> layerSizes, final int? seed}) {
+    if (layerSizes.length < 2) {
+      throw ArgumentError('Need at least input and output layer sizes.');
+    }
+
+    final rng = seed != null ? Random(seed) : Random();
+    final weights = <Float64List>[];
+    final biases = <Float64List>[];
+
+    for (var l = 1; l < layerSizes.length; l++) {
+      final fanIn = layerSizes[l - 1];
+      final fanOut = layerSizes[l];
+      final stddev = sqrt(2.0 / (fanIn + fanOut));
+
+      final flat = Float64List(fanOut * fanIn);
+      for (var k = 0; k < flat.length; k++) {
+        flat[k] = _gaussian(rng) * stddev;
+      }
+      weights.add(flat);
+      biases.add(Float64List(fanOut)); // zeros
+    }
+
+    return Mlp._(weights: weights, biases: biases, layerSizes: layerSizes);
+  }
+
   Mlp._({
     required final List<Float64List> weights,
     required final List<Float64List> biases,
@@ -101,9 +128,7 @@ class Mlp {
   /// responsible for sizing the buffer to [inputSize] and filling it on
   /// every call; this entry point skips both the type check and the
   /// allocation in [predict].
-  double predictBuffer(final Float64List input) {
-    return _forwardTyped(input)[0];
-  }
+  double predictBuffer(final Float64List input) => _forwardTyped(input)[0];
 
   // ── Safetensors loading ─────────────────────────────────────────────────
 
@@ -190,33 +215,6 @@ class Mlp {
       targetMean,
       targetStd,
     );
-  }
-
-  // ── Random init (for tests / MCTS value baseline) ──────────────────────
-
-  factory Mlp({required final List<int> layerSizes, final int? seed}) {
-    if (layerSizes.length < 2) {
-      throw ArgumentError('Need at least input and output layer sizes.');
-    }
-
-    final rng = seed != null ? Random(seed) : Random();
-    final weights = <Float64List>[];
-    final biases = <Float64List>[];
-
-    for (var l = 1; l < layerSizes.length; l++) {
-      final fanIn = layerSizes[l - 1];
-      final fanOut = layerSizes[l];
-      final stddev = sqrt(2.0 / (fanIn + fanOut));
-
-      final flat = Float64List(fanOut * fanIn);
-      for (var k = 0; k < flat.length; k++) {
-        flat[k] = _gaussian(rng) * stddev;
-      }
-      weights.add(flat);
-      biases.add(Float64List(fanOut)); // zeros
-    }
-
-    return Mlp._(weights: weights, biases: biases, layerSizes: layerSizes);
   }
 }
 

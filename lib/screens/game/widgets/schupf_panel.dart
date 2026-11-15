@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart' hide Card;
+import 'package:material_ui/material_ui.dart' hide Card;
 
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';

@@ -16,7 +16,6 @@ void main() {
         const CreateGameLobbyRequest(
           displayName: 'Host A',
           gameName: 'Fun Game',
-          visibility: GameLobbyVisibility.public,
         ),
       );
       await service.createLobby(
@@ -82,7 +81,6 @@ void main() {
         const CreateGameLobbyRequest(
           displayName: 'Host',
           gameName: 'Open Game',
-          visibility: GameLobbyVisibility.public,
         ),
       );
 

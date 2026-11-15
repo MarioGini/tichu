@@ -83,13 +83,17 @@ class SupabaseAuthorityServer {
       await _writeJson(request.response, response);
     } on _ClientRequestError catch (error) {
       await _writeError(request.response, error.statusCode, error.message);
+      // The engine reports invalid client actions as StateError/ArgumentError.
+      // ignore: avoid_catching_errors
     } on StateError catch (error) {
       await _writeError(request.response, HttpStatus.badRequest, '$error');
+      // Invalid client input surfaces as ArgumentError from the engine.
+      // ignore: avoid_catching_errors
     } on ArgumentError catch (error) {
       await _writeError(request.response, HttpStatus.badRequest, '$error');
     } on FormatException catch (error) {
       await _writeError(request.response, HttpStatus.badRequest, '$error');
-    } catch (error) {
+    } on Object catch (error) {
       await _writeError(
         request.response,
         HttpStatus.internalServerError,
@@ -219,27 +223,24 @@ class SupabaseAuthorityServer {
     );
   }
 
-  Future<void> _setReadyState(final Map<String, dynamic> body) {
-    return _tableService.setReadyState(
-      _requireString(body, 'lobbyId'),
-      accessToken: _requireString(body, 'accessToken'),
-      isReady: _requireBool(body, 'isReady'),
-    );
-  }
+  Future<void> _setReadyState(final Map<String, dynamic> body) =>
+      _tableService.setReadyState(
+        _requireString(body, 'lobbyId'),
+        accessToken: _requireString(body, 'accessToken'),
+        isReady: _requireBool(body, 'isReady'),
+      );
 
-  Future<void> _startMatch(final Map<String, dynamic> body) {
-    return _tableService.startMatch(
-      _requireString(body, 'lobbyId'),
-      accessToken: _requireString(body, 'accessToken'),
-    );
-  }
+  Future<void> _startMatch(final Map<String, dynamic> body) =>
+      _tableService.startMatch(
+        _requireString(body, 'lobbyId'),
+        accessToken: _requireString(body, 'accessToken'),
+      );
 
-  Future<void> _leaveLobby(final Map<String, dynamic> body) {
-    return _tableService.leaveLobby(
-      _requireString(body, 'lobbyId'),
-      accessToken: _requireString(body, 'accessToken'),
-    );
-  }
+  Future<void> _leaveLobby(final Map<String, dynamic> body) =>
+      _tableService.leaveLobby(
+        _requireString(body, 'lobbyId'),
+        accessToken: _requireString(body, 'accessToken'),
+      );
 
   Future<Map<String, dynamic>> _getMatchView(
     final Map<String, dynamic> body,
@@ -289,12 +290,11 @@ class SupabaseAuthorityServer {
     );
   }
 
-  Future<void> _leaveMatch(final Map<String, dynamic> body) {
-    return _tableService.leaveMatch(
-      _requireString(body, 'matchId'),
-      accessToken: _requireString(body, 'accessToken'),
-    );
-  }
+  Future<void> _leaveMatch(final Map<String, dynamic> body) =>
+      _tableService.leaveMatch(
+        _requireString(body, 'matchId'),
+        accessToken: _requireString(body, 'accessToken'),
+      );
 
   Future<void> _heartbeat(final Map<String, dynamic> body) {
     final accessToken = _requireString(body, 'accessToken');

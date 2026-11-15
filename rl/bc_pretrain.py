@@ -7,9 +7,8 @@ over Q values approximates the heuristic policy (≈ 50 % win rate vs heuristic
 by definition); subsequent RL fine-tuning can then improve from a sane
 baseline instead of from a noisy off-policy regression.
 
-Reads the same JSONL as ``generate_train_dataset.py`` (use
-``--include-legal-features`` is implicit: the Dart writer emits
-``legal_play_action_features`` whenever it can).
+Reads headless ``--format=bc-jsonl`` output: pre-encoded ``state_features``
+plus ``legal_play_action_features`` and the chosen index per decision.
 
 Loss: cross-entropy over Q(state, legal_action_i) with target = chosen index.
 """
@@ -35,8 +34,7 @@ warnings.filterwarnings(
     category=UserWarning,
 )
 
-from data import encode_transition, TOTAL_FEATURE_COUNT  # noqa: E402
-from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET  # noqa: E402
+from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT  # noqa: E402
 
 
 REPO = Path(__file__).resolve().parent.parent
@@ -45,12 +43,12 @@ OUTPUTS = RL_DIR / "outputs"
 
 
 def _ensure_dart_on_path() -> None:
-    if shutil.which("dart") or shutil.which("dart.bat"):
+    if shutil.which("dart"):
         return
-    for candidate in [Path(r"C:\flutter\flutter\bin"), Path.home() / "flutter" / "bin"]:
-        if (candidate / "dart").exists() or (candidate / "dart.bat").exists():
-            os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
-            return
+    candidate = Path.home() / "flutter" / "bin"
+    if (candidate / "dart").exists():
+        os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
+        return
     raise RuntimeError("'dart' not found on PATH")
 
 
@@ -101,13 +99,8 @@ class FlatBcData:
 def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
     """Load a BC dataset from a JSONL file produced by the headless runner.
 
-    Accepts both:
-      - ``--format=bc-jsonl``  (preferred, ~5× smaller, ~5× faster to write):
-        each row already contains a pre-encoded ``state_features`` array.
-      - ``--format=rl-jsonl``  (legacy): full transition rows; this loader
-        re-encodes the state via :func:`data.encode_transition`.
-
-    Selection between the two is done per-row, so mixed inputs work too.
+    Requires ``--format=bc-jsonl`` rows carrying pre-encoded
+    ``state_features`` for the current schema version.
     """
     # Two-pass build: first decide which episodes count, then accumulate.
     winning_team_by_episode: dict[int, int] = {}
@@ -162,16 +155,14 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
                 skipped_single_action += 1
                 continue
 
-            # Prefer the bc-jsonl pre-encoded state vector; fall back to
-            # re-encoding for legacy rl-jsonl rows.
             pre_state = row.get("state_features")
-            if isinstance(pre_state, list) and len(pre_state) == ACTION_OFFSET:
-                state_part = np.asarray(pre_state, dtype=np.float32)
-            else:
-                full_vec = encode_transition(row)
-                if full_vec is None:
-                    continue
-                state_part = full_vec[:ACTION_OFFSET].astype(np.float32)
+            if not isinstance(pre_state, list) or len(pre_state) != ACTION_OFFSET:
+                raise ValueError(
+                    f"row has no state_features of length {ACTION_OFFSET} "
+                    f"(feature schema v{SPEC.version}); regenerate with "
+                    "--format=bc-jsonl"
+                )
+            state_part = np.asarray(pre_state, dtype=np.float32)
 
             # Build (n_actions, F) block for this decision.
             block = np.empty((len(legal), TOTAL_FEATURE_COUNT), dtype=np.float32)
@@ -225,13 +216,9 @@ class QNetwork(nn.Module):
 def _select_device() -> torch.device:
     """Pick the best compute device for our tiny MLP.
 
-    On this hardware (~58k-param net, ~14k-row batches), measured times:
-      - CPU (8 cores, MKL): ~80 ms/step
-      - DirectML on Intel UHD: 200+ ms/step AND crashes in autograd on
-        small backward passes (foreach Adam ops fall back to CPU mid-step,
-        which trips an internal assert in autograd's ready-queue lookup).
-
-    So CPU is the right default unless a real CUDA GPU is present.
+    The net is tiny (~58k params, ~14k-row batches; ~80 ms/step on an
+    8-core CPU with MKL), so CPU is the right default unless a real CUDA GPU
+    is present.
     """
     if torch.cuda.is_available():
         return torch.device("cuda")
@@ -477,9 +464,9 @@ def main() -> None:
     p.add_argument("--hidden", default="256,128,64")
     p.add_argument(
         "--device",
-        choices=["auto", "cpu", "cuda", "directml"],
+        choices=["auto", "cpu", "cuda"],
         default="auto",
-        help="Force compute device. 'auto' picks CUDA > DirectML > CPU.",
+        help="Force compute device. 'auto' picks CUDA > CPU.",
     )
     p.add_argument(
         "--jsonl",
@@ -544,9 +531,6 @@ def main() -> None:
         device = _select_device()
     elif args.device == "cuda":
         device = torch.device("cuda")
-    elif args.device == "directml":
-        import torch_directml  # type: ignore[import-untyped]
-        device = torch_directml.device()
     else:
         device = torch.device("cpu")
     print(f"device: {device}")

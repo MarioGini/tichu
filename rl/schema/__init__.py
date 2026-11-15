@@ -2,7 +2,7 @@
 
 This module reads ``feature_spec.json`` and exposes typed constants that are
 the single source of truth for ``rl/data.py``. The same file is consumed by
-the Dart side (see ``lib/agents/nn/feature_layout.dart`` and the schema test
+the Dart side (see ``lib/agents/nn/feature_encoder.dart`` and the schema test
 under ``test/agents/feature_layout_test.dart``).
 
 Adding or renaming a feature: edit ``feature_spec.json`` only, then run the
@@ -69,19 +69,12 @@ def _load() -> FeatureSpec:
 
 SPEC = _load()
 
-STATE_GROUP = SPEC.group("state")
-HAND_STRUCTURE_GROUP = SPEC.group("hand_structure")
-OPPONENT_GROUP = SPEC.group("opponent")
 ACTION_GROUP = SPEC.group("action")
 
-STATE_FEATURE_COUNT = STATE_GROUP.size
-HAND_STRUCTURE_FEATURE_COUNT = HAND_STRUCTURE_GROUP.size
-OPPONENT_FEATURE_COUNT = OPPONENT_GROUP.size
-ACTION_FEATURE_COUNT = ACTION_GROUP.size
-TOTAL_FEATURE_COUNT = SPEC.total
+# Every group before "action" is part of the per-decision state prefix.
+STATE_GROUPS = tuple(g for g in SPEC.groups if g.name != "action")
 
-# Convenience: absolute offsets where each group starts in the full vector.
-STATE_OFFSET = STATE_GROUP.offset
-HAND_STRUCTURE_OFFSET = HAND_STRUCTURE_GROUP.offset
-OPPONENT_OFFSET = OPPONENT_GROUP.offset
+ACTION_FEATURE_COUNT = ACTION_GROUP.size
 ACTION_OFFSET = ACTION_GROUP.offset
+STATE_FEATURE_COUNT = ACTION_OFFSET
+TOTAL_FEATURE_COUNT = SPEC.total

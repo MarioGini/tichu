@@ -187,4 +187,88 @@ void main() {
       expect(updated.turn, TichuTurn.InvalidTurn());
     });
   });
+  // Regression: checking whether the wish could be played on a straight,
+  // pair straight or full house used to strip Dragon/Dog from the live hand.
+  group('handleTurn does not mutate the hand', () {
+    final handler = TurnHandler();
+    Card c(final CardFace face, final CardColor color) => Card(face, color);
+
+    void expectHandUnchanged({
+      required final TichuTurn deckTurn,
+      required final List<Card> play,
+    }) {
+      final hand = <Card>[
+        ...play,
+        c(CardFace.seven, CardColor.blue),
+        c(CardFace.dragon, CardColor.special),
+        c(CardFace.dog, CardColor.special),
+      ];
+      final before = List<Card>.of(hand);
+
+      final updated = handler.handleTurn(
+        DeckState(deckTurn, CardFace.seven),
+        play,
+        CardFace.none,
+        hand: hand,
+      );
+
+      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(hand, before);
+    }
+
+    test('full house on table with unfulfillable wish', () {
+      expectHandUnchanged(
+        deckTurn: TichuTurn(TurnType.fullHouse, [
+          c(CardFace.three, CardColor.black),
+          c(CardFace.three, CardColor.green),
+          c(CardFace.three, CardColor.red),
+          c(CardFace.two, CardColor.black),
+          c(CardFace.two, CardColor.green),
+        ]),
+        play: [
+          c(CardFace.nine, CardColor.black),
+          c(CardFace.nine, CardColor.green),
+          c(CardFace.nine, CardColor.red),
+          c(CardFace.four, CardColor.black),
+          c(CardFace.four, CardColor.green),
+        ],
+      );
+    });
+
+    test('straight on table with unfulfillable wish', () {
+      expectHandUnchanged(
+        deckTurn: TichuTurn(TurnType.straight, [
+          c(CardFace.six, CardColor.black),
+          c(CardFace.five, CardColor.green),
+          c(CardFace.four, CardColor.red),
+          c(CardFace.three, CardColor.black),
+          c(CardFace.two, CardColor.green),
+        ]),
+        play: [
+          c(CardFace.king, CardColor.black),
+          c(CardFace.queen, CardColor.green),
+          c(CardFace.jack, CardColor.red),
+          c(CardFace.ten, CardColor.black),
+          c(CardFace.nine, CardColor.green),
+        ],
+      );
+    });
+
+    test('pair straight on table with unfulfillable wish', () {
+      expectHandUnchanged(
+        deckTurn: TichuTurn(TurnType.pairStraight, [
+          c(CardFace.three, CardColor.black),
+          c(CardFace.three, CardColor.green),
+          c(CardFace.two, CardColor.red),
+          c(CardFace.two, CardColor.black),
+        ]),
+        play: [
+          c(CardFace.queen, CardColor.black),
+          c(CardFace.queen, CardColor.green),
+          c(CardFace.jack, CardColor.red),
+          c(CardFace.jack, CardColor.black),
+        ],
+      );
+    });
+  });
 }

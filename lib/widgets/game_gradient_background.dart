@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Shared gradient background used across all game screens.
 class GameGradientBackground extends StatelessWidget {

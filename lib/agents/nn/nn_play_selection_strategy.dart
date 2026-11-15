@@ -29,7 +29,17 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
     required this.playerId,
     required this.network,
     this.fallback = const DefaultPlaySelectionStrategy(),
-  });
+  }) {
+    if (network.inputSize != totalFeatureCount) {
+      throw ArgumentError.value(
+        network.inputSize,
+        'network.inputSize',
+        'Policy was trained for a different feature schema; expected '
+            '$totalFeatureCount inputs (rl/schema/feature_spec.json). '
+            'Retrain the policy.',
+      );
+    }
+  }
 
   @override
   TichuTurn selectPlay(
@@ -66,10 +76,8 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
       return legalPlays.first;
     }
 
-    final stateFeatures = encodeStateFeatures(
-      snapshot: snapshot,
-      playerId: playerId,
-    );
+    final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
+    final stateFeatures = encoder.stateFeatures;
 
     // Fill the state-features prefix once; the action suffix changes per
     // legal play and is overwritten on each iteration.
@@ -83,14 +91,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy {
     var bestValue = double.negativeInfinity;
 
     for (final play in legalPlays) {
-      final actionFeatures = encodeActionFeatures(
-        play: play,
-        deck: deck,
-        isPass: false,
-      );
-      for (var i = 0; i < actionFeatures.length; i++) {
-        buffer[stateLen + i] = actionFeatures[i];
-      }
+      encoder.writeActionFeatures(play, buffer, stateLen);
       final qValue = network.predictBuffer(buffer);
 
       if (qValue > bestValue) {

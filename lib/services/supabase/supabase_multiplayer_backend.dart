@@ -31,7 +31,6 @@ class SupabaseMultiplayerConfig {
     );
     const legacyFunctionPrefix = String.fromEnvironment(
       'TICHU_SUPABASE_FUNCTION_PREFIX',
-      defaultValue: '',
     );
     const watchIntervalMs = int.fromEnvironment(
       'TICHU_SUPABASE_POLL_MS',
@@ -50,7 +49,9 @@ class SupabaseMultiplayerConfig {
       functionName: legacyFunctionPrefix.isNotEmpty
           ? legacyFunctionPrefix
           : configuredFunctionName,
-      watchInterval: Duration(milliseconds: watchIntervalMs),
+      // Value comes from the environment; the default only looks redundant.
+      // ignore: avoid_redundant_argument_values
+      watchInterval: const Duration(milliseconds: watchIntervalMs),
     );
   }
 }
@@ -150,7 +151,7 @@ abstract base class _SupabaseServiceBase {
       }
 
       return _normalizeMap(row['payload']);
-    } catch (_) {
+    } on Object catch (_) {
       return null;
     }
   }
@@ -173,6 +174,8 @@ abstract base class _SupabaseServiceBase {
     final Future<void> Function(StreamController<T> controller)?
     onProjectionMiss,
   }) {
+    // Closed by the subscriber via onCancel; the stream is returned.
+    // ignore: close_sinks
     final controller = StreamController<T>();
     RealtimeChannel? channel;
     String? previousSignature;
@@ -203,7 +206,7 @@ abstract base class _SupabaseServiceBase {
           return;
         }
         await emitIfChanged(await loadFallbackValue());
-      } catch (error, stackTrace) {
+      } on Object catch (error, stackTrace) {
         if (!controller.isClosed) {
           controller.addError(error, stackTrace);
         }
@@ -265,10 +268,7 @@ abstract base class _SupabaseServiceBase {
 
 final class SupabaseGameSessionService extends _SupabaseServiceBase
     implements GameSessionService {
-  SupabaseGameSessionService({
-    required final SupabaseClient client,
-    required final SupabaseMultiplayerConfig config,
-  }) : super(client: client, config: config);
+  SupabaseGameSessionService({required super.client, required super.config});
 
   @override
   Future<GameSessionHandle> createLobby(
@@ -448,10 +448,7 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
 
 final class SupabaseGameMatchService extends _SupabaseServiceBase
     implements GameMatchService {
-  SupabaseGameMatchService({
-    required final SupabaseClient client,
-    required final SupabaseMultiplayerConfig config,
-  }) : super(client: client, config: config);
+  SupabaseGameMatchService({required super.client, required super.config});
 
   @override
   Stream<GameMatchView> watchMatch(

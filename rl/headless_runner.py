@@ -2,7 +2,7 @@
 
 Centralises two performance-critical decisions:
 
-1. Prefer ``build/bin/headless.exe`` (compiled with ``dart compile exe``) over
+1. Prefer ``build/bin/headless`` (compiled with ``dart compile exe``) over
    ``dart run lib/headless/headless.dart``. The compiled binary skips the
    2.5 s Dart VM cold-start and roughly doubles steady-state throughput.
 
@@ -22,16 +22,16 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-COMPILED_EXE = REPO_ROOT / "build" / "bin" / "headless.exe"
+COMPILED_EXE = REPO_ROOT / "build" / "bin" / "headless"
 
 
 def _ensure_dart_on_path() -> None:
-    if shutil.which("dart") or shutil.which("dart.bat"):
+    if shutil.which("dart"):
         return
-    for candidate in [Path(r"C:\flutter\flutter\bin"), Path.home() / "flutter" / "bin"]:
-        if (candidate / "dart").exists() or (candidate / "dart.bat").exists():
-            os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
-            return
+    candidate = Path.home() / "flutter" / "bin"
+    if (candidate / "dart").exists():
+        os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
+        return
     raise RuntimeError("'dart' not found on PATH")
 
 
@@ -102,9 +102,7 @@ def run_headless_sharded(
     contain ``--seed=``, ``--episodes=``, or ``--output=``.
 
     Threads (not processes) are used because each worker just spawns a
-    headless subprocess and waits on it; ProcessPoolExecutor on Windows
-    re-imports the parent module per worker which is heavier than the
-    actual work for our small jobs.
+    headless subprocess and waits on it.
     """
     if shards is None:
         shards = max(1, (os.cpu_count() or 1) - 1)

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Banner displayed when the game (match) is over, showing the winning team
 /// and a "Continue" button that pops the screen.

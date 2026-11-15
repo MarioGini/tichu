@@ -40,30 +40,20 @@ void main() {
         final lobbyId = hostHandle['lobbyId'] as String;
         final accessToken = hostHandle['accessToken'] as String;
 
-        await _postJson(
-          baseUri,
-          'set-ready-state',
-          <String, dynamic>{
-            'lobbyId': lobbyId,
-            'accessToken': accessToken,
-            'isReady': true,
-          },
-          authUserId: '00000000-0000-0000-0000-000000000001',
-        );
+        await _postJson(baseUri, 'set-ready-state', <String, dynamic>{
+          'lobbyId': lobbyId,
+          'accessToken': accessToken,
+          'isReady': true,
+        }, authUserId: '00000000-0000-0000-0000-000000000001');
 
         for (var seat = 1; seat < 4; seat++) {
-          await _postJson(
-            baseUri,
-            'claim-seat',
-            <String, dynamic>{
-              'lobbyId': lobbyId,
-              'accessToken': accessToken,
-              'seat': seat,
-              'type': 'automated',
-              'automatedDisplayName': 'Bot ${seat + 1}',
-            },
-            authUserId: '00000000-0000-0000-0000-000000000001',
-          );
+          await _postJson(baseUri, 'claim-seat', <String, dynamic>{
+            'lobbyId': lobbyId,
+            'accessToken': accessToken,
+            'seat': seat,
+            'type': 'automated',
+            'automatedDisplayName': 'Bot ${seat + 1}',
+          }, authUserId: '00000000-0000-0000-0000-000000000001');
         }
 
         await _postJson(baseUri, 'start-match', <String, dynamic>{
@@ -155,16 +145,11 @@ void main() {
       final lobbyId = hostHandle['lobbyId'] as String;
       final accessToken = hostHandle['accessToken'] as String;
 
-      await _postJson(
-        baseUri,
-        'set-ready-state',
-        <String, dynamic>{
-          'lobbyId': lobbyId,
-          'accessToken': accessToken,
-          'isReady': true,
-        },
-        authUserId: '00000000-0000-0000-0000-000000000001',
-      );
+      await _postJson(baseUri, 'set-ready-state', <String, dynamic>{
+        'lobbyId': lobbyId,
+        'accessToken': accessToken,
+        'isReady': true,
+      }, authUserId: '00000000-0000-0000-0000-000000000001');
 
       for (var seat = 1; seat < 4; seat++) {
         await _postJson(baseUri, 'claim-seat', <String, dynamic>{

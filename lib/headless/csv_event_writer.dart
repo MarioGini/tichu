@@ -158,10 +158,7 @@ class _CsvEventWriter {
     );
   }
 
-  void _emitRoundEnd(
-    final GameSnapshot snapshot,
-    final GameSnapshot previous,
-  ) {
+  void _emitRoundEnd(final GameSnapshot snapshot, final GameSnapshot previous) {
     if (!snapshot.scoreState.roundComplete ||
         previous.scoreState.roundComplete) {
       return;
@@ -174,10 +171,7 @@ class _CsvEventWriter {
     );
   }
 
-  void _emitGameEnd(
-    final GameSnapshot snapshot,
-    final GameSnapshot previous,
-  ) {
+  void _emitGameEnd(final GameSnapshot snapshot, final GameSnapshot previous) {
     if (!snapshot.scoreState.gameComplete || previous.scoreState.gameComplete) {
       return;
     }

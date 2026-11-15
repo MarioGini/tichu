@@ -1,7 +1,9 @@
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/card_utils.dart';
 
-List<TichuTurn> getFullHouses(final List<Card> cards) {
+List<TichuTurn> getFullHouses(final List<Card> input) {
+  // Work on a copy: callers pass live hands.
+  final cards = List<Card>.of(input);
   cards.removeWhere(
     (final element) =>
         element.face == CardFace.dragon || element.face == CardFace.dog,

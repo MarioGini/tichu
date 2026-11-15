@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Suppresses RenderFlex overflow errors during a test.
 /// Call in the test body before pumping widgets with tight layout.

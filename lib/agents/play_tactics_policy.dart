@@ -1,3 +1,4 @@
+import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -54,7 +55,10 @@ class PlayTacticsPolicy {
       return null;
     }
 
-    if (!_isPartnerSupportPassTurn(deck.turn)) {
+    if (!_isPartnerSupportPassTurn(
+      deck.turn,
+      CardKnowledge.of(snapshot, playerId),
+    )) {
       return null;
     }
 
@@ -70,9 +74,15 @@ class PlayTacticsPolicy {
     return PassAction(playerId: playerId);
   }
 
-  bool _isPartnerSupportPassTurn(final TichuTurn turn) {
+  bool _isPartnerSupportPassTurn(
+    final TichuTurn turn,
+    final CardKnowledge knowledge,
+  ) {
     if (turn.type == TurnType.single) {
-      return turn.value >= Card.getValue(CardFace.king);
+      // High single, or one nothing unseen can beat (e.g. a queen once all
+      // kings, aces, dragon and phoenix are gone).
+      return turn.value >= Card.getValue(CardFace.king) ||
+          knowledge.isUnbeatable(turn);
     }
 
     return turn.type == TurnType.pair ||

@@ -1,4 +1,4 @@
-import 'package:tichu/agents/game_state_tracker.dart';
+import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_data.dart';
@@ -27,6 +27,7 @@ class PolicyWeights {
   final double phoenixTrumpAgainstNearFinishBonus;
   final double preserveFlexibleTrump;
   final double preferNaturalTrumpResponse;
+  final double sureTrickCapture;
 
   const PolicyWeights({
     this.lowLeadPreference = 2,
@@ -49,14 +50,14 @@ class PolicyWeights {
     this.phoenixTrumpAgainstNearFinishBonus = 5,
     this.preserveFlexibleTrump = 8,
     this.preferNaturalTrumpResponse = 6,
+    this.sureTrickCapture = 4,
   });
 }
 
 class TurnScorer {
   final PolicyWeights weights;
-  final GameStateTracker? tracker;
 
-  const TurnScorer({this.weights = const PolicyWeights(), this.tracker});
+  const TurnScorer({this.weights = const PolicyWeights()});
 
   double scoreTurn(
     final GameSnapshot snapshot,
@@ -70,6 +71,10 @@ class TurnScorer {
     }
 
     var score = 0.0;
+    final knowledge = CardKnowledge.of(snapshot, playerId);
+    // Wins the trick for sure (bombs aside): spending high cards on it is
+    // not a waste, it converts them into a guaranteed trick and the lead.
+    final sureWin = play.type != TurnType.bomb && knowledge.isUnbeatable(play);
 
     final isLeading =
         deck.turn.type == TurnType.empty ||
@@ -112,23 +117,27 @@ class TurnScorer {
     final controlCount = play.cards
         .where((final card) => controlCards.contains(card.face))
         .length;
-    if (controlCount > 0) {
+    final table = TableRelationships(snapshot, playerId);
+    final winnerId = deck.currentWinner.isNotEmpty
+        ? deck.currentWinner
+        : snapshot.lastPlayedBy;
+    final opponentWinning =
+        !isLeading && winnerId != null && table.isOpponent(winnerId);
+    final sureCapture = sureWin && opponentWinning;
+
+    if (controlCount > 0 && !sureCapture) {
       score -= weights.controlPreservation * controlCount;
     }
 
-    if (isEarly) {
-      final hasLastAce = tracker?.hasLastAce(hand) ?? false;
-      final hasLastKing = tracker?.hasLastKing(hand) ?? false;
-      final allAcesKnown = tracker?.allAcesKnown ?? false;
+    if (sureCapture) {
+      score += weights.sureTrickCapture;
+    }
+
+    if (isEarly && !sureCapture) {
       final pointFactor = (trickPoints / 25).clamp(0, 1).toDouble();
-      final highCount = play.cards.where((final card) {
-        if (!highCards.contains(card.face)) return false;
-        if (card.face == CardFace.ace && hasLastAce) return false;
-        if (card.face == CardFace.king && allAcesKnown && hasLastKing) {
-          return false;
-        }
-        return true;
-      }).length;
+      final highCount = play.cards
+          .where((final card) => highCards.contains(card.face))
+          .length;
       if (highCount > 0) {
         score -= weights.avoidHighBurn * highCount * (1 - pointFactor);
       }
@@ -155,7 +164,8 @@ class TurnScorer {
       }
     }
 
-    if (_opponentLow(snapshot, playerId) && _isUnbeatableLine(play)) {
+    if (_opponentLow(snapshot, playerId) &&
+        _isUnbeatableLine(play, knowledge)) {
       score += weights.unbeatableLine;
     }
 
@@ -169,7 +179,7 @@ class TurnScorer {
 
     if (opponentTichuNearFinish) {
       if (isLeading) {
-        if (play.cards.length >= 2 || _isUnbeatableLine(play)) {
+        if (play.cards.length >= 2 || _isUnbeatableLine(play, knowledge)) {
           score += weights.disruptOpponentTichuNearFinish;
         } else if (play.type == TurnType.single) {
           score -= weights.avoidSoftLeadAgainstOpponentTichu;
@@ -185,7 +195,7 @@ class TurnScorer {
       score += weights.givePartnerLead;
     }
 
-    final partnerId = TableRelationships(snapshot, playerId).partnerId;
+    final partnerId = table.partnerId;
     if (_partnerCalledTichu(snapshot, playerId) &&
         snapshot.lastPlayedBy == partnerId &&
         deck.turn.type != TurnType.empty &&
@@ -225,11 +235,7 @@ class TurnScorer {
       return 0;
     }
 
-    final tracker = this.tracker;
-    if (tracker == null) {
-      return 0;
-    }
-    if (!tracker.isDragonPlayed(hand)) {
+    if (!CardKnowledge.of(snapshot, playerId).dragonPlayed) {
       return 0;
     }
 
@@ -373,11 +379,9 @@ class TurnScorer {
     return false;
   }
 
-  bool _isUnbeatableLine(final TichuTurn play) =>
-      play.type == TurnType.straight ||
-      play.type == TurnType.pairStraight ||
-      play.type == TurnType.fullHouse ||
-      play.type == TurnType.bomb;
+  /// Bombs, plus anything the unseen cards provably cannot beat.
+  bool _isUnbeatableLine(final TichuTurn play, final CardKnowledge knowledge) =>
+      play.type == TurnType.bomb || knowledge.isUnbeatable(play);
 
   int _countLowSingletons(final List<Card> hand) {
     final normalCards = hand

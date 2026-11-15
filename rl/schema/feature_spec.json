@@ -1,74 +1,112 @@
 {
-    "version": 3,
-    "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes.",
+    "version": 4,
+    "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/feature_encoder.dart) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes. All groups except 'action' form the per-decision state prefix. Card bitmaps use index = color*13 + (rank-2) for normal cards (colors black, green, red, blue; ranks 2..A), then 52 mahjong, 53 dog, 54 phoenix, 55 dragon. Rank histograms use r2..rA, mahjong, dog, phoenix, dragon. Seats are relative to the acting player: left = next to play, partner, right = previous.",
     "groups": [
         {
-            "name": "state",
-            "size": 32,
+            "name": "hand",
+            "size": 56,
             "features": [
-                "team",
-                "is_current_player",
-                "phase_grand_tichu",
-                "phase_schupf",
-                "phase_play",
-                "hand_size",
-                "low_count",
-                "mid_count",
-                "high_count",
-                "special_count",
-                "has_mahjong",
-                "has_phoenix",
-                "has_dragon",
-                "has_dog",
-                "has_bomb",
-                "can_bomb",
-                "can_call_tichu",
-                "deck_empty",
-                "deck_normal",
-                "deck_bomb",
-                "deck_value",
-                "deck_card_count",
+                "hand_black_2", "hand_black_3", "hand_black_4", "hand_black_5", "hand_black_6", "hand_black_7", "hand_black_8", "hand_black_9", "hand_black_10", "hand_black_j", "hand_black_q", "hand_black_k", "hand_black_a",
+                "hand_green_2", "hand_green_3", "hand_green_4", "hand_green_5", "hand_green_6", "hand_green_7", "hand_green_8", "hand_green_9", "hand_green_10", "hand_green_j", "hand_green_q", "hand_green_k", "hand_green_a",
+                "hand_red_2", "hand_red_3", "hand_red_4", "hand_red_5", "hand_red_6", "hand_red_7", "hand_red_8", "hand_red_9", "hand_red_10", "hand_red_j", "hand_red_q", "hand_red_k", "hand_red_a",
+                "hand_blue_2", "hand_blue_3", "hand_blue_4", "hand_blue_5", "hand_blue_6", "hand_blue_7", "hand_blue_8", "hand_blue_9", "hand_blue_10", "hand_blue_j", "hand_blue_q", "hand_blue_k", "hand_blue_a",
+                "hand_mahjong", "hand_dog", "hand_phoenix", "hand_dragon"
+            ]
+        },
+        {
+            "name": "played",
+            "size": 56,
+            "features": [
+                "played_black_2", "played_black_3", "played_black_4", "played_black_5", "played_black_6", "played_black_7", "played_black_8", "played_black_9", "played_black_10", "played_black_j", "played_black_q", "played_black_k", "played_black_a",
+                "played_green_2", "played_green_3", "played_green_4", "played_green_5", "played_green_6", "played_green_7", "played_green_8", "played_green_9", "played_green_10", "played_green_j", "played_green_q", "played_green_k", "played_green_a",
+                "played_red_2", "played_red_3", "played_red_4", "played_red_5", "played_red_6", "played_red_7", "played_red_8", "played_red_9", "played_red_10", "played_red_j", "played_red_q", "played_red_k", "played_red_a",
+                "played_blue_2", "played_blue_3", "played_blue_4", "played_blue_5", "played_blue_6", "played_blue_7", "played_blue_8", "played_blue_9", "played_blue_10", "played_blue_j", "played_blue_q", "played_blue_k", "played_blue_a",
+                "played_mahjong", "played_dog", "played_phoenix", "played_dragon"
+            ]
+        },
+        {
+            "name": "unseen",
+            "size": 17,
+            "features": [
+                "unseen_2", "unseen_3", "unseen_4", "unseen_5", "unseen_6", "unseen_7", "unseen_8", "unseen_9", "unseen_10", "unseen_j", "unseen_q", "unseen_k", "unseen_a",
+                "unseen_mahjong", "unseen_dog", "unseen_phoenix", "unseen_dragon"
+            ]
+        },
+        {
+            "name": "trick",
+            "size": 20,
+            "features": [
+                "trick_lead",
+                "trick_single",
+                "trick_pair",
+                "trick_triplet",
+                "trick_full_house",
+                "trick_straight",
+                "trick_pair_straight",
+                "trick_bomb",
+                "trick_value",
+                "trick_card_count",
+                "trick_points",
                 "trick_winner_self",
+                "trick_winner_left",
                 "trick_winner_partner",
-                "trick_winner_opponent",
-                "active_wish",
-                "has_wish_in_hand",
+                "trick_winner_right",
                 "consecutive_passes",
+                "wish_active",
+                "wish_rank",
+                "wish_in_hand",
+                "trick_top_is_dragon"
+            ]
+        },
+        {
+            "name": "seats",
+            "size": 27,
+            "features": [
+                "left_card_count", "left_one_card", "left_few_cards", "left_finished", "left_finished_first", "left_tichu", "left_grand_tichu", "left_points_won", "left_known_passed_held",
+                "partner_card_count", "partner_one_card", "partner_few_cards", "partner_finished", "partner_finished_first", "partner_tichu", "partner_grand_tichu", "partner_points_won", "partner_known_passed_held",
+                "right_card_count", "right_one_card", "right_few_cards", "right_finished", "right_finished_first", "right_tichu", "right_grand_tichu", "right_points_won", "right_known_passed_held"
+            ]
+        },
+        {
+            "name": "self",
+            "size": 15,
+            "features": [
+                "hand_size",
+                "own_tichu",
+                "own_grand_tichu",
+                "can_call_tichu",
+                "own_points_won",
                 "finish_order_progress",
+                "own_team_finished_first",
+                "opp_team_finished_first",
+                "has_bomb",
+                "team_round_points",
+                "opp_round_points",
                 "score_gap",
-                "own_call_tichu",
-                "own_call_grand_tichu"
+                "own_to_target",
+                "opp_to_target",
+                "unseen_bomb_possible"
             ]
         },
         {
             "name": "hand_structure",
-            "size": 8,
+            "size": 10,
             "features": [
-                "pair_count",
-                "triplet_count",
-                "straight_count",
-                "full_house_count",
-                "pair_straight_count",
-                "bomb_count",
-                "max_combo_size",
-                "singleton_fraction"
-            ]
-        },
-        {
-            "name": "opponent",
-            "size": 6,
-            "features": [
-                "opp_count_min",
-                "opp_count_mid",
-                "opp_count_max",
-                "partner_called",
-                "any_opp_tichu",
-                "any_opp_grand"
+                "singles",
+                "pairs",
+                "triplets",
+                "bombs",
+                "longest_run",
+                "longest_pair_run",
+                "has_straight",
+                "est_plays_to_finish",
+                "controls",
+                "low_singles"
             ]
         },
         {
             "name": "action",
-            "size": 20,
+            "size": 51,
             "features": [
                 "type_pass",
                 "type_single",
@@ -78,18 +116,34 @@
                 "type_straight",
                 "type_pair_straight",
                 "type_bomb",
+                "type_dog",
                 "action_value",
                 "action_card_count",
-                "is_phoenix_play",
-                "is_dragon_play",
-                "is_dog_play",
-                "is_mahjong_play",
-                "low_played",
-                "mid_played",
-                "high_played",
-                "highest_played_rank",
                 "relative_strength",
-                "beats_deck"
+                "uses_phoenix",
+                "uses_dragon",
+                "uses_mahjong",
+                "highest_rank",
+                "lowest_rank",
+                "action_points",
+                "overtakes_partner",
+                "fulfills_wish",
+                "is_finishing",
+                "unbeatable",
+                "breaks_bomb",
+                "act_2", "act_3", "act_4", "act_5", "act_6", "act_7", "act_8", "act_9", "act_10", "act_j", "act_q", "act_k", "act_a",
+                "act_mahjong", "act_dog", "act_phoenix", "act_dragon",
+                "after_hand_size",
+                "after_singles",
+                "after_pairs",
+                "after_triplets",
+                "after_bombs",
+                "after_longest_run",
+                "after_longest_pair_run",
+                "after_has_straight",
+                "after_est_plays_to_finish",
+                "after_controls",
+                "after_low_singles"
             ]
         }
     ]

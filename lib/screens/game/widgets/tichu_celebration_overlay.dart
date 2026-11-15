@@ -1,6 +1,4 @@
-import 'dart:async';
-
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'package:tichu/screens/game/widgets/trick_event_overlay.dart';
 
@@ -52,7 +50,7 @@ class _TichuCelebrationOverlayState extends State<TichuCelebrationOverlay>
         reverseCurve: Curves.easeIn,
       ),
     );
-    unawaited(_controller.forward());
+    _controller.forward();
   }
 
   void _dismiss() {

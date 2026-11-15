@@ -119,6 +119,22 @@ There are now two Python entry points:
    vs heuristic, promote on a significant paired gain. `--algo=awr` (default)
    trains with `awr_train.py`; `--algo=bc` is the old winners-only BC.
 
+4. **`call_train.py`** — call-value nets. Data comes from
+   `headless --call-epsilon=p`, which flips Tichu / Grand Tichu decisions
+   with probability p (first Tichu opportunity per player and round) and
+   logs `{"call": "tichu"|"grand", "called", "state_features", ...}` rows.
+
+   ```bash
+   rl/.venv/bin/python rl/call_train.py --generate --episodes=1500 \
+       --target-score=500 --call-epsilon=0.15 \
+       --nn-policy=rl/outputs/best_policy.safetensors --output-dir=rl/outputs
+   rl/.venv/bin/python rl/evaluate_policy.py \
+       --nn-policy=rl/outputs/best_policy.safetensors \
+       --tichu-net=rl/outputs/tichu_net.safetensors \
+       --grand-net=rl/outputs/grand_net.safetensors \
+       --output=rl/outputs/eval_calls.safetensors --episodes=200 --target-score=500
+   ```
+
 3. **`awr_train.py`** — advantage-weighted regression. Fits a value net
    V(s) on the 201 state features to the round point difference (own team
    minus opponents, incl. Tichu bonuses, /100), then fine-tunes the policy
@@ -134,8 +150,13 @@ There are now two Python entry points:
 every legal play plus pass, and only keeps the hard rules (play out when a
 finishing turn exists; wish enforcement). The heuristic's tactical shortcuts
 (partner-support pass, lead tactics, singleton responses) are bypassed for
-NN players. Tichu/Grand Tichu calls, schupf, Dragon gift and wish choice are
-still heuristic.
+NN players. Schupf, Dragon gift and wish choice are still heuristic.
+
+Tichu / Grand Tichu calls can come from call-value nets
+(`NnTichuCallStrategy`, `headless --tichu-net=.. --grand-net=..`): Q(s, call)
+on the 201 state features + a call flag, predicting the round point
+difference. The agent calls when Q(s, 1) − Q(s, 0) > margin. Without nets the
+heuristic decides (it never calls Grand Tichu).
 
 ### Evaluation
 
@@ -188,7 +209,7 @@ To beat the heuristic by a wider margin requires one of:
 1. A search head at inference (IS-MCTS with the policy as prior; the value
    net already replaces rollouts at the leaves).
 2. More AWR self-play iterations / data (see `self_play.py`).
-3. NN decisions for Tichu / Grand Tichu calls and schupf (still heuristic).
+3. NN decisions for schupf, Dragon gift and wish (still heuristic).
 
 ## Output contract
 

@@ -155,6 +155,22 @@ class LocalScoreTracker implements ScoreTracker {
     _tichuCalls.addAll(scoreState.tichuCalls);
   }
 
+  /// Independent deep copy (for forking a round, e.g. counterfactual
+  /// training labels).
+  LocalScoreTracker copy() {
+    final c = LocalScoreTracker().._state = _state;
+    for (final e in _capturedCards.entries) {
+      c._capturedCards[e.key] = List<Card>.from(e.value);
+    }
+    for (final e in _remainingHands.entries) {
+      c._remainingHands[e.key] = List<Card>.from(e.value);
+    }
+    c._finishOrder.addAll(_finishOrder);
+    c._tichuCalls.addAll(_tichuCalls);
+    c._playerSeats.addAll(_playerSeats);
+    return c;
+  }
+
   @override
   ScoreState get state => _state;
 

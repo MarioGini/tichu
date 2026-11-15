@@ -39,4 +39,47 @@ class GameEngineState {
     required this.reservedHands,
     required this.phase,
   });
+
+  /// Independent deep copy of the whole state (cards are immutable values
+  /// and shared; every collection is copied).
+  GameEngineState copy() {
+    final c =
+        GameEngineState(
+            gameId: gameId,
+            players: players,
+            hands: {
+              for (final e in hands.entries) e.key: List<Card>.from(e.value),
+            },
+            deck: DeckState(deck.turn, deck.wish)
+              ..currentWinner = deck.currentWinner
+              ..cardStack = List<Card>.from(deck.cardStack),
+            currentPlayerIndex: currentPlayerIndex,
+            scoreTracker: scoreTracker.copy(),
+            reservedHands: {
+              for (final e in reservedHands.entries)
+                e.key: List<Card>.from(e.value),
+            },
+            phase: phase,
+          )
+          ..consecutivePasses = consecutivePasses
+          ..lastPlayedBy = lastPlayedBy
+          ..lastPlayedTurn = lastPlayedTurn
+          ..lastDragonGiveBy = lastDragonGiveBy
+          ..lastDragonGiveTo = lastDragonGiveTo
+          ..pendingDragonGiveBy = pendingDragonGiveBy;
+    c.pendingDragonGiveTargets.addAll(pendingDragonGiveTargets);
+    c.pendingDragonTrickCards.addAll(pendingDragonTrickCards);
+    c.currentTrickCards.addAll(currentTrickCards);
+    c.finishedPlayers.addAll(finishedPlayers);
+    c.playersWhoPlayedCardsThisRound.addAll(playersWhoPlayedCardsThisRound);
+    c.grandTichuDecisions.addAll(grandTichuDecisions);
+    c.schupfSelections.addAll(schupfSelections);
+    for (final e in schupfReceipts.entries) {
+      c.schupfReceipts[e.key] = List<SchupfReceipt>.from(e.value);
+    }
+    for (final e in schupfPendingAdditions.entries) {
+      c.schupfPendingAdditions[e.key] = List<Card>.from(e.value);
+    }
+    return c;
+  }
 }

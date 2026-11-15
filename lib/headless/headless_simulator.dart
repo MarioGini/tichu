@@ -35,6 +35,10 @@ class _HeadlessSimulator {
   /// (`shadow_index` in bc-jsonl) — used by `rl/analyze_games.py`.
   final bool shadowHeuristic;
 
+  /// Label each logged Tichu decision with its exact counterfactual value
+  /// (round forked and played both ways), see [_counterfactualCall].
+  final bool counterfactualCalls;
+
   /// Omit play/pass rows from bc-jsonl (call / schupf / round data only).
   final bool skipPlayRows;
   final _shadowAgents = <String, SmartAiAgent>{};
@@ -64,6 +68,7 @@ class _HeadlessSimulator {
     this.schupfEpsilon = 0,
     this.shadowHeuristic = false,
     this.skipPlayRows = false,
+    this.counterfactualCalls = false,
   });
 
   Future<GameAction?> _shadowHeuristicTurn(
@@ -245,6 +250,9 @@ class _HeadlessSimulator {
         playerId: playerId,
         called: shouldCall,
         explored: explored,
+        counterfactual: counterfactualCalls && _bcWriter != null
+            ? await _counterfactualCall(engine, state, playerId, 'pre')
+            : null,
       );
       if (shouldCall) return CallTichuAction(playerId: playerId);
       request = AgentDecisions.next(
@@ -274,6 +282,9 @@ class _HeadlessSimulator {
           playerId: playerId,
           called: shouldCall,
           explored: explored,
+          counterfactual: counterfactualCalls && _bcWriter != null
+              ? await _counterfactualCall(engine, state, playerId, 'grand')
+              : null,
         );
         return GrandTichuDecisionAction(playerId: playerId, call: shouldCall);
       case SchupfRequest(:final playerId):
@@ -294,6 +305,8 @@ class _HeadlessSimulator {
         return selection;
       case TurnRequest(:final playerId):
         return _selectTurn(
+          engine: engine,
+          state: state,
           snapshot: snapshot,
           playerId: playerId,
           agent: agent,
@@ -306,6 +319,8 @@ class _HeadlessSimulator {
   }
 
   Future<GameAction?> _selectTurn({
+    required final GameEngine engine,
+    required final GameEngineState state,
     required final GameSnapshot snapshot,
     required final String playerId,
     required final PlayerAgent agent,
@@ -334,6 +349,9 @@ class _HeadlessSimulator {
           playerId: playerId,
           called: shouldCall,
           explored: explored,
+          counterfactual: counterfactualCalls && _bcWriter != null
+              ? await _counterfactualCall(engine, state, playerId, 'tichu')
+              : null,
         );
         if (shouldCall) return CallTichuAction(playerId: playerId);
         return await agent.selectTurn(snapshot);
@@ -344,6 +362,82 @@ class _HeadlessSimulator {
     } on StateError {
       return null;
     }
+  }
+
+  /// Exact value of calling Tichu now for [playerId]'s team, in round
+  /// points: the round is forked and played out twice with fresh,
+  /// non-exploring agents — once with the call, once with the player never
+  /// calling this round — and the team's point differences are subtracted.
+  /// The deal is fixed and the bots are deterministic, so this label has no
+  /// card-luck noise at all.
+  ///
+  /// [kind]: 'tichu' (play phase; the no-call branch never calls this
+  /// round), 'grand' (Grand Tichu decision; no-call = declines, then plays
+  /// on normally) or 'pre' (before the schupf; no-call = continues
+  /// normally, may still call Tichu later).
+  Future<double?> _counterfactualCall(
+    final GameEngine engine,
+    final GameEngineState state,
+    final String playerId,
+    final String kind,
+  ) async {
+    final team =
+        state.players.firstWhere((final p) => p.id == playerId).seat % 2;
+    Future<int?> playOut({required final bool call}) async {
+      final fork = state.copy();
+      final forkAgents = {
+        for (final p in fork.players) p.id: agentFactory(p.id, p.seat),
+      };
+      final preDecided = {..._preSchupfDecided};
+      if (kind == 'grand') {
+        engine.applyAction(
+          fork,
+          GrandTichuDecisionAction(playerId: playerId, call: call),
+        );
+      } else if (call) {
+        engine.applyAction(fork, CallTichuAction(playerId: playerId));
+      }
+      if (kind == 'pre') preDecided.add(playerId);
+      for (var steps = 0; steps < 5000; steps++) {
+        final score = fork.scoreTracker.state;
+        if (score.roundComplete) {
+          final diff = score.teamOneRound - score.teamTwoRound;
+          return team == 0 ? diff : -diff;
+        }
+        final request = AgentDecisions.next(
+          engine,
+          fork,
+          preSchupfDecided: preDecided,
+        );
+        if (request == null) return null;
+        if (request is PreSchupfTichuRequest) preDecided.add(request.playerId);
+        final agent = forkAgents[request.playerId]!;
+        final snap = engine.buildSnapshot(fork);
+        GameAction? action;
+        try {
+          // The decider keeps the counterfactual: no Tichu in the
+          // no-call branch (selectTurn never calls).
+          action =
+              kind == 'tichu' &&
+                  request is TurnRequest &&
+                  request.playerId == playerId
+              ? await agent.selectTurn(snap)
+              : await AgentDecisions.resolve(request, agent, snap, fork);
+          // Agents signal "no legal action" with StateError.
+          // ignore: avoid_catching_errors
+        } on StateError {
+          return null;
+        }
+        if (action == null) continue;
+        engine.applyAction(fork, action);
+      }
+      return null;
+    }
+
+    final withCall = await playOut(call: true);
+    final without = await playOut(call: false);
+    if (withCall == null || without == null) return null;
+    return (withCall - without).toDouble();
   }
 
   /// Replace one to three (mostly one) of the passed cards with random other

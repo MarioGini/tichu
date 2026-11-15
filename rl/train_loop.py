@@ -91,7 +91,13 @@ def evaluate_bot(directory: Path, out: Path, args: argparse.Namespace) -> dict:
 def main() -> None:
     p = argparse.ArgumentParser(description="Joint call / schupf / play training loop")
     p.add_argument("--iterations", type=int, default=5)
-    p.add_argument("--call-episodes", type=int, default=3000)
+    p.add_argument("--call-episodes", type=int, default=1200)
+    p.add_argument(
+        "--no-counterfactual",
+        dest="counterfactual",
+        action="store_false",
+        help="Train call nets on noisy round results instead of exact forked labels",
+    )
     p.add_argument("--play-episodes", type=int, default=600)
     p.add_argument("--target-score", type=int, default=500)
     p.add_argument("--call-epsilon", type=float, default=0.15)
@@ -142,6 +148,7 @@ def main() -> None:
                     f"--call-epsilon={args.call_epsilon}",
                     f"--schupf-epsilon={args.schupf_epsilon}",
                     "--skip-play-rows",
+                    *(["--counterfactual-calls"] if args.counterfactual else []),
                 ],
                 seed=seed, episodes=args.call_episodes, output_path=calls,
                 shards=args.shards or None,
@@ -157,7 +164,7 @@ def main() -> None:
             out = run([py, str(RL / "call_train.py"), f"--jsonl={calls}", f"--output-dir={cand}",
                        "--kind=all"])
             for line in out.splitlines():
-                if "worth" in line or "would call" in line:
+                if "worth" in line or "would call" in line or "gain" in line:
                     print("  ", line.strip())
             out = run([py, str(RL / "schupf_train.py"), f"--jsonl={calls}",
                        f"--output={cand / 'schupf_net.safetensors'}"])

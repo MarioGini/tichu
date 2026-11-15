@@ -100,6 +100,7 @@ Future<void> main(final List<String> args) async {
     schupfEpsilon: config.schupfEpsilon,
     shadowHeuristic: config.shadowHeuristic,
     skipPlayRows: config.skipPlayRows,
+    counterfactualCalls: config.counterfactualCalls,
   );
 
   try {
@@ -142,6 +143,7 @@ class _HeadlessConfig {
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
+  final bool counterfactualCalls;
 
   const _HeadlessConfig({
     required this.seed,
@@ -171,6 +173,7 @@ class _HeadlessConfig {
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
+    required this.counterfactualCalls,
   });
 }
 
@@ -205,6 +208,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
   var skipPlayRows = false;
+  var counterfactualCalls = false;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -300,6 +304,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       grandNetPath = arg.split('=').last;
       continue;
     }
+    if (arg == '--counterfactual-calls') {
+      counterfactualCalls = true;
+      continue;
+    }
     if (arg == '--skip-play-rows') {
       skipPlayRows = true;
       continue;
@@ -373,6 +381,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
+    counterfactualCalls: counterfactualCalls,
   );
 }
 
@@ -392,6 +401,7 @@ void _printUsage() {
   stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
   stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
+  stdout.writeln('       [--counterfactual-calls]');
   stdout.writeln('       [--epsilon=0.1]');
 }
 

@@ -39,6 +39,7 @@ class _BcTransitionWriter {
     required final String playerId,
     required final bool called,
     required final bool explored,
+    final double? counterfactual,
   }) {
     output.writeln(
       jsonEncode(<String, Object?>{
@@ -46,6 +47,8 @@ class _BcTransitionWriter {
         'round': snapshot.scoreState.roundNumber,
         'team': _teamForPlayer(snapshot, playerId),
         'call': kind,
+        // Exact R(call) - R(no call) for this deal, in points (optional).
+        'cf': ?counterfactual,
         'oracle': _oracle(snapshot, playerId),
         'called': called,
         if (explored) 'explore': true,

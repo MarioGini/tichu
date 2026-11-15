@@ -168,7 +168,70 @@ def export(model: QNetwork, path: Path, *, kind: str, val_mse: float, n: int) ->
     )
 
 
+def load_counterfactual(jsonl: Path, kind: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Rows with an exact counterfactual label ``cf`` = R(call) - R(no call)
+    (headless ``--counterfactual-calls``). Returns (call features (N, F),
+    cf / SCALE (N,), heuristic_called (N,))."""
+    xs, cfs, heur = [], [], []
+    with jsonl.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            if f'"call":"{kind}"' not in line or '"cf"' not in line:
+                continue
+            r = json.loads(line)
+            xs.append(r["state_features"] + received_onehot(r.get("received")))
+            cfs.append(float(r["cf"]) / SCALE)
+            heur.append(bool(r["called"]) != bool(r.get("explore", False)))
+    return (
+        torch.tensor(xs, dtype=torch.float32),
+        torch.tensor(cfs, dtype=torch.float32),
+        torch.tensor(heur, dtype=torch.bool),
+    )
+
+
+def fit_counterfactual(
+    feats: torch.Tensor, cf: torch.Tensor, heur: torch.Tensor, kind: str, output: Path,
+    args: argparse.Namespace,
+) -> None:
+    """Q(x, 1) - Q(x, 0) = cf exactly: train on (x, call) -> cf/2 and
+    (x, no call) -> -cf/2."""
+    n = feats.shape[0]
+    pts = cf * SCALE
+    best = float(torch.clamp(pts, min=0).mean())
+    heur_val = float((pts * heur.float()).mean())
+    print(
+        f"[{kind}] counterfactual rows={n}: heuristic calls gain {heur_val:+.1f} pts/decision, "
+        f"perfect calling would gain {best:+.1f}; heuristic calls "
+        f"{100*float(heur.float().mean()):.1f}%, worth calling {100*float((pts > 0).float().mean()):.1f}%"
+    )
+    x1 = torch.cat([feats, torch.ones(n, 1), feats], dim=1)
+    x0 = torch.cat([feats, torch.zeros(n, 1), torch.zeros_like(feats)], dim=1)
+    x = torch.cat([x1, x0])
+    y = torch.cat([cf / 2, -cf / 2])
+    hidden = [int(h) for h in args.hidden.split(",") if h]
+    model, mse = train(x, y, hidden=hidden, epochs=args.epochs, lr=args.lr, seed=args.seed)
+    # Held-out estimate of the gain: 2-fold, train on one half, score the other.
+    perm = torch.from_numpy(np.random.default_rng(args.seed).permutation(n))
+    gain = 0.0
+    for k in range(2):
+        tr, te = perm[k::2], perm[1 - k :: 2]
+        m, _ = train(torch.cat([x1[tr], x0[tr]]), torch.cat([cf[tr] / 2, -cf[tr] / 2]),
+                     hidden=hidden, epochs=args.epochs, lr=args.lr, seed=args.seed + k)
+        with torch.no_grad():
+            adv = (m(x1[te]) - m(x0[te])).squeeze(-1) * SCALE
+        gain += float((pts[te] * (adv > args.margin).float()).sum())
+    print(
+        f"[{kind}] held-out: NN calls gain {gain / n:+.1f} pts/decision "
+        f"(heuristic {heur_val:+.1f}, perfect {best:+.1f})"
+    )
+    export(model, output, kind=kind, val_mse=mse, n=n)
+    print(f"[{kind}] saved {output}")
+
+
 def fit_kind(jsonl: Path, kind: str, output: Path, args: argparse.Namespace) -> None:
+    feats, cf, heur_cf = load_counterfactual(jsonl, kind)
+    if feats.shape[0] > 0 and not args.no_counterfactual:
+        fit_counterfactual(feats, cf, heur_cf, kind, output, args)
+        return
     x, y, heur, orc = load_calls(jsonl, kind)
     called = x[:, FEATURES] > 0.5
     if not args.no_oracle and bool(orc.any()):
@@ -235,6 +298,11 @@ def main() -> None:
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--margin", type=float, default=0.0, help="Report threshold (pts)")
     p.add_argument("--no-oracle", action="store_true", help="Train on raw R (no oracle baseline)")
+    p.add_argument(
+        "--no-counterfactual",
+        action="store_true",
+        help="Ignore exact counterfactual labels even when present",
+    )
     args = p.parse_args()
     _select_device()
 

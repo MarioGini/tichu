@@ -8,10 +8,13 @@ Per iteration:
   1. Generate self-play episodes: team0 = current candidate, team1 = best so
      far. Headless emits per-decision JSONL with legal action features and
      the chosen action index.
-  2. Train a new candidate via ``bc_pretrain.py`` on the WON team's
-     decisions only, warm-started from the current candidate, with a KL
-     anchor that pulls the new policy back toward the previous best to
-     prevent catastrophic forgetting.
+  2. Train a new candidate, warm-started from the current candidate with a
+     KL anchor to the previous best (prevents catastrophic forgetting):
+     ``--algo=awr`` (default): ``awr_train.py`` — advantage-weighted
+       regression on all decisions, advantages from a value net V(s) fit
+       to round point differences (saved as value_policy.safetensors).
+     ``--algo=bc``: ``bc_pretrain.py`` on the winning team's decisions
+       (old behaviour; mostly imitates lucky hands).
   3. Evaluate the new candidate vs the heuristic (duplicate deals, same seed
      every iteration). Promote it to best only if its paired per-deal win
      rate beats the best policy's by more than ``--promote-z`` standard
@@ -137,6 +140,42 @@ def _train_candidate(
     _run(cmd, label="train")
 
 
+def _train_candidate_awr(
+    *,
+    jsonl: Path,
+    output: Path,
+    init_from: Path,
+    anchor: Path,
+    kl_weight: float,
+    epochs: int,
+    lr: float,
+    decisions_per_batch: int,
+    seed: int,
+    beta: float,
+    value_path: Path,
+) -> None:
+    cmd = [
+        sys.executable,
+        str(RL_DIR / "awr_train.py"),
+        f"--jsonl={jsonl}",
+        f"--output={output}",
+        f"--init-from={init_from}",
+        f"--anchor-policy={anchor}",
+        f"--kl-weight={kl_weight}",
+        f"--epochs={epochs}",
+        f"--lr={lr}",
+        f"--decisions-per-batch={decisions_per_batch}",
+        f"--seed={seed}",
+        f"--beta={beta}",
+        f"--value-init={value_path}",
+        f"--value-output={value_path}",
+    ]
+    res = _run(cmd, label="awr")
+    for line in res.stdout.splitlines():
+        if line.startswith("  value:") or line.startswith("AWR data"):
+            print("   " + line.strip())
+
+
 def _evaluate(
     *,
     policy: Path,
@@ -249,6 +288,8 @@ def main() -> None:
         help="Train only on decisions made by the winning team in self-play (default on)",
     )
     p.add_argument("--no-winners-only", dest="winners_only", action="store_false")
+    p.add_argument("--algo", choices=["awr", "bc"], default="awr")
+    p.add_argument("--beta", type=float, default=1.0, help="AWR temperature")
     p.add_argument(
         "--promote-z",
         type=float,
@@ -367,20 +408,35 @@ def main() -> None:
                 f"anchor={best_path.name} kl={args.kl_weight} "
                 f"winners_only={args.winners_only}"
             )
-            _train_candidate(
-                jsonl=sp_jsonl,
-                output=new_candidate,
-                init_from=candidate_path,
-                anchor=best_path,
-                kl_weight=args.kl_weight,
-                epochs=args.epochs,
-                hidden=args.hidden,
-                lr=args.lr,
-                decisions_per_batch=args.decisions_per_batch,
-                seed=seed_sp + 7,
-                device=args.device,
-                winners_only=args.winners_only,
-            )
+            if args.algo == "awr":
+                _train_candidate_awr(
+                    jsonl=sp_jsonl,
+                    output=new_candidate,
+                    init_from=candidate_path,
+                    anchor=best_path,
+                    kl_weight=args.kl_weight,
+                    epochs=args.epochs,
+                    lr=args.lr,
+                    decisions_per_batch=args.decisions_per_batch,
+                    seed=seed_sp + 7,
+                    beta=args.beta,
+                    value_path=OUTPUTS / "value_policy.safetensors",
+                )
+            else:
+                _train_candidate(
+                    jsonl=sp_jsonl,
+                    output=new_candidate,
+                    init_from=candidate_path,
+                    anchor=best_path,
+                    kl_weight=args.kl_weight,
+                    epochs=args.epochs,
+                    hidden=args.hidden,
+                    lr=args.lr,
+                    decisions_per_batch=args.decisions_per_batch,
+                    seed=seed_sp + 7,
+                    device=args.device,
+                    winners_only=args.winners_only,
+                )
 
             # 3) Evaluate vs heuristic.
             eval_path = td_path / f"eval_iter{i}.safetensors"

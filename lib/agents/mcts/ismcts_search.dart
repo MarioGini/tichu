@@ -39,8 +39,12 @@ class IsmctsSearch {
   final HandSampler _sampler;
   final Random _random;
 
-  /// Optional value network for leaf evaluation. If null, uses heuristic
-  /// rollouts.
+  /// Optional state-value network V(s) for leaf evaluation (input: the
+  /// [stateFeatureCount] state features of the searching player; output
+  /// denormalised with mean/std to round points, my team minus opponents,
+  /// as produced by `rl/awr_train.py --value-output`). A network with any
+  /// other input size (e.g. a Q(s, a) policy) is ignored and heuristic
+  /// rollouts are used instead.
   final Mlp? valueNetwork;
   final double? valueNetworkMean;
   final double? valueNetworkStd;
@@ -196,15 +200,20 @@ class IsmctsSearch {
     required final GameSnapshot snapshot,
     required final String playerId,
     required final int myTeam,
-  }) => // NOTE: the network is currently a Q(s, a) head trained on full
-      // (state, action) features. Querying it as V(s) by zeroing the action
-      // features is out-of-distribution and unreliable; until a true value
-      // head exists, always use heuristic rollouts. The valueNetwork* fields
-      // are kept for future use.
-      _heuristicRollout(engine: engine, state: state, myTeam: myTeam);
+  }) {
+    final net = valueNetwork;
+    if (net != null &&
+        net.inputSize == stateFeatureCount &&
+        !state.scoreTracker.state.roundComplete) {
+      return _evaluateWithNetwork(
+        snapshot: snapshot,
+        playerId: playerId,
+        myTeam: myTeam,
+      );
+    }
+    return _heuristicRollout(engine: engine, state: state, myTeam: myTeam);
+  }
 
-  // Kept private for future restoration once a true V(s) head is trained.
-  // ignore: unused_element
   double _evaluateWithNetwork({
     required final GameSnapshot snapshot,
     required final String playerId,
@@ -214,11 +223,7 @@ class IsmctsSearch {
       snapshot: snapshot,
       playerId: playerId,
     );
-    // Use a "no-op" action encoding for state value estimation.
-    final dummyAction = List<double>.filled(actionFeatureCount, 0);
-    final input = [...stateFeatures, ...dummyAction];
-
-    final value = valueNetwork!.predict(input);
+    final value = valueNetwork!.predict(stateFeatures);
 
     // Denormalize if normalization stats are available.
     final std = valueNetworkStd ?? 1.0;

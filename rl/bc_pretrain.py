@@ -328,8 +328,12 @@ def _bc_step(
     require_grad: bool,
     anchor_model: nn.Module | None = None,
     kl_weight: float = 0.0,
+    weights: torch.Tensor | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """One forward pass over the chosen batch of decisions.
+
+    ``weights`` (D,) optionally weights each decision's cross-entropy term
+    (advantage-weighted regression); it is indexed by ``decision_idx``.
 
     Returns (total_loss, per-decision boolean correctness, kl_loss).
     """
@@ -367,7 +371,11 @@ def _bc_step(
     chosen_logits = logits[chosen_in_batch]                 # (K,)
 
     losses = lse - chosen_logits                            # (K,)
-    bc_loss = losses.mean()
+    if weights is None:
+        bc_loss = losses.mean()
+    else:
+        w = weights[decision_idx]
+        bc_loss = (losses * w).sum() / w.sum().clamp_min(1e-8)
     correct = (chosen_logits >= max_per - 1e-6)             # (K,) bool
 
     # Optional KL anchor: KL(current || anchor) over the legal-action softmax.

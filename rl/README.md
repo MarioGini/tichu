@@ -115,8 +115,18 @@ There are now two Python entry points:
    - `--shards=N` parallel headless workers for the data-gen phase
 
 2. **`self_play.py`** — iterative self-play loop. Per iteration: candidate
-   plays vs current best, BC train on winners-only with KL anchor, evaluate
-   the new policy vs heuristic, promote if better.
+   plays vs current best, fine-tune with KL anchor to best, duplicate-evaluate
+   vs heuristic, promote on a significant paired gain. `--algo=awr` (default)
+   trains with `awr_train.py`; `--algo=bc` is the old winners-only BC.
+
+3. **`awr_train.py`** — advantage-weighted regression. Fits a value net
+   V(s) on the 201 state features to the round point difference (own team
+   minus opponents, incl. Tichu bonuses, /100), then fine-tunes the policy
+   with cross-entropy weighted by `min(exp((R - V(s)) / beta), max_weight)`
+   plus a KL anchor. Uses all decisions, exploration moves included.
+   `--value-output` saves V(s) (`target_std=100`, so Dart reads points);
+   `headless --ismcts --value-net=value.safetensors` uses it as the leaf
+   evaluator instead of heuristic rollouts.
 
 ### What the NN controls
 
@@ -175,12 +185,10 @@ Only two RL-relevant formats remain:
 
 To beat the heuristic by a wider margin requires one of:
 
-1. A search head at inference (MCTS / IS-MCTS with the BC policy as prior).
-2. RL fine-tuning that does not catastrophically overwrite the BC anchor —
-   e.g. KL-regularised policy gradient or AWR.
-3. A trained value head (currently the network is Q(s, a) only;
-   `lib/agents/mcts/{ismcts,mcts}_search.dart` therefore disable
-   value-leaf evaluation and fall back to heuristic rollouts).
+1. A search head at inference (IS-MCTS with the policy as prior; the value
+   net already replaces rollouts at the leaves).
+2. More AWR self-play iterations / data (see `self_play.py`).
+3. NN decisions for Tichu / Grand Tichu calls and schupf (still heuristic).
 
 ## Output contract
 

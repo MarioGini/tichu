@@ -45,12 +45,14 @@ Future<void> main(final List<String> args) async {
 
   final nnPolicy = await _loadNnPolicy(config.nnPolicyPath);
   final opponentPolicy = await _loadNnPolicy(config.opponentPolicyPath);
+  final valueNet = await _loadNnPolicy(config.valueNetPath);
   final policyFactory = _buildAgentFactory(
     nnPolicy: nnPolicy,
     useMcts: config.useMcts,
     useIsmcts: config.useIsmcts,
     mctsDeterminizations: config.mctsDeterminizations,
     ismctsSimulations: config.ismctsSimulations,
+    valueNet: valueNet,
     random: random,
   );
   final opponentFactory = opponentPolicy != null
@@ -119,6 +121,7 @@ class _HeadlessConfig {
   final bool swapTeams;
   final int episodeOffset;
   final int? dealSeed;
+  final String? valueNetPath;
 
   const _HeadlessConfig({
     required this.seed,
@@ -141,6 +144,7 @@ class _HeadlessConfig {
     required this.swapTeams,
     required this.episodeOffset,
     required this.dealSeed,
+    required this.valueNetPath,
   });
 }
 
@@ -168,6 +172,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var swapTeams = false;
   var episodeOffset = 0;
   int? dealSeed;
+  String? valueNetPath;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -265,6 +270,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 0) episodeOffset = p;
       continue;
     }
+    if (arg.startsWith('--value-net=')) {
+      valueNetPath = arg.split('=').last;
+      continue;
+    }
     if (arg.startsWith('--deal-seed=')) {
       dealSeed = int.tryParse(arg.split('=').last);
       continue;
@@ -301,6 +310,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     swapTeams: swapTeams,
     episodeOffset: episodeOffset,
     dealSeed: dealSeed,
+    valueNetPath: valueNetPath,
   );
 }
 
@@ -313,6 +323,7 @@ void _printUsage() {
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
   stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
   stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
+  stdout.writeln('       [--ismcts --value-net=value.safetensors]');
   stdout.writeln('       [--epsilon=0.1] [--mcts] [--ismcts]');
 }
 
@@ -363,6 +374,7 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
   final bool useIsmcts = false,
   final int mctsDeterminizations = 20,
   final int ismctsSimulations = 100,
+  final _NnPolicyData? valueNet,
   final Random? random,
 }) {
   if (useIsmcts) {
@@ -371,9 +383,9 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
       playSelectionStrategy: IsmctsPlaySelectionStrategy(
         playerId: playerId,
         numSimulations: ismctsSimulations,
-        valueNetwork: nnPolicy?.network,
-        valueNetworkMean: nnPolicy?.targetMean,
-        valueNetworkStd: nnPolicy?.targetStd,
+        valueNetwork: valueNet?.network,
+        valueNetworkMean: valueNet?.targetMean,
+        valueNetworkStd: valueNet?.targetStd,
         random: random,
       ),
     );

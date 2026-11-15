@@ -177,8 +177,21 @@ void main() {
         final lines = await outputFile.readAsLines();
         expect(lines, isNotEmpty);
 
-        final first = jsonDecode(lines.first) as Map<String, dynamic>;
+        final rows = [
+          for (final l in lines) jsonDecode(l) as Map<String, dynamic>,
+        ];
+        // Bookkeeping rows: one episode_end per episode, round_end rows,
+        // and logged Tichu / Grand Tichu decisions.
+        expect(rows.where((final r) => r['episode_end'] == true).length, 2);
+        expect(rows.any((final r) => r['round_end'] == true), isTrue);
+        expect(rows.any((final r) => r['call'] == 'grand'), isTrue);
+        expect(rows.map((final r) => r['episode']).toSet(), {1, 2});
+
+        final first = rows.firstWhere(
+          (final r) => r.containsKey('legal_play_action_features'),
+        );
         expect(first['episode'], isA<int>());
+        expect(first['round'], isA<int>());
         expect(first['team'], isA<int>());
         expect(first['state_features'], isA<List<dynamic>>());
         expect((first['state_features'] as List).length, stateFeatureCount);

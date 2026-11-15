@@ -202,6 +202,23 @@ Only two RL-relevant formats remain:
 - `--ismcts`, `--ismcts-simulations=N` Information-Set MCTS player.
 - `--mcts`, `--mcts-determinizations=N` plain MCTS player.
 
+## Results (2026-11-15, CPU, 4 cores)
+
+All evaluations: duplicate, 200 deal sequences (400 matches), target 500,
+seed 12345, vs the heuristic. ± is one standard error.
+
+| Policy | Win rate | Paired vs AWR best |
+|--------|----------|--------------------|
+| BC (1500 heuristic games, 30 epochs, 94 % imitation) | 46.6 % ± 2.1 | — |
+| AWR self-play, 4 iterations × 800 games (2 promoted) | **51.4 % ± 2.2** | baseline |
+| + Tichu call net (1500 games, call-ε 0.15) | 49.8 % ± 2.2 | −1.6 ± 2.1 pp |
+| + Grand Tichu call net | 51.1 % ± 2.2 | −0.3 ± 1.3 pp |
+
+A/B from call exploration: the heuristic's Tichu calls are worth
++8.4 ± 5.2 pts/round vs not calling; a Grand Tichu call on an arbitrary
+hand costs ≈ 71 pts. The call nets match the heuristic but do not beat it
+yet (the round outcome is very noisy; they need more data).
+
 ## Next steps
 
 To beat the heuristic by a wider margin requires one of:

@@ -39,6 +39,16 @@ class _HeadlessSimulator {
   /// (round forked and played both ways), see [_counterfactualCall].
   final bool counterfactualCalls;
 
+  /// Share of call decisions that get a counterfactual label (each label
+  /// replays the rest of the round twice, so labelling every decision makes
+  /// games ~30x slower).
+  final double counterfactualRate;
+
+  bool _labelCounterfactual() =>
+      counterfactualCalls &&
+      _bcWriter != null &&
+      (counterfactualRate >= 1 || random.nextDouble() < counterfactualRate);
+
   /// Omit play/pass rows from bc-jsonl (call / schupf / round data only).
   final bool skipPlayRows;
   final _shadowAgents = <String, SmartAiAgent>{};
@@ -47,6 +57,9 @@ class _HeadlessSimulator {
   var _lastActionExplored = false;
 
   _BcTransitionWriter? _bcWriter;
+
+  /// Hand sizes by seat at the moment the first player went out this round.
+  Map<int, int>? _cardsAtFirstOut;
   final _preSchupfDecided = <String>{};
   var _preSchupfRound = -1;
   final _tichuDecided = <String>{};
@@ -69,6 +82,7 @@ class _HeadlessSimulator {
     this.shadowHeuristic = false,
     this.skipPlayRows = false,
     this.counterfactualCalls = false,
+    this.counterfactualRate = 1,
   });
 
   Future<GameAction?> _shadowHeuristicTurn(
@@ -211,7 +225,15 @@ class _HeadlessSimulator {
       if (!before.scoreState.roundComplete &&
           snapshot.scoreState.roundComplete) {
         completedRounds++;
-        bcWriter?.emitRoundEnd(snapshot);
+        bcWriter?.emitRoundEnd(snapshot, cardsLeftAtFirstOut: _cardsAtFirstOut);
+        _cardsAtFirstOut = null;
+      } else if (_cardsAtFirstOut == null &&
+          snapshot.scoreState.finishOrder.isNotEmpty) {
+        // Remember how close everyone was when the first player went out.
+        _cardsAtFirstOut = {
+          for (final p in snapshot.players)
+            p.seat: (snapshot.hands[p.id] ?? const <Card>[]).length,
+        };
       }
     }
   }
@@ -250,7 +272,7 @@ class _HeadlessSimulator {
         playerId: playerId,
         called: shouldCall,
         explored: explored,
-        counterfactual: counterfactualCalls && _bcWriter != null
+        counterfactual: _labelCounterfactual()
             ? await _counterfactualCall(engine, state, playerId, 'pre')
             : null,
       );
@@ -282,7 +304,7 @@ class _HeadlessSimulator {
           playerId: playerId,
           called: shouldCall,
           explored: explored,
-          counterfactual: counterfactualCalls && _bcWriter != null
+          counterfactual: _labelCounterfactual()
               ? await _counterfactualCall(engine, state, playerId, 'grand')
               : null,
         );
@@ -349,7 +371,7 @@ class _HeadlessSimulator {
           playerId: playerId,
           called: shouldCall,
           explored: explored,
-          counterfactual: counterfactualCalls && _bcWriter != null
+          counterfactual: _labelCounterfactual()
               ? await _counterfactualCall(engine, state, playerId, 'tichu')
               : null,
         );

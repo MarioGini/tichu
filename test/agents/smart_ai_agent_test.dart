@@ -563,7 +563,7 @@ void main() {
       expect(getTurn(play.cards).type, TurnType.pair);
     });
 
-    test('finishes instead of passing for partner support', () async {
+    test('does not go out ahead of a partner who called Tichu', () async {
       final hand = [
         Card(CardFace.phoenix, CardColor.special),
         Card(CardFace.king, CardColor.red),
@@ -584,10 +584,8 @@ void main() {
       );
 
       final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(play.cards.length, 2);
-      expect(getTurn(play.cards).type, TurnType.pair);
+      // Going out first would make the partner's Tichu fail (-100).
+      expect(action, isA<PassAction>());
     });
 
     test('avoids burning high cards early when leading', () async {
@@ -704,33 +702,57 @@ void main() {
       expect(action, isA<PassAction>());
     });
 
-    test(
-      'plays normally when opponent is leading despite partner tichu call',
-      () async {
-        final hand = [Card(CardFace.six, CardColor.red)];
-        final deckTurn = TichuTurn(TurnType.single, [
-          Card(CardFace.five, CardColor.black),
-        ]);
-        final deck = DeckState(deckTurn, CardFace.none);
-        deck.currentWinner = _leftId;
+    test('never goes out ahead of a partner who called Tichu', () async {
+      final hand = [Card(CardFace.six, CardColor.red)];
+      final deckTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.five, CardColor.black),
+      ]);
+      final deck = DeckState(deckTurn, CardFace.none);
+      final snapshot = _snapshot(
+        myHand: hand,
+        deck: deck,
+        otherHands: {
+          _leftId: [
+            Card(CardFace.two, CardColor.red),
+            Card(CardFace.nine, CardColor.blue),
+          ],
+          _partnerId: [Card(CardFace.ace, CardColor.red)],
+          _rightId: _defaultHand(),
+        },
+        tichuCalls: {_partnerId: TichuCall.tichu},
+        lastPlayedBy: _leftId,
+        lastPlayedTurn: deckTurn,
+      );
 
-        final snapshot = _snapshot(
-          myHand: hand,
-          deck: deck,
-          otherHands: {
-            _leftId: _defaultHand(),
-            _partnerId: [Card(CardFace.ace, CardColor.red)],
-            _rightId: _defaultHand(),
-          },
-          tichuCalls: {_partnerId: TichuCall.tichu},
-          lastPlayedBy: _leftId,
-          lastPlayedTurn: deckTurn,
-        );
+      final action = await agent.selectTurn(snapshot);
+      expect(action, isA<PassAction>());
+    });
 
-        final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PlayTurnAction>());
-      },
-    );
+    test('holds back its last card while partner Tichu is open and opponents '
+        'are not close', () async {
+      final hand = [Card(CardFace.six, CardColor.red)];
+      final deckTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.five, CardColor.black),
+      ]);
+      final deck = DeckState(deckTurn, CardFace.none);
+      deck.currentWinner = _leftId;
+
+      final snapshot = _snapshot(
+        myHand: hand,
+        deck: deck,
+        otherHands: {
+          _leftId: _defaultHand(),
+          _partnerId: [Card(CardFace.ace, CardColor.red)],
+          _rightId: _defaultHand(),
+        },
+        tichuCalls: {_partnerId: TichuCall.tichu},
+        lastPlayedBy: _leftId,
+        lastPlayedTurn: deckTurn,
+      );
+
+      final action = await agent.selectTurn(snapshot);
+      expect(action, isA<PassAction>());
+    });
 
     test(
       'passes when partner is winning a high trick without tichu call',

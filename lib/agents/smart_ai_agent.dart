@@ -1,4 +1,5 @@
 import 'package:tichu/agents/dragon_give_strategy.dart';
+import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
@@ -23,6 +24,9 @@ class SmartAiAgent extends PlayerAgent {
   final String playerId;
 
   final TichuCallStrategy tichuCallStrategy;
+
+  /// Switchable heuristic rules (A/B testing); the app uses the latest.
+  final HeuristicOptions options;
   final SchupfStrategy schupfStrategy;
   late final PlaySelectionStrategy playSelectionStrategy;
   final PlayTacticsPolicy playTacticsPolicy;
@@ -33,6 +37,7 @@ class SmartAiAgent extends PlayerAgent {
 
   SmartAiAgent(
     this.playerId, {
+    this.options = HeuristicOptions.latest,
     final TichuCallStrategy? tichuCallStrategy,
     final SchupfStrategy? schupfStrategy,
     final PlaySelectionStrategy? playSelectionStrategy,
@@ -40,7 +45,7 @@ class SmartAiAgent extends PlayerAgent {
     final WishStrategy? wishStrategy,
     final DragonGiveStrategy? dragonGiveStrategy,
   }) : tichuCallStrategy =
-           tichuCallStrategy ?? const DefaultTichuCallStrategy(),
+           tichuCallStrategy ?? DefaultTichuCallStrategy(options: options),
        schupfStrategy = schupfStrategy ?? const DefaultSchupfStrategy(),
        playTacticsPolicy = playTacticsPolicy ?? const PlayTacticsPolicy(),
        wishStrategy = wishStrategy ?? const DefaultWishStrategy(),
@@ -70,6 +75,44 @@ class SmartAiAgent extends PlayerAgent {
   Future<bool> shouldCallTichuBeforeSchupf(final GameSnapshot snapshot) async {
     if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
+  }
+
+  TichuTurn? _bombForValuableTrick(
+    final GameSnapshot snapshot,
+    final DeckState deck,
+    final List<TichuTurn> plays,
+    final TableRelationships table,
+  ) {
+    if (deck.turn.type == TurnType.empty || deck.turn.type == TurnType.none) {
+      return null;
+    }
+    final winnerId = deck.currentWinner.isNotEmpty
+        ? deck.currentWinner
+        : snapshot.lastPlayedBy;
+    if (winnerId == null || !table.isOpponent(winnerId)) return null;
+    final dragonOnTop =
+        deck.turn.type == TurnType.single &&
+        deck.turn.cards.any((final c) => c.face == CardFace.dragon);
+    if (!dragonOnTop && snapshot.trickPoints < 25) return null;
+    final bombs = plays.where((final t) => t.type == TurnType.bomb).toList()
+      ..sort((final a, final b) => a.value.compareTo(b.value));
+    return bombs.isEmpty ? null : bombs.first;
+  }
+
+  bool _holdBackForPartnerTichu(
+    final GameSnapshot snapshot,
+    final TableRelationships table,
+  ) {
+    if (!options.supportPartnerTichu && !options.guardPartnerTichu) {
+      return false;
+    }
+    final partnerId = table.partnerId;
+    if (partnerId == null) return false;
+    final partnerCall =
+        snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
+    if (partnerCall == TichuCall.none) return false;
+    if (snapshot.scoreState.finishOrder.isNotEmpty) return false;
+    return (snapshot.hands[partnerId] ?? const <Card>[]).isNotEmpty;
   }
 
   bool _partnerAlreadyCalled(final GameSnapshot snapshot) {
@@ -134,6 +177,25 @@ class SmartAiAgent extends PlayerAgent {
         return PassAction(playerId: playerId);
       }
       throw StateError('No legal turn and pass is illegal for current state.');
+    }
+
+    // Partner called Tichu: support them — pass whenever allowed and never
+    // go out ahead of them (a quarter of the heuristic's failed Tichus were
+    // the caller's own partner finishing first). When leading, play anything
+    // but the last cards.
+    if (_holdBackForPartnerTichu(snapshot, table)) {
+      final canPass = LegalPlayGuard.canPass(deck: deck, hand: hand);
+      if (options.supportPartnerTichu && canPass) {
+        return PassAction(playerId: playerId);
+      }
+      if (canPass &&
+          legalTurns.every((final turn) => turn.cards.length == hand.length)) {
+        return PassAction(playerId: playerId);
+      }
+      final nonFinishing = legalTurns
+          .where((final turn) => turn.cards.length != hand.length)
+          .toList();
+      if (nonFinishing.isNotEmpty) legalTurns = nonFinishing;
     }
 
     final finishingTurns = legalTurns
@@ -268,6 +330,18 @@ class SmartAiAgent extends PlayerAgent {
         hand,
       );
       return _buildPlayAction(snapshot, selected, deck, hand);
+    }
+
+    // Bomb a valuable trick an opponent is winning: the Dragon (bombing it
+    // wins the trick normally, Dragon points included) or 25+ points.
+    final valuableBomb = _bombForValuableTrick(
+      snapshot,
+      deck,
+      validPlays,
+      table,
+    );
+    if (valuableBomb != null) {
+      return _buildPlayAction(snapshot, valuableBomb, deck, hand);
     }
 
     final opponentThreatWinning = playTacticsPolicy

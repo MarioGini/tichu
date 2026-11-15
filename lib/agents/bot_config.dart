@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 
+import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/player_agent.dart';
 
 /// A loaded network plus the denormalisation from its safetensors metadata.
@@ -47,6 +49,9 @@ class BotConfig {
   /// Schupf value net (`rl/schupf_train.py`).
   final LoadedNet? schupf;
 
+  /// Heuristic rules used for everything not covered by a learned net.
+  final HeuristicOptions heuristicOptions;
+
   /// Required call advantage (round points) before calling (Grand) Tichu.
   final double callMargin;
 
@@ -57,6 +62,7 @@ class BotConfig {
     this.preSchupfTichu,
     this.schupf,
     this.callMargin = 0,
+    this.heuristicOptions = HeuristicOptions.latest,
   });
 
   /// The pure heuristic bot.
@@ -81,6 +87,7 @@ class BotConfig {
     final schupf = this.schupf;
     return SmartAiAgent(
       playerId,
+      options: heuristicOptions,
       playSelectionStrategy:
           playOverride ??
           (play == null
@@ -100,6 +107,7 @@ class BotConfig {
               preSchupfTichuNetwork: preSchupfTichu?.network,
               preSchupfTichuScale: preSchupfTichu?.targetStd ?? 100,
               margin: callMargin,
+              fallback: DefaultTichuCallStrategy(options: heuristicOptions),
             ),
       schupfStrategy: schupf == null
           ? null

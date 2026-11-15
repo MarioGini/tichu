@@ -91,7 +91,13 @@ def evaluate_bot(directory: Path, out: Path, args: argparse.Namespace) -> dict:
 def main() -> None:
     p = argparse.ArgumentParser(description="Joint call / schupf / play training loop")
     p.add_argument("--iterations", type=int, default=5)
-    p.add_argument("--call-episodes", type=int, default=1200)
+    p.add_argument("--call-episodes", type=int, default=800)
+    p.add_argument(
+        "--counterfactual-rate",
+        type=float,
+        default=0.3,
+        help="Share of call decisions labelled with an exact counterfactual",
+    )
     p.add_argument(
         "--no-counterfactual",
         dest="counterfactual",
@@ -148,7 +154,10 @@ def main() -> None:
                     f"--call-epsilon={args.call_epsilon}",
                     f"--schupf-epsilon={args.schupf_epsilon}",
                     "--skip-play-rows",
-                    *(["--counterfactual-calls"] if args.counterfactual else []),
+                    *([
+                        "--counterfactual-calls",
+                        f"--counterfactual-rate={args.counterfactual_rate}",
+                    ] if args.counterfactual else []),
                 ],
                 seed=seed, episodes=args.call_episodes, output_path=calls,
                 shards=args.shards or None,

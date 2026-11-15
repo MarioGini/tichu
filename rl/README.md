@@ -12,6 +12,15 @@ One-time setup:
 uv sync --project rl
 ```
 
+If `download.pytorch.org` / `download-r2.pytorch.org` are not reachable (e.g.
+a restricted cloud sandbox), install from PyPI instead (pulls CUDA libs, but
+runs on CPU) and call `rl/.venv/bin/python` instead of `uv run`:
+
+```bash
+uv venv rl/.venv
+VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>=0.8.0"
+```
+
 ## Quick start
 
 There is currently no trained policy: the feature schema moved to v4 and all
@@ -109,6 +118,24 @@ There are now two Python entry points:
    plays vs current best, BC train on winners-only with KL anchor, evaluate
    the new policy vs heuristic, promote if better.
 
+### What the NN controls
+
+`NnPlaySelectionStrategy` is a `FullTurnPolicy`: `SmartAiAgent` hands it
+every legal play plus pass, and only keeps the hard rules (play out when a
+finishing turn exists; wish enforcement). The heuristic's tactical shortcuts
+(partner-support pass, lead tactics, singleton responses) are bypassed for
+NN players. Tichu/Grand Tichu calls, schupf, Dragon gift and wish choice are
+still heuristic.
+
+### Evaluation
+
+`evaluate_policy.py` is duplicate by default: every deal sequence is played
+twice with the same deals (`--deal-seed`), once with the policy on team 0
+and once swapped. It reports the per-deal win rate with its standard error
+and stores per-deal results, so `self_play.py` promotes a candidate only if
+its paired gain over the best policy exceeds `--promote-z` SEs; a rejected
+candidate is discarded (unless `--keep-rejected`).
+
 ### Headless output formats
 
 Only two RL-relevant formats remain:
@@ -116,18 +143,31 @@ Only two RL-relevant formats remain:
 - **`--format=summary`** — one JSONL line per finished match.
   `evaluate_policy.py` consumes this. ~50 lines for a 50-match eval.
 - **`--format=bc-jsonl`** — one JSONL line per play-phase decision with
-  ≥2 legal actions: `state_features` (201 floats), `legal_play_action_features`
-  (n × 52 floats), `legal_play_chosen_index`. `bc_pretrain.py` consumes this.
+  ≥2 legal actions: `episode`, `round`, `team`, `state_features` (201 floats),
+  `legal_play_action_features` (n × 52 floats), `legal_play_chosen_index`,
+  and `explore: true` when the move came from ε-exploration (BC skips those).
+  The legal set is exactly what the NN scores at inference: wish-filtered
+  plays plus pass when legal. Bookkeeping rows without features:
+  `{"round_end": true, "round", "team_one_round", "team_two_round"}` and
+  `{"episode_end": true, "winner", "team_one_total", "team_two_total"}`.
+  `bc_pretrain.py` consumes this.
 
 (`csv` and `none` are still around for ad-hoc debugging and dry runs.)
 
 ### Other headless flags
 
 - `--mixed` uses team0 = NN, team1 = heuristic (for evaluation).
+- `--swap-teams` puts the policy on the odd seats instead (duplicate eval).
+- `--deal-seed=N` deals from `Random(mix(N, episode))`, so deals depend only
+  on the seed and episode number, not on agent decisions or shard count.
+- `--episode-offset=N` numbers episodes from N+1 (set per shard by
+  `headless_runner.py` so episode ids are unique in merged output).
+- Unknown arguments are rejected (exit 64).
 - `--nn-policy=path.safetensors` loads a trained policy.
 - `--opponent-policy=path.safetensors` (with `--mixed`) lets team1 be a
   separate NN — used by self-play to pit candidate vs best.
-- `--epsilon=0.1` ε-greedy exploration during dataset generation.
+- `--epsilon=0.1` ε-greedy exploration during dataset generation (play
+  phase only; Grand Tichu calls and Dragon gifts are never randomised).
 - `--ismcts`, `--ismcts-simulations=N` Information-Set MCTS player.
 - `--mcts`, `--mcts-determinizations=N` plain MCTS player.
 

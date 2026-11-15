@@ -12,6 +12,18 @@ class _HeadlessSimulator {
   final double epsilon;
   final PlayerAgent Function(String playerId, int seat) agentFactory;
 
+  /// Added to the local episode index, so shards emit globally unique
+  /// episode numbers (episode = episodeOffset + 1 .. episodeOffset + N).
+  final int episodeOffset;
+
+  /// When set, deals come from `Random(dealSeed ^ episode-hash)` instead of
+  /// the shared [random]. Deals then depend only on (dealSeed, episode), not
+  /// on agent decisions, which enables duplicate (team-swapped) evaluation.
+  final int? dealSeed;
+
+  /// Set by [_selectAction] when the returned action came from ε-exploration.
+  var _lastActionExplored = false;
+
   _HeadlessSimulator({
     required this.random,
     required this.targetScore,
@@ -23,11 +35,13 @@ class _HeadlessSimulator {
     required this.includeTimestamps,
     required this.epsilon,
     required this.agentFactory,
+    this.episodeOffset = 0,
+    this.dealSeed,
   });
 
   Future<void> run() async {
     for (var episode = 0; episode < episodes; episode++) {
-      await _runEpisode(episode + 1);
+      await _runEpisode(episodeOffset + episode + 1);
     }
   }
 
@@ -37,7 +51,11 @@ class _HeadlessSimulator {
       for (final player in players)
         player.id: agentFactory(player.id, player.seat),
     };
-    final engine = GameEngineImpl(random: random);
+    final engine = GameEngineImpl(
+      random: dealSeed == null
+          ? random
+          : Random(_mixSeed(dealSeed!, episodeNumber)),
+    );
     final state = engine.createGame(
       gameId: 'headless_episode_$episodeNumber',
       players: players,
@@ -65,12 +83,10 @@ class _HeadlessSimulator {
     var steps = 0;
 
     while (true) {
-      if (snapshot.scoreState.gameComplete) {
+      if (snapshot.scoreState.gameComplete ||
+          (roundsLimit != null && completedRounds >= roundsLimit!)) {
         summaryWriter?.emit(snapshot);
-        return;
-      }
-      if (roundsLimit != null && completedRounds >= roundsLimit!) {
-        summaryWriter?.emit(snapshot);
+        bcWriter?.emitEpisodeEnd(snapshot);
         return;
       }
 
@@ -100,9 +116,11 @@ class _HeadlessSimulator {
           'step=$steps,player=${snapshot.currentPlayerId}',
         );
         summaryWriter?.emit(snapshot);
+        bcWriter?.emitEpisodeEnd(snapshot);
         return;
       }
 
+      final explored = _lastActionExplored;
       final before = snapshot;
       final appliedAction = _applyActionWithRecovery(
         engine: engine,
@@ -129,12 +147,13 @@ class _HeadlessSimulator {
       bcWriter?.emitTransition(
         before: before,
         action: appliedAction,
-        after: snapshot,
+        explored: explored,
       );
 
       if (!before.scoreState.roundComplete &&
           snapshot.scoreState.roundComplete) {
         completedRounds++;
+        bcWriter?.emitRoundEnd(snapshot);
       }
     }
   }
@@ -145,6 +164,7 @@ class _HeadlessSimulator {
     required final GameSnapshot snapshot,
     required final Map<String, PlayerAgent> agents,
   }) async {
+    _lastActionExplored = false;
     final receiptPlayerId = _nextReceiptPlayerId(state);
     if (receiptPlayerId != null) {
       return AcknowledgeSchupfAction(playerId: receiptPlayerId);
@@ -166,13 +186,6 @@ class _HeadlessSimulator {
       final agent = agents[currentPlayer.id];
       if (agent == null) {
         throw StateError('No agent registered for ${currentPlayer.id}.');
-      }
-
-      if (epsilon > 0 && random.nextDouble() < epsilon) {
-        return GrandTichuDecisionAction(
-          playerId: currentPlayer.id,
-          call: random.nextBool(),
-        );
       }
 
       final shouldCall = await agent.shouldCallGrandTichu(snapshot);
@@ -203,14 +216,6 @@ class _HeadlessSimulator {
         throw StateError('No valid dragon target available for $winnerId.');
       }
 
-      if (epsilon > 0 && random.nextDouble() < epsilon) {
-        final randomTarget = opponentIds[random.nextInt(opponentIds.length)];
-        return GiveDragonAction(
-          playerId: winnerId,
-          targetPlayerId: randomTarget,
-        );
-      }
-
       final preferredSeat = agents[winnerId]?.selectDragonGive(snapshot);
       final targetId = _resolveDragonTarget(
         state: state,
@@ -232,6 +237,7 @@ class _HeadlessSimulator {
         random.nextDouble() < epsilon) {
       final randomAction = _pickRandomLegalAction(snapshot, currentPlayer.id);
       if (randomAction != null) {
+        _lastActionExplored = true;
         return randomAction;
       }
     }
@@ -437,5 +443,13 @@ class _HeadlessSimulator {
         }
       }
     }
+  }
+
+  /// SplitMix-style mix of (seed, episode) into a 32-bit Random seed.
+  static int _mixSeed(final int seed, final int episode) {
+    var z = (seed * 0x9E3779B1 + episode * 0x85EBCA77) & 0xFFFFFFFF;
+    z = ((z ^ (z >> 16)) * 0x7FEB352D) & 0xFFFFFFFF;
+    z = ((z ^ (z >> 15)) * 0x846CA68B) & 0xFFFFFFFF;
+    return z ^ (z >> 16);
   }
 }

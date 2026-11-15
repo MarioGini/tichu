@@ -140,6 +140,19 @@ class SmartAiAgent extends PlayerAgent {
       return _buildPlayAction(snapshot, selected, deck, hand);
     }
 
+    if (playSelectionStrategy case final FullTurnPolicy fullTurn) {
+      final canPass = LegalPlayGuard.canPass(deck: deck, hand: hand);
+      final selected = fullTurn.selectTurnOrPass(
+        snapshot,
+        legalTurns,
+        deck,
+        hand,
+        canPass: canPass,
+      );
+      if (selected == null) return PassAction(playerId: playerId);
+      return _buildPlayAction(snapshot, selected, deck, hand);
+    }
+
     final isLeading =
         deck.turn.type == TurnType.empty ||
         deck.turn.type == TurnType.none ||

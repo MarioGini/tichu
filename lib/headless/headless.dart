@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/mcts/ismcts_play_selection_strategy.dart';
 import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
@@ -60,8 +61,12 @@ Future<void> main(final List<String> args) async {
   if (opponentPolicy != null || config.mixed) {
     // Self-play / mixed mode: team0 (even seats) plays the loaded policy,
     // team1 (odd seats) plays the frozen opponent policy (or the heuristic).
+    // --swap-teams flips this so duplicate evaluation can replay the same
+    // deals with the policy on the other seats.
     agentFactory = (final playerId, final seat) =>
-        seat.isEven ? policyFactory(playerId) : opponentFactory(playerId);
+        seat.isEven != config.swapTeams
+        ? policyFactory(playerId)
+        : opponentFactory(playerId);
   } else {
     agentFactory = (final playerId, final _) => policyFactory(playerId);
   }
@@ -77,6 +82,8 @@ Future<void> main(final List<String> args) async {
     includeTimestamps: config.includeTimestamps,
     epsilon: config.epsilon,
     agentFactory: agentFactory,
+    episodeOffset: config.episodeOffset,
+    dealSeed: config.dealSeed,
   );
 
   try {
@@ -109,6 +116,9 @@ class _HeadlessConfig {
   final bool useIsmcts;
   final int ismctsSimulations;
   final bool mixed;
+  final bool swapTeams;
+  final int episodeOffset;
+  final int? dealSeed;
 
   const _HeadlessConfig({
     required this.seed,
@@ -128,6 +138,9 @@ class _HeadlessConfig {
     required this.useIsmcts,
     required this.ismctsSimulations,
     required this.mixed,
+    required this.swapTeams,
+    required this.episodeOffset,
+    required this.dealSeed,
   });
 }
 
@@ -152,6 +165,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var useIsmcts = false;
   var ismctsSimulations = 100;
   var mixed = false;
+  var swapTeams = false;
+  var episodeOffset = 0;
+  int? dealSeed;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -240,6 +256,22 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       mixed = true;
       continue;
     }
+    if (arg == '--swap-teams') {
+      swapTeams = true;
+      continue;
+    }
+    if (arg.startsWith('--episode-offset=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p >= 0) episodeOffset = p;
+      continue;
+    }
+    if (arg.startsWith('--deal-seed=')) {
+      dealSeed = int.tryParse(arg.split('=').last);
+      continue;
+    }
+    stderr.writeln('Unknown argument: $arg');
+    exitCode = 64;
+    showHelp = true;
   }
 
   if (!outputProvided &&
@@ -266,6 +298,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     useIsmcts: useIsmcts,
     ismctsSimulations: ismctsSimulations,
     mixed: mixed,
+    swapTeams: swapTeams,
+    episodeOffset: episodeOffset,
+    dealSeed: dealSeed,
   );
 }
 
@@ -276,8 +311,8 @@ void _printUsage() {
   stdout.writeln('       [--format=csv|bc-jsonl|summary|none] [--output=path]');
   stdout.writeln('       [--no-timestamps]');
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
-  stdout.writeln('       [--rl-policy=policy.json] [--rl-policy-team=0|1|all]');
-  stdout.writeln('       [--rl-stats-output=policy_stats.json]');
+  stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
+  stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
   stdout.writeln('       [--epsilon=0.1] [--mcts] [--ismcts]');
 }
 

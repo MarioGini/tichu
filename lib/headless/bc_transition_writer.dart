@@ -8,22 +8,59 @@ part of 'headless.dart';
 ///
 /// One row per play-phase decision where the actor has more than one legal
 /// action and chose either a play or a pass. Rows look like:
-///   {"episode": 1, "team": 0,
+///   {"episode": 1, "round": 2, "team": 0,
 ///    "state_features": [...stateFeatureCount floats...],
 ///    "legal_play_action_features": [[...actionFeatureCount...], ...],
-///    "legal_play_chosen_index": 3,
-///    "done": true, "winner": 0,         // only on the very last row
-///    "team_one_total": 105, "team_two_total": 95}
+///    "legal_play_chosen_index": 3}
+///
+/// The legal set is exactly what [NnPlaySelectionStrategy] scores at
+/// inference: wish-filtered legal plays, plus pass when legal.
+///
+/// Decisions taken by ε-exploration are flagged `"explore": true` so BC can
+/// skip them (they are not the behaviour policy's choice).
+///
+/// Bookkeeping rows carry no features:
+///   {"episode": 1, "round_end": true, "round": 2,
+///    "team_one_round": 35, "team_two_round": 65}
+///   {"episode": 1, "episode_end": true, "winner": 0,
+///    "team_one_total": 1005, "team_two_total": 870}
 class _BcTransitionWriter {
   final IOSink output;
   final int episode;
 
   _BcTransitionWriter({required this.output, required this.episode});
 
+  void emitRoundEnd(final GameSnapshot after) {
+    final score = after.scoreState;
+    output.writeln(
+      jsonEncode(<String, Object?>{
+        'episode': episode,
+        'round_end': true,
+        'round': score.roundNumber,
+        'team_one_round': score.teamOneRound,
+        'team_two_round': score.teamTwoRound,
+      }),
+    );
+  }
+
+  void emitEpisodeEnd(final GameSnapshot snapshot) {
+    final score = snapshot.scoreState;
+    output.writeln(
+      jsonEncode(<String, Object?>{
+        'episode': episode,
+        'episode_end': true,
+        'done': score.gameComplete,
+        'winner': score.winningTeam,
+        'team_one_total': score.teamOneTotal,
+        'team_two_total': score.teamTwoTotal,
+      }),
+    );
+  }
+
   void emitTransition({
     required final GameSnapshot before,
     required final GameAction action,
-    required final GameSnapshot after,
+    required final bool explored,
   }) {
     if (before.phase != GamePhase.play) return;
     if (before.currentPlayerId != action.playerId) return;
@@ -43,16 +80,12 @@ class _BcTransitionWriter {
 
     final record = <String, Object?>{
       'episode': episode,
+      'round': before.scoreState.roundNumber,
       'team': actorTeam,
+      if (explored) 'explore': true,
       'state_features': stateFeatures,
       'legal_play_action_features': legalPlayFeatures.features,
       'legal_play_chosen_index': legalPlayFeatures.chosenIndex,
-      if (after.scoreState.gameComplete) 'done': true,
-      if (after.scoreState.gameComplete)
-        'team_one_total': after.scoreState.teamOneTotal,
-      if (after.scoreState.gameComplete)
-        'team_two_total': after.scoreState.teamTwoTotal,
-      if (after.scoreState.gameComplete) 'winner': after.scoreState.winningTeam,
     };
     output.writeln(jsonEncode(record));
   }
@@ -63,14 +96,6 @@ class _BcTransitionWriter {
       orElse: () => snapshot.players.first,
     );
     return player.seat.isEven ? 0 : 1;
-  }
-
-  bool _canPass(final GameSnapshot snapshot, final List<Card> hand) {
-    if (snapshot.deck.turn.type == TurnType.empty ||
-        snapshot.deck.turn.type == TurnType.none) {
-      return false;
-    }
-    return !mahJong(snapshot.deck, TichuTurn(TurnType.none, const []), hand);
   }
 
   /// Encode action features for every legal play (plus pass when legal) and
@@ -84,12 +109,16 @@ class _BcTransitionWriter {
     final hand = List<Card>.from(
       snapshot.hands[chosen.playerId] ?? const <Card>[],
     );
-    final legalTurns = generateLegalTurns(snapshot.deck, hand);
+    final legalTurns = LegalPlayGuard.filterMoveGeneratorTurns(
+      deck: snapshot.deck,
+      hand: hand,
+      moveGeneratorTurns: generateLegalTurns(snapshot.deck, hand),
+    );
     final encoder = FeatureEncoder(
       snapshot: snapshot,
       playerId: chosen.playerId,
     );
-    final canPass = _canPass(snapshot, hand);
+    final canPass = LegalPlayGuard.canPass(deck: snapshot.deck, hand: hand);
 
     final features = <List<double>>[];
     var chosenIndex = -1;

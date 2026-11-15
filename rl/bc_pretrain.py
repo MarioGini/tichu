@@ -112,8 +112,11 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
                 if not line:
                     continue
                 row = json.loads(line)
-                last_by_ep[int(row.get("episode", 0))] = row
+                if row.get("episode_end"):
+                    last_by_ep[int(row.get("episode", 0))] = row
         for ep, row in last_by_ep.items():
+            if not row.get("episode_end"):
+                continue
             t1 = float(row.get("team_one_total", 0.0))
             t2 = float(row.get("team_two_total", 0.0))
             if t1 > t2:
@@ -129,6 +132,7 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
     skipped_no_legal = 0
     skipped_single_action = 0
     skipped_loser = 0
+    skipped_explore = 0
 
     with jsonl.open("r", encoding="utf-8") as fh:
         for line in fh:
@@ -136,6 +140,12 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
             if not line:
                 continue
             row = json.loads(line)
+            if row.get("episode_end") or row.get("round_end"):
+                continue
+            if row.get("explore"):
+                # ε-exploration moves are not the behaviour policy's choice.
+                skipped_explore += 1
+                continue
 
             if winners_only:
                 ep = int(row.get("episode", 0))
@@ -184,7 +194,7 @@ def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
         raise ValueError(
             f"No usable BC rows in {jsonl}. Hints: skipped_no_legal="
             f"{skipped_no_legal}, skipped_single_action={skipped_single_action},"
-            f" skipped_loser={skipped_loser}"
+            f" skipped_loser={skipped_loser}, skipped_explore={skipped_explore}"
         )
 
     inputs_np = np.concatenate(inputs_chunks, axis=0)
@@ -474,6 +484,12 @@ def main() -> None:
         help="Reuse an existing JSONL instead of regenerating from headless",
     )
     p.add_argument(
+        "--shards",
+        type=int,
+        default=0,
+        help="Parallel headless workers for data generation (0 = cpu_count - 1)",
+    )
+    p.add_argument(
         "--winners-only",
         action="store_true",
         help="Train BC on decisions made by the winning team only",
@@ -517,6 +533,7 @@ def main() -> None:
             episodes=args.episodes,
             target_score=args.target_score,
             output=jsonl_path,
+            shards=args.shards,
         )
 
     print("Building BC dataset...", flush=True)

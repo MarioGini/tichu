@@ -33,6 +33,7 @@ import torch
 import torch.nn as nn
 
 from bc_pretrain import QNetwork, _select_device
+from oracle import fit_baseline, oracle_onehot
 from schema import ACTION_OFFSET, SPEC
 
 SCALE = 100.0
@@ -65,7 +66,8 @@ def _with_flag(x: torch.Tensor, flag: float) -> torch.Tensor:
 
 
 def load_calls(jsonl: Path, kind: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return (inputs (N, 403), targets (N,), heuristic_called (N,) bool)."""
+    """Return (inputs (N, 2F+1), targets (N,), heuristic_called (N,) bool,
+    oracle one-hot (N, 168))."""
     rounds: dict[tuple[int, int], tuple[int, int]] = {}
     rows: list[dict] = []
     with jsonl.open("r", encoding="utf-8") as fh:
@@ -78,7 +80,7 @@ def load_calls(jsonl: Path, kind: str) -> tuple[torch.Tensor, torch.Tensor, torc
                 )
             elif f'"call":"{kind}"' in line:
                 rows.append(json.loads(line))
-    xs, ys, heur = [], [], []
+    xs, ys, heur, orc = [], [], [], []
     for r in rows:
         key = (int(r["episode"]), int(r["round"]))
         if key not in rounds:
@@ -93,12 +95,14 @@ def load_calls(jsonl: Path, kind: str) -> tuple[torch.Tensor, torch.Tensor, torc
         ys.append((own - opp) / SCALE)
         # The heuristic's own choice: flipped back for explored rows.
         heur.append(called != bool(r.get("explore", False)))
+        orc.append(oracle_onehot(r.get("oracle")))
     if not xs:
         raise ValueError(f"no '{kind}' call rows with finished rounds in {jsonl}")
     return (
         torch.tensor(xs, dtype=torch.float32),
         torch.tensor(ys, dtype=torch.float32),
         torch.tensor(heur, dtype=torch.bool),
+        torch.from_numpy(np.stack(orc)),
     )
 
 
@@ -165,8 +169,15 @@ def export(model: QNetwork, path: Path, *, kind: str, val_mse: float, n: int) ->
 
 
 def fit_kind(jsonl: Path, kind: str, output: Path, args: argparse.Namespace) -> None:
-    x, y, heur = load_calls(jsonl, kind)
+    x, y, heur, orc = load_calls(jsonl, kind)
     called = x[:, FEATURES] > 0.5
+    if not args.no_oracle and bool(orc.any()):
+        # PerfectDou-style oracle baseline: subtract what the full deal
+        # predicts, keep only the part of R the call decision can explain.
+        base = fit_baseline(
+            torch.cat([x[:, :FEATURES], orc], dim=1), y, seed=args.seed, label=kind
+        )
+        y = y - base
     print(
         f"[{kind}] rows={x.shape[0]}  called={int(called.sum())}  "
         f"mean R | call={float(y[called].mean()) if called.any() else float('nan'):+.3f}  "
@@ -223,6 +234,7 @@ def main() -> None:
     p.add_argument("--epochs", type=int, default=30)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--margin", type=float, default=0.0, help="Report threshold (pts)")
+    p.add_argument("--no-oracle", action="store_true", help="Train on raw R (no oracle baseline)")
     args = p.parse_args()
     _select_device()
 

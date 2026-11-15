@@ -39,6 +39,7 @@ from bc_pretrain import (
     _load_qnetwork_from_safetensors,
     _select_device,
 )
+from oracle import fit_baseline, oracle_onehot
 from schema import ACTION_OFFSET, TOTAL_FEATURE_COUNT
 
 SCALE = 100.0
@@ -46,8 +47,9 @@ SCALE = 100.0
 
 def load(
     jsonl: Path, *, ce_fraction: float, seed: int
-) -> tuple[torch.Tensor, torch.Tensor, FlatBcData]:
-    """Return (taken-action inputs (N, F), returns (N,), CE subset data)."""
+) -> tuple[torch.Tensor, torch.Tensor, FlatBcData, torch.Tensor]:
+    """Return (taken-action inputs (N, F), returns (N,), CE subset data,
+    oracle one-hot (N, 168))."""
     rounds: dict[tuple[int, int], tuple[int, int]] = {}
     with jsonl.open("r", encoding="utf-8") as fh:
         for line in fh:
@@ -59,6 +61,7 @@ def load(
                 )
     rng = np.random.default_rng(seed)
     taken: list[np.ndarray] = []
+    orc: list[np.ndarray] = []
     rets: list[float] = []
     chunks: list[np.ndarray] = []
     starts = [0]
@@ -82,6 +85,7 @@ def load(
             x[ACTION_OFFSET:] = legal[chosen]
             taken.append(x)
             rets.append((own - opp) / SCALE)
+            orc.append(oracle_onehot(row.get("oracle")))
             # Behaviour-cloning anchor on a subset (non-explored moves only).
             if not row.get("explore") and len(legal) > 1 and rng.random() < ce_fraction:
                 block = np.empty((len(legal), TOTAL_FEATURE_COUNT), dtype=np.float32)
@@ -96,7 +100,12 @@ def load(
         torch.tensor(starts, dtype=torch.long),
         torch.tensor(chosen_global, dtype=torch.long),
     )
-    return torch.from_numpy(np.stack(taken)), torch.tensor(rets), ce
+    return (
+        torch.from_numpy(np.stack(taken)),
+        torch.tensor(rets),
+        ce,
+        torch.from_numpy(np.stack(orc)),
+    )
 
 
 def main() -> None:
@@ -110,11 +119,16 @@ def main() -> None:
     p.add_argument("--anchor-weight", type=float, default=0.3)
     p.add_argument("--ce-fraction", type=float, default=0.2)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--no-oracle", action="store_true")
     args = p.parse_args()
 
     device = _select_device()
     t0 = time.time()
-    x, y, ce = load(Path(args.jsonl), ce_fraction=args.ce_fraction, seed=args.seed)
+    x, y, ce, orc = load(Path(args.jsonl), ce_fraction=args.ce_fraction, seed=args.seed)
+    if not args.no_oracle and bool(orc.any()):
+        # Oracle baseline (state + other hands, no action): R - B keeps
+        # argmax_a Q unchanged in expectation but removes most card luck.
+        y = y - fit_baseline(torch.cat([x[:, :ACTION_OFFSET], orc], dim=1), y, label="q")
     print(
         f"Q data: taken={x.shape[0]} R std={float(y.std()):.3f}  "
         f"CE decisions={ce.num_decisions}  ({time.time()-t0:.0f}s)",

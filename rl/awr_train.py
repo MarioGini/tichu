@@ -43,13 +43,14 @@ from bc_pretrain import (
     _load_qnetwork_from_safetensors,
     _select_device,
 )
+from oracle import oracle_onehot
 from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT
 
 RETURN_SCALE = 100.0
 
 
 def build_awr_dataset(
-    jsonl: Path, *, include_explore: bool = True
+    jsonl: Path, *, include_explore: bool = True, use_oracle: bool = True
 ) -> tuple[FlatBcData, torch.Tensor, torch.Tensor]:
     """Return (decision data, per-decision state features (D, 201),
     per-decision round return R (D,) from the actor team's perspective)."""
@@ -107,7 +108,13 @@ def build_awr_dataset(
             block[:, ACTION_OFFSET:] = acts
 
             chunks.append(block)
-            states.append(state)
+            # Critic input: state, plus the other hands (oracle critic,
+            # PerfectDou-style) — the policy itself never sees them.
+            states.append(
+                np.concatenate([state, oracle_onehot(row.get("oracle"))])
+                if use_oracle
+                else state
+            )
             returns.append((own - opp) / RETURN_SCALE)
             chosen_global.append(cursor + chosen)
             cursor += len(legal)
@@ -187,13 +194,18 @@ def main() -> None:
     p.add_argument("--value-init", default="", help="Warm-start the value net")
     p.add_argument("--value-output", default="")
     p.add_argument("--no-explore", action="store_true", help="Drop ε-exploration moves")
+    p.add_argument(
+        "--no-oracle",
+        action="store_true",
+        help="Critic on the state only (default: state + other hands, training-only)",
+    )
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
 
     device = _select_device()
     t0 = time.time()
     data, states, returns = build_awr_dataset(
-        Path(args.jsonl), include_explore=not args.no_explore
+        Path(args.jsonl), include_explore=not args.no_explore, use_oracle=not args.no_oracle
     )
     print(
         f"AWR data: decisions={data.num_decisions} rows={data.num_rows} "
@@ -205,6 +217,10 @@ def main() -> None:
     value_init = None
     if args.value_init and Path(args.value_init).exists():
         value_init = _load_value(Path(args.value_init), value_hidden)
+        first = value_init.net[0] if value_init is not None else None
+        if first is not None and first.in_features != states.shape[1]:
+            print("  value warm-start skipped: input size changed")
+            value_init = None
     value, val_mse = fit_value(
         states,
         returns,
@@ -336,7 +352,8 @@ def _load_value(path: Path, hidden: list[int]) -> nn.Module | None:
     from safetensors.torch import load_file
 
     t = load_file(str(path))
-    model = QNetwork(ACTION_OFFSET, hidden)
+    in_dim = int(t["layer.0.weight"].shape[1]) if "layer.0.weight" in t else ACTION_OFFSET
+    model = QNetwork(in_dim, hidden)
     linear = [m for m in model.net if isinstance(m, nn.Linear)]
     try:
         with torch.no_grad():

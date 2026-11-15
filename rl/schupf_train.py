@@ -29,6 +29,7 @@ import torch.nn as nn
 
 from bc_pretrain import QNetwork, _select_device
 from call_train import train
+from oracle import fit_baseline, oracle_onehot
 from schema import SPEC
 
 SCALE = 100.0
@@ -48,8 +49,8 @@ def encode(hand: list[int], left: int, partner: int, right: int, ctx: list[float
     return f
 
 
-def load(jsonl: Path) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return (x (N, 232), y (N,), explored (N,) bool)."""
+def load(jsonl: Path) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return (x (N, 232), y (N,), explored (N,) bool, oracle (N, 168))."""
     rounds: dict[tuple[int, int], tuple[int, int]] = {}
     rows: list[dict] = []
     with jsonl.open("r", encoding="utf-8") as fh:
@@ -62,7 +63,7 @@ def load(jsonl: Path) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
                 )
             elif '"schupf":true' in line:
                 rows.append(json.loads(line))
-    xs, ys, ex = [], [], []
+    xs, ys, ex, orc = [], [], [], []
     for r in rows:
         key = (int(r["episode"]), int(r["round"]))
         if key not in rounds:
@@ -72,12 +73,14 @@ def load(jsonl: Path) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         xs.append(encode(r["hand"], r["left"], r["partner"], r["right"], r["context"]))
         ys.append((own - opp) / SCALE)
         ex.append(bool(r.get("explore", False)))
+        orc.append(oracle_onehot(r.get("oracle")))
     if not xs:
         raise ValueError(f"no schupf rows with finished rounds in {jsonl}")
     return (
         torch.from_numpy(np.stack(xs)),
         torch.tensor(ys, dtype=torch.float32),
         torch.tensor(ex, dtype=torch.bool),
+        torch.from_numpy(np.stack(orc)),
     )
 
 
@@ -89,14 +92,26 @@ def main() -> None:
     p.add_argument("--epochs", type=int, default=30)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--no-oracle", action="store_true", help="Train on raw R (no oracle baseline)")
     args = p.parse_args()
     _select_device()
 
-    x, y, explored = load(Path(args.jsonl))
+    x, y, explored, orc = load(Path(args.jsonl))
+    if not args.no_oracle and bool(orc.any()):
+        # Oracle baseline from everything except the pass itself: my hand,
+        # the call context and the other three hands.
+        xb = torch.cat([x[:, HAND:LEFT], x[:, CONTEXT:SIZE], orc], dim=1)
+        y = y - fit_baseline(xb, y, seed=args.seed, label="schupf")
     d = float(y[explored].mean() - y[~explored].mean()) * SCALE if explored.any() else float("nan")
+    se = (
+        float((y[explored].var() / explored.sum() + y[~explored].var() / (~explored).sum()).sqrt())
+        * SCALE
+        if explored.any()
+        else float("nan")
+    )
     print(
         f"[schupf] rows={x.shape[0]} explored={int(explored.sum())}  "
-        f"heuristic beats random perturbation by {-d:+.1f} pts/round"
+        f"heuristic beats random perturbation by {-d:+.1f} ± {se:.1f} pts/round"
     )
     hidden = [int(h) for h in args.hidden.split(",") if h]
     model, mse = train(x, y, hidden=hidden, epochs=args.epochs, lr=args.lr, seed=args.seed)

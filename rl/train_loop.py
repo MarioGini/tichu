@@ -37,10 +37,16 @@ from headless_runner import run_headless_sharded
 RL = Path(__file__).resolve().parent
 OUT = RL / "outputs"
 # Component groups promoted independently (the value net follows the policy).
+# Each entry: candidate file -> file name in the bot directory.
 GROUPS = {
-    "play": ["best_policy.safetensors", "value.safetensors"],
-    "calls": ["tichu_net.safetensors", "grand_net.safetensors", "pre_net.safetensors"],
-    "schupf": ["schupf_net.safetensors"],
+    "play": {"best_policy.safetensors": "best_policy.safetensors",
+             "value.safetensors": "value.safetensors"},
+    # DouZero-style Monte-Carlo Q step (with oracle baseline) as an
+    # alternative play learner.
+    "play_q": {"q_policy.safetensors": "best_policy.safetensors"},
+    "calls": {n: n for n in ("tichu_net.safetensors", "grand_net.safetensors",
+                             "pre_net.safetensors")},
+    "schupf": {"schupf_net.safetensors": "schupf_net.safetensors"},
 }
 COMPONENTS = {
     # file name: headless flag
@@ -96,6 +102,7 @@ def main() -> None:
     p.add_argument("--eval-seed", type=int, default=12345)
     p.add_argument("--promote-z", type=float, default=1.0)
     p.add_argument("--awr-epochs", type=int, default=6)
+    p.add_argument("--no-q", dest="q", action="store_false", help="Skip the Q-learning candidate")
     p.add_argument("--shards", type=int, default=0)
     p.add_argument("--seed", type=int, default=50000)
     p.add_argument("--out-dir", default=str(OUT))
@@ -162,17 +169,26 @@ def main() -> None:
                        f"--value-init={best / 'value.safetensors'}",
                        f"--value-output={cand / 'value.safetensors'}"])
             for line in out.splitlines():
-                if line.startswith("  value:"):
+                if line.startswith("  value:") or "oracle baseline" in line:
                     print("  ", line.strip())
+            if args.q:
+                out = run([py, str(RL / "q_train.py"), f"--jsonl={plays}",
+                           f"--init-from={best / 'best_policy.safetensors'}",
+                           f"--output={cand / 'q_policy.safetensors'}"])
+                for line in out.splitlines():
+                    if "oracle baseline" in line or "epoch" in line:
+                        print("  ", line.strip())
 
             print("3) evaluate (each component group on top of the current best)", flush=True)
             results = {}
             for group, names in GROUPS.items():
                 trial = td / f"trial_{group}"
                 shutil.copytree(best, trial)
-                for name in names:
-                    if (cand / name).exists():
-                        shutil.copy2(cand / name, trial / name)
+                if not any((cand / src).exists() for src in names):
+                    continue
+                for src, dst in names.items():
+                    if (cand / src).exists():
+                        shutil.copy2(cand / src, trial / dst)
                 trial_eval = td / f"eval_{group}.safetensors"
                 m = evaluate_bot(trial, trial_eval, args)
                 diff, se = compare_evals(trial_eval, best_eval)

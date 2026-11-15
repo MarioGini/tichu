@@ -46,6 +46,7 @@ class _BcTransitionWriter {
         'round': snapshot.scoreState.roundNumber,
         'team': _teamForPlayer(snapshot, playerId),
         'call': kind,
+        'oracle': _oracle(snapshot, playerId),
         'called': called,
         if (explored) 'explore': true,
         'state_features': encodeStateFeatures(
@@ -78,6 +79,7 @@ class _BcTransitionWriter {
         'round': snapshot.scoreState.roundNumber,
         'team': _teamForPlayer(snapshot, action.playerId),
         'schupf': true,
+        'oracle': _oracle(snapshot, action.playerId),
         'hand': [for (final c in hand) cardSlot(c)],
         'left': cardSlot(action.toLeft),
         'partner': cardSlot(action.toPartner),
@@ -159,6 +161,7 @@ class _BcTransitionWriter {
       'team': actorTeam,
       if (explored) 'explore': true,
       'state_features': stateFeatures,
+      'oracle': _oracle(before, action.playerId),
       'legal_play_action_features': legalPlayFeatures.features,
       'legal_play_chosen_index': legalPlayFeatures.chosenIndex,
       // --shadow-heuristic: what the heuristic would have done here.
@@ -174,6 +177,22 @@ class _BcTransitionWriter {
       },
     };
     output.writeln(jsonEncode(record));
+  }
+
+  /// Perfect-information features for training only (PerfectDou-style
+  /// oracle critic): card slots of the left opponent's, partner's and right
+  /// opponent's current hands. Never used by the acting policy.
+  List<List<int>> _oracle(final GameSnapshot snapshot, final String playerId) {
+    final table = TableRelationships(snapshot, playerId);
+    final ids = [
+      table.playerBySeat(table.leftSeat()).id,
+      table.partnerId,
+      table.playerBySeat(table.rightSeat()).id,
+    ];
+    return [
+      for (final id in ids)
+        [for (final c in snapshot.hands[id] ?? const <Card>[]) cardSlot(c)],
+    ];
   }
 
   int _teamForPlayer(final GameSnapshot snapshot, final String playerId) {

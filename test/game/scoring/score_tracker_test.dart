@@ -96,7 +96,7 @@ void main() {
       expect(tracker.state.rounds.last.roundEndType, RoundEndType.normal);
     });
 
-    test('last player is the first player\'s partner: tricks stay in the team, '
+    test("last player is the first player's partner: tricks stay in the team, "
         'hand goes to the opponents', () {
       tracker.recordTrick(_playerTwoId, [_card(CardFace.ten, CardColor.red)]);
       // P3 (partner of the first-out P1) finishes last with won tricks

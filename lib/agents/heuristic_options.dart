@@ -30,6 +30,14 @@ class HeuristicOptions {
   final bool planScore;
   final bool planSingles;
 
+  /// Lead rules (A/B): combo / highest single into a 1-card opponent,
+  /// feed a 1-card partner, cash sure winners with one loser left, never
+  /// lead the Dog after the partner is out.
+  final bool leadOpponentOneCard;
+  final bool feedPartner;
+  final bool sureFirst;
+  final bool noDogAfterPartnerOut;
+
   const HeuristicOptions({
     this.supportPartnerTichu = false,
     this.guardPartnerTichu = true,
@@ -41,6 +49,10 @@ class HeuristicOptions {
     this.planBombs = true,
     this.planScore = true,
     this.planSingles = false,
+    this.leadOpponentOneCard = false,
+    this.feedPartner = false,
+    this.sureFirst = false,
+    this.noDogAfterPartnerOut = false,
   });
 
   static const latest = HeuristicOptions();
@@ -74,6 +86,10 @@ class HeuristicOptions {
       'plan_bombs',
       'plan_score',
       'plan_singles',
+      'lead_opp1',
+      'feed_partner',
+      'lead_sure',
+      'no_dog',
     };
     final plan = on.contains('plan');
     final unknown = on.difference(known);
@@ -91,6 +107,10 @@ class HeuristicOptions {
       planBombs: plan || on.contains('plan_bombs'),
       planScore: plan || on.contains('plan_score'),
       planSingles: plan || on.contains('plan_singles'),
+      leadOpponentOneCard: on.contains('lead_opp1'),
+      feedPartner: on.contains('feed_partner'),
+      sureFirst: on.contains('lead_sure'),
+      noDogAfterPartnerOut: on.contains('no_dog'),
     );
   }
 

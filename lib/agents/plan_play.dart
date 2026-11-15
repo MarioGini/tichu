@@ -62,6 +62,9 @@ abstract final class PlanPlay {
     required final List<TichuTurn> plays,
     required final List<Card> hand,
     required final TableRelationships table,
+    final bool opponentOneCard = true,
+    final bool feedPartner = true,
+    final bool sureFirst = true,
   }) {
     if (plays.isEmpty) return null;
     final minOpp = _minOpponentCards(snapshot, table);
@@ -69,7 +72,7 @@ abstract final class PlanPlay {
     final noDog = plays.where((final t) => t.type != TurnType.dog).toList();
     final options = noDog.isNotEmpty ? noDog : plays;
 
-    if (minOpp == 1) {
+    if (opponentOneCard && minOpp == 1) {
       final combos =
           options.where((final t) => t.type != TurnType.single).toList()
             ..sort((final a, final b) => b.cards.length - a.cards.length);
@@ -79,14 +82,14 @@ abstract final class PlanPlay {
       return singles.first;
     }
 
-    if (partnerCards == 1) {
+    if (feedPartner && partnerCards == 1 && minOpp > 1) {
       final singles =
           options.where((final t) => t.type == TurnType.single).toList()
             ..sort((final a, final b) => a.value.compareTo(b.value));
       if (singles.isNotEmpty) return singles.first;
     }
 
-    if (hand.length <= 6) {
+    if (sureFirst && hand.length <= 6) {
       final knowledge = CardKnowledge.of(snapshot, playerId);
       final sure =
           options
@@ -99,7 +102,13 @@ abstract final class PlanPlay {
               (final a, final b) =>
                   planCost(hand, a).compareTo(planCost(hand, b)),
             );
-      if (sure.isNotEmpty && sure.first.cards.length < hand.length) {
+      // Only with exactly one losing play left: cash the winners, then go
+      // out with the loser. With several losers, holding winners back to
+      // regain the lead later is better.
+      final losers = estPlays(hand) - sure.length;
+      if (sure.isNotEmpty &&
+          losers <= 1 &&
+          sure.first.cards.length < hand.length) {
         return sure.first;
       }
     }
@@ -117,6 +126,16 @@ abstract final class PlanPlay {
   }) {
     if (plays.isEmpty || hand.length < 8) return false;
     if (snapshot.trickPoints >= 10) return false;
+    // Not once someone is out, and never let a Tichu caller keep a trick.
+    if (snapshot.scoreState.finishOrder.isNotEmpty) return false;
+    final winner = snapshot.deck.currentWinner.isNotEmpty
+        ? snapshot.deck.currentWinner
+        : snapshot.lastPlayedBy;
+    if (winner != null &&
+        (snapshot.scoreState.tichuCalls[winner] ?? TichuCall.none) !=
+            TichuCall.none) {
+      return false;
+    }
     if (_minOpponentCards(snapshot, table) <= 3) return false;
     final knowledge = CardKnowledge.of(snapshot, playerId);
     for (final t in plays) {

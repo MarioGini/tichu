@@ -144,16 +144,63 @@ Python entry points:
        --output=rl/outputs/eval_calls.safetensors --episodes=200 --target-score=500
    ```
 
+5. **`schupf_train.py`** — schupf value net Q(hand, pass) on
+   `SchupfFeatures` (232: hand bitmap, one-hot card to left / partner /
+   right, `[grand, tichu]` call flags for me / partner / left / right).
+   Data: `headless --schupf-epsilon=p` (mostly one card swapped). Dart's
+   `NnSchupfStrategy` scores all 2184 assignments with an incremental first
+   layer.
+
+6. **`train_loop.py`** — the joint loop for the whole bot. Each iteration
+   generates exploration data with the *current* bot (calls, schupf, plays),
+   retrains call nets, schupf net and play policy (AWR), and tries each
+   component group (play / calls / schupf) on top of the best bot, promoting
+   it only on a significant paired gain (duplicate, 100 deals, target 1000).
+   Because everything is retrained on the current bot's games, components
+   adapt to each other (e.g. passing to a partner who announced Tichu).
+
+   ```bash
+   rl/.venv/bin/python rl/train_loop.py --iterations=4 --shards=4
+   # best bot: rl/outputs/bot_best/*.safetensors
+   ```
+
+7. **`q_train.py`** — experimental Monte-Carlo Q fine-tune of the play net.
+
+8. **`analyze_games.py`** — duplicate games vs the heuristic with
+   `--shadow-heuristic`: round stats per side (going out first, double wins,
+   call rates and success) and where / how often the policy's moves differ
+   from what the heuristic would have played.
+
+### One bot definition for app and training
+
+- `lib/agents/bot_config.dart` — `BotConfig` (+ `LoadedNet`) builds every bot:
+  heuristic, or any mix of learned play / Tichu / Grand Tichu / pre-schupf
+  Tichu / schupf nets. The app's default agent factory and the headless
+  runner both use it; it has no `dart:io`, so the app can load nets from
+  asset bytes.
+- `lib/game/agent_decisions.dart` — `AgentDecisions.next` finds the pending
+  decision (schupf receipt, Grand Tichu, pre-schupf Tichu, schupf, Dragon
+  gift, turn) and `AgentDecisions.resolve` asks the agent. The app's
+  `AiTurnRunner` and the headless simulator both drive bots through it; the
+  simulator only adds exploration and logging around it.
+
+### Decision order per round
+
+Grand Tichu (8 cards) → **pre-schupf Tichu** (14 cards, every player before
+anyone passes; the heuristic never calls here) → schupf → play, with a Tichu
+opportunity before the first card.
+
 ### What the NN controls
 
 `NnPlaySelectionStrategy` is a `FullTurnPolicy`: `SmartAiAgent` hands it
 every legal play plus pass, and only keeps the hard rules (play out when a
 finishing turn exists; wish enforcement). The heuristic's tactical shortcuts
 (partner-support pass, lead tactics, singleton responses) are bypassed for
-NN players. Schupf, Dragon gift and wish choice are still heuristic.
+NN players. Dragon gift and wish choice are still heuristic.
 
 Tichu / Grand Tichu calls can come from call-value nets
-(`NnTichuCallStrategy`, `headless --tichu-net=.. --grand-net=..`): Q(s, call)
+(`NnTichuCallStrategy`, `headless --tichu-net=.. --grand-net=..
+--pre-tichu-net=..`): Q(s, call)
 on `[state, flag, flag × state]` (201 state features, call flag), predicting
 the round point difference. The agent calls when Q(s, 1) − Q(s, 0) > margin.
 Without nets the heuristic decides (it never calls Grand Tichu).
@@ -186,6 +233,10 @@ Only two RL-relevant formats remain:
 (`csv` and `none` are still around for ad-hoc debugging and dry runs.)
 
 ### Other headless flags
+
+- `--schupf-net`, `--pre-tichu-net`, `--schupf-epsilon`, `--skip-play-rows`,
+  `--shadow-heuristic`: see the scripts above. `TICHU_HEADLESS=path` makes
+  the Python scripts use another runner binary.
 
 - `--mixed` uses team0 = NN, team1 = heuristic (for evaluation).
 - `--swap-teams` puts the policy on the odd seats instead (duplicate eval).

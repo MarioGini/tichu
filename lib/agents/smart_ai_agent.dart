@@ -1,11 +1,13 @@
 import 'package:tichu/agents/dragon_give_strategy.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
+import 'package:tichu/agents/plan_play.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
+import 'package:tichu/agents/turn_scorer.dart';
 import 'package:tichu/agents/wish_strategy.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -52,7 +54,14 @@ class SmartAiAgent extends PlayerAgent {
        dragonGiveStrategy =
            dragonGiveStrategy ?? const DefaultDragonGiveStrategy() {
     this.playSelectionStrategy =
-        playSelectionStrategy ?? const DefaultPlaySelectionStrategy();
+        playSelectionStrategy ??
+        (options.planScore
+            ? const DefaultPlaySelectionStrategy(
+                turnScorer: TurnScorer(
+                  weights: PolicyWeights(planEfficiency: 2.5),
+                ),
+              )
+            : const DefaultPlaySelectionStrategy());
   }
 
   // ---------------------------------------------------------------------------
@@ -76,6 +85,42 @@ class SmartAiAgent extends PlayerAgent {
     if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
   }
+
+  /// Plan-play moves decided by the situation (see [PlanPlay]).
+  GameAction? _planPlay(
+    final GameSnapshot snapshot,
+    final DeckState deck,
+    final List<Card> hand,
+    final TableRelationships table,
+    final List<TichuTurn> legalTurns, {
+    required final bool isLeading,
+  }) {
+    // A partner who called and is winning the trick: never overtake.
+    final partnerId = table.partnerId;
+    final winnerId = deck.currentWinner.isNotEmpty
+        ? deck.currentWinner
+        : snapshot.lastPlayedBy;
+    if (!isLeading &&
+        partnerId != null &&
+        winnerId == partnerId &&
+        (snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none) !=
+            TichuCall.none &&
+        LegalPlayGuard.canPass(deck: deck, hand: hand)) {
+      return PassAction(playerId: playerId);
+    }
+    if (!isLeading) return null;
+    final lead = PlanPlay.lead(
+      snapshot: snapshot,
+      playerId: playerId,
+      plays: legalTurns,
+      hand: hand,
+      table: table,
+    );
+    return lead == null ? null : _buildPlayAction(snapshot, lead, deck, hand);
+  }
+
+  static int _cardsOf(final GameSnapshot snapshot, final String? id) =>
+      id == null ? 0 : (snapshot.hands[id] ?? const <Card>[]).length;
 
   TichuTurn? _bombForValuableTrick(
     final GameSnapshot snapshot,
@@ -262,6 +307,25 @@ class SmartAiAgent extends PlayerAgent {
       );
     }
 
+    if (options.planLead) {
+      final planned = _planPlay(
+        snapshot,
+        deck,
+        hand,
+        table,
+        legalTurns,
+        isLeading: isLeading,
+      );
+      if (planned != null) return planned;
+      // Never lead the Dog once the partner is out (it hands the lead to an
+      // opponent).
+      if (isLeading && _cardsOf(snapshot, table.partnerId) == 0) {
+        final noDog = legalTurns
+            .where((final t) => t.type != TurnType.dog)
+            .toList();
+        if (noDog.isNotEmpty) legalTurns = noDog;
+      }
+    }
     final partnerLead = playTacticsPolicy.selectPartnerFinishLead(
       snapshot: snapshot,
       legalTurns: legalTurns,
@@ -319,6 +383,34 @@ class SmartAiAgent extends PlayerAgent {
 
     validPlays = _filterLowSinglePhoenixResponses(deck, validPlays);
 
+    if (options.planBombs) {
+      validPlays = PlanPlay.keepBombs(
+        snapshot: snapshot,
+        plays: validPlays,
+        hand: hand,
+        table: table,
+        deck: deck,
+      );
+    }
+    if (options.planPass) {
+      final winnerId = deck.currentWinner.isNotEmpty
+          ? deck.currentWinner
+          : snapshot.lastPlayedBy;
+      if (!isLeading &&
+          winnerId != null &&
+          table.isOpponent(winnerId) &&
+          LegalPlayGuard.canPass(deck: deck, hand: hand) &&
+          PlanPlay.passInsteadOfDamaging(
+            snapshot: snapshot,
+            playerId: playerId,
+            plays: validPlays,
+            hand: hand,
+            table: table,
+          )) {
+        return PassAction(playerId: playerId);
+      }
+    }
+
     if (validPlays.isEmpty) {
       if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {
         return PassAction(playerId: playerId);
@@ -353,7 +445,9 @@ class SmartAiAgent extends PlayerAgent {
         );
     if (!opponentThreatWinning) {
       final singletonResponse = playTacticsPolicy.selectSingletonResponse(
-        legalTurns: validPlays,
+        legalTurns: options.planSingles
+            ? PlanPlay.cleanSingles(validPlays, hand)
+            : validPlays,
         deck: deck,
         hand: hand,
       );

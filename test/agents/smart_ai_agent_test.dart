@@ -629,10 +629,14 @@ void main() {
             (final i) => Card(CardFace.two, CardColor.red),
           ),
           _partnerId: _defaultHand(),
-          _rightId: List.generate(
-            6,
-            (final i) => Card(CardFace.three, CardColor.blue),
-          ),
+          _rightId: [
+            ...List.generate(
+              5,
+              (final i) => Card(CardFace.three, CardColor.blue),
+            ),
+            // An unseen Ace, so the King is not a sure winner.
+            Card(CardFace.ace, CardColor.green),
+          ],
         },
       );
 
@@ -657,10 +661,14 @@ void main() {
         otherHands: {
           _leftId: [Card(CardFace.two, CardColor.red)],
           _partnerId: _defaultHand(),
-          _rightId: List.generate(
-            6,
-            (final i) => Card(CardFace.three, CardColor.blue),
-          ),
+          _rightId: [
+            ...List.generate(
+              5,
+              (final i) => Card(CardFace.three, CardColor.blue),
+            ),
+            // An unseen Ace, so the King is not a sure winner.
+            Card(CardFace.ace, CardColor.green),
+          ],
         },
       );
 

@@ -19,11 +19,28 @@ class HeuristicOptions {
   /// Hands with the Dog or 4+ unpaired low cards need one more control.
   final bool strictTichu;
 
+  /// Hand-plan aware play (plays-to-go-out, sure winners, bomb keeping,
+  /// 1-card leads, passing instead of breaking combos); see PlanPlay.
+  final bool planPlay;
+
+  /// Plan-play parts (A/B ablation); [planPlay] enables all of them.
+  final bool planLead;
+  final bool planPass;
+  final bool planBombs;
+  final bool planScore;
+  final bool planSingles;
+
   const HeuristicOptions({
     this.supportPartnerTichu = false,
     this.guardPartnerTichu = true,
     this.announceBeforeSchupf = false,
     this.strictTichu = true,
+    this.planPlay = false,
+    this.planLead = false,
+    this.planPass = true,
+    this.planBombs = true,
+    this.planScore = true,
+    this.planSingles = false,
   });
 
   static const latest = HeuristicOptions();
@@ -32,6 +49,9 @@ class HeuristicOptions {
   static const legacy = HeuristicOptions(
     guardPartnerTichu: false,
     strictTichu: false,
+    planPass: false,
+    planBombs: false,
+    planScore: false,
   );
 
   /// Parses `latest`, `legacy`, or a comma list of enabled rules
@@ -43,7 +63,19 @@ class HeuristicOptions {
         .map((final s) => s.trim())
         .where((final s) => s.isNotEmpty && s != 'legacy')
         .toSet();
-    const known = {'support', 'guard', 'announce', 'strict'};
+    const known = {
+      'support',
+      'guard',
+      'announce',
+      'strict',
+      'plan',
+      'plan_lead',
+      'plan_pass',
+      'plan_bombs',
+      'plan_score',
+      'plan_singles',
+    };
+    final plan = on.contains('plan');
     final unknown = on.difference(known);
     if (unknown.isNotEmpty) {
       throw ArgumentError('Unknown heuristic options: $unknown');
@@ -53,11 +85,17 @@ class HeuristicOptions {
       guardPartnerTichu: on.contains('guard'),
       announceBeforeSchupf: on.contains('announce'),
       strictTichu: on.contains('strict'),
+      planPlay: plan,
+      planLead: plan || on.contains('plan_lead'),
+      planPass: plan || on.contains('plan_pass'),
+      planBombs: plan || on.contains('plan_bombs'),
+      planScore: plan || on.contains('plan_score'),
+      planSingles: plan || on.contains('plan_singles'),
     );
   }
 
   @override
   String toString() =>
       'support=$supportPartnerTichu guard=$guardPartnerTichu announce=$announceBeforeSchupf '
-      'strict=$strictTichu';
+      'strict=$strictTichu plan=$planPlay';
 }

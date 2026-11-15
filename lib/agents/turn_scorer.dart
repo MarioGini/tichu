@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:tichu/agents/card_knowledge.dart';
+import 'package:tichu/agents/plan_play.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_data.dart';
@@ -35,6 +36,10 @@ class PolicyWeights {
   /// am not sure to win.
   final double pointGift;
 
+  /// Penalty per extra play a move adds to the hand's plays-to-go-out
+  /// (breaking a straight / pair / full house). 0 = off (legacy).
+  final double planEfficiency;
+
   const PolicyWeights({
     this.lowLeadPreference = 2,
     this.controlPreservation = 3,
@@ -58,6 +63,7 @@ class PolicyWeights {
     this.preferNaturalTrumpResponse = 6,
     this.sureTrickCapture = 4,
     this.pointGift = 0.15,
+    this.planEfficiency = 0,
   });
 }
 
@@ -161,6 +167,10 @@ class TurnScorer {
     if (!sureWin && !opponentTichuNearFinishWinning) {
       final ownPoints = pointsForCards(play.cards);
       if (ownPoints > 0) score -= weights.pointGift * ownPoints;
+    }
+
+    if (weights.planEfficiency != 0) {
+      score -= weights.planEfficiency * PlanPlay.planCost(hand, play);
     }
 
     final beforeSingles = _countLowSingletons(hand);

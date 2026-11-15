@@ -200,7 +200,6 @@ Only two RL-relevant formats remain:
 - `--epsilon=0.1` ε-greedy exploration during dataset generation (play
   phase only; Grand Tichu calls and Dragon gifts are never randomised).
 - `--ismcts`, `--ismcts-simulations=N` Information-Set MCTS player.
-- `--mcts`, `--mcts-determinizations=N` plain MCTS player.
 
 ## Results (2026-11-15, CPU, 4 cores)
 

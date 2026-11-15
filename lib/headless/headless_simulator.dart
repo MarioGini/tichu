@@ -482,9 +482,6 @@ class _HeadlessSimulator {
     for (final agent in agents.values) {
       if (agent is SmartAiAgent) {
         final strategy = agent.playSelectionStrategy;
-        if (strategy is MctsPlaySelectionStrategy) {
-          strategy.recordPass(passPlayerId: passPlayerId, deckTurn: deckTurn);
-        }
         if (strategy is IsmctsPlaySelectionStrategy) {
           strategy.recordPass(passPlayerId: passPlayerId, deckTurn: deckTurn);
         }

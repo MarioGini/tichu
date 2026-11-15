@@ -4,7 +4,6 @@ import 'dart:math';
 
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/mcts/ismcts_play_selection_strategy.dart';
-import 'package:tichu/agents/mcts/mcts_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
@@ -53,18 +52,17 @@ Future<void> main(final List<String> args) async {
   final grandNet = await _loadNnPolicy(config.grandNetPath);
   final policyFactory = _buildAgentFactory(
     nnPolicy: nnPolicy,
-    useMcts: config.useMcts,
     useIsmcts: config.useIsmcts,
-    mctsDeterminizations: config.mctsDeterminizations,
     ismctsSimulations: config.ismctsSimulations,
     valueNet: valueNet,
     tichuNet: tichuNet,
     grandNet: grandNet,
     random: random,
   );
-  final opponentFactory = opponentPolicy != null
-      ? _buildAgentFactory(nnPolicy: opponentPolicy, random: random)
-      : _buildAgentFactory(nnPolicy: null, random: random);
+  final opponentFactory = _buildAgentFactory(
+    nnPolicy: opponentPolicy,
+    random: random,
+  );
 
   final PlayerAgent Function(String, int) agentFactory;
   if (opponentPolicy != null || config.mixed) {
@@ -121,8 +119,6 @@ class _HeadlessConfig {
   final String? nnPolicyPath;
   final String? opponentPolicyPath;
   final double epsilon;
-  final bool useMcts;
-  final int mctsDeterminizations;
   final bool useIsmcts;
   final int ismctsSimulations;
   final bool mixed;
@@ -147,8 +143,6 @@ class _HeadlessConfig {
     required this.nnPolicyPath,
     required this.opponentPolicyPath,
     required this.epsilon,
-    required this.useMcts,
-    required this.mctsDeterminizations,
     required this.useIsmcts,
     required this.ismctsSimulations,
     required this.mixed,
@@ -178,8 +172,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var outputProvided = false;
   var showHelp = false;
   var epsilon = 0.0;
-  var useMcts = false;
-  var mctsDeterminizations = 20;
   var useIsmcts = false;
   var ismctsSimulations = 100;
   var mixed = false;
@@ -244,16 +236,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     if (arg.startsWith('--epsilon=')) {
       final p = double.tryParse(arg.split('=').last);
       if (p != null && p >= 0 && p <= 1) epsilon = p;
-      continue;
-    }
-    if (arg == '--mcts') {
-      useMcts = true;
-      continue;
-    }
-    if (arg.startsWith('--mcts-determinizations=')) {
-      final p = int.tryParse(arg.split('=').last);
-      if (p != null && p > 0) mctsDeterminizations = p;
-      useMcts = true;
       continue;
     }
     if (arg.startsWith('--nn-policy=')) {
@@ -332,8 +314,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     nnPolicyPath: nnPolicyPath,
     opponentPolicyPath: opponentPolicyPath,
     epsilon: epsilon,
-    useMcts: useMcts,
-    mctsDeterminizations: mctsDeterminizations,
     useIsmcts: useIsmcts,
     ismctsSimulations: ismctsSimulations,
     mixed: mixed,
@@ -351,14 +331,16 @@ void _printUsage() {
   stdout.writeln('Headless Tichu automated-opponent runner');
   stdout.writeln('Usage: dart run lib/headless/headless.dart [--seed=N]');
   stdout.writeln('       [--target-score=N] [--rounds=N] [--episodes=N]');
+  stdout.writeln('       [--max-steps=N]');
   stdout.writeln('       [--format=csv|bc-jsonl|summary|none] [--output=path]');
   stdout.writeln('       [--no-timestamps]');
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
   stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
   stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
-  stdout.writeln('       [--ismcts --value-net=value.safetensors]');
+  stdout.writeln('       [--ismcts] [--ismcts-simulations=N]');
+  stdout.writeln('       [--value-net=value.safetensors]');
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
-  stdout.writeln('       [--epsilon=0.1] [--mcts] [--ismcts]');
+  stdout.writeln('       [--epsilon=0.1]');
 }
 
 // ── Players & Agent Factory ───────────────────────────────────────────────
@@ -404,17 +386,14 @@ Future<_NnPolicyData?> _loadNnPolicy(final String? path) async {
 
 PlayerAgent Function(String playerId) _buildAgentFactory({
   required final _NnPolicyData? nnPolicy,
-  final bool useMcts = false,
   final bool useIsmcts = false,
-  final int mctsDeterminizations = 20,
   final int ismctsSimulations = 100,
   final _NnPolicyData? valueNet,
   final _NnPolicyData? tichuNet,
   final _NnPolicyData? grandNet,
   final Random? random,
 }) {
-  final TichuCallStrategy? callStrategy =
-      tichuNet == null && grandNet == null
+  final TichuCallStrategy? callStrategy = tichuNet == null && grandNet == null
       ? null
       : NnTichuCallStrategy(
           tichuNetwork: tichuNet?.network,
@@ -432,18 +411,6 @@ PlayerAgent Function(String playerId) _buildAgentFactory({
         valueNetwork: valueNet?.network,
         valueNetworkMean: valueNet?.targetMean,
         valueNetworkStd: valueNet?.targetStd,
-        random: random,
-      ),
-    );
-  }
-
-  if (useMcts) {
-    return (final playerId) => SmartAiAgent(
-      playerId,
-      tichuCallStrategy: callStrategy,
-      playSelectionStrategy: MctsPlaySelectionStrategy(
-        playerId: playerId,
-        numDeterminizations: mctsDeterminizations,
         random: random,
       ),
     );

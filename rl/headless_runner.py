@@ -38,8 +38,12 @@ def _ensure_dart_on_path() -> None:
 def headless_command_prefix() -> list[str]:
     """Return the argv prefix to invoke headless.
 
-    Uses the compiled exe when present; otherwise falls back to ``dart run``.
+    Uses ``$TICHU_HEADLESS`` when set, else the compiled exe when present,
+    else ``dart run``.
     """
+    override = os.environ.get("TICHU_HEADLESS")
+    if override:
+        return [override]
     if COMPILED_EXE.exists():
         return [str(COMPILED_EXE)]
     _ensure_dart_on_path()

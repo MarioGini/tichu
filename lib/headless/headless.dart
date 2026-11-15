@@ -98,6 +98,8 @@ Future<void> main(final List<String> args) async {
     dealSeed: config.dealSeed,
     callEpsilon: config.callEpsilon,
     schupfEpsilon: config.schupfEpsilon,
+    shadowHeuristic: config.shadowHeuristic,
+    skipPlayRows: config.skipPlayRows,
   );
 
   try {
@@ -139,6 +141,8 @@ class _HeadlessConfig {
   final double callEpsilon;
   final String? schupfNetPath;
   final double schupfEpsilon;
+  final bool shadowHeuristic;
+  final bool skipPlayRows;
 
   const _HeadlessConfig({
     required this.seed,
@@ -167,6 +171,8 @@ class _HeadlessConfig {
     required this.callEpsilon,
     required this.schupfNetPath,
     required this.schupfEpsilon,
+    required this.shadowHeuristic,
+    required this.skipPlayRows,
   });
 }
 
@@ -200,6 +206,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var callEpsilon = 0.0;
   String? schupfNetPath;
   var schupfEpsilon = 0.0;
+  var shadowHeuristic = false;
+  var skipPlayRows = false;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -305,6 +313,14 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       grandNetPath = arg.split('=').last;
       continue;
     }
+    if (arg == '--skip-play-rows') {
+      skipPlayRows = true;
+      continue;
+    }
+    if (arg == '--shadow-heuristic') {
+      shadowHeuristic = true;
+      continue;
+    }
     if (arg.startsWith('--schupf-net=')) {
       schupfNetPath = arg.split('=').last;
       continue;
@@ -365,6 +381,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     callEpsilon: callEpsilon,
     schupfNetPath: schupfNetPath,
     schupfEpsilon: schupfEpsilon,
+    shadowHeuristic: shadowHeuristic,
+    skipPlayRows: skipPlayRows,
   );
 }
 
@@ -380,6 +398,7 @@ void _printUsage() {
   stdout.writeln('       [--ismcts --value-net=value.safetensors]');
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
   stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
+  stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--epsilon=0.1] [--mcts] [--ismcts]');
 }
 

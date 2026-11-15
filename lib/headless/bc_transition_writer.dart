@@ -92,6 +92,21 @@ class _BcTransitionWriter {
         'round': score.roundNumber,
         'team_one_round': score.teamOneRound,
         'team_two_round': score.teamTwoRound,
+        // Teams (0 = even seats) in finishing order, for analysis.
+        'finish_teams': [
+          for (final id in score.finishOrder) _teamForPlayer(after, id),
+        ],
+        // Calls as [team, "tichu"|"grandTichu", succeeded (went out first)].
+        'calls': [
+          for (final e in score.tichuCalls.entries)
+            if (e.value != TichuCall.none)
+              [
+                _teamForPlayer(after, e.key),
+                e.value.name,
+                score.finishOrder.isNotEmpty &&
+                    score.finishOrder.first == e.key,
+              ],
+        ],
       }),
     );
   }
@@ -114,6 +129,7 @@ class _BcTransitionWriter {
     required final GameSnapshot before,
     required final GameAction action,
     required final bool explored,
+    final GameAction? shadow,
   }) {
     if (before.phase != GamePhase.play) return;
     if (before.currentPlayerId != action.playerId) return;
@@ -122,6 +138,7 @@ class _BcTransitionWriter {
     final legalPlayFeatures = _legalPlayActionFeatures(
       snapshot: before,
       chosen: action,
+      shadow: shadow,
     );
     if (legalPlayFeatures == null) return;
 
@@ -139,6 +156,17 @@ class _BcTransitionWriter {
       'state_features': stateFeatures,
       'legal_play_action_features': legalPlayFeatures.features,
       'legal_play_chosen_index': legalPlayFeatures.chosenIndex,
+      // --shadow-heuristic: what the heuristic would have done here.
+      if (shadow != null) ...{
+        'shadow_index': legalPlayFeatures.shadowIndex,
+        'leading':
+            before.deck.turn.type == TurnType.empty ||
+            before.deck.turn.type == TurnType.none,
+        'trick_type': before.deck.turn.type.name,
+        'chosen_desc': _describe(action),
+        'shadow_desc': _describe(shadow),
+        'hand_size': (before.hands[action.playerId] ?? const <Card>[]).length,
+      },
     };
     output.writeln(jsonEncode(record));
   }
@@ -155,9 +183,11 @@ class _BcTransitionWriter {
   /// return them together with the index of the chosen action. Returns null
   /// when the chosen action cannot be located among the enumerated legal
   /// actions (defensive: should not happen in the play phase).
-  ({List<List<double>> features, int chosenIndex})? _legalPlayActionFeatures({
+  ({List<List<double>> features, int chosenIndex, int shadowIndex})?
+  _legalPlayActionFeatures({
     required final GameSnapshot snapshot,
     required final GameAction chosen,
+    final GameAction? shadow,
   }) {
     final hand = List<Card>.from(
       snapshot.hands[chosen.playerId] ?? const <Card>[],
@@ -175,14 +205,18 @@ class _BcTransitionWriter {
 
     final features = <List<double>>[];
     var chosenIndex = -1;
+    var shadowIndex = -1;
 
     final chosenKey = chosen is PlayTurnAction ? _cardKey(chosen.cards) : null;
+    final shadowKey = shadow is PlayTurnAction ? _cardKey(shadow.cards) : null;
     for (final turn in legalTurns) {
       final feat = encoder.actionFeatures(turn);
-      if (chosenIndex < 0 &&
-          chosenKey != null &&
-          _cardKey(turn.cards) == chosenKey) {
+      final key = _cardKey(turn.cards);
+      if (chosenIndex < 0 && chosenKey != null && key == chosenKey) {
         chosenIndex = features.length;
+      }
+      if (shadowIndex < 0 && shadowKey != null && key == shadowKey) {
+        shadowIndex = features.length;
       }
       features.add(feat);
     }
@@ -195,11 +229,25 @@ class _BcTransitionWriter {
       if (chosenIndex < 0 && chosen is PassAction) {
         chosenIndex = features.length;
       }
+      if (shadowIndex < 0 && shadow is PassAction) {
+        shadowIndex = features.length;
+      }
       features.add(passFeat);
     }
 
     if (chosenIndex < 0) return null;
-    return (features: features, chosenIndex: chosenIndex);
+    return (
+      features: features,
+      chosenIndex: chosenIndex,
+      shadowIndex: shadowIndex,
+    );
+  }
+
+  static String _describe(final GameAction action) {
+    if (action is PassAction) return 'pass';
+    if (action is! PlayTurnAction) return action.runtimeType.toString();
+    final cards = [for (final c in action.cards) c.face.name]..sort();
+    return cards.join('+');
   }
 
   /// Order-independent identity of a card set (phoenix matches by face, so

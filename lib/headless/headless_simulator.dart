@@ -31,6 +31,14 @@ class _HeadlessSimulator {
   /// player and round is explored and logged.
   final double callEpsilon;
 
+  /// Log, for every play/pass decision, what the heuristic would have done
+  /// (`shadow_index` in bc-jsonl) — used by `rl/analyze_games.py`.
+  final bool shadowHeuristic;
+
+  /// Omit play/pass rows from bc-jsonl (call / schupf / round data only).
+  final bool skipPlayRows;
+  final _shadowAgents = <String, SmartAiAgent>{};
+
   /// Set by [_selectAction] when the returned action came from ε-exploration.
   var _lastActionExplored = false;
 
@@ -52,7 +60,26 @@ class _HeadlessSimulator {
     this.dealSeed,
     this.callEpsilon = 0,
     this.schupfEpsilon = 0,
+    this.shadowHeuristic = false,
+    this.skipPlayRows = false,
   });
+
+  Future<GameAction?> _shadowHeuristicTurn(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async {
+    final agent = _shadowAgents.putIfAbsent(
+      playerId,
+      () => SmartAiAgent(playerId),
+    );
+    try {
+      return await agent.selectTurn(snapshot);
+      // Agents signal "no legal action" with StateError.
+      // ignore: avoid_catching_errors
+    } on StateError {
+      return null;
+    }
+  }
 
   Future<void> run() async {
     for (var episode = 0; episode < episodes; episode++) {
@@ -138,6 +165,10 @@ class _HeadlessSimulator {
       }
 
       final explored = _lastActionExplored;
+      final shadow =
+          shadowHeuristic && (action is PlayTurnAction || action is PassAction)
+          ? await _shadowHeuristicTurn(snapshot, action.playerId)
+          : null;
       final before = snapshot;
       final appliedAction = _applyActionWithRecovery(
         engine: engine,
@@ -161,11 +192,14 @@ class _HeadlessSimulator {
 
       snapshot = engine.buildSnapshot(state);
       csvWriter?.processSnapshot(snapshot);
-      bcWriter?.emitTransition(
-        before: before,
-        action: appliedAction,
-        explored: explored,
-      );
+      if (!skipPlayRows) {
+        bcWriter?.emitTransition(
+          before: before,
+          action: appliedAction,
+          explored: explored,
+          shadow: shadow,
+        );
+      }
 
       if (!before.scoreState.roundComplete &&
           snapshot.scoreState.roundComplete) {
@@ -274,10 +308,13 @@ class _HeadlessSimulator {
     }
   }
 
-  /// Replace one to three of the passed cards with random other hand cards.
+  /// Replace one to three (mostly one) of the passed cards with random other
+  /// hand cards, and sometimes swap destinations.
   SchupfAction _perturbSchupf(final SchupfAction base, final List<Card> hand) {
     final chosen = [base.toLeft, base.toPartner, base.toRight];
-    final changes = 1 + random.nextInt(3);
+    // Mostly small changes, so the data covers choices near the heuristic's.
+    final roll = random.nextDouble();
+    final changes = roll < 0.7 ? 1 : (roll < 0.95 ? 2 : 3);
     final slots = [0, 1, 2]..shuffle(random);
     for (final slot in slots.take(changes)) {
       final pool = [

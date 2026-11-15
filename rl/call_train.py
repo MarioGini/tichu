@@ -5,7 +5,7 @@ Reads headless ``--format=bc-jsonl`` output generated with
 ``--call-epsilon=p`` (decisions flipped with probability p, so both "call"
 and "no call" are observed for similar hands). For each logged decision
 
-  x = state_features (201) + [called]      y = round point diff / 100
+  x = [state (201), called, called * state]   y = round point diff / 100
 
 (own team minus opponents, incl. Tichu bonuses / penalties). A small MLP is
 fit by MSE, giving Q(s, call) and Q(s, no call); Dart's
@@ -38,8 +38,22 @@ from schema import ACTION_OFFSET, SPEC
 SCALE = 100.0
 
 
+def call_input(state: list[float], called: bool) -> list[float]:
+    """[state, flag, flag * state] — must match Dart ``callNetInput``."""
+    f = 1.0 if called else 0.0
+    return state + [f] + [v * f for v in state]
+
+
+def _with_flag(x: torch.Tensor, flag: float) -> torch.Tensor:
+    n = ACTION_OFFSET
+    out = x.clone()
+    out[:, n] = flag
+    out[:, n + 1 :] = x[:, :n] * flag
+    return out
+
+
 def load_calls(jsonl: Path, kind: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return (inputs (N, 202), targets (N,), heuristic_called (N,) bool)."""
+    """Return (inputs (N, 403), targets (N,), heuristic_called (N,) bool)."""
     rounds: dict[tuple[int, int], tuple[int, int]] = {}
     rows: list[dict] = []
     with jsonl.open("r", encoding="utf-8") as fh:
@@ -63,7 +77,7 @@ def load_calls(jsonl: Path, kind: str) -> tuple[torch.Tensor, torch.Tensor, torc
         if len(state) != ACTION_OFFSET:
             raise ValueError(f"state_features len {len(state)} != {ACTION_OFFSET}")
         called = bool(r["called"])
-        xs.append(state + [1.0 if called else 0.0])
+        xs.append(call_input(state, called))
         ys.append((own - opp) / SCALE)
         # The heuristic's own choice: flipped back for explored rows.
         heur.append(called != bool(r.get("explore", False)))
@@ -140,18 +154,28 @@ def export(model: QNetwork, path: Path, *, kind: str, val_mse: float, n: int) ->
 
 def fit_kind(jsonl: Path, kind: str, output: Path, args: argparse.Namespace) -> None:
     x, y, heur = load_calls(jsonl, kind)
-    called = x[:, -1] > 0.5
+    called = x[:, ACTION_OFFSET] > 0.5
     print(
         f"[{kind}] rows={x.shape[0]}  called={int(called.sum())}  "
         f"mean R | call={float(y[called].mean()) if called.any() else float('nan'):+.3f}  "
         f"| no call={float(y[~called].mean()):+.3f}  (×{SCALE:.0f} pts)"
     )
+    # Unbiased value of the heuristic's choice: exploration flips decisions
+    # at random, so within "heuristic says call" (and "says no") hands the
+    # called / not-called outcome difference is a fair A/B estimate.
+    for label, mask in (("heuristic calls", heur), ("heuristic passes", ~heur)):
+        c, nc = y[mask & called], y[mask & ~called]
+        if c.numel() > 1 and nc.numel() > 1:
+            d = float(c.mean() - nc.mean()) * SCALE
+            se = float((c.var() / c.numel() + nc.var() / nc.numel()).sqrt()) * SCALE
+            print(
+                f"[{kind}] {label} ({int(mask.sum())}): calling is worth "
+                f"{d:+.1f} ± {se:.1f} pts vs not calling"
+            )
     hidden = [int(h) for h in args.hidden.split(",") if h]
     model, mse = train(x, y, hidden=hidden, epochs=args.epochs, lr=args.lr, seed=args.seed)
     with torch.no_grad():
-        x1, x0 = x.clone(), x.clone()
-        x1[:, -1], x0[:, -1] = 1.0, 0.0
-        adv = (model(x1) - model(x0)).squeeze(-1) * SCALE
+        adv = (model(_with_flag(x, 1.0)) - model(_with_flag(x, 0.0))).squeeze(-1) * SCALE
     nn_calls = adv > args.margin
     agree = float((nn_calls == heur).float().mean())
     print(
@@ -167,6 +191,7 @@ def fit_kind(jsonl: Path, kind: str, output: Path, args: argparse.Namespace) -> 
 def main() -> None:
     p = argparse.ArgumentParser(description="Train Tichu / Grand Tichu call-value nets")
     p.add_argument("--jsonl", default="", help="bc-jsonl with call rows (else --generate)")
+    p.add_argument("--keep-jsonl", default="", help="Copy generated data here for reuse")
     p.add_argument("--generate", action="store_true")
     p.add_argument("--episodes", type=int, default=3000)
     p.add_argument("--target-score", type=int, default=1000)
@@ -209,6 +234,10 @@ def main() -> None:
             output_path=jsonl,
             shards=args.shards or None,
         )
+
+    if cleanup is not None and args.keep_jsonl:
+        Path(args.keep_jsonl).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(jsonl, args.keep_jsonl)
 
     kinds = ["tichu", "grand"] if args.kind == "both" else [args.kind]
     try:

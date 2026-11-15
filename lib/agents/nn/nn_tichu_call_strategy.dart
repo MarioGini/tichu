@@ -3,9 +3,20 @@ import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/game_snapshot.dart';
 
-/// Input width of a call-value network: the state features plus one flag
-/// (1 = call, 0 = no call).
-const int callNetInputSize = stateFeatureCount + 1;
+/// Input width of a call-value network: `[state, flag, flag * state]` with
+/// flag 1 = call, 0 = no call. The `flag * state` block lets the effect of
+/// calling depend on the hand directly (a single flag input was learned as
+/// a near-constant offset).
+const int callNetInputSize = 2 * stateFeatureCount + 1;
+
+/// Builds the call-network input for [state] and [call].
+List<double> callNetInput(
+  final List<double> state, {
+  required final bool call,
+}) {
+  final f = call ? 1.0 : 0.0;
+  return [...state, f, for (final x in state) x * f];
+}
 
 /// Tichu / Grand Tichu decisions from learned call-value networks.
 ///
@@ -39,7 +50,7 @@ class NnTichuCallStrategy implements TichuCallStrategy {
           net.inputSize,
           'network.inputSize',
           'Call network must take $callNetInputSize inputs '
-              '(state features + call flag). Retrain with rl/call_train.py.',
+              '([state, flag, flag * state]). Retrain with rl/call_train.py.',
         );
       }
     }
@@ -53,10 +64,8 @@ class NnTichuCallStrategy implements TichuCallStrategy {
     final String playerId,
   ) {
     final state = encodeStateFeatures(snapshot: snapshot, playerId: playerId);
-    final input = [...state, 1.0];
-    final qCall = network.predict(input);
-    input[input.length - 1] = 0.0;
-    final qNoCall = network.predict(input);
+    final qCall = network.predict(callNetInput(state, call: true));
+    final qNoCall = network.predict(callNetInput(state, call: false));
     return (qCall - qNoCall) * scale;
   }
 

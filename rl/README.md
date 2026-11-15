@@ -66,6 +66,46 @@ uv run --project rl python rl/evaluate_policy.py \
 - Training stays on **CPU**: the ~100k-param net is too small to benefit from
   a GPU, so the project installs the CPU-only PyTorch build.
 
+## Background: how similar games are learned
+
+Tichu is a 4-player, 2-team climbing ("shedding") card game with hidden
+hands — the same family as Dou Dizhu, Guandan and Big Two. What works there:
+
+- **DouZero** (Dou Dizhu, ICML 2021): Deep Monte Carlo — a Q(s, a) network
+  with an explicit action encoding, trained on whole-game returns from
+  massive ε-greedy self-play. Simple, and it beat every earlier Dou Dizhu AI.
+  `q_train.py` is one step of this.
+- **PerfectDou** (NeurIPS 2022): perfect-training / imperfect-execution — the
+  critic sees all hands during training, the policy does not. That removes
+  card luck from the learning signal; it beat DouZero with ~10× fewer
+  samples. Here: the `oracle` field and oracle baselines (`oracle.py`) in
+  `awr_train.py`, `call_train.py`, `schupf_train.py`, `q_train.py`.
+- **GuanZero** (Guandan, a 2-team climbing game): DMC plus features for
+  cooperation between partners.
+- **Tichu thesis (Wyss, Bern 2024)**: DQN / PPO for Tichu; behaviour cloning
+  first helps a lot (our `bc_pretrain.py` warm start).
+- Search (IS-MCTS, PIMC as in Skat/Bridge bots) needs a value function over
+  *post-move* states; our current V(s) is only trained on own-turn states,
+  so one-ply search with it is unsound (it passes far too much).
+
+Specific to this repo: because the bots are deterministic and the deal is
+known in self-play, a call decision can be labelled **exactly** —
+`headless --counterfactual-calls` forks the round and plays it out with and
+without the call (`cf` = R(call) − R(no call)). Measured that way, the
+heuristic's Tichu calls are break-even (about −1 pt per call, 43 % of its
+calls lose), while a perfect caller would gain about +40 pts per player and
+round — calls are the biggest lever against the heuristic.
+
+Schupf conventions: odd ranks to the left opponent, even ranks to the right
+(specials anywhere) so an opponent never receives two cards of the same rank
+from one team (no bomb gifts); give the partner the best card unless my own
+hand is a Tichu hand (then keep strength and pass low), always support a
+partner who called.
+
+Hardware used so far: 4 CPU cores (Xeon), 15 GB RAM, no GPU. Headless games
+run ~40–60 matches/s on 4 cores without counterfactuals (8–10× fewer with
+them); nets are small MLPs, so training stays on CPU.
+
 ## Architecture
 
 ### Feature schema (single source of truth)

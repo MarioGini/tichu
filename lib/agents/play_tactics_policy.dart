@@ -238,16 +238,6 @@ class PlayTacticsPolicy {
     return selectPlay(mahjongTurns);
   }
 
-  bool isHighWinningTrick(final TichuTurn turn) {
-    if (turn.type == TurnType.bomb) {
-      return true;
-    }
-    if (turn.cards.any((final card) => card.face == CardFace.dragon)) {
-      return true;
-    }
-    return turn.value >= Card.getValue(CardFace.king);
-  }
-
   bool opponentTichuNearFinishWinning({
     required final String playerId,
     required final GameSnapshot snapshot,

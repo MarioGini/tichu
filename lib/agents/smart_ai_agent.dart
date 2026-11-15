@@ -115,6 +115,9 @@ class SmartAiAgent extends PlayerAgent {
       plays: legalTurns,
       hand: hand,
       table: table,
+      opponentOneCard: options.planLead || options.leadOpponentOneCard,
+      feedPartner: options.planLead || options.feedPartner,
+      sureFirst: options.planLead || options.sureFirst,
     );
     return lead == null ? null : _buildPlayAction(snapshot, lead, deck, hand);
   }
@@ -135,10 +138,9 @@ class SmartAiAgent extends PlayerAgent {
         ? deck.currentWinner
         : snapshot.lastPlayedBy;
     if (winnerId == null || !table.isOpponent(winnerId)) return null;
-    final dragonOnTop =
-        deck.turn.type == TurnType.single &&
-        deck.turn.cards.any((final c) => c.face == CardFace.dragon);
-    if (!dragonOnTop && snapshot.trickPoints < 25) return null;
+    // (Bombing an opponent's Dragon gains nothing: a Dragon trick is given
+    // to us anyway.)
+    if (snapshot.trickPoints < 25) return null;
     final bombs = plays.where((final t) => t.type == TurnType.bomb).toList()
       ..sort((final a, final b) => a.value.compareTo(b.value));
     return bombs.isEmpty ? null : bombs.first;
@@ -307,7 +309,12 @@ class SmartAiAgent extends PlayerAgent {
       );
     }
 
-    if (options.planLead) {
+    final anyLeadRule =
+        options.planLead ||
+        options.leadOpponentOneCard ||
+        options.feedPartner ||
+        options.sureFirst;
+    if (anyLeadRule) {
       final planned = _planPlay(
         snapshot,
         deck,
@@ -317,6 +324,8 @@ class SmartAiAgent extends PlayerAgent {
         isLeading: isLeading,
       );
       if (planned != null) return planned;
+    }
+    if (options.planLead || options.noDogAfterPartnerOut) {
       // Never lead the Dog once the partner is out (it hands the lead to an
       // opponent).
       if (isLeading && _cardsOf(snapshot, table.partnerId) == 0) {
@@ -424,8 +433,7 @@ class SmartAiAgent extends PlayerAgent {
       return _buildPlayAction(snapshot, selected, deck, hand);
     }
 
-    // Bomb a valuable trick an opponent is winning: the Dragon (bombing it
-    // wins the trick normally, Dragon points included) or 25+ points.
+    // Bomb a valuable trick (25+ points) an opponent is winning.
     final valuableBomb = _bombForValuableTrick(
       snapshot,
       deck,

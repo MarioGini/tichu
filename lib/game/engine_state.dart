@@ -26,6 +26,10 @@ class GameEngineState {
   GamePhase phase;
   final Map<String, bool> grandTichuDecisions = {};
   final Map<String, SchupfAction> schupfSelections = {};
+
+  /// This round's exchange after it completed (`schupfSelections` is
+  /// cleared when the cards are swapped). Cleared at round start.
+  final Map<String, SchupfAction> completedSchupfSelections = {};
   final Map<String, List<SchupfReceipt>> schupfReceipts = {};
   final Map<String, List<Card>> schupfPendingAdditions = {};
 
@@ -74,6 +78,7 @@ class GameEngineState {
     c.playersWhoPlayedCardsThisRound.addAll(playersWhoPlayedCardsThisRound);
     c.grandTichuDecisions.addAll(grandTichuDecisions);
     c.schupfSelections.addAll(schupfSelections);
+    c.completedSchupfSelections.addAll(completedSchupfSelections);
     for (final e in schupfReceipts.entries) {
       c.schupfReceipts[e.key] = List<SchupfReceipt>.from(e.value);
     }

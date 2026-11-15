@@ -21,35 +21,13 @@ import os
 import shutil
 import tempfile
 import time
-import warnings
 from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
 
-warnings.filterwarnings(
-    "ignore",
-    message=r".*is not currently supported on the DML backend.*",
-    category=UserWarning,
-)
-
-from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT  # noqa: E402
-
-
-REPO = Path(__file__).resolve().parent.parent
-RL_DIR = Path(__file__).resolve().parent
-OUTPUTS = RL_DIR / "outputs"
-
-
-def _ensure_dart_on_path() -> None:
-    if shutil.which("dart"):
-        return
-    candidate = Path.home() / "flutter" / "bin"
-    if (candidate / "dart").exists():
-        os.environ["PATH"] = str(candidate) + os.pathsep + os.environ.get("PATH", "")
-        return
-    raise RuntimeError("'dart' not found on PATH")
+from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT
 
 
 # ── Flat BC dataset ──────────────────────────────────────────────────────────
@@ -226,7 +204,7 @@ class QNetwork(nn.Module):
 def _select_device() -> torch.device:
     """Pick the best compute device for our tiny MLP.
 
-    The net is tiny (~58k params, ~14k-row batches; ~80 ms/step on an
+    The net is tiny (~100k params, ~14k-row batches; ~80 ms/step on an
     8-core CPU with MKL), so CPU is the right default unless a real CUDA GPU
     is present.
     """
@@ -523,8 +501,6 @@ def main() -> None:
         help="Weight on the KL(current || anchor) term when --anchor-policy set",
     )
     args = p.parse_args()
-
-    _ensure_dart_on_path()
 
     cleanup_jsonl: Path | None = None
     if args.jsonl:

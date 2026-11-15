@@ -68,8 +68,6 @@ class CardKnowledge {
 
   // ── Basic queries ────────────────────────────────────────────────────────
 
-  bool inMyHand(final Card card) => _slotIs(card, 1);
-
   /// Already played this round (false when not tracking).
   bool isPlayed(final Card card) => isTracking && _slotIs(card, 0);
 
@@ -77,8 +75,6 @@ class CardKnowledge {
   bool isUnseen(final Card card) => isTracking && _slotIs(card, 2);
 
   bool isSlotPlayed(final int slot) => isTracking && _owner[slot] == 0;
-
-  bool isSlotUnseen(final int slot) => isTracking && _owner[slot] == 2;
 
   /// Unseen copies of [face] (0..4; 0..1 for specials).
   int unseenCount(final CardFace face) {
@@ -98,9 +94,6 @@ class CardKnowledge {
 
   /// Dragon is out of the game (played, not in my hand).
   bool get dragonPlayed => isSlotPlayed(dragonSlot);
-
-  /// Phoenix is out of the game (played, not in my hand).
-  bool get phoenixPlayed => isSlotPlayed(phoenixSlot);
 
   // ── Beatability ──────────────────────────────────────────────────────────
 

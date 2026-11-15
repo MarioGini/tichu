@@ -46,11 +46,6 @@ class TableRelationships {
   Iterable<GamePlayer> get opponents =>
       snapshot.players.where((final player) => isOpponent(player.id));
 
-  GamePlayer? playerOrNull(final String playerId) => _playerOrNull(playerId);
-
-  int seatOf(final String playerId) =>
-      snapshot.players.firstWhere((final p) => p.id == playerId).seat;
-
   int leftSeat() => (mySeat + 1) % 4;
 
   int rightSeat() => (mySeat + 3) % 4;

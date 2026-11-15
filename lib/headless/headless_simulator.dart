@@ -183,7 +183,7 @@ class _HeadlessSimulator {
       }
 
       if (appliedAction is PassAction) {
-        _notifyMctsPass(
+        _notifyIsmctsPass(
           agents: agents,
           passPlayerId: appliedAction.playerId,
           deckTurn: before.deck.turn,
@@ -496,7 +496,7 @@ class _HeadlessSimulator {
     return !mahJong(snapshot.deck, TichuTurn(TurnType.none, const []), hand);
   }
 
-  void _notifyMctsPass({
+  void _notifyIsmctsPass({
     required final Map<String, PlayerAgent> agents,
     required final String passPlayerId,
     required final TichuTurn deckTurn,
@@ -504,9 +504,6 @@ class _HeadlessSimulator {
     for (final agent in agents.values) {
       if (agent is SmartAiAgent) {
         final strategy = agent.playSelectionStrategy;
-        if (strategy is MctsPlaySelectionStrategy) {
-          strategy.recordPass(passPlayerId: passPlayerId, deckTurn: deckTurn);
-        }
         if (strategy is IsmctsPlaySelectionStrategy) {
           strategy.recordPass(passPlayerId: passPlayerId, deckTurn: deckTurn);
         }

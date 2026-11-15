@@ -1,3 +1,4 @@
+import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -26,14 +27,18 @@ abstract class TichuCallStrategy {
 class DefaultTichuCallStrategy implements TichuCallStrategy {
   static const int _tichuIndexThreshold = 7;
 
-  /// The heuristic only calls Tichu once the exchange is done.
+  /// Announce Tichu before the exchange with a Tichu hand, so the partner
+  /// passes over their best card (a partner who called gets it).
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
     final GameSnapshot snapshot,
     final String playerId,
-  ) async => false;
+  ) async =>
+      options.announceBeforeSchupf && await shouldCallTichu(snapshot, playerId);
 
-  const DefaultTichuCallStrategy();
+  const DefaultTichuCallStrategy({this.options = HeuristicOptions.latest});
+
+  final HeuristicOptions options;
 
   @override
   Future<bool> shouldCallGrandTichu(
@@ -73,7 +78,7 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
   /// control.
   bool isTichuHand(final List<Card> hand) {
     final hasDog = hand.any((final c) => c.face == CardFace.dog);
-    final needed = hasDog || _lowSingles(hand) >= 4
+    final needed = options.strictTichu && (hasDog || _lowSingles(hand) >= 4)
         ? _minControls + 1
         : _minControls;
     return _tichuIndex(hand) >= _tichuIndexThreshold &&

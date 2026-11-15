@@ -1,4 +1,5 @@
 import 'package:tichu/agents/dragon_give_strategy.dart';
+import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
@@ -23,6 +24,9 @@ class SmartAiAgent extends PlayerAgent {
   final String playerId;
 
   final TichuCallStrategy tichuCallStrategy;
+
+  /// Switchable heuristic rules (A/B testing); the app uses the latest.
+  final HeuristicOptions options;
   final SchupfStrategy schupfStrategy;
   late final PlaySelectionStrategy playSelectionStrategy;
   final PlayTacticsPolicy playTacticsPolicy;
@@ -33,6 +37,7 @@ class SmartAiAgent extends PlayerAgent {
 
   SmartAiAgent(
     this.playerId, {
+    this.options = HeuristicOptions.latest,
     final TichuCallStrategy? tichuCallStrategy,
     final SchupfStrategy? schupfStrategy,
     final PlaySelectionStrategy? playSelectionStrategy,
@@ -40,7 +45,7 @@ class SmartAiAgent extends PlayerAgent {
     final WishStrategy? wishStrategy,
     final DragonGiveStrategy? dragonGiveStrategy,
   }) : tichuCallStrategy =
-           tichuCallStrategy ?? const DefaultTichuCallStrategy(),
+           tichuCallStrategy ?? DefaultTichuCallStrategy(options: options),
        schupfStrategy = schupfStrategy ?? const DefaultSchupfStrategy(),
        playTacticsPolicy = playTacticsPolicy ?? const PlayTacticsPolicy(),
        wishStrategy = wishStrategy ?? const DefaultWishStrategy(),
@@ -76,19 +81,16 @@ class SmartAiAgent extends PlayerAgent {
     final GameSnapshot snapshot,
     final TableRelationships table,
   ) {
+    if (!options.supportPartnerTichu && !options.guardPartnerTichu) {
+      return false;
+    }
     final partnerId = table.partnerId;
     if (partnerId == null) return false;
     final partnerCall =
         snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
     if (partnerCall == TichuCall.none) return false;
     if (snapshot.scoreState.finishOrder.isNotEmpty) return false;
-    if ((snapshot.hands[partnerId] ?? const <Card>[]).isEmpty) return false;
-    for (final opponent in table.opponents) {
-      if ((snapshot.hands[opponent.id] ?? const <Card>[]).length <= 2) {
-        return false;
-      }
-    }
-    return true;
+    return (snapshot.hands[partnerId] ?? const <Card>[]).isNotEmpty;
   }
 
   bool _partnerAlreadyCalled(final GameSnapshot snapshot) {
@@ -155,18 +157,23 @@ class SmartAiAgent extends PlayerAgent {
       throw StateError('No legal turn and pass is illegal for current state.');
     }
 
-    // Partner called Tichu: don't go out ahead of them (a quarter of the
-    // heuristic's failed Tichus were the caller's own partner finishing
-    // first), unless an opponent is about to go out.
+    // Partner called Tichu: support them — pass whenever allowed and never
+    // go out ahead of them (a quarter of the heuristic's failed Tichus were
+    // the caller's own partner finishing first). When leading, play anything
+    // but the last cards.
     if (_holdBackForPartnerTichu(snapshot, table)) {
+      final canPass = LegalPlayGuard.canPass(deck: deck, hand: hand);
+      if (options.supportPartnerTichu && canPass) {
+        return PassAction(playerId: playerId);
+      }
+      if (canPass &&
+          legalTurns.every((final turn) => turn.cards.length == hand.length)) {
+        return PassAction(playerId: playerId);
+      }
       final nonFinishing = legalTurns
           .where((final turn) => turn.cards.length != hand.length)
           .toList();
-      if (nonFinishing.isNotEmpty) {
-        legalTurns = nonFinishing;
-      } else if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {
-        return PassAction(playerId: playerId);
-      }
+      if (nonFinishing.isNotEmpty) legalTurns = nonFinishing;
     }
 
     final finishingTurns = legalTurns

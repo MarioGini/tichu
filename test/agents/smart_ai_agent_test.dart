@@ -702,34 +702,31 @@ void main() {
       expect(action, isA<PassAction>());
     });
 
-    test(
-      'goes out despite partner Tichu when an opponent is about to',
-      () async {
-        final hand = [Card(CardFace.six, CardColor.red)];
-        final deckTurn = TichuTurn(TurnType.single, [
-          Card(CardFace.five, CardColor.black),
-        ]);
-        final deck = DeckState(deckTurn, CardFace.none);
-        final snapshot = _snapshot(
-          myHand: hand,
-          deck: deck,
-          otherHands: {
-            _leftId: [
-              Card(CardFace.two, CardColor.red),
-              Card(CardFace.nine, CardColor.blue),
-            ],
-            _partnerId: [Card(CardFace.ace, CardColor.red)],
-            _rightId: _defaultHand(),
-          },
-          tichuCalls: {_partnerId: TichuCall.tichu},
-          lastPlayedBy: _leftId,
-          lastPlayedTurn: deckTurn,
-        );
+    test('never goes out ahead of a partner who called Tichu', () async {
+      final hand = [Card(CardFace.six, CardColor.red)];
+      final deckTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.five, CardColor.black),
+      ]);
+      final deck = DeckState(deckTurn, CardFace.none);
+      final snapshot = _snapshot(
+        myHand: hand,
+        deck: deck,
+        otherHands: {
+          _leftId: [
+            Card(CardFace.two, CardColor.red),
+            Card(CardFace.nine, CardColor.blue),
+          ],
+          _partnerId: [Card(CardFace.ace, CardColor.red)],
+          _rightId: _defaultHand(),
+        },
+        tichuCalls: {_partnerId: TichuCall.tichu},
+        lastPlayedBy: _leftId,
+        lastPlayedTurn: deckTurn,
+      );
 
-        final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PlayTurnAction>());
-      },
-    );
+      final action = await agent.selectTurn(snapshot);
+      expect(action, isA<PassAction>());
+    });
 
     test('holds back its last card while partner Tichu is open and opponents '
         'are not close', () async {

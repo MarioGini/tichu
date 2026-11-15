@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:tichu/agents/bot_config.dart';
+import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/mcts/ismcts_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
@@ -55,6 +56,7 @@ Future<void> main(final List<String> args) async {
     grandTichu: await _loadNet(config.grandNetPath),
     preSchupfTichu: await _loadNet(config.preTichuNetPath),
     schupf: await _loadNet(config.schupfNetPath),
+    heuristicOptions: config.heuristic,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = _buildAgentFactory(
@@ -65,7 +67,10 @@ Future<void> main(final List<String> args) async {
     random: random,
   );
   final opponentFactory = _buildAgentFactory(
-    config: BotConfig(play: opponentPolicy),
+    config: BotConfig(
+      play: opponentPolicy,
+      heuristicOptions: config.opponentHeuristic,
+    ),
     random: random,
   );
 
@@ -140,6 +145,8 @@ class _HeadlessConfig {
   final double callEpsilon;
   final String? schupfNetPath;
   final String? preTichuNetPath;
+  final HeuristicOptions heuristic;
+  final HeuristicOptions opponentHeuristic;
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
@@ -170,6 +177,8 @@ class _HeadlessConfig {
     required this.callEpsilon,
     required this.schupfNetPath,
     required this.preTichuNetPath,
+    required this.heuristic,
+    required this.opponentHeuristic,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
@@ -205,6 +214,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var callEpsilon = 0.0;
   String? schupfNetPath;
   String? preTichuNetPath;
+  var heuristic = HeuristicOptions.latest;
+  var opponentHeuristic = HeuristicOptions.latest;
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
   var skipPlayRows = false;
@@ -316,6 +327,14 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       shadowHeuristic = true;
       continue;
     }
+    if (arg.startsWith('--heuristic=')) {
+      heuristic = HeuristicOptions.parse(arg.split('=').last);
+      continue;
+    }
+    if (arg.startsWith('--opponent-heuristic=')) {
+      opponentHeuristic = HeuristicOptions.parse(arg.split('=').last);
+      continue;
+    }
     if (arg.startsWith('--pre-tichu-net=')) {
       preTichuNetPath = arg.split('=').last;
       continue;
@@ -378,6 +397,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     callEpsilon: callEpsilon,
     schupfNetPath: schupfNetPath,
     preTichuNetPath: preTichuNetPath,
+    heuristic: heuristic,
+    opponentHeuristic: opponentHeuristic,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
@@ -400,6 +421,8 @@ void _printUsage() {
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
   stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
   stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
+  stdout.writeln('       [--heuristic=latest|legacy|support,announce,strict]');
+  stdout.writeln('       [--opponent-heuristic=...]  (A/B heuristic rules)');
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--counterfactual-calls]');
   stdout.writeln('       [--epsilon=0.1]');

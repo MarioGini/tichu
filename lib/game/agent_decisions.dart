@@ -3,6 +3,7 @@ import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_tracker.dart';
 
 /// A decision the engine is waiting for from one player.
 ///
@@ -23,6 +24,13 @@ class SchupfReceiptRequest extends DecisionRequest {
 /// The player must decide whether to call Grand Tichu (8 cards seen).
 class GrandTichuRequest extends DecisionRequest {
   const GrandTichuRequest(super.playerId);
+}
+
+/// Before anyone passes cards: may the player call Tichu now (so the
+/// partner can react in the exchange)? Only asked when the driver tracks
+/// these decisions (`preSchupfDecided` in [AgentDecisions.next]).
+class PreSchupfTichuRequest extends DecisionRequest {
+  const PreSchupfTichuRequest(super.playerId);
 }
 
 /// The player must choose the three cards to pass.
@@ -47,10 +55,15 @@ abstract final class AgentDecisions {
   ///
   /// In the Grand Tichu phase this advances `state.currentPlayerIndex` past
   /// players who already decided (the engine expects drivers to do so).
+  ///
+  /// When [preSchupfDecided] is given, every player not in it (and without a
+  /// call yet) is first asked a [PreSchupfTichuRequest] in the schupf phase;
+  /// the driver adds the player to the set once asked.
   static DecisionRequest? next(
     final GameEngine engine,
     final GameEngineState state, {
     final bool Function(GamePlayer player)? include,
+    final Set<String>? preSchupfDecided,
   }) {
     bool accepts(final GamePlayer p) => include == null || include(p);
 
@@ -73,6 +86,17 @@ abstract final class AgentDecisions {
       return null;
     }
     if (state.phase == GamePhase.schupf) {
+      if (preSchupfDecided != null) {
+        final calls = state.scoreTracker.state.tichuCalls;
+        for (final player in state.players) {
+          if (accepts(player) &&
+              !preSchupfDecided.contains(player.id) &&
+              !state.schupfSelections.containsKey(player.id) &&
+              (calls[player.id] ?? TichuCall.none) == TichuCall.none) {
+            return PreSchupfTichuRequest(player.id);
+          }
+        }
+      }
       for (final player in state.players) {
         if (!state.schupfSelections.containsKey(player.id) && accepts(player)) {
           return SchupfRequest(player.id);
@@ -94,9 +118,10 @@ abstract final class AgentDecisions {
   }
 
   /// Ask [agent] for its answer to [request] and return it as an action.
+  /// Returns null only for a [PreSchupfTichuRequest] answered with "no".
   ///
   /// May throw [StateError] when the agent has no legal turn.
-  static Future<GameAction> resolve(
+  static Future<GameAction?> resolve(
     final DecisionRequest request,
     final PlayerAgent agent,
     final GameSnapshot snapshot,
@@ -110,6 +135,10 @@ abstract final class AgentDecisions {
           playerId: playerId,
           call: await agent.shouldCallGrandTichu(snapshot),
         );
+      case PreSchupfTichuRequest(:final playerId):
+        return await agent.shouldCallTichuBeforeSchupf(snapshot)
+            ? CallTichuAction(playerId: playerId)
+            : null;
       case SchupfRequest():
         return agent.selectSchupfCards(snapshot);
       case DragonGiveRequest(:final playerId, :final opponentIds):

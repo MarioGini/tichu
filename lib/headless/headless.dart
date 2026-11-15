@@ -51,6 +51,7 @@ Future<void> main(final List<String> args) async {
     play: await _loadNet(config.nnPolicyPath),
     tichu: await _loadNet(config.tichuNetPath),
     grandTichu: await _loadNet(config.grandNetPath),
+    preSchupfTichu: await _loadNet(config.preTichuNetPath),
     schupf: await _loadNet(config.schupfNetPath),
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
@@ -135,6 +136,7 @@ class _HeadlessConfig {
   final String? grandNetPath;
   final double callEpsilon;
   final String? schupfNetPath;
+  final String? preTichuNetPath;
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
@@ -163,6 +165,7 @@ class _HeadlessConfig {
     required this.grandNetPath,
     required this.callEpsilon,
     required this.schupfNetPath,
+    required this.preTichuNetPath,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
@@ -196,6 +199,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   String? grandNetPath;
   var callEpsilon = 0.0;
   String? schupfNetPath;
+  String? preTichuNetPath;
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
   var skipPlayRows = false;
@@ -302,6 +306,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       shadowHeuristic = true;
       continue;
     }
+    if (arg.startsWith('--pre-tichu-net=')) {
+      preTichuNetPath = arg.split('=').last;
+      continue;
+    }
     if (arg.startsWith('--schupf-net=')) {
       schupfNetPath = arg.split('=').last;
       continue;
@@ -359,6 +367,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     grandNetPath: grandNetPath,
     callEpsilon: callEpsilon,
     schupfNetPath: schupfNetPath,
+    preTichuNetPath: preTichuNetPath,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
@@ -379,6 +388,7 @@ void _printUsage() {
   stdout.writeln('       [--value-net=value.safetensors]');
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
   stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
+  stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--epsilon=0.1]');
 }

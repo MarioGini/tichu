@@ -17,31 +17,36 @@ import 'package:tichu/game/turn/tichu_data.dart';
 /// | left    | 56   | one-hot card passed to the left opponent            |
 /// | partner | 56   | one-hot card passed to the partner                  |
 /// | right   | 56   | one-hot card passed to the right opponent           |
-/// | context | 4    | Grand Tichu called by me, partner, left, right      |
+/// | context | 8    | per seat (me, partner, left, right): Grand Tichu    |
+/// |         |      | called, Tichu called (e.g. announced pre-schupf)    |
 abstract final class SchupfFeatures {
   static const int handOffset = 0;
   static const int leftOffset = 56;
   static const int partnerOffset = 112;
   static const int rightOffset = 168;
   static const int contextOffset = 224;
-  static const int size = 228;
+  static const int contextSize = 8;
+  static const int size = 232;
 
-  /// Grand Tichu flags (me, partner, left, right) for [playerId].
+  /// Call flags `[grand, tichu]` for me, partner, left, right.
   static List<double> context(
     final GameSnapshot snapshot,
     final String playerId,
   ) {
     final table = TableRelationships(snapshot, playerId);
-    double gt(final String? id) =>
-        id != null && snapshot.scoreState.tichuCalls[id] == TichuCall.grandTichu
-        ? 1.0
-        : 0.0;
-    return [
-      gt(playerId),
-      gt(table.partnerId),
-      gt(table.playerBySeat(table.leftSeat()).id),
-      gt(table.playerBySeat(table.rightSeat()).id),
-    ];
+    final out = <double>[];
+    for (final id in [
+      playerId,
+      table.partnerId,
+      table.playerBySeat(table.leftSeat()).id,
+      table.playerBySeat(table.rightSeat()).id,
+    ]) {
+      final call = id == null ? null : snapshot.scoreState.tichuCalls[id];
+      out
+        ..add(call == TichuCall.grandTichu ? 1.0 : 0.0)
+        ..add(call == TichuCall.tichu ? 1.0 : 0.0);
+    }
+    return out;
   }
 
   /// Full feature vector (used for logging and tests; inference uses the
@@ -60,7 +65,7 @@ abstract final class SchupfFeatures {
     f[leftOffset + cardSlot(toLeft)] = 1;
     f[partnerOffset + cardSlot(toPartner)] = 1;
     f[rightOffset + cardSlot(toRight)] = 1;
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < SchupfFeatures.contextSize; i++) {
       f[contextOffset + i] = context[i];
     }
     return f;
@@ -102,7 +107,7 @@ class NnSchupfStrategy implements SchupfStrategy {
       base[SchupfFeatures.handOffset + cardSlot(c)] = 1;
     }
     final ctx = SchupfFeatures.context(snapshot, playerId);
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < SchupfFeatures.contextSize; i++) {
       base[SchupfFeatures.contextOffset + i] = ctx[i];
     }
     final pre = network.firstLayerPreActivation(base);

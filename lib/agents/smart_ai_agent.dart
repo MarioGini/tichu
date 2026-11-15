@@ -66,6 +66,12 @@ class SmartAiAgent extends PlayerAgent {
     return tichuCallStrategy.shouldCallTichu(snapshot, playerId);
   }
 
+  @override
+  Future<bool> shouldCallTichuBeforeSchupf(final GameSnapshot snapshot) async {
+    if (_partnerAlreadyCalled(snapshot)) return false;
+    return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
+  }
+
   bool _partnerAlreadyCalled(final GameSnapshot snapshot) {
     final table = TableRelationships(snapshot, playerId);
     final partnerId = table.partnerId;

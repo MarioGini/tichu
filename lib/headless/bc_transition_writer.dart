@@ -60,7 +60,7 @@ class _BcTransitionWriter {
   /// `SchupfFeatures`):
   ///   {"episode", "round", "team", "schupf": true, "hand": [slots...],
   ///    "left": slot, "partner": slot, "right": slot,
-  ///    "context": [gt_me, gt_partner, gt_left, gt_right], "explore"?}
+  ///    "context": [gt, tichu] × (me, partner, left, right), "explore"?}
   void emitSchupfDecision({
     required final GameSnapshot snapshot,
     required final SchupfAction action,

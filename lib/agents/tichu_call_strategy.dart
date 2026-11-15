@@ -13,10 +13,24 @@ abstract class TichuCallStrategy {
     final GameSnapshot snapshot,
     final String playerId,
   );
+
+  /// Tichu call before passing cards (14 cards seen, nothing exchanged yet).
+  /// Calling early tells the partner to support, e.g. with a strong pass.
+  Future<bool> shouldCallTichuBeforeSchupf(
+    final GameSnapshot snapshot,
+    final String playerId,
+  );
 }
 
 class DefaultTichuCallStrategy implements TichuCallStrategy {
   static const int _tichuIndexThreshold = 7;
+
+  /// The heuristic only calls Tichu once the exchange is done.
+  @override
+  Future<bool> shouldCallTichuBeforeSchupf(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async => false;
 
   const DefaultTichuCallStrategy();
 

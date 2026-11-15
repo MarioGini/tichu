@@ -41,6 +41,9 @@ class BotConfig {
   /// Grand Tichu call-value net (`rl/call_train.py`).
   final LoadedNet? grandTichu;
 
+  /// Call-value net for Tichu before the schupf (`rl/call_train.py`).
+  final LoadedNet? preSchupfTichu;
+
   /// Schupf value net (`rl/schupf_train.py`).
   final LoadedNet? schupf;
 
@@ -51,6 +54,7 @@ class BotConfig {
     this.play,
     this.tichu,
     this.grandTichu,
+    this.preSchupfTichu,
     this.schupf,
     this.callMargin = 0,
   });
@@ -59,7 +63,11 @@ class BotConfig {
   static const heuristic = BotConfig();
 
   bool get isHeuristic =>
-      play == null && tichu == null && grandTichu == null && schupf == null;
+      play == null &&
+      tichu == null &&
+      grandTichu == null &&
+      preSchupfTichu == null &&
+      schupf == null;
 
   /// Build the agent for [playerId].
   ///
@@ -81,13 +89,16 @@ class BotConfig {
                   playerId: playerId,
                   network: play.network,
                 )),
-      tichuCallStrategy: tichu == null && grandTichu == null
+      tichuCallStrategy:
+          tichu == null && grandTichu == null && preSchupfTichu == null
           ? null
           : NnTichuCallStrategy(
               tichuNetwork: tichu?.network,
               grandTichuNetwork: grandTichu?.network,
               tichuScale: tichu?.targetStd ?? 100,
               grandTichuScale: grandTichu?.targetStd ?? 100,
+              preSchupfTichuNetwork: preSchupfTichu?.network,
+              preSchupfTichuScale: preSchupfTichu?.targetStd ?? 100,
               margin: callMargin,
             ),
       schupfStrategy: schupf == null

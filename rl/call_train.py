@@ -199,7 +199,12 @@ def main() -> None:
     p.add_argument("--nn-policy", default="", help="Play policy used during data generation")
     p.add_argument("--seed", type=int, default=4242)
     p.add_argument("--shards", type=int, default=0)
-    p.add_argument("--kind", choices=["tichu", "grand", "both"], default="both")
+    p.add_argument(
+        "--kind",
+        choices=["tichu", "grand", "pre", "all"],
+        default="all",
+        help="pre = Tichu before the schupf",
+    )
     p.add_argument("--output", default="", help="Output file (single --kind)")
     p.add_argument("--output-dir", default="rl/outputs")
     p.add_argument("--hidden", default="128,64")
@@ -239,7 +244,7 @@ def main() -> None:
         Path(args.keep_jsonl).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(jsonl, args.keep_jsonl)
 
-    kinds = ["tichu", "grand"] if args.kind == "both" else [args.kind]
+    kinds = ["tichu", "grand", "pre"] if args.kind == "all" else [args.kind]
     try:
         for kind in kinds:
             out = (

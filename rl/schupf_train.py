@@ -7,8 +7,8 @@ as ``{"schupf": true, "hand": [slots], "left", "partner", "right",
 with ``--schupf-epsilon=p`` so that alternatives to the heuristic's choice are
 observed.
 
-  x = SchupfFeatures (228): hand bitmap, one-hot left / partner / right card,
-      Grand Tichu context            — must match lib/agents/nn/nn_schupf_strategy.dart
+  x = SchupfFeatures (232): hand bitmap, one-hot left / partner / right card,
+      call context ([grand, tichu] per seat)            — must match lib/agents/nn/nn_schupf_strategy.dart
   y = round point difference / 100 (own team minus opponents)
 
 Dart's ``NnSchupfStrategy`` scores all 2184 assignments and picks the best.
@@ -32,7 +32,8 @@ from call_train import train
 from schema import SPEC
 
 SCALE = 100.0
-HAND, LEFT, PARTNER, RIGHT, CONTEXT, SIZE = 0, 56, 112, 168, 224, 228
+HAND, LEFT, PARTNER, RIGHT, CONTEXT, SIZE = 0, 56, 112, 168, 224, 232
+CONTEXT_SIZE = 8  # [grand, tichu] for me, partner, left, right
 
 
 def encode(hand: list[int], left: int, partner: int, right: int, ctx: list[float]) -> np.ndarray:
@@ -41,12 +42,14 @@ def encode(hand: list[int], left: int, partner: int, right: int, ctx: list[float
     f[LEFT + left] = 1.0
     f[PARTNER + partner] = 1.0
     f[RIGHT + right] = 1.0
-    f[CONTEXT : CONTEXT + 4] = ctx
+    if len(ctx) != CONTEXT_SIZE:
+        raise ValueError(f"schupf context has {len(ctx)} values, expected {CONTEXT_SIZE}")
+    f[CONTEXT : CONTEXT + CONTEXT_SIZE] = ctx
     return f
 
 
 def load(jsonl: Path) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return (x (N, 228), y (N,), explored (N,) bool)."""
+    """Return (x (N, 232), y (N,), explored (N,) bool)."""
     rounds: dict[tuple[int, int], tuple[int, int]] = {}
     rows: list[dict] = []
     with jsonl.open("r", encoding="utf-8") as fh:

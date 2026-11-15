@@ -29,6 +29,10 @@ List<double> callNetInput(
 class NnTichuCallStrategy implements TichuCallStrategy {
   final Mlp? tichuNetwork;
   final Mlp? grandTichuNetwork;
+
+  /// Call-value net for a Tichu call before the schupf.
+  final Mlp? preSchupfTichuNetwork;
+  final double preSchupfTichuScale;
   final double tichuScale;
   final double grandTichuScale;
 
@@ -39,12 +43,18 @@ class NnTichuCallStrategy implements TichuCallStrategy {
   NnTichuCallStrategy({
     this.tichuNetwork,
     this.grandTichuNetwork,
+    this.preSchupfTichuNetwork,
+    this.preSchupfTichuScale = 100,
     this.tichuScale = 100,
     this.grandTichuScale = 100,
     this.margin = 0,
     this.fallback = const DefaultTichuCallStrategy(),
   }) {
-    for (final net in [tichuNetwork, grandTichuNetwork]) {
+    for (final net in [
+      tichuNetwork,
+      grandTichuNetwork,
+      preSchupfTichuNetwork,
+    ]) {
       if (net != null && net.inputSize != callNetInputSize) {
         throw ArgumentError.value(
           net.inputSize,
@@ -77,6 +87,18 @@ class NnTichuCallStrategy implements TichuCallStrategy {
     final net = grandTichuNetwork;
     if (net == null) return fallback.shouldCallGrandTichu(snapshot, playerId);
     return callAdvantage(net, grandTichuScale, snapshot, playerId) > margin;
+  }
+
+  @override
+  Future<bool> shouldCallTichuBeforeSchupf(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async {
+    final net = preSchupfTichuNetwork;
+    if (net == null) {
+      return fallback.shouldCallTichuBeforeSchupf(snapshot, playerId);
+    }
+    return callAdvantage(net, preSchupfTichuScale, snapshot, playerId) > margin;
   }
 
   @override

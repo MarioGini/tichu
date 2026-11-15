@@ -31,6 +31,9 @@ class AiTurnRunner {
 
   final Map<String, PlayerAgent> _automatedAgents = {};
   final Set<String> _automatedTurnsInFlight = {};
+
+  /// `gameId:round:playerId` of bots already asked about a pre-schupf Tichu.
+  final Set<String> _preSchupfDecided = {};
   Duration automatedActionDelay = const Duration(seconds: 1);
 
   void addAgents(final Map<String, PlayerAgent> agents) =>
@@ -174,7 +177,7 @@ class AiTurnRunner {
       );
       if (state.engineState.phase != GamePhase.grandTichu) return;
 
-      _engine.applyAction(state.engineState, action);
+      _engine.applyAction(state.engineState, action!);
     }
   }
 
@@ -185,6 +188,37 @@ class AiTurnRunner {
     final GameSnapshot Function() buildSnapshot,
     final void Function() emitSnapshot,
   ) async {
+    // Bots may announce Tichu before anyone passes, so partners can react
+    // in the exchange (same decision order as in headless training).
+    final round = state.engineState.scoreTracker.state.roundNumber;
+    final decided = <String>{
+      for (final key in _preSchupfDecided)
+        if (key.startsWith('${state.engineState.gameId}:$round:'))
+          key.split(':').last,
+    };
+    while (true) {
+      final request = AgentDecisions.next(
+        _engine,
+        state.engineState,
+        include: _isAutomated,
+        preSchupfDecided: decided,
+      );
+      if (request is! PreSchupfTichuRequest) break;
+      decided.add(request.playerId);
+      _preSchupfDecided.add(
+        '${state.engineState.gameId}:$round:${request.playerId}',
+      );
+      final agent = _automatedAgents[request.playerId];
+      if (agent == null) continue;
+      final call = await AgentDecisions.resolve(
+        request,
+        agent,
+        buildSnapshot(),
+        state.engineState,
+      );
+      if (call != null) _engine.applyAction(state.engineState, call);
+    }
+
     final snapshot = buildSnapshot();
     for (final player in state.engineState.players) {
       if (state.engineState.phase != GamePhase.schupf) return;
@@ -195,12 +229,12 @@ class AiTurnRunner {
       if (agent == null) continue;
 
       final selection =
-          await AgentDecisions.resolve(
+          (await AgentDecisions.resolve(
                 SchupfRequest(player.id),
                 agent,
                 snapshot,
                 state.engineState,
-              )
+              ))!
               as SchupfAction;
       if (state.engineState.phase != GamePhase.schupf) return;
 
@@ -264,7 +298,7 @@ class AiTurnRunner {
       buildSnapshot(),
       state.engineState,
     );
-    _engine.applyAction(state.engineState, action);
+    _engine.applyAction(state.engineState, action!);
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────

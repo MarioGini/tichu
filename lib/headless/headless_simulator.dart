@@ -43,6 +43,8 @@ class _HeadlessSimulator {
   var _lastActionExplored = false;
 
   _BcTransitionWriter? _bcWriter;
+  final _preSchupfDecided = <String>{};
+  var _preSchupfRound = -1;
   final _tichuDecided = <String>{};
 
   _HeadlessSimulator({
@@ -216,7 +218,41 @@ class _HeadlessSimulator {
     required final Map<String, PlayerAgent> agents,
   }) async {
     _lastActionExplored = false;
-    final request = AgentDecisions.next(engine, state);
+    final round = state.scoreTracker.state.roundNumber;
+    if (round != _preSchupfRound) {
+      _preSchupfRound = round;
+      _preSchupfDecided.clear();
+    }
+    var request = AgentDecisions.next(
+      engine,
+      state,
+      preSchupfDecided: _preSchupfDecided,
+    );
+    // Pre-schupf Tichu: every player decides before anyone passes.
+    while (request is PreSchupfTichuRequest) {
+      final playerId = request.playerId;
+      _preSchupfDecided.add(playerId);
+      final agent = agents[playerId];
+      if (agent == null) {
+        throw StateError('No agent registered for $playerId.');
+      }
+      var shouldCall = await agent.shouldCallTichuBeforeSchupf(snapshot);
+      final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
+      if (explored) shouldCall = !shouldCall;
+      _bcWriter?.emitCallDecision(
+        kind: 'pre',
+        snapshot: snapshot,
+        playerId: playerId,
+        called: shouldCall,
+        explored: explored,
+      );
+      if (shouldCall) return CallTichuAction(playerId: playerId);
+      request = AgentDecisions.next(
+        engine,
+        state,
+        preSchupfDecided: _preSchupfDecided,
+      );
+    }
     if (request == null) {
       throw StateError('No pending decision in phase ${state.phase}.');
     }
@@ -262,7 +298,9 @@ class _HeadlessSimulator {
           playerId: playerId,
           agent: agent,
         );
-      case SchupfReceiptRequest() || DragonGiveRequest():
+      case SchupfReceiptRequest() ||
+          DragonGiveRequest() ||
+          PreSchupfTichuRequest():
         return AgentDecisions.resolve(request, agent, snapshot, state);
     }
   }

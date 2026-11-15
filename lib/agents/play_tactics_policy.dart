@@ -40,10 +40,9 @@ class PlayTacticsPolicy {
       return null;
     }
 
-    if (partnerCall == TichuCall.none ||
-        selfCall != TichuCall.none ||
-        partnerCards <= 0 ||
-        !canPass) {
+    // A Tichu caller may need the lead back; no partner left: nothing to
+    // support.
+    if (selfCall != TichuCall.none || partnerCards <= 0 || !canPass) {
       return null;
     }
 
@@ -55,10 +54,19 @@ class PlayTacticsPolicy {
       return null;
     }
 
-    if (!_isPartnerSupportPassTurn(
-      deck.turn,
-      CardKnowledge.of(snapshot, playerId),
-    )) {
+    if (partnerCall != TichuCall.none) {
+      // Partner called: let them keep anything they can hold.
+      if (!_isPartnerSupportPassTurn(
+        deck.turn,
+        CardKnowledge.of(snapshot, playerId),
+      )) {
+        return null;
+      }
+    } else if (deck.turn.type == TurnType.single &&
+        deck.turn.value < Card.getValue(CardFace.ten)) {
+      // Nobody called: only a low single is worth taking over from the
+      // partner (cheap way to get the lead). Everything else: don't waste
+      // cards (or the Dragon / a bomb) on a trick our team already holds.
       return null;
     }
 

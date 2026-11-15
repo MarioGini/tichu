@@ -3,6 +3,7 @@ import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/bomb_utils.dart';
 
 abstract class SchupfStrategy {
   Future<SchupfAction> selectSchupfCards(
@@ -82,19 +83,35 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     // Fill the opponent slots with low cards: odd ranks to the left, even
     // ranks to the right. Both partners follow this convention, so an
     // opponent never gets two cards of the same rank from us (no bomb gift).
-    final normalPool = _normalCandidates(remaining);
+    // Never break up a bomb (four of a kind / straight flush) when any other
+    // card can be passed instead.
+    final bombCards = <Card>{
+      for (final bomb in getBombs(List<Card>.from(hand))) ...bomb.cards,
+    };
+    List<Card> safe(final List<Card> pool) {
+      final kept = [
+        for (final c in pool)
+          if (!bombCards.any(
+            (final b) => b.face == c.face && b.color == c.color,
+          ))
+            c,
+      ];
+      return kept.isEmpty ? pool : kept;
+    }
+
+    final normalPool = safe(_normalCandidates(remaining));
     if (toLeft == null) {
       final pick =
           _pickLowestByParity(normalPool, isEven: false) ??
-          _pickLowest(remaining, avoidDog: partnerGrand);
+          _pickLowest(safe(remaining), avoidDog: partnerGrand);
       toLeft = pick;
       remaining.remove(pick);
     }
     if (toRight == null) {
-      final updatedNormal = _normalCandidates(remaining);
+      final updatedNormal = safe(_normalCandidates(remaining));
       final pick =
           _pickLowestByParity(updatedNormal, isEven: true) ??
-          _pickLowest(remaining, avoidDog: partnerGrand);
+          _pickLowest(safe(remaining), avoidDog: partnerGrand);
       toRight = pick;
       remaining.remove(pick);
     }
@@ -105,9 +122,9 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     // - Otherwise: give strongest regular card (support the partner).
     Card toPartner;
     if (partnerGrand) {
-      final nonDog = remaining
-          .where((final c) => c.face != CardFace.dog)
-          .toList();
+      final nonDog = safe(
+        remaining,
+      ).where((final c) => c.face != CardFace.dog).toList();
       if (nonDog.isNotEmpty) {
         nonDog.sort((final a, final b) => b.value.compareTo(a.value));
         toPartner = nonDog.first;
@@ -119,7 +136,7 @@ class DefaultSchupfStrategy implements SchupfStrategy {
       final normal = _normalCandidates(remaining);
       toPartner = _pickLowest(normal.isNotEmpty ? normal : remaining);
     } else {
-      final partnerPool = _normalCandidates(remaining);
+      final partnerPool = safe(_normalCandidates(remaining));
       if (partnerPool.isNotEmpty) {
         partnerPool.sort((final a, final b) => b.value.compareTo(a.value));
         toPartner = partnerPool.first;

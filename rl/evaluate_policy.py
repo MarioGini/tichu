@@ -108,8 +108,12 @@ def evaluate(
     opponent_policy: str = "",
     tichu_net: str = "",
     grand_net: str = "",
+    schupf_net: str = "",
+    extra: list[str] | None = None,
 ) -> dict[str, float]:
-    extra_args = []
+    extra_args = list(extra or [])
+    if schupf_net:
+        extra_args.append(f"--schupf-net={schupf_net}")
     if tichu_net:
         extra_args.append(f"--tichu-net={tichu_net}")
     if grand_net:
@@ -222,6 +226,13 @@ def main() -> None:
     )
     parser.add_argument("--tichu-net", default="", help="Call-value net for Tichu")
     parser.add_argument("--grand-net", default="", help="Call-value net for Grand Tichu")
+    parser.add_argument("--schupf-net", default="", help="Schupf value net")
+    parser.add_argument(
+        "--extra",
+        action="append",
+        default=[],
+        help="Extra headless args for the policy side, e.g. --extra=--ismcts",
+    )
     parser.add_argument(
         "--no-duplicate",
         dest="duplicate",
@@ -247,6 +258,8 @@ def main() -> None:
         opponent_policy=args.opponent_policy,
         tichu_net=args.tichu_net,
         grand_net=args.grand_net,
+        schupf_net=args.schupf_net,
+        extra=args.extra,
     )
     print(f"Saved eval summary: {args.output}")
     print(

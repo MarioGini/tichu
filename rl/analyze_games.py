@@ -78,7 +78,12 @@ def _kind(desc: str) -> str:
 def main() -> None:
     p = argparse.ArgumentParser(description="Analyse policy vs heuristic games")
     p.add_argument("--nn-policy", required=True)
-    p.add_argument("--extra", nargs="*", default=[], help="Extra headless args for the policy team")
+    p.add_argument(
+        "--extra",
+        action="append",
+        default=[],
+        help="Extra headless arg for the policy team (repeatable: --extra=--ismcts)",
+    )
     p.add_argument("--episodes", type=int, default=100, help="Deal sequences (×2 seatings)")
     p.add_argument("--target-score", type=int, default=500)
     p.add_argument("--seed", type=int, default=2468)

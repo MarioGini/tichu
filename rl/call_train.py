@@ -188,12 +188,48 @@ def load_counterfactual(jsonl: Path, kind: str) -> tuple[torch.Tensor, torch.Ten
     )
 
 
+def train_decision(
+    x1: torch.Tensor,
+    x0: torch.Tensor,
+    cf: torch.Tensor,
+    *,
+    hidden: list[int],
+    epochs: int,
+    lr: float,
+    seed: int,
+    temperature: float = 0.25,
+) -> QNetwork:
+    """Decision-focused training on exact counterfactual labels.
+
+    d(x) = Q(x, call) - Q(x, no call); maximise the expected value of the
+    soft decision, mean(cf * sigmoid(d / T)). Hands where calling is worth a
+    lot pull hard, wrong calls are penalised by exactly what they cost —
+    unlike regressing cf, which collapses to the (negative) mean and never
+    calls.
+    """
+    torch.manual_seed(seed)
+    model = QNetwork(x1.shape[1], hidden)
+    opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    n = x1.shape[0]
+    for _ in range(epochs):
+        order = torch.randperm(n)
+        for i in range(0, n, 256):
+            idx = order[i : i + 256]
+            d = (model(x1[idx]) - model(x0[idx])).squeeze(-1)
+            p = torch.sigmoid(d / temperature)
+            loss = -(cf[idx] * p).mean() + 1e-3 * (d**2).mean()
+            opt.zero_grad(set_to_none=True)
+            loss.backward()
+            opt.step()
+    return model
+
+
 def fit_counterfactual(
     feats: torch.Tensor, cf: torch.Tensor, heur: torch.Tensor, kind: str, output: Path,
     args: argparse.Namespace,
 ) -> None:
-    """Q(x, 1) - Q(x, 0) = cf exactly: train on (x, call) -> cf/2 and
-    (x, no call) -> -cf/2."""
+    """Learn the call decision from exact counterfactual labels
+    (see train_decision)."""
     n = feats.shape[0]
     pts = cf * SCALE
     best = float(torch.clamp(pts, min=0).mean())
@@ -205,20 +241,23 @@ def fit_counterfactual(
     )
     x1 = torch.cat([feats, torch.ones(n, 1), feats], dim=1)
     x0 = torch.cat([feats, torch.zeros(n, 1), torch.zeros_like(feats)], dim=1)
-    x = torch.cat([x1, x0])
-    y = torch.cat([cf / 2, -cf / 2])
     hidden = [int(h) for h in args.hidden.split(",") if h]
-    model, mse = train(x, y, hidden=hidden, epochs=args.epochs, lr=args.lr, seed=args.seed)
     # Held-out estimate of the gain: 2-fold, train on one half, score the other.
     perm = torch.from_numpy(np.random.default_rng(args.seed).permutation(n))
     gain = 0.0
+    calls = 0
     for k in range(2):
         tr, te = perm[k::2], perm[1 - k :: 2]
-        m, _ = train(torch.cat([x1[tr], x0[tr]]), torch.cat([cf[tr] / 2, -cf[tr] / 2]),
-                     hidden=hidden, epochs=args.epochs, lr=args.lr, seed=args.seed + k)
+        m = train_decision(x1[tr], x0[tr], cf[tr], hidden=hidden, epochs=args.epochs,
+                           lr=args.lr, seed=args.seed + k)
         with torch.no_grad():
-            adv = (m(x1[te]) - m(x0[te])).squeeze(-1) * SCALE
-        gain += float((pts[te] * (adv > args.margin).float()).sum())
+            adv = (m(x1[te]) - m(x0[te])).squeeze(-1)
+        gain += float((pts[te] * (adv > 0).float()).sum())
+        calls += int((adv > 0).sum())
+    model = train_decision(x1, x0, cf, hidden=hidden, epochs=args.epochs, lr=args.lr,
+                           seed=args.seed)
+    mse = 0.0
+    print(f"[{kind}] held-out NN call rate {100 * calls / n:.1f}%")
     print(
         f"[{kind}] held-out: NN calls gain {gain / n:+.1f} pts/decision "
         f"(heuristic {heur_val:+.1f}, perfect {best:+.1f})"

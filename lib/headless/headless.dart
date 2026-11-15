@@ -106,6 +106,7 @@ Future<void> main(final List<String> args) async {
     shadowHeuristic: config.shadowHeuristic,
     skipPlayRows: config.skipPlayRows,
     counterfactualCalls: config.counterfactualCalls,
+    counterfactualRate: config.counterfactualRate,
   );
 
   try {
@@ -151,6 +152,7 @@ class _HeadlessConfig {
   final bool shadowHeuristic;
   final bool skipPlayRows;
   final bool counterfactualCalls;
+  final double counterfactualRate;
 
   const _HeadlessConfig({
     required this.seed,
@@ -183,6 +185,7 @@ class _HeadlessConfig {
     required this.shadowHeuristic,
     required this.skipPlayRows,
     required this.counterfactualCalls,
+    required this.counterfactualRate,
   });
 }
 
@@ -220,6 +223,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var shadowHeuristic = false;
   var skipPlayRows = false;
   var counterfactualCalls = false;
+  var counterfactualRate = 1.0;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -315,6 +319,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       grandNetPath = arg.split('=').last;
       continue;
     }
+    if (arg.startsWith('--counterfactual-rate=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p > 0 && p <= 1) counterfactualRate = p;
+      continue;
+    }
     if (arg == '--counterfactual-calls') {
       counterfactualCalls = true;
       continue;
@@ -403,6 +412,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
     counterfactualCalls: counterfactualCalls,
+    counterfactualRate: counterfactualRate,
   );
 }
 
@@ -424,7 +434,7 @@ void _printUsage() {
   stdout.writeln('       [--heuristic=latest|legacy|support,announce,strict]');
   stdout.writeln('       [--opponent-heuristic=...]  (A/B heuristic rules)');
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
-  stdout.writeln('       [--counterfactual-calls]');
+  stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
   stdout.writeln('       [--epsilon=0.1]');
 }
 

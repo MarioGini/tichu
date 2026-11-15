@@ -39,6 +39,16 @@ class _HeadlessSimulator {
   /// (round forked and played both ways), see [_counterfactualCall].
   final bool counterfactualCalls;
 
+  /// Share of call decisions that get a counterfactual label (each label
+  /// replays the rest of the round twice, so labelling every decision makes
+  /// games ~30x slower).
+  final double counterfactualRate;
+
+  bool _labelCounterfactual() =>
+      counterfactualCalls &&
+      _bcWriter != null &&
+      (counterfactualRate >= 1 || random.nextDouble() < counterfactualRate);
+
   /// Omit play/pass rows from bc-jsonl (call / schupf / round data only).
   final bool skipPlayRows;
   final _shadowAgents = <String, SmartAiAgent>{};
@@ -72,6 +82,7 @@ class _HeadlessSimulator {
     this.shadowHeuristic = false,
     this.skipPlayRows = false,
     this.counterfactualCalls = false,
+    this.counterfactualRate = 1,
   });
 
   Future<GameAction?> _shadowHeuristicTurn(
@@ -261,7 +272,7 @@ class _HeadlessSimulator {
         playerId: playerId,
         called: shouldCall,
         explored: explored,
-        counterfactual: counterfactualCalls && _bcWriter != null
+        counterfactual: _labelCounterfactual()
             ? await _counterfactualCall(engine, state, playerId, 'pre')
             : null,
       );
@@ -293,7 +304,7 @@ class _HeadlessSimulator {
           playerId: playerId,
           called: shouldCall,
           explored: explored,
-          counterfactual: counterfactualCalls && _bcWriter != null
+          counterfactual: _labelCounterfactual()
               ? await _counterfactualCall(engine, state, playerId, 'grand')
               : null,
         );
@@ -360,7 +371,7 @@ class _HeadlessSimulator {
           playerId: playerId,
           called: shouldCall,
           explored: explored,
-          counterfactual: counterfactualCalls && _bcWriter != null
+          counterfactual: _labelCounterfactual()
               ? await _counterfactualCall(engine, state, playerId, 'tichu')
               : null,
         );

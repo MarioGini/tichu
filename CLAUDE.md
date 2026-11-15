@@ -1,5 +1,11 @@
 # Tichu – notes for Claude
 
+## Working with Mario
+
+- Send a push notification whenever you need input (a decision, approval,
+  or you are blocked) and when a longer task finishes. Mario is often away
+  from the session.
+
 ## Git
 
 - Always commit as the repo owner: `git config user.name "Mario Gini"` and
@@ -19,4 +25,5 @@
 - The neural RL pipeline lives in `rl/` (Python) and `lib/headless/` +
   `lib/agents/nn/` (Dart). See `rl/README.md`.
 - Compile the headless runner before RL runs:
-  `dart compile exe lib/headless/headless.dart -o build/bin/headless.exe`.
+  `dart compile exe lib/headless/headless.dart -o build/bin/headless`
+  (`rl/headless_runner.py` looks for exactly `build/bin/headless`).

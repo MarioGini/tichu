@@ -29,7 +29,8 @@ List<TichuTurn> getFullHouses(final List<Card> input) {
 
     final fullHouseCards = cards
         .where((final card) => card.face == tripleFace)
-        .toList();
+        .toList()
+        .sublist(0, 3);
 
     final possiblePairs = tripledFaces
         .where((final element) => element != tripleFace)

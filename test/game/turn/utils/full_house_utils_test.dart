@@ -211,5 +211,34 @@ void main() {
         true,
       );
     });
+    test('usesOnlyThreeCardsWhenTripleFaceHasFourCards', () {
+      // Regression: four-of-a-kind used to be emitted whole, yielding an
+      // invalid 6-card "full house" (8888 + 44) that crashed headless play.
+      final cards = <Card>[
+        Card(CardFace.eight, CardColor.black),
+        Card(CardFace.eight, CardColor.green),
+        Card(CardFace.eight, CardColor.blue),
+        Card(CardFace.eight, CardColor.red),
+        Card(CardFace.four, CardColor.black),
+        Card(CardFace.four, CardColor.green),
+      ];
+
+      final turns = getFullHouses(cards);
+
+      expect(turns, isNotEmpty);
+      for (final turn in turns) {
+        expect(turn.type, TurnType.fullHouse);
+        expect(turn.cards, hasLength(5));
+      }
+      expect(
+        turns.any(
+          (final t) =>
+              t.cards.where((final c) => c.face == CardFace.eight).length ==
+                  3 &&
+              t.cards.where((final c) => c.face == CardFace.four).length == 2,
+        ),
+        isTrue,
+      );
+    });
   });
 }

@@ -309,6 +309,25 @@ A/B from call exploration: the heuristic's Tichu calls are worth
 hand costs ≈ 71 pts. The call nets match the heuristic but do not beat it
 yet (the round outcome is very noisy; they need more data).
 
+## Results v3 (2026-11-16): Q-learning beats the heuristic
+
+Joint loop (`train_loop.py`) from a BC policy of the improved heuristic
+(hand-strength Tichu calls, partner guard, plan-aware play, fixed scoring).
+All numbers: duplicate, matches to 1000, vs the latest heuristic.
+
+| Bot | Win rate | Avg margin |
+|-----|----------|-----------|
+| BC of the heuristic | 44.2 % ± 2.8 | −27 |
+| + Q step (DouZero-style, oracle baseline), iteration 1 | 72.4 % ± 2.0 (fresh deals) | +303 |
+| + second promoted Q step | 74.2 % ± 2.6 (loop eval) | +277 |
+| **Final: Q play net, heuristic calls + schupf** | **70.8 % ± 1.9** (fresh deals, 400 matches) | **+280** |
+
+- AWR steps never beat the Q steps; the Q step is the learner that works.
+- Learned call nets *hurt* (−6.0 ± 2.2 pp vs heuristic calls on fresh
+  deals; an earlier promotion at +1 SE was a false positive — promotion now
+  needs 2 SE). Learned schupf nets were always clearly worse (−13 to −31 pp).
+- The policy plateaus around 74–75 % at ~600 play games per iteration.
+
 ## Next steps
 
 To beat the heuristic by a wider margin requires one of:

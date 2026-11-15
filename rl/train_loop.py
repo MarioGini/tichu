@@ -112,7 +112,9 @@ def main() -> None:
     p.add_argument("--eval-episodes", type=int, default=100)
     p.add_argument("--eval-target-score", type=int, default=1000)
     p.add_argument("--eval-seed", type=int, default=12345)
-    p.add_argument("--promote-z", type=float, default=1.0)
+    # 2 SE: with 1 SE a call-net group was promoted at +2.8 +- 2.5 pp and
+    # later measured -6 pp on fresh deals.
+    p.add_argument("--promote-z", type=float, default=2.0)
     p.add_argument("--awr-epochs", type=int, default=6)
     p.add_argument("--no-q", dest="q", action="store_false", help="Skip the Q-learning candidate")
     p.add_argument("--shards", type=int, default=0)

@@ -102,9 +102,9 @@ from one team (no bomb gifts); give the partner the best card unless my own
 hand is a Tichu hand (then keep strength and pass low), always support a
 partner who called.
 
-Hardware used so far: 4 CPU cores (Xeon), 15 GB RAM, no GPU. Headless games
-run ~40–60 matches/s on 4 cores without counterfactuals (8–10× fewer with
-them); nets are small MLPs, so training stays on CPU.
+Hardware used so far: 4 CPU cores (Xeon), 15 GB RAM, no GPU. Data
+generation dominates the run time (counterfactual call labels make games
+several times slower); the nets are small MLPs, so training stays on CPU.
 
 ## Architecture
 

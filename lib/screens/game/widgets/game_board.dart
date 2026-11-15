@@ -128,7 +128,7 @@ class GameBoard extends StatelessWidget {
               Padding(
                 padding: EdgeInsets.fromLTRB(hPad, 2, hPad, 6),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: h * 0.34),
+                  constraints: BoxConstraints(maxHeight: h * 0.42),
                   child: handArea,
                 ),
               ),

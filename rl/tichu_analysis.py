@@ -117,7 +117,7 @@ def main() -> None:
             elif r.get("call") in ("tichu", "pre") and r.get("called") and "hand" in r:
                 calls[(r["episode"], r["round"], r["seat"])] = r
 
-    rows, missed = [], []
+    rows = []
     for (ep, rnd), re in rounds.items():
         order = re.get("finish_seats", [])
         left = re.get("cards_left_at_first_out")

@@ -27,7 +27,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from bc_pretrain import QNetwork, _select_device
+from qnet import QNetwork, select_device
 from call_train import train
 from oracle import fit_baseline, oracle_onehot
 from schema import SPEC
@@ -94,7 +94,7 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--no-oracle", action="store_true", help="Train on raw R (no oracle baseline)")
     args = p.parse_args()
-    _select_device()
+    select_device()
 
     x, y, explored, orc = load(Path(args.jsonl))
     if not args.no_oracle and bool(orc.any()):

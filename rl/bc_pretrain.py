@@ -16,8 +16,6 @@ Loss: cross-entropy over Q(state, legal_action_i) with target = chosen index.
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import shutil
 import tempfile
 import time
@@ -27,402 +25,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT
-
-
-# ── Flat BC dataset ──────────────────────────────────────────────────────────
-
-
-class FlatBcData:
-    """Decision-grouped BC data laid out for vectorised scatter ops.
-
-    All rows are sorted by ``decision_id`` (0..D-1, contiguous). For each
-    decision we keep its row range in the flat ``inputs`` tensor, which lets
-    us gather batch rows without any Python per-decision loops.
-
-    Fields (all on the same device):
-      inputs            (N_rows, F)  float32 — concatenated state+action vec
-      decision_starts   (D + 1,)     long    — row range per decision
-      chosen_global     (D,)         long    — global row index of chosen action
-      decision_size     (D,)         long    — equivalent to diff(decision_starts)
-    """
-
-    def __init__(
-        self,
-        inputs: torch.Tensor,
-        decision_starts: torch.Tensor,
-        chosen_global: torch.Tensor,
-    ) -> None:
-        self.inputs = inputs.contiguous()
-        self.decision_starts = decision_starts.contiguous()
-        self.chosen_global = chosen_global.contiguous()
-        self.decision_size = decision_starts[1:] - decision_starts[:-1]
-
-    @property
-    def num_rows(self) -> int:
-        return int(self.inputs.shape[0])
-
-    @property
-    def num_decisions(self) -> int:
-        return int(self.chosen_global.shape[0])
-
-    def to(self, device: torch.device) -> "FlatBcData":
-        return FlatBcData(
-            self.inputs.to(device),
-            self.decision_starts.to(device),
-            self.chosen_global.to(device),
-        )
-
-
-def _build_bc_dataset(jsonl: Path, *, winners_only: bool = False) -> FlatBcData:
-    """Load a BC dataset from a JSONL file produced by the headless runner.
-
-    Requires ``--format=bc-jsonl`` rows carrying pre-encoded
-    ``state_features`` for the current schema version.
-    """
-    # Two-pass build: first decide which episodes count, then accumulate.
-    winning_team_by_episode: dict[int, int] = {}
-    if winners_only:
-        with jsonl.open("r", encoding="utf-8") as fh:
-            last_by_ep: dict[int, dict] = {}
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                row = json.loads(line)
-                if row.get("episode_end"):
-                    last_by_ep[int(row.get("episode", 0))] = row
-        for ep, row in last_by_ep.items():
-            if not row.get("episode_end"):
-                continue
-            t1 = float(row.get("team_one_total", 0.0))
-            t2 = float(row.get("team_two_total", 0.0))
-            if t1 > t2:
-                winning_team_by_episode[ep] = 0
-            elif t2 > t1:
-                winning_team_by_episode[ep] = 1
-
-    inputs_chunks: list[np.ndarray] = []
-    decision_starts_list: list[int] = [0]
-    chosen_global_list: list[int] = []
-
-    cursor = 0
-    skipped_no_legal = 0
-    skipped_single_action = 0
-    skipped_loser = 0
-    skipped_explore = 0
-
-    with jsonl.open("r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            if row.get("episode_end") or row.get("round_end"):
-                continue
-            if row.get("explore"):
-                # ε-exploration moves are not the behaviour policy's choice.
-                skipped_explore += 1
-                continue
-
-            if winners_only:
-                ep = int(row.get("episode", 0))
-                wteam = winning_team_by_episode.get(ep)
-                if wteam is None:
-                    continue
-                if int(row.get("team", -1)) != wteam:
-                    skipped_loser += 1
-                    continue
-
-            legal = row.get("legal_play_action_features")
-            chosen = row.get("legal_play_chosen_index")
-            if not isinstance(legal, list) or not isinstance(chosen, int):
-                skipped_no_legal += 1
-                continue
-            if len(legal) <= 1:
-                skipped_single_action += 1
-                continue
-
-            pre_state = row.get("state_features")
-            if not isinstance(pre_state, list) or len(pre_state) != ACTION_OFFSET:
-                raise ValueError(
-                    f"row has no state_features of length {ACTION_OFFSET} "
-                    f"(feature schema v{SPEC.version}); regenerate with "
-                    "--format=bc-jsonl"
-                )
-            state_part = np.asarray(pre_state, dtype=np.float32)
-
-            # Build (n_actions, F) block for this decision.
-            block = np.empty((len(legal), TOTAL_FEATURE_COUNT), dtype=np.float32)
-            for i, action_feats in enumerate(legal):
-                if not isinstance(action_feats, list) or len(action_feats) != ACTION_FEATURE_COUNT:
-                    raise ValueError(
-                        f"action features dim mismatch: got {len(action_feats) if isinstance(action_feats, list) else type(action_feats)}, "
-                        f"schema expects {ACTION_FEATURE_COUNT}"
-                    )
-                block[i, :ACTION_OFFSET] = state_part
-                block[i, ACTION_OFFSET:] = np.asarray(action_feats, dtype=np.float32)
-
-            inputs_chunks.append(block)
-            chosen_global_list.append(cursor + int(chosen))
-            cursor += len(legal)
-            decision_starts_list.append(cursor)
-
-    if not inputs_chunks:
-        raise ValueError(
-            f"No usable BC rows in {jsonl}. Hints: skipped_no_legal="
-            f"{skipped_no_legal}, skipped_single_action={skipped_single_action},"
-            f" skipped_loser={skipped_loser}, skipped_explore={skipped_explore}"
-        )
-
-    inputs_np = np.concatenate(inputs_chunks, axis=0)
-    inputs_t = torch.from_numpy(inputs_np)
-    decision_starts_t = torch.tensor(decision_starts_list, dtype=torch.long)
-    chosen_global_t = torch.tensor(chosen_global_list, dtype=torch.long)
-    return FlatBcData(inputs_t, decision_starts_t, chosen_global_t)
-
-
-# ── Q-network ────────────────────────────────────────────────────────────────
-
-
-class QNetwork(nn.Module):
-    def __init__(self, input_dim: int, hidden_sizes: list[int]) -> None:
-        super().__init__()
-        layers: list[nn.Module] = []
-        prev = input_dim
-        for h in hidden_sizes:
-            layers.append(nn.Linear(prev, h))
-            layers.append(nn.ReLU())
-            prev = h
-        layers.append(nn.Linear(prev, 1))
-        self.net = nn.Sequential(*layers)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.net(x)
-
-
-def _select_device() -> torch.device:
-    """Pick the best compute device for our tiny MLP.
-
-    The net is tiny (~100k params, ~14k-row batches; ~80 ms/step on an
-    8-core CPU with MKL), so CPU is the right default unless a real CUDA GPU
-    is present.
-    """
-    if torch.cuda.is_available():
-        return torch.device("cuda")
-    # Use all available CPU threads for MKL/MKLDNN.
-    torch.set_num_threads(max(1, (os.cpu_count() or 1)))
-    return torch.device("cpu")
-
-
-def _load_qnetwork_from_safetensors(path: Path, device: torch.device) -> QNetwork:
-    """Reconstruct a QNetwork and load weights from a previous policy file."""
-    from safetensors import safe_open
-    from safetensors.torch import load_file as st_load
-
-    with safe_open(str(path), framework="pt", device="cpu") as reader:
-        meta = dict(reader.metadata() or {})
-    layer_sizes = json.loads(meta.get("layer_sizes", "[]"))
-    if len(layer_sizes) < 2:
-        raise ValueError(f"{path}: invalid layer_sizes={layer_sizes}")
-    if layer_sizes[0] != TOTAL_FEATURE_COUNT:
-        raise ValueError(
-            f"{path}: input_dim={layer_sizes[0]} != current TOTAL_FEATURE_COUNT={TOTAL_FEATURE_COUNT}"
-        )
-    if layer_sizes[-1] != 1:
-        raise ValueError(f"{path}: output_dim={layer_sizes[-1]} != 1")
-
-    hidden = list(layer_sizes[1:-1])
-    model = QNetwork(TOTAL_FEATURE_COUNT, hidden)
-
-    incoming = st_load(str(path))
-    # Map model.net's Linear modules in order to safetensors layer.{i}.* keys.
-    linear_layers = [m for m in model.net if isinstance(m, nn.Linear)]
-    for i, linear in enumerate(linear_layers):
-        w_src = incoming.get(f"layer.{i}.weight")
-        b_src = incoming.get(f"layer.{i}.bias")
-        if w_src is None or b_src is None:
-            raise ValueError(f"missing layer.{i}.* tensors in {path}")
-        if w_src.shape != linear.weight.shape:
-            raise ValueError(
-                f"shape mismatch layer.{i}.weight: "
-                f"{tuple(w_src.shape)} vs {tuple(linear.weight.shape)}"
-            )
-        if b_src.shape != linear.bias.shape:
-            raise ValueError(
-                f"shape mismatch layer.{i}.bias: "
-                f"{tuple(b_src.shape)} vs {tuple(linear.bias.shape)}"
-            )
-        with torch.no_grad():
-            linear.weight.copy_(w_src.to(linear.weight.dtype))
-            linear.bias.copy_(b_src.to(linear.bias.dtype))
-    return model.to(device)
-
-
-# ── Vectorised batched loss / accuracy ──────────────────────────────────────
-
-
-def _gather_batch_indices(
-    decision_idx: torch.Tensor,
-    decision_starts: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Gather row indices for a batch of decisions.
-
-    Args:
-      decision_idx: (K,) long — selected decision IDs (in any order).
-      decision_starts: (D + 1,) long — global decision row ranges.
-
-    Returns:
-      row_indices:  (M,) long — global row indices to gather from inputs.
-      row_to_local_decision: (M,) long — 0..K-1 mapping each row to its
-        position within the batch.
-      chosen_in_batch: (K,) long — index into ``row_indices`` of the chosen
-        action for each decision in the batch (provided by caller via
-        chosen_global; this helper only returns the gather plumbing).
-    """
-    starts = decision_starts[decision_idx]
-    ends = decision_starts[decision_idx + 1]
-    lengths = ends - starts                       # (K,)
-    cum = torch.cumsum(lengths, dim=0)            # (K,)
-    decision_offset = torch.cat(
-        [torch.zeros(1, dtype=torch.long, device=decision_idx.device), cum[:-1]]
-    )                                              # (K,) where each decision starts in the batch
-    total = int(cum[-1].item()) if cum.numel() > 0 else 0
-
-    row_to_local_decision = torch.repeat_interleave(
-        torch.arange(decision_idx.numel(), device=decision_idx.device), lengths
-    )                                              # (M,)
-    arr = torch.arange(total, device=decision_idx.device)
-    local_offset_in_decision = arr - decision_offset[row_to_local_decision]
-    row_indices = starts[row_to_local_decision] + local_offset_in_decision  # (M,)
-    return row_indices, row_to_local_decision, decision_offset
-
-
-def _bc_step(
-    *,
-    model: nn.Module,
-    data: FlatBcData,
-    decision_idx: torch.Tensor,
-    require_grad: bool,
-    anchor_model: nn.Module | None = None,
-    kl_weight: float = 0.0,
-    weights: torch.Tensor | None = None,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """One forward pass over the chosen batch of decisions.
-
-    ``weights`` (D,) optionally weights each decision's cross-entropy term
-    (advantage-weighted regression); it is indexed by ``decision_idx``.
-
-    Returns (total_loss, per-decision boolean correctness, kl_loss).
-    """
-    row_indices, row_to_local_decision, decision_offset = _gather_batch_indices(
-        decision_idx, data.decision_starts
-    )
-    batch_inputs = data.inputs[row_indices]                 # (M, F)
-
-    if require_grad:
-        logits = model(batch_inputs).squeeze(-1)            # (M,)
-    else:
-        with torch.no_grad():
-            logits = model(batch_inputs).squeeze(-1)
-
-    K = int(decision_idx.numel())
-
-    # Numerically-stable scatter-LSE giving us BOTH max-per and lse.
-    neg_inf = torch.full(
-        (K,), float("-inf"), dtype=logits.dtype, device=logits.device
-    )
-    max_per = neg_inf.scatter_reduce(
-        0, row_to_local_decision, logits, reduce="amax", include_self=True
-    )
-    safe_max = torch.where(torch.isfinite(max_per), max_per, torch.zeros_like(max_per))
-    shifted = logits - safe_max[row_to_local_decision]
-    sum_per = torch.zeros(
-        K, dtype=logits.dtype, device=logits.device
-    ).scatter_add_(0, row_to_local_decision, torch.exp(shifted))
-    lse = safe_max + torch.log(sum_per.clamp_min(1e-30))    # (K,)
-
-    # Position of the chosen row inside the batch.
-    starts = data.decision_starts[decision_idx]             # (K,)
-    chosen_offset_within_decision = data.chosen_global[decision_idx] - starts
-    chosen_in_batch = decision_offset + chosen_offset_within_decision  # (K,)
-    chosen_logits = logits[chosen_in_batch]                 # (K,)
-
-    losses = lse - chosen_logits                            # (K,)
-    if weights is None:
-        bc_loss = losses.mean()
-    else:
-        w = weights[decision_idx]
-        bc_loss = (losses * w).sum() / w.sum().clamp_min(1e-8)
-    correct = (chosen_logits >= max_per - 1e-6)             # (K,) bool
-
-    # Optional KL anchor: KL(current || anchor) over the legal-action softmax.
-    # current_softmax[i] = exp(logits[i] - lse[batch_of(i)])
-    # KL = sum_i current_softmax[i] * (log_current_softmax[i] - log_anchor_softmax[i])
-    kl_loss = torch.zeros((), device=logits.device, dtype=logits.dtype)
-    if anchor_model is not None and kl_weight > 0:
-        with torch.no_grad():
-            anchor_logits = anchor_model(batch_inputs).squeeze(-1)
-        anchor_max = neg_inf.scatter_reduce(
-            0, row_to_local_decision, anchor_logits, reduce="amax", include_self=True
-        )
-        anchor_safe_max = torch.where(
-            torch.isfinite(anchor_max), anchor_max, torch.zeros_like(anchor_max)
-        )
-        anchor_shifted = anchor_logits - anchor_safe_max[row_to_local_decision]
-        anchor_sum = torch.zeros(
-            K, dtype=anchor_logits.dtype, device=anchor_logits.device
-        ).scatter_add_(0, row_to_local_decision, torch.exp(anchor_shifted))
-        anchor_lse = anchor_safe_max + torch.log(anchor_sum.clamp_min(1e-30))
-
-        log_p_current = logits - lse[row_to_local_decision]            # (M,)
-        log_p_anchor = anchor_logits - anchor_lse[row_to_local_decision]
-        p_current = torch.exp(log_p_current)
-        kl_per_row = p_current * (log_p_current - log_p_anchor)        # (M,)
-        kl_per_decision = torch.zeros(
-            K, dtype=logits.dtype, device=logits.device
-        ).scatter_add_(0, row_to_local_decision, kl_per_row)
-        kl_loss = kl_per_decision.mean()
-
-    total_loss = bc_loss + kl_weight * kl_loss
-    return total_loss, correct, kl_loss
-
-
-# ── Export ───────────────────────────────────────────────────────────────────
-
-
-def _export_safetensors(
-    model: QNetwork,
-    path: Path,
-    *,
-    target_mean: float,
-    target_std: float,
-    metadata: dict[str, str],
-) -> None:
-    from safetensors.torch import save_file as st_save
-
-    linear_layers = [m for m in model.net if isinstance(m, nn.Linear)]
-    layer_sizes: list[int] = []
-    tensors: dict[str, torch.Tensor] = {}
-    for i, layer in enumerate(linear_layers):
-        w = layer.weight.detach().cpu().contiguous()
-        b = layer.bias.detach().cpu().contiguous()
-        if i == 0:
-            layer_sizes.append(w.shape[1])
-        layer_sizes.append(w.shape[0])
-        tensors[f"layer.{i}.weight"] = w
-        tensors[f"layer.{i}.bias"] = b
-
-    meta: dict[str, str] = {
-        "layer_sizes": json.dumps(layer_sizes),
-        "target_mean": str(target_mean),
-        "target_std": str(target_std),
-    }
-    for k, v in metadata.items():
-        meta[f"builder.{k}"] = v if isinstance(v, str) else json.dumps(v)
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    st_save(tensors, str(path), metadata=meta)
+from bc_data import build_bc_dataset
+from qnet import (
+    QNetwork,
+    bc_step,
+    export_safetensors,
+    load_qnetwork_from_safetensors,
+    select_device,
+)
+from schema import TOTAL_FEATURE_COUNT
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -522,14 +133,14 @@ def main() -> None:
 
     print("Building BC dataset...", flush=True)
     t_build = time.time()
-    cpu_data = _build_bc_dataset(jsonl_path, winners_only=args.winners_only)
+    cpu_data = build_bc_dataset(jsonl_path, winners_only=args.winners_only)
     print(
         f"  rows={cpu_data.num_rows} decisions={cpu_data.num_decisions}  "
         f"({time.time() - t_build:.1f}s)"
     )
 
     if args.device == "auto":
-        device = _select_device()
+        device = select_device()
     elif args.device == "cuda":
         device = torch.device("cuda")
     else:
@@ -547,7 +158,7 @@ def main() -> None:
         init_path = Path(args.init_from)
         if init_path.exists():
             try:
-                init_model = _load_qnetwork_from_safetensors(init_path, device)
+                init_model = load_qnetwork_from_safetensors(init_path, device)
                 init_sizes = [
                     m.in_features for m in init_model.net if isinstance(m, nn.Linear)
                 ] + [
@@ -571,7 +182,7 @@ def main() -> None:
         anchor_path = Path(args.anchor_policy)
         if anchor_path.exists():
             try:
-                anchor_model = _load_qnetwork_from_safetensors(anchor_path, device)
+                anchor_model = load_qnetwork_from_safetensors(anchor_path, device)
                 anchor_model.eval()
                 for p in anchor_model.parameters():
                     p.requires_grad_(False)
@@ -612,7 +223,7 @@ def main() -> None:
         n_batches = 0
         for start in range(0, shuffled.numel(), bs):
             batch = shuffled[start : start + bs]
-            loss, correct, kl = _bc_step(
+            loss, correct, kl = bc_step(
                 model=model,
                 data=data,
                 decision_idx=batch,
@@ -632,7 +243,7 @@ def main() -> None:
 
         # Validation in one big batch (with no_grad, fits easily).
         model.eval()
-        val_loss, val_correct, val_kl = _bc_step(
+        val_loss, val_correct, val_kl = bc_step(
             model=model,
             data=data,
             decision_idx=val_decisions,
@@ -668,7 +279,7 @@ def main() -> None:
         model.load_state_dict(best_state)
 
     output = Path(args.output)
-    _export_safetensors(
+    export_safetensors(
         model.cpu(),
         output,
         target_mean=0.0,

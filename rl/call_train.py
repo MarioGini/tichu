@@ -32,7 +32,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from bc_pretrain import QNetwork, _select_device
+from qnet import QNetwork, select_device
 from oracle import fit_baseline, oracle_onehot
 from schema import ACTION_OFFSET, SPEC
 
@@ -343,7 +343,7 @@ def main() -> None:
         help="Ignore exact counterfactual labels even when present",
     )
     args = p.parse_args()
-    _select_device()
+    select_device()
 
     cleanup: Path | None = None
     if args.jsonl:

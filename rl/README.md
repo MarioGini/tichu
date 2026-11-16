@@ -138,6 +138,10 @@ inference time).
 
 ### Training pipelines
 
+Shared modules: `qnet.py` (the Q(s, a) MLP, batched BC loss, safetensors
+load/export), `bc_data.py` (flat dataset from bc-jsonl), `oracle.py`,
+`headless_runner.py`, `schema/`.
+
 Python entry points:
 
 1. **`bc_pretrain.py`** — behavioural cloning. Generates heuristic-vs-heuristic

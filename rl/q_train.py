@@ -32,12 +32,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from bc_pretrain import (
-    FlatBcData,
-    _bc_step,
-    _export_safetensors,
-    _load_qnetwork_from_safetensors,
-    _select_device,
+from bc_data import FlatBcData
+from qnet import (
+    bc_step,
+    export_safetensors,
+    load_qnetwork_from_safetensors,
+    select_device,
 )
 from oracle import fit_baseline, oracle_onehot
 from schema import ACTION_OFFSET, TOTAL_FEATURE_COUNT
@@ -122,7 +122,7 @@ def main() -> None:
     p.add_argument("--no-oracle", action="store_true")
     args = p.parse_args()
 
-    device = _select_device()
+    device = select_device()
     t0 = time.time()
     x, y, ce, orc = load(Path(args.jsonl), ce_fraction=args.ce_fraction, seed=args.seed)
     if not args.no_oracle and bool(orc.any()):
@@ -135,7 +135,7 @@ def main() -> None:
         flush=True,
     )
 
-    model = _load_qnetwork_from_safetensors(Path(args.init_from), device)
+    model = load_qnetwork_from_safetensors(Path(args.init_from), device)
     # Policy logits are not on the return scale: fit an affine head offset
     # first so MSE does not wreck the ranking in the first steps.
     lin = [m for m in model.net if isinstance(m, nn.Linear)]
@@ -165,7 +165,7 @@ def main() -> None:
             idx = order[i * args.batch_size : (i + 1) * args.batch_size]
             loss = nn.functional.mse_loss(model(x[idx]).squeeze(-1), y[idx])
             if args.anchor_weight > 0:
-                ce_loss, _, _ = _bc_step(
+                ce_loss, _, _ = bc_step(
                     model=model,
                     data=ce,
                     decision_idx=ce_perm[i * ce_bs : (i + 1) * ce_bs],
@@ -179,7 +179,7 @@ def main() -> None:
         model.eval()
         with torch.no_grad():
             mse = float(nn.functional.mse_loss(model(x[val]).squeeze(-1), y[val]))
-            _, correct, _ = _bc_step(
+            _, correct, _ = bc_step(
                 model=model, data=ce, decision_idx=ce_idx[:5000], require_grad=False
             )
         print(
@@ -189,7 +189,7 @@ def main() -> None:
         )
 
     hidden = [m.out_features for m in lin][:-1]
-    _export_safetensors(
+    export_safetensors(
         model.cpu(),
         Path(args.output),
         target_mean=0.0,

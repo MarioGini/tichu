@@ -44,8 +44,16 @@ jobs:
         run: flutter build linux
       # The web build doubles as the GitHub Pages bundle, so it is built with
       # the Pages base href and uploaded for the deploy job.
+      # SUPABASE_URL / SUPABASE_ANON_KEY (repository secrets) let "Watch AI
+      # play" upload game records; without them the build keeps them local.
       - if: matrix.target == 'web'
-        run: flutter build web --base-href "/${{ github.event.repository.name }}/"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: >-
+          flutter build web --base-href "/${{ github.event.repository.name }}/"
+          --dart-define=SUPABASE_URL="$SUPABASE_URL"
+          --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
       - if: matrix.target == 'web'
         uses: actions/upload-pages-artifact@v5
         with:

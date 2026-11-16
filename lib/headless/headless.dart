@@ -32,6 +32,7 @@ part 'csv_event_writer.dart';
 part 'headless_decisions.dart';
 part 'headless_exploration.dart';
 part 'headless_legality.dart';
+part 'headless_rollouts.dart';
 part 'headless_simulator.dart';
 part 'summary_writer.dart';
 
@@ -103,6 +104,12 @@ Future<void> main(final List<String> args) async {
     skipPlayRows: config.skipPlayRows,
     counterfactualCalls: config.counterfactualCalls,
     counterfactualRate: config.counterfactualRate,
+    rolloutRate: config.rolloutRate,
+    rolloutMaxActions: config.rolloutMaxActions,
+    // Only the policy team's decisions are labelled against a fixed opponent.
+    isLearnerSeat: (opponentPolicy != null || config.mixed)
+        ? (final seat) => seat.isEven != config.swapTeams
+        : (final _) => true,
   );
 
   try {

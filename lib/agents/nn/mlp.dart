@@ -183,6 +183,36 @@ class Mlp {
     return _buffers.last[0];
   }
 
+  // ── Shared-prefix scoring ───────────────────────────────────────────────
+
+  /// Column-major copies of the weights (`[l][i * outSize + j]`), so the
+  /// contribution of one input can be added with a contiguous loop.
+  late final List<Float64List> _transposed = [
+    for (var l = 0; l < numLayers; l++) _transpose(l),
+  ];
+
+  Float64List _transpose(final int l) {
+    final inLen = layerSizes[l];
+    final outLen = layerSizes[l + 1];
+    final w = _weights[l];
+    final t = Float64List(w.length);
+    for (var j = 0; j < outLen; j++) {
+      for (var i = 0; i < inLen; i++) {
+        t[i * outLen + j] = w[j * inLen + i];
+      }
+    }
+    return t;
+  }
+
+  /// Fast scorer for many inputs that share their first [prefixLength]
+  /// entries (state features) and differ in the rest (action features).
+  MlpPrefixScorer prefixScorer(final int prefixLength) {
+    if (prefixLength < 0 || prefixLength > inputSize) {
+      throw ArgumentError.value(prefixLength, 'prefixLength');
+    }
+    return MlpPrefixScorer._(this, prefixLength);
+  }
+
   // ── Safetensors loading ─────────────────────────────────────────────────
 
   /// Load weights from a safetensors binary file.
@@ -268,6 +298,91 @@ class Mlp {
       targetMean,
       targetStd,
     );
+  }
+}
+
+/// Scores inputs of an [Mlp] (first output unit) that share a prefix.
+///
+/// The first layer's contribution of the prefix is computed once per
+/// [setPrefix]; every [score] call then only adds the suffix. All layers
+/// skip zero inputs (card bitmaps and ReLU outputs are mostly zero), which
+/// makes scoring the legal actions of one decision several times cheaper
+/// than a dense forward pass per action. Results equal [Mlp.predictBuffer]
+/// up to floating-point summation order.
+class MlpPrefixScorer {
+  final Mlp _net;
+  final int prefixLength;
+  final Float64List _base;
+  final List<Float64List> _acts;
+
+  MlpPrefixScorer._(this._net, this.prefixLength)
+    : _base = Float64List(_net.layerSizes[1]),
+      _acts = [
+        for (var l = 1; l < _net.layerSizes.length; l++)
+          Float64List(_net.layerSizes[l]),
+      ];
+
+  int get suffixLength => _net.inputSize - prefixLength;
+
+  /// Set the shared prefix (the first [prefixLength] inputs).
+  void setPrefix(final List<double> prefix) {
+    final bias = _net._biases[0];
+    final wt = _net._transposed[0];
+    final outLen = bias.length;
+    final base = _base;
+    for (var j = 0; j < outLen; j++) {
+      base[j] = bias[j];
+    }
+    for (var i = 0; i < prefixLength; i++) {
+      final x = prefix[i];
+      if (x == 0) continue;
+      final off = i * outLen;
+      for (var j = 0; j < outLen; j++) {
+        base[j] += x * wt[off + j];
+      }
+    }
+  }
+
+  /// Network output for the current prefix followed by [suffix]
+  /// (read from [offset], [suffixLength] entries).
+  double score(final List<double> suffix, [final int offset = 0]) {
+    final net = _net;
+    var cur = _acts[0];
+    var curLen = cur.length;
+    final base = _base;
+    for (var j = 0; j < curLen; j++) {
+      cur[j] = base[j];
+    }
+    final wt0 = net._transposed[0];
+    final n = suffixLength;
+    for (var i = 0; i < n; i++) {
+      final x = suffix[offset + i];
+      if (x == 0) continue;
+      final off = (prefixLength + i) * curLen;
+      for (var j = 0; j < curLen; j++) {
+        cur[j] += x * wt0[off + j];
+      }
+    }
+    for (var l = 1; l < net.numLayers; l++) {
+      final bias = net._biases[l];
+      final wt = net._transposed[l];
+      final next = _acts[l];
+      final outLen = bias.length;
+      for (var j = 0; j < outLen; j++) {
+        next[j] = bias[j];
+      }
+      for (var i = 0; i < curLen; i++) {
+        final x = cur[i];
+        if (x <= 0) continue; // ReLU
+        final off = i * outLen;
+        for (var j = 0; j < outLen; j++) {
+          next[j] += x * wt[off + j];
+        }
+      }
+      cur = next;
+      curLen = outLen;
+    }
+    return cur[0];
   }
 }
 

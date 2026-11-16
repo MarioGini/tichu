@@ -137,20 +137,24 @@ class SmartAiAgent extends PlayerAgent {
     );
 
     if (legalTurns.isEmpty) {
+      // Nothing beats the trick: pass. (The move generator is complete —
+      // the brute-force search below never found a play it missed in 80k
+      // such positions — and that search walks every subset of the hand,
+      // which used to cost ~90 % of a bot's thinking time.)
+      if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {
+        return PassAction(playerId: playerId);
+      }
+      // Passing is illegal, so a legal play must exist: search exhaustively.
       final recovered = LegalPlayGuard.firstLegalTurnBruteForce(
         deck: deck,
         hand: hand,
       );
-      if (recovered != null) {
-        legalTurns = [recovered];
+      if (recovered == null) {
+        throw StateError(
+          'No legal turn and pass is illegal for current state.',
+        );
       }
-    }
-
-    if (legalTurns.isEmpty) {
-      if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {
-        return PassAction(playerId: playerId);
-      }
-      throw StateError('No legal turn and pass is illegal for current state.');
+      legalTurns = [recovered];
     }
 
     // Partner called Tichu: support them — pass whenever allowed and never
@@ -198,6 +202,22 @@ class SmartAiAgent extends PlayerAgent {
       return _buildPlayAction(snapshot, selected, deck, hand);
     }
     return _heuristicTurn(snapshot, deck, hand, table, legalTurns);
+  }
+
+  /// The action this agent would submit for playing [turn] (adds the wish
+  /// when the Mah Jong is played). Used by training rollouts to try every
+  /// legal turn.
+  PlayTurnAction playActionFor(
+    final GameSnapshot snapshot,
+    final TichuTurn turn,
+  ) {
+    _syncRound(snapshot);
+    return _buildPlayAction(
+      snapshot,
+      turn,
+      snapshot.deck,
+      List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
+    );
   }
 
   /// Build a [PlayTurnAction] from the selected turn, adding wish/phoenix

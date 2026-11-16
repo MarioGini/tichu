@@ -49,6 +49,13 @@ class _HeadlessSimulator {
       _bcWriter != null &&
       (counterfactualRate >= 1 || random.nextDouble() < counterfactualRate);
 
+  /// Share of the learner seats' play decisions that get exact rollout
+  /// values for every legal action (see [_rolloutValues]). When positive,
+  /// only labelled play rows are written.
+  final double rolloutRate;
+  final int rolloutMaxActions;
+  final bool Function(int seat) isLearnerSeat;
+
   /// Omit play/pass rows from bc-jsonl (call / schupf / round data only).
   final bool skipPlayRows;
   final _shadowAgents = <String, SmartAiAgent>{};
@@ -83,7 +90,12 @@ class _HeadlessSimulator {
     this.skipPlayRows = false,
     this.counterfactualCalls = false,
     this.counterfactualRate = 1,
+    this.rolloutRate = 0,
+    this.rolloutMaxActions = 12,
+    this.isLearnerSeat = _everySeat,
   });
+
+  static bool _everySeat(final int _) => true;
 
   Future<GameAction?> _shadowHeuristicTurn(
     final GameSnapshot snapshot,
@@ -191,6 +203,21 @@ class _HeadlessSimulator {
           ? await _shadowHeuristicTurn(snapshot, action.playerId)
           : null;
       final before = snapshot;
+      List<double?>? rollouts;
+      if (rolloutRate > 0 &&
+          bcWriter != null &&
+          (action is PlayTurnAction || action is PassAction) &&
+          isLearnerSeat(
+            state.players.firstWhere((final p) => p.id == action.playerId).seat,
+          ) &&
+          random.nextDouble() < rolloutRate) {
+        rollouts = await _rolloutValues(
+          engine: engine,
+          state: state,
+          snapshot: snapshot,
+          chosen: action,
+        );
+      }
       final appliedAction = _applyActionWithRecovery(
         engine: engine,
         state: state,
@@ -205,12 +232,13 @@ class _HeadlessSimulator {
 
       snapshot = engine.buildSnapshot(state);
       csvWriter?.processSnapshot(snapshot);
-      if (!skipPlayRows) {
+      if (!skipPlayRows && (rolloutRate <= 0 || rollouts != null)) {
         bcWriter?.emitTransition(
           before: before,
           action: appliedAction,
           explored: explored,
           shadow: shadow,
+          rollouts: rollouts,
         );
       }
 

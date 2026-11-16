@@ -29,6 +29,8 @@ class _HeadlessConfig {
   final bool skipPlayRows;
   final bool counterfactualCalls;
   final double counterfactualRate;
+  final double rolloutRate;
+  final int rolloutMaxActions;
 
   const _HeadlessConfig({
     required this.seed,
@@ -59,6 +61,8 @@ class _HeadlessConfig {
     required this.skipPlayRows,
     required this.counterfactualCalls,
     required this.counterfactualRate,
+    required this.rolloutRate,
+    required this.rolloutMaxActions,
   });
 }
 
@@ -94,6 +98,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var skipPlayRows = false;
   var counterfactualCalls = false;
   var counterfactualRate = 1.0;
+  var rolloutRate = 0.0;
+  var rolloutMaxActions = 12;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -184,6 +190,16 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p > 0 && p <= 1) counterfactualRate = p;
       continue;
     }
+    if (arg.startsWith('--rollout-rate=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) rolloutRate = p;
+      continue;
+    }
+    if (arg.startsWith('--rollout-max-actions=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p >= 2) rolloutMaxActions = p;
+      continue;
+    }
     if (arg == '--counterfactual-calls') {
       counterfactualCalls = true;
       continue;
@@ -266,6 +282,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     skipPlayRows: skipPlayRows,
     counterfactualCalls: counterfactualCalls,
     counterfactualRate: counterfactualRate,
+    rolloutRate: rolloutRate,
+    rolloutMaxActions: rolloutMaxActions,
   );
 }
 
@@ -286,5 +304,6 @@ void _printUsage() {
   stdout.writeln('       [--opponent-heuristic=...]  (A/B heuristic rules)');
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
+  stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--epsilon=0.1]');
 }

@@ -23,11 +23,11 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   final Mlp network;
   final PlaySelectionStrategy fallback;
 
-  /// Pre-allocated typed input buffer reused across [selectPlay] calls.
-  /// Avoids ~7 list allocations per decision in a typical play phase
-  /// (one per legal action) — matters because [Mlp.predict] is the hot
-  /// path of headless self-play.
-  late final Float64List _inputBuffer = Float64List(network.inputSize);
+  /// Scores every legal action of a decision: the state prefix goes through
+  /// the first layer once, each action only adds its own features. This is
+  /// the hot path of headless self-play and of the bots in the app.
+  late final MlpPrefixScorer _scorer = network.prefixScorer(stateFeatureCount);
+  final Float64List _actionBuffer = Float64List(actionFeatureCount);
 
   NnPlaySelectionStrategy({
     required this.playerId,
@@ -107,22 +107,15 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     required final bool canPass,
   }) {
     final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
-    final stateFeatures = encoder.stateFeatures;
-
-    // Fill the state-features prefix once; the action suffix changes per
-    // legal play and is overwritten on each iteration.
-    final buffer = _inputBuffer;
-    final stateLen = stateFeatures.length;
-    for (var i = 0; i < stateLen; i++) {
-      buffer[i] = stateFeatures[i];
-    }
+    final scorer = _scorer..setPrefix(encoder.stateFeatures);
+    final buffer = _actionBuffer;
 
     TichuTurn? bestPlay;
     var bestValue = double.negativeInfinity;
 
     for (final play in plays) {
-      encoder.writeActionFeatures(play, buffer, stateLen);
-      final qValue = network.predictBuffer(buffer);
+      encoder.writeActionFeatures(play, buffer, 0);
+      final qValue = scorer.score(buffer);
 
       if (qValue > bestValue) {
         bestValue = qValue;
@@ -139,10 +132,10 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
       encoder.writeActionFeatures(
         TichuTurn(TurnType.none, const <Card>[]),
         buffer,
-        stateLen,
+        0,
         isPass: true,
       );
-      if (network.predictBuffer(buffer) > bestValue) return null;
+      if (scorer.score(buffer) > bestValue) return null;
     }
 
     return bestPlay ?? plays.first;

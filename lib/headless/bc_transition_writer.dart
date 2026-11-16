@@ -172,6 +172,7 @@ class _BcTransitionWriter {
     required final GameAction action,
     required final bool explored,
     final GameAction? shadow,
+    final List<double?>? rollouts,
   }) {
     if (before.phase != GamePhase.play) return;
     if (before.currentPlayerId != action.playerId) return;
@@ -199,6 +200,11 @@ class _BcTransitionWriter {
       'oracle': _oracle(before, action.playerId),
       'legal_play_action_features': legalPlayFeatures.features,
       'legal_play_chosen_index': legalPlayFeatures.chosenIndex,
+      // --rollout-rate: exact round result (actor's team) after each legal
+      // action, same order as the features; null = not rolled out.
+      if (rollouts != null &&
+          rollouts.length == legalPlayFeatures.features.length)
+        'q_rollout': rollouts,
       // --shadow-heuristic: what the heuristic would have done here.
       if (shadow != null) ...{
         'shadow_index': legalPlayFeatures.shadowIndex,

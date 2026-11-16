@@ -32,24 +32,19 @@ class _ObserveScreenState extends State<ObserveScreen> {
   late final ObserveController _controller =
       widget.controller ??
       ObserveController(store: createDefaultGameRecordStore());
-  final ScrollController _logScroll = ScrollController();
   final FocusNode _focus = FocusNode(debugLabel: 'observe');
-  int _shownEvents = 0;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onChanged);
     if (_controller.gameId == null) unawaited(_controller.start());
-    _shownEvents = -1;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _onChanged());
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onChanged);
     if (widget.controller == null) _controller.dispose();
-    _logScroll.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -57,15 +52,6 @@ class _ObserveScreenState extends State<ObserveScreen> {
   void _onChanged() {
     if (!mounted) return;
     setState(() {});
-    final count = _controller.record?.events.length ?? 0;
-    if (count != _shownEvents) {
-      _shownEvents = count;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_logScroll.hasClients) {
-          _logScroll.jumpTo(_logScroll.position.maxScrollExtent);
-        }
-      });
-    }
   }
 
   KeyEventResult _onKey(final FocusNode node, final KeyEvent event) {
@@ -109,10 +95,7 @@ class _ObserveScreenState extends State<ObserveScreen> {
               style: const TextStyle(fontFamily: 'monospace'),
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Refer to moves by their # number. Tap a log entry to see '
-              'the hand the bot had at that moment.',
-            ),
+            const Text('Refer to moves by the # number shown above the table.'),
           ],
         ),
         actions: [
@@ -181,40 +164,16 @@ class _ObserveScreenState extends State<ObserveScreen> {
           child: SafeArea(
             child: snapshot == null || record == null
                 ? const Center(child: CircularProgressIndicator())
-                : LayoutBuilder(
-                    builder: (final context, final constraints) {
-                      final table = _ObserveTable(
-                        snapshot: snapshot,
-                        record: record,
-                      );
-                      final log = _EventLog(
-                        record: record,
-                        scrollController: _logScroll,
-                      );
-                      final wide = constraints.maxWidth >= 900;
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: wide
-                                ? Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(child: table),
-                                      SizedBox(width: 380, child: log),
-                                    ],
-                                  )
-                                : Column(
-                                    children: [
-                                      Expanded(flex: 3, child: table),
-                                      Expanded(flex: 2, child: log),
-                                    ],
-                                  ),
-                          ),
-                          _ControlBar(controller: _controller),
-                        ],
-                      );
-                    },
+                : Column(
+                    children: [
+                      Expanded(
+                        child: _ObserveTable(
+                          snapshot: snapshot,
+                          record: record,
+                        ),
+                      ),
+                      _ControlBar(controller: _controller),
+                    ],
                   ),
           ),
         ),

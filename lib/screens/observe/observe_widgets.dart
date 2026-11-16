@@ -55,7 +55,8 @@ class _TrickPanel extends StatelessWidget {
         : null;
     final next = pendingId == null
         ? null
-        : '${record.nameOf(pendingId)} → ${_pendingText(snapshot)}';
+        : '#${record.events.length + 1}  '
+              '${record.nameOf(pendingId)} → ${_pendingText(snapshot)}';
     final wish = snapshot.activeWish;
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -234,134 +235,6 @@ class _SeatPanel extends StatelessWidget {
   }
 }
 
-/// Numbered list of everything that happened; tap an entry for details.
-class _EventLog extends StatelessWidget {
-  const _EventLog({required this.record, required this.scrollController});
-
-  final GameRecord record;
-  final ScrollController scrollController;
-
-  @override
-  Widget build(final BuildContext context) {
-    final theme = Theme.of(context);
-    final events = record.events;
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: ListView.builder(
-          controller: scrollController,
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          itemCount: events.length,
-          itemBuilder: (final context, final index) {
-            final event = events[index];
-            final color = switch (event.kind) {
-              'roundEnd' || 'gameEnd' => Colors.white,
-              'tichu' ||
-              'grandTichu' when event.data['call'] != false => Colors.redAccent,
-              'trick' || 'out' => Colors.lightGreenAccent,
-              'deal' || 'hands' => Colors.white54,
-              'dragon' => Colors.amberAccent,
-              _ =>
-                event.playerId == null
-                    ? Colors.white70
-                    : _teamColor(_seatOf(event.playerId!)),
-            };
-            final bold = event.kind == 'roundEnd' || event.kind == 'gameEnd';
-            return InkWell(
-              onTap: () => unawaited(_showDetails(context, event)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 2,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 44,
-                      child: Text(
-                        '#${event.seq}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.white38,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        event.text,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: color,
-                          fontWeight: bold ? FontWeight.w800 : null,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  int _seatOf(final String playerId) {
-    for (final p in record.players) {
-      if (p.id == playerId) return p.seat;
-    }
-    return 0;
-  }
-
-  Future<void> _showDetails(
-    final BuildContext context,
-    final GameRecordEvent event,
-  ) async {
-    final lines = <String>[];
-    void add(final String label, final Object? value) {
-      if (value == null) return;
-      final text = value is List
-          ? value.join(' ')
-          : value is Map
-          ? [
-              for (final e in value.entries)
-                '${record.nameOf('${e.key}')}: ${_joinValue(e.value)}',
-            ].join('\n')
-          : '$value';
-      lines.add('$label:\n$text');
-    }
-
-    final data = event.data;
-    add('Hand before the move', data['hand']);
-    add('Hands', data['hands']);
-    add('Cards left', data['cardCounts']);
-    add('Active wish', data['activeWish']);
-    add('Hands left at round end', data['handsLeft']);
-    await showDialog<void>(
-      context: context,
-      builder: (final context) => AlertDialog(
-        title: Text('#${event.seq} · round ${event.round}'),
-        content: SingleChildScrollView(
-          child: SelectableText(
-            '${event.text}\n\n${lines.join('\n\n')}',
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ControlBar extends StatelessWidget {
   const _ControlBar({required this.controller});
 
@@ -423,6 +296,3 @@ class _ControlBar extends StatelessWidget {
     );
   }
 }
-
-String _joinValue(final Object? value) =>
-    value is List ? value.join(' ') : '$value';

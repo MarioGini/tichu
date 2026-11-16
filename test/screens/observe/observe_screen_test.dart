@@ -27,7 +27,10 @@ void main() {
     for (final name in ['Bot 1', 'Bot 2', 'Bot 3', 'Bot 4']) {
       expect(find.text(name), findsOneWidget);
     }
-    expect(find.textContaining('#1'), findsWidgets);
+    expect(
+      find.textContaining('#${controller.record!.events.length + 1}'),
+      findsOneWidget,
+    );
 
     final before = controller.record!.events.length;
     await tester.runAsync(() async {

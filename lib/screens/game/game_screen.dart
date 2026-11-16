@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart' hide Card;
+import 'package:tichu/agents/app_bots.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/driver_ui_projector.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -173,7 +174,8 @@ class _GameScreenState extends State<GameScreen>
         });
       }
     });
-    _suggestionAgent = SmartAiAgent(_humanId);
+    // Move hints come from the same bot the app plays against.
+    _suggestionAgent = AppBots.current.build(_humanId) as SmartAiAgent;
     _opponentDelaySeconds = widget._initialOpponentDelaySeconds;
     unawaited(_initializeMatch());
   }

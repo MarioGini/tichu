@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+import 'package:tichu/agents/app_bots.dart';
 import 'package:tichu/screens/home/home_screen.dart';
 import 'package:tichu/services/multiplayer/configured_multiplayer_backend.dart';
 import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
@@ -7,6 +8,7 @@ import 'package:tichu/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppBots.load();
 
   try {
     final multiplayerBackend = await createConfiguredMultiplayerBackend();

@@ -148,6 +148,45 @@ abstract final class PlanPlay {
     return true;
   }
 
+  /// Following an opponent's cheap single or pair early in the round: drop
+  /// plays that spend a control card (Ace, Phoenix, Dragon) or a pair of
+  /// Kings or Aces, unless the play is a sure winner. The trained bot passes
+  /// here far more often than the heuristic and keeps these cards for the
+  /// tricks that decide who goes out. Returns the remaining plays (possibly
+  /// empty = pass).
+  static List<TichuTurn> conserveControls({
+    required final GameSnapshot snapshot,
+    required final String playerId,
+    required final List<TichuTurn> plays,
+    required final List<Card> hand,
+    required final TableRelationships table,
+    required final DeckState deck,
+  }) {
+    if (deck.turn.type != TurnType.single && deck.turn.type != TurnType.pair) {
+      return plays;
+    }
+    if (hand.length < 7 || snapshot.trickPoints >= 10) return plays;
+    if (snapshot.scoreState.finishOrder.isNotEmpty) return plays;
+    if (_minOpponentCards(snapshot, table) <= 3) return plays;
+    final opponentCalled = table.opponents.any(
+      (final o) =>
+          (snapshot.scoreState.tichuCalls[o.id] ?? TichuCall.none) !=
+          TichuCall.none,
+    );
+    if (opponentCalled) return plays;
+    final knowledge = CardKnowledge.of(snapshot, playerId);
+    bool spendsControl(final TichuTurn t) =>
+        t.type != TurnType.bomb &&
+        !knowledge.isUnbeatable(t) &&
+        (t.cards.any(_isControl) ||
+            (t.type == TurnType.pair &&
+                t.cards.every((final c) => c.value >= 13)));
+    return [
+      for (final t in plays)
+        if (!spendsControl(t)) t,
+    ];
+  }
+
   /// Keep bombs for valuable tricks or stopping an opponent close to going
   /// out; removes bombs from [plays] otherwise (if anything else remains).
   static List<TichuTurn> keepBombs({

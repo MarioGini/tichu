@@ -1,11 +1,16 @@
 name: Deploy authority
 
-# Builds tool/supabase_authority.dart and deploys it to Fly.io.
-# Needs these repository secrets:
-#   FLY_API_TOKEN                 Fly org token (fly.io dashboard → Tokens)
+# Builds tool/supabase_authority.dart and deploys it to an Oracle Cloud
+# Always Free Ubuntu VM over SSH (see deploy/oracle/). Served over HTTPS at
+# https://<ip-with-dashes>.sslip.io via Caddy.
+#
+# Repository secrets:
+#   ORACLE_HOST                   public IPv4 of the VM
+#   ORACLE_SSH_KEY                private SSH key for the `ubuntu` user
 #   SUPABASE_SERVICE_ROLE_KEY     Supabase → Project Settings → API keys
 #   SUPABASE_DB_URL               Supabase → Connect → direct connection string
 #   TICHU_AUTHORITY_PROXY_SECRET  same value as the Edge Function secret
+# Until ORACLE_HOST is set the workflow skips the deploy.
 
 on:
   push:
@@ -14,7 +19,7 @@ on:
       - "lib/**"
       - "tool/supabase_authority.dart"
       - "assets/bots/**"
-      - "deploy/authority/**"
+      - "deploy/oracle/**"
       - "pubspec.*"
       - ".github/workflows/deploy-authority.yml"
   workflow_dispatch:
@@ -26,28 +31,79 @@ concurrency:
   group: deploy-authority
   cancel-in-progress: false
 
+env:
+  SUPABASE_URL: https://fujbfizzxdxufetszvbe.supabase.co
+
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      FLY_APP: tichu-authority
+      ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-flutter
-      - name: Compile authority
+      - id: check
         run: |
-          dart compile exe tool/supabase_authority.dart -o deploy/authority/authority
-          cp assets/bots/tichu_q_v3.safetensors deploy/authority/
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Create Fly app (first run only)
-        run: flyctl apps list --json | grep -q "\"$FLY_APP\"" || flyctl apps create "$FLY_APP"
-      - name: Set Fly secrets
+          if [ -z "$ORACLE_HOST" ]; then
+            echo "ORACLE_HOST not set; skipping deploy." >> "$GITHUB_STEP_SUMMARY"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "hostname=$(echo "$ORACLE_HOST" | tr . -).sslip.io" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.check.outputs.configured == 'true'
+        uses: actions/checkout@v7
+
+      - if: steps.check.outputs.configured == 'true'
+        name: SSH setup
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
         run: |
-          flyctl secrets set --stage --app "$FLY_APP" \
-            SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
-            SUPABASE_DB_URL="${{ secrets.SUPABASE_DB_URL }}" \
-            TICHU_AUTHORITY_PROXY_SECRET="${{ secrets.TICHU_AUTHORITY_PROXY_SECRET }}"
-      - name: Deploy
-        working-directory: deploy/authority
-        run: flyctl deploy --remote-only --ha=false --app "$FLY_APP"
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/id_oracle
+          chmod 600 ~/.ssh/id_oracle
+          ssh-keyscan -H "$ORACLE_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          printf 'Host oracle\n  HostName %s\n  User ubuntu\n  IdentityFile ~/.ssh/id_oracle\n' "$ORACLE_HOST" > ~/.ssh/config
+          arch=$(ssh oracle uname -m)
+          if [ "$arch" != "x86_64" ]; then
+            echo "VM is $arch; this workflow builds x86_64 (use the AMD E2.1.Micro shape)." >&2
+            exit 1
+          fi
+
+      - if: steps.check.outputs.configured == 'true'
+        uses: ./.github/actions/setup-flutter
+
+      - if: steps.check.outputs.configured == 'true'
+        name: Compile authority
+        run: |
+          mkdir -p dist
+          dart compile exe tool/supabase_authority.dart -o dist/authority
+          cp assets/bots/tichu_q_v3.safetensors deploy/oracle/setup.sh deploy/oracle/tichu-authority.service dist/
+
+      - if: steps.check.outputs.configured == 'true'
+        name: Upload and install
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          TICHU_AUTHORITY_PROXY_SECRET: ${{ secrets.TICHU_AUTHORITY_PROXY_SECRET }}
+        run: |
+          printf 'SUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nSUPABASE_DB_URL=%s\nTICHU_AUTHORITY_PROXY_SECRET=%s\n' \
+            "$SUPABASE_URL" "$SUPABASE_SERVICE_ROLE_KEY" "$SUPABASE_DB_URL" "$TICHU_AUTHORITY_PROXY_SECRET" \
+            | ssh oracle 'sudo sh -c "umask 077; cat > /etc/tichu-authority.env"'
+          ssh oracle 'rm -rf ~/tichu-deploy && mkdir ~/tichu-deploy'
+          scp dist/* oracle:tichu-deploy/
+          ssh oracle "cd ~/tichu-deploy && sudo bash setup.sh ${{ steps.check.outputs.hostname }}"
+
+      - if: steps.check.outputs.configured == 'true'
+        name: Health check
+        run: |
+          url="https://${{ steps.check.outputs.hostname }}/health"
+          for i in $(seq 1 20); do
+            if curl -fsS "$url"; then
+              echo
+              echo "Authority is up: https://${{ steps.check.outputs.hostname }}" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 6
+          done
+          ssh oracle 'sudo journalctl -u tichu-authority -u caddy -n 60 --no-pager'
+          exit 1

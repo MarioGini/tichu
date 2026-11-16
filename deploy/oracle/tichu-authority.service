@@ -1,0 +1,22 @@
+[Unit]
+Description=Tichu authority server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tichu
+Group=tichu
+WorkingDirectory=/opt/tichu-authority
+EnvironmentFile=/etc/tichu-authority.env
+Environment=TICHU_SUPABASE_AUTHORITY_HOST=127.0.0.1
+Environment=TICHU_SUPABASE_AUTHORITY_PORT=8081
+ExecStart=/opt/tichu-authority/authority
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

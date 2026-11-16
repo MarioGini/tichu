@@ -114,11 +114,32 @@ The authority server needs a persistent host reachable by the Edge Function.
 
 ### Authority server
 
-`tool/supabase_authority.dart` is a standalone Dart HTTP server. Deploy it wherever you can run a long-lived Dart process:
+`tool/supabase_authority.dart` is a long-lived Dart HTTP server (live matches
+are in memory), so it needs an always-on host. Production runs on an Oracle
+Cloud Always Free VM (Frankfurt, `VM.Standard.E2.1.Micro`, Ubuntu 24.04),
+deployed by `.github/workflows/deploy-authority.yml` on every push to
+`develop` that touches the server:
 
-- **Cloud Run / Fly.io / Railway**: build with `dart compile exe tool/supabase_authority.dart -o authority` and deploy the binary.
-- **Docker**: use the official `dart:stable` image.
-- **VPS**: run directly with `dart run`.
+1. CI compiles the server with `dart compile exe` (x86_64).
+2. It copies the binary, the bot model and `deploy/oracle/*` to the VM over
+   SSH and runs `deploy/oracle/setup.sh`, which installs a systemd service
+   (`tichu-authority`, listening on 127.0.0.1:8081) and Caddy in front of it
+   for HTTPS.
+3. The public URL is `https://<ip-with-dashes>.sslip.io` (sslip.io resolves
+   to the IP; Caddy gets a Let's Encrypt certificate for it).
+
+One-time VM setup: create the instance with a public IPv4, open TCP 80 and
+443 in the subnet's security list (the setup script handles the VM's own
+iptables), then add the repository secrets `ORACLE_HOST` (public IP),
+`ORACLE_SSH_KEY` (private key for the `ubuntu` user),
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` and
+`TICHU_AUTHORITY_PROXY_SECRET`.
+
+`SUPABASE_DB_URL` must be the **Session pooler** connection string from
+Supabase → Connect: the direct `db.<ref>.supabase.co` host is IPv6-only and
+the VM is IPv4-only.
+
+Logs: `ssh ubuntu@<ip> sudo journalctl -u tichu-authority -f`.
 
 Environment variables for the authority:
 
@@ -143,7 +164,7 @@ supabase functions deploy tichu
 
 ```bash
 supabase secrets set \
-  TICHU_AUTHORITY_URL=https://your-authority-host:8081 \
+  TICHU_AUTHORITY_URL=https://<ip-with-dashes>.sslip.io \
   TICHU_AUTHORITY_PROXY_SECRET=your-production-secret
 ```
 

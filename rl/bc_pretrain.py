@@ -35,7 +35,6 @@ from qnet import (
 )
 from schema import TOTAL_FEATURE_COUNT
 
-
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 

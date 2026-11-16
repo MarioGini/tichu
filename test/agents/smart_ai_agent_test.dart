@@ -1,191 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tichu/agents/play_tactics_policy.dart';
-import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
-import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_actions.dart';
-import 'package:tichu/game/game_snapshot.dart';
-import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
-import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const _aiId = 'ai-0';
-const _partnerId = 'ai-2';
-const _leftId = 'ai-1';
-const _rightId = 'ai-3';
-
-final _players = [
-  const GamePlayer(
-    id: _aiId,
-    name: 'AI-0',
-    seat: 0,
-    type: PlayerType.automated,
-  ),
-  const GamePlayer(
-    id: _leftId,
-    name: 'AI-1',
-    seat: 1,
-    type: PlayerType.automated,
-  ),
-  const GamePlayer(
-    id: _partnerId,
-    name: 'AI-2',
-    seat: 2,
-    type: PlayerType.automated,
-  ),
-  const GamePlayer(
-    id: _rightId,
-    name: 'AI-3',
-    seat: 3,
-    type: PlayerType.automated,
-  ),
-];
-
-GameSnapshot _snapshot({
-  required final List<Card> myHand,
-  final DeckState? deck,
-  final Map<String, List<Card>>? otherHands,
-  final Map<String, TichuCall>? tichuCalls,
-  final String? lastPlayedBy,
-  final TichuTurn? lastPlayedTurn,
-  final CardFace? activeWish,
-}) {
-  final hands = <String, List<Card>>{
-    _aiId: myHand,
-    _leftId: otherHands?[_leftId] ?? _defaultHand(),
-    _partnerId: otherHands?[_partnerId] ?? _defaultHand(),
-    _rightId: otherHands?[_rightId] ?? _defaultHand(),
-  };
-  final scoreState = ScoreState.initial().copyWith(
-    tichuCalls: tichuCalls ?? const {},
-  );
-  return GameSnapshot(
-    gameId: 'test-game',
-    players: _players,
-    hands: hands,
-    deck: deck ?? _emptyDeck(),
-    trickPoints: 0,
-    activeWish: activeWish ?? deck?.wish ?? CardFace.none,
-    currentPlayerId: _aiId,
-    consecutivePasses: 0,
-    lastPlayedBy: lastPlayedBy,
-    lastPlayedTurn: lastPlayedTurn,
-    lastDragonGiveBy: null,
-    lastDragonGiveTo: null,
-    pendingDragonGiveBy: null,
-    pendingDragonGiveTargets: const [],
-    pendingOpponentPlayerId: null,
-    pendingOpponentCards: const [],
-    pendingOpponentPass: false,
-    scoreState: scoreState,
-    opponentAwaitingConfirmation: false,
-    phase: GamePhase.play,
-    grandTichuDecisions: const {},
-    schupfCompletedPlayers: const [],
-    schupfReceipts: const {},
-  );
-}
-
-DeckState _emptyDeck() =>
-    DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
-
-List<Card> _defaultHand() => [
-  Card(CardFace.two, CardColor.red),
-  Card(CardFace.five, CardColor.blue),
-  Card(CardFace.eight, CardColor.green),
-  Card(CardFace.jack, CardColor.black),
-  Card(CardFace.king, CardColor.red),
-];
-
-class _FixedSchupfStrategy implements SchupfStrategy {
-  const _FixedSchupfStrategy({
-    required this.toLeft,
-    required this.toPartner,
-    required this.toRight,
-  });
-
-  final Card toLeft;
-  final Card toPartner;
-  final Card toRight;
-
-  @override
-  Future<SchupfAction> selectSchupfCards(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) async => SchupfAction(
-    playerId: playerId,
-    toLeft: toLeft,
-    toPartner: toPartner,
-    toRight: toRight,
-  );
-}
-
-class _ForceEmptyValidPlaysPolicy extends PlayTacticsPolicy {
-  const _ForceEmptyValidPlaysPolicy();
-
-  @override
-  PassAction? selectPartnerSupportPass({
-    required final String playerId,
-    required final GameSnapshot snapshot,
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final TableRelationships table,
-  }) => null;
-
-  @override
-  TichuTurn? selectPartnerFinishLead({
-    required final GameSnapshot snapshot,
-    required final List<TichuTurn> legalTurns,
-    required final bool isLeading,
-    required final TableRelationships table,
-  }) => null;
-
-  @override
-  TichuTurn? selectMahjongLeadTurn({
-    required final List<TichuTurn> legalTurns,
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final bool isLeading,
-    required final TichuTurn Function(List<TichuTurn>) selectPlay,
-  }) => null;
-
-  @override
-  List<TichuTurn> wishPreferredTurns({
-    required final List<TichuTurn> legalTurns,
-    required final DeckState deck,
-  }) => const <TichuTurn>[];
-
-  @override
-  List<TichuTurn> filterWishValidPlays({
-    required final DeckState deck,
-    required final List<TichuTurn> legalTurns,
-    required final List<Card> hand,
-  }) => const <TichuTurn>[];
-}
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+import 'smart_ai_test_helpers.dart';
 
 void main() {
   late SmartAiAgent agent;
 
   setUp(() {
-    agent = SmartAiAgent(_aiId);
+    agent = SmartAiAgent(aiId);
   });
-
-  // -----------------------------------------------------------------------
-  // Grand Tichu / Tichu
-  // -----------------------------------------------------------------------
 
   group('shouldCallGrandTichu', () {
     test('always returns false', () async {
-      final snapshot = _snapshot(
+      final snapshot = aiSnapshot(
         myHand: [
           Card(CardFace.dragon, CardColor.special),
           Card(CardFace.phoenix, CardColor.special),
@@ -203,7 +33,7 @@ void main() {
 
   group('shouldCallTichu', () {
     test('declines with average cards', () async {
-      final snapshot = _snapshot(
+      final snapshot = aiSnapshot(
         myHand: [
           Card(CardFace.two, CardColor.red),
           Card(CardFace.three, CardColor.blue),
@@ -225,10 +55,6 @@ void main() {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Schupfen
-  // -----------------------------------------------------------------------
-
   group('selectSchupfCards', () {
     test('returns three different cards', () async {
       final hand = [
@@ -239,7 +65,7 @@ void main() {
         Card(CardFace.king, CardColor.red),
         Card(CardFace.ace, CardColor.blue),
       ];
-      final snapshot = _snapshot(myHand: hand);
+      final snapshot = aiSnapshot(myHand: hand);
       final action = await agent.selectSchupfCards(snapshot);
 
       // All three must be cards from the hand.
@@ -259,7 +85,7 @@ void main() {
         Card(CardFace.four, CardColor.green),
         Card(CardFace.five, CardColor.black),
       ];
-      final snapshot = _snapshot(myHand: hand);
+      final snapshot = aiSnapshot(myHand: hand);
       final action = await agent.selectSchupfCards(snapshot);
 
       final specials = [
@@ -283,7 +109,7 @@ void main() {
         Card(CardFace.ace, CardColor.red),
         Card(CardFace.ace, CardColor.blue),
       ];
-      final snapshot = _snapshot(myHand: hand);
+      final snapshot = aiSnapshot(myHand: hand);
       final action = await agent.selectSchupfCards(snapshot);
 
       // Opponents should get the lowest cards.
@@ -296,7 +122,7 @@ void main() {
         Card(CardFace.two, CardColor.red),
         Card(CardFace.three, CardColor.blue),
       ];
-      final snapshot = _snapshot(myHand: hand);
+      final snapshot = aiSnapshot(myHand: hand);
       expect(
         () => agent.selectSchupfCards(snapshot),
         throwsA(isA<StateError>()),
@@ -310,9 +136,9 @@ void main() {
         Card(CardFace.king, CardColor.green),
         Card(CardFace.ace, CardColor.black),
       ];
-      final snapshot = _snapshot(
+      final snapshot = aiSnapshot(
         myHand: hand,
-        tichuCalls: {_partnerId: TichuCall.grandTichu},
+        tichuCalls: {partnerId: TichuCall.grandTichu},
       );
 
       final action = await agent.selectSchupfCards(snapshot);
@@ -326,9 +152,9 @@ void main() {
         Card(CardFace.three, CardColor.blue),
         Card(CardFace.four, CardColor.green),
       ];
-      final snapshot = _snapshot(
+      final snapshot = aiSnapshot(
         myHand: hand,
-        tichuCalls: {_leftId: TichuCall.grandTichu},
+        tichuCalls: {leftId: TichuCall.grandTichu},
       );
 
       final action = await agent.selectSchupfCards(snapshot);
@@ -342,656 +168,12 @@ void main() {
         Card(CardFace.four, CardColor.green),
         Card(CardFace.five, CardColor.black),
       ];
-      final snapshot = _snapshot(myHand: hand);
+      final snapshot = aiSnapshot(myHand: hand);
 
       final action = await agent.selectSchupfCards(snapshot);
       expect(action.toRight.value.toInt().isEven, true);
     });
   });
-
-  // -----------------------------------------------------------------------
-  // Play selection
-  // -----------------------------------------------------------------------
-
-  group('selectTurn', () {
-    test('passes when hand is empty', () async {
-      final snapshot = _snapshot(myHand: []);
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PassAction>());
-    });
-
-    test('plays a legal single card on empty deck', () async {
-      final hand = [
-        Card(CardFace.five, CardColor.red),
-        Card(CardFace.ten, CardColor.blue),
-      ];
-      final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      // Must be a card from the hand.
-      for (final c in play.cards) {
-        expect(
-          hand.any((final h) => h.face == c.face),
-          true,
-          reason: 'played card ${c.face} should be from hand',
-        );
-      }
-    });
-
-    test('returns play cards as mutable list', () async {
-      final snapshot = _snapshot(
-        myHand: [Card(CardFace.phoenix, CardColor.special)],
-        deck: _emptyDeck(),
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-
-      final play = action as PlayTurnAction;
-      expect(play.cards.single.face, CardFace.phoenix);
-      expect(() => play.cards.sort(compareCards), returnsNormally);
-    });
-
-    test('follows with a higher single when required', () async {
-      final hand = [
-        Card(CardFace.three, CardColor.red),
-        Card(CardFace.eight, CardColor.blue),
-        Card(CardFace.king, CardColor.green),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.five, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = _leftId;
-      final snapshot = _snapshot(myHand: hand, deck: deck);
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(play.cards.length, 1);
-      // The played card must beat the 5 on the deck.
-      expect(play.cards.first.value, greaterThan(5));
-    });
-
-    test('passes when it cannot beat the deck', () async {
-      final hand = [
-        Card(CardFace.two, CardColor.red),
-        Card(CardFace.three, CardColor.blue),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.ace, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = _leftId;
-      final snapshot = _snapshot(myHand: hand, deck: deck);
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PassAction>());
-    });
-
-    test('does not play phoenix as single on low card', () async {
-      final hand = [
-        Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.seven, CardColor.red),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.six, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = _leftId;
-      final snapshot = _snapshot(myHand: hand, deck: deck);
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(play.cards.length, 1);
-      expect(play.cards.first.face, CardFace.seven);
-    });
-
-    test('prefers ace over phoenix when ace already wins the trick', () async {
-      final hand = [
-        Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.ace, CardColor.red),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.king, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = _leftId;
-      final snapshot = _snapshot(myHand: hand, deck: deck);
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(play.cards.length, 1);
-      expect(play.cards.first.face, CardFace.ace);
-    });
-
-    test('preserves phoenix when multiple aces can win over a king', () async {
-      final hand = [
-        Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.ace, CardColor.red),
-        Card(CardFace.ace, CardColor.blue),
-        Card(CardFace.ace, CardColor.green),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.king, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = _leftId;
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: deck,
-        lastPlayedBy: _rightId,
-        lastPlayedTurn: TichuTurn(TurnType.single, [
-          Card(CardFace.dragon, CardColor.special),
-        ]),
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(play.cards.length, 1);
-      expect(play.cards.first.face, CardFace.ace);
-    });
-
-    test(
-      'plays when tactics policy filters all valid plays but pass is illegal',
-      () async {
-        final customAgent = SmartAiAgent(
-          _aiId,
-          playTacticsPolicy: const _ForceEmptyValidPlaysPolicy(),
-        );
-        final hand = [
-          Card(CardFace.five, CardColor.red),
-          Card(CardFace.king, CardColor.blue),
-        ];
-
-        final action = await customAgent.selectTurn(
-          _snapshot(myHand: hand, deck: _emptyDeck()),
-        );
-
-        expect(action, isA<PlayTurnAction>());
-      },
-    );
-
-    test('prefers non-bomb plays', () async {
-      final hand = [
-        Card(CardFace.five, CardColor.red),
-        Card(CardFace.five, CardColor.blue),
-        Card(CardFace.five, CardColor.green),
-        Card(CardFace.five, CardColor.black),
-        Card(CardFace.ten, CardColor.red),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.three, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = _leftId;
-      final snapshot = _snapshot(myHand: hand, deck: deck);
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      // Should play the ten as a single instead of bombing with four 5s.
-      expect(play.cards.length, 1);
-    });
-
-    test('plays all remaining cards to go out', () async {
-      // Only one card left → must play it.
-      final hand = [Card(CardFace.king, CardColor.red)];
-      final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(play.cards.length, 1);
-      expect(play.cards.first.face, CardFace.king);
-    });
-
-    test('plays phoenix pair to finish when legal', () async {
-      final hand = [
-        Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.king, CardColor.red),
-      ];
-      final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(play.cards.length, 2);
-      expect(getTurn(play.cards).type, TurnType.pair);
-    });
-
-    test('does not go out ahead of a partner who called Tichu', () async {
-      final hand = [
-        Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.king, CardColor.red),
-      ];
-      final deckTurn = TichuTurn(TurnType.pair, [
-        Card(CardFace.queen, CardColor.black),
-        Card(CardFace.queen, CardColor.red),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = _partnerId;
-
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: deck,
-        tichuCalls: {_partnerId: TichuCall.tichu},
-        lastPlayedBy: _partnerId,
-        lastPlayedTurn: deckTurn,
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      // Going out first would make the partner's Tichu fail (-100).
-      expect(action, isA<PassAction>());
-    });
-
-    test('avoids burning high cards early when leading', () async {
-      final hand = [
-        Card(CardFace.ace, CardColor.red),
-        Card(CardFace.king, CardColor.blue),
-        Card(CardFace.queen, CardColor.green),
-        Card(CardFace.jack, CardColor.black),
-        Card(CardFace.three, CardColor.red),
-        Card(CardFace.four, CardColor.blue),
-        Card(CardFace.five, CardColor.green),
-        Card(CardFace.six, CardColor.black),
-        Card(CardFace.seven, CardColor.red),
-      ];
-      final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-
-      final playedFaces = play.cards.map((final c) => c.face).toSet();
-      expect(playedFaces.contains(CardFace.ace), false);
-      expect(playedFaces.contains(CardFace.king), false);
-    });
-
-    test('prefers multi-card lines when opponent is low', () async {
-      final hand = [
-        Card(CardFace.three, CardColor.red),
-        Card(CardFace.four, CardColor.blue),
-        Card(CardFace.five, CardColor.green),
-        Card(CardFace.six, CardColor.black),
-        Card(CardFace.seven, CardColor.red),
-        Card(CardFace.king, CardColor.blue),
-      ];
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: _emptyDeck(),
-        otherHands: {
-          _leftId: List.generate(
-            4,
-            (final i) => Card(CardFace.two, CardColor.red),
-          ),
-          _partnerId: _defaultHand(),
-          _rightId: [
-            ...List.generate(
-              5,
-              (final i) => Card(CardFace.three, CardColor.blue),
-            ),
-            // An unseen Ace, so the King is not a sure winner.
-            Card(CardFace.ace, CardColor.green),
-          ],
-        },
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(getTurn(play.cards).type, TurnType.straight);
-    });
-
-    test('avoids singles when opponent has 1 card', () async {
-      final hand = [
-        Card(CardFace.three, CardColor.red),
-        Card(CardFace.four, CardColor.blue),
-        Card(CardFace.five, CardColor.green),
-        Card(CardFace.six, CardColor.black),
-        Card(CardFace.seven, CardColor.red),
-        Card(CardFace.king, CardColor.blue),
-      ];
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: _emptyDeck(),
-        otherHands: {
-          _leftId: [Card(CardFace.two, CardColor.red)],
-          _partnerId: _defaultHand(),
-          _rightId: [
-            ...List.generate(
-              5,
-              (final i) => Card(CardFace.three, CardColor.blue),
-            ),
-            // An unseen Ace, so the King is not a sure winner.
-            Card(CardFace.ace, CardColor.green),
-          ],
-        },
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(getTurn(play.cards).type, TurnType.straight);
-    });
-
-    test('passes to support partner tichu when partner is winning', () async {
-      final hand = [
-        Card(CardFace.nine, CardColor.red),
-        Card(CardFace.jack, CardColor.blue),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.king, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: deck,
-        otherHands: {
-          _leftId: _defaultHand(),
-          _partnerId: [
-            Card(CardFace.two, CardColor.red),
-            Card(CardFace.three, CardColor.blue),
-            Card(CardFace.four, CardColor.green),
-            Card(CardFace.five, CardColor.red),
-          ],
-          _rightId: _defaultHand(),
-        },
-        tichuCalls: {_partnerId: TichuCall.tichu},
-        lastPlayedBy: _partnerId,
-        lastPlayedTurn: deckTurn,
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PassAction>());
-    });
-
-    test('never goes out ahead of a partner who called Tichu', () async {
-      final hand = [Card(CardFace.six, CardColor.red)];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.five, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: deck,
-        otherHands: {
-          _leftId: [
-            Card(CardFace.two, CardColor.red),
-            Card(CardFace.nine, CardColor.blue),
-          ],
-          _partnerId: [Card(CardFace.ace, CardColor.red)],
-          _rightId: _defaultHand(),
-        },
-        tichuCalls: {_partnerId: TichuCall.tichu},
-        lastPlayedBy: _leftId,
-        lastPlayedTurn: deckTurn,
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PassAction>());
-    });
-
-    test('holds back its last card while partner Tichu is open and opponents '
-        'are not close', () async {
-      final hand = [Card(CardFace.six, CardColor.red)];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.five, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = _leftId;
-
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: deck,
-        otherHands: {
-          _leftId: _defaultHand(),
-          _partnerId: [Card(CardFace.ace, CardColor.red)],
-          _rightId: _defaultHand(),
-        },
-        tichuCalls: {_partnerId: TichuCall.tichu},
-        lastPlayedBy: _leftId,
-        lastPlayedTurn: deckTurn,
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PassAction>());
-    });
-
-    test(
-      'passes when partner is winning a high trick without tichu call',
-      () async {
-        final hand = [
-          Card(CardFace.ace, CardColor.red),
-          Card(CardFace.ten, CardColor.blue),
-        ];
-        final deckTurn = TichuTurn(TurnType.single, [
-          Card(CardFace.king, CardColor.black),
-        ]);
-        final deck = DeckState(deckTurn, CardFace.none);
-        deck.currentWinner = _partnerId;
-
-        final snapshot = _snapshot(
-          myHand: hand,
-          deck: deck,
-          otherHands: {
-            _leftId: _defaultHand(),
-            _partnerId: [
-              Card(CardFace.three, CardColor.red),
-              Card(CardFace.four, CardColor.blue),
-              Card(CardFace.five, CardColor.green),
-            ],
-            _rightId: _defaultHand(),
-          },
-          lastPlayedBy: _partnerId,
-          lastPlayedTurn: deckTurn,
-        );
-
-        final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PassAction>());
-      },
-    );
-
-    test('may take over a low single from the partner', () async {
-      final hand = [
-        Card(CardFace.ace, CardColor.red),
-        Card(CardFace.nine, CardColor.blue),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.four, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: deck,
-        otherHands: {
-          _leftId: _defaultHand(),
-          _partnerId: [
-            Card(CardFace.three, CardColor.red),
-            Card(CardFace.five, CardColor.green),
-          ],
-          _rightId: _defaultHand(),
-        },
-        lastPlayedBy: _partnerId,
-        lastPlayedTurn: deckTurn,
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-    });
-
-    test(
-      'plays a stronger interrupt when opponent tichu is near finish',
-      () async {
-        final hand = [
-          Card(CardFace.two, CardColor.green),
-          Card(CardFace.six, CardColor.red),
-          Card(CardFace.king, CardColor.blue),
-        ];
-        final deckTurn = TichuTurn(TurnType.single, [
-          Card(CardFace.five, CardColor.black),
-        ]);
-        final deck = DeckState(deckTurn, CardFace.none);
-        deck.currentWinner = _leftId;
-
-        final snapshot = _snapshot(
-          myHand: hand,
-          deck: deck,
-          otherHands: {
-            _leftId: [
-              Card(CardFace.ace, CardColor.red),
-              Card(CardFace.queen, CardColor.green),
-            ],
-            _partnerId: _defaultHand(),
-            _rightId: _defaultHand(),
-          },
-          tichuCalls: {_leftId: TichuCall.tichu},
-          lastPlayedBy: _leftId,
-          lastPlayedTurn: deckTurn,
-        );
-
-        final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PlayTurnAction>());
-        final play = action as PlayTurnAction;
-        expect(play.cards.length, 1);
-        expect(play.cards.first.face, CardFace.king);
-      },
-    );
-
-    test('leads a single to help partner finish tichu', () async {
-      final hand = [
-        Card(CardFace.two, CardColor.red),
-        Card(CardFace.ten, CardColor.blue),
-      ];
-
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: _emptyDeck(),
-        otherHands: {
-          _leftId: _defaultHand(),
-          _partnerId: [Card(CardFace.ace, CardColor.red)],
-          _rightId: _defaultHand(),
-        },
-        tichuCalls: {_partnerId: TichuCall.tichu},
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(getTurn(play.cards).type, TurnType.single);
-      expect(play.cards.first.face, CardFace.two);
-    });
-
-    test('plays dog early when leading', () async {
-      final hand = [
-        Card(CardFace.dog, CardColor.special),
-        Card(CardFace.five, CardColor.blue),
-      ];
-
-      final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(getTurn(play.cards).type, TurnType.dog);
-    });
-
-    test(
-      'leads mahjong instead of dog on game opening when both are in hand',
-      () async {
-        final hand = [
-          Card(CardFace.dog, CardColor.special),
-          Card(CardFace.mahJong, CardColor.special),
-          Card(CardFace.king, CardColor.blue),
-        ];
-
-        final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
-
-        final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PlayTurnAction>());
-        final play = action as PlayTurnAction;
-        expect(play.cards.any((final c) => c.face == CardFace.mahJong), isTrue);
-        expect(getTurn(play.cards).type, isNot(TurnType.dog));
-      },
-    );
-
-    test(
-      'prefers mahjong straight lead over dog on game opening when available',
-      () async {
-        final hand = [
-          Card(CardFace.dog, CardColor.special),
-          Card(CardFace.mahJong, CardColor.special),
-          Card(CardFace.two, CardColor.red),
-          Card(CardFace.three, CardColor.blue),
-          Card(CardFace.four, CardColor.green),
-          Card(CardFace.five, CardColor.black),
-        ];
-
-        final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
-
-        final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PlayTurnAction>());
-        final play = action as PlayTurnAction;
-        expect(play.cards.any((final c) => c.face == CardFace.mahJong), isTrue);
-        expect(getTurn(play.cards).type, TurnType.straight);
-      },
-    );
-
-    test('skips mahjong opening rule after first card of game', () async {
-      final hand = [
-        Card(CardFace.dog, CardColor.special),
-        Card(CardFace.mahJong, CardColor.special),
-        Card(CardFace.king, CardColor.blue),
-      ];
-      final priorTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.five, CardColor.black),
-      ]);
-
-      final snapshot = _snapshot(
-        myHand: hand,
-        deck: _emptyDeck(),
-        lastPlayedBy: _leftId,
-        lastPlayedTurn: priorTurn,
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(getTurn(play.cards).type, TurnType.dog);
-    });
-
-    test(
-      'responds to single with lowest singleton and preserves pair',
-      () async {
-        final hand = [
-          Card(CardFace.five, CardColor.red),
-          Card(CardFace.eight, CardColor.red),
-          Card(CardFace.eight, CardColor.blue),
-          Card(CardFace.king, CardColor.green),
-        ];
-        final deckTurn = TichuTurn(TurnType.single, [
-          Card(CardFace.three, CardColor.black),
-        ]);
-        final deck = DeckState(deckTurn, CardFace.none);
-        deck.currentWinner = _leftId;
-        final snapshot = _snapshot(myHand: hand, deck: deck);
-
-        final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PlayTurnAction>());
-        final play = action as PlayTurnAction;
-        expect(getTurn(play.cards).type, TurnType.single);
-        expect(play.cards.first.face, CardFace.five);
-      },
-    );
-  });
-
-  // -----------------------------------------------------------------------
-  // Wish handling
-  // -----------------------------------------------------------------------
 
   group('wish enforcement', () {
     test('plays a card fulfilling the wish when possible', () async {
@@ -1005,8 +187,8 @@ void main() {
       ]);
       // Active wish for a seven.
       final deck = DeckState(deckTurn, CardFace.seven);
-      deck.currentWinner = _leftId;
-      final snapshot = _snapshot(myHand: hand, deck: deck);
+      deck.currentWinner = leftId;
+      final snapshot = aiSnapshot(myHand: hand, deck: deck);
 
       final action = await agent.selectTurn(snapshot);
       expect(action, isA<PlayTurnAction>());
@@ -1025,21 +207,21 @@ void main() {
           Card(CardFace.five, CardColor.black),
         ]);
         final deck = DeckState(deckTurn, CardFace.seven)
-          ..currentWinner = _partnerId;
+          ..currentWinner = partnerId;
 
-        final snapshot = _snapshot(
+        final snapshot = aiSnapshot(
           myHand: hand,
           deck: deck,
           otherHands: {
-            _leftId: _defaultHand(),
-            _partnerId: [
+            leftId: defaultHand(),
+            partnerId: [
               Card(CardFace.two, CardColor.red),
               Card(CardFace.three, CardColor.blue),
             ],
-            _rightId: _defaultHand(),
+            rightId: defaultHand(),
           },
-          tichuCalls: {_partnerId: TichuCall.tichu},
-          lastPlayedBy: _partnerId,
+          tichuCalls: {partnerId: TichuCall.tichu},
+          lastPlayedBy: partnerId,
           lastPlayedTurn: deckTurn,
         );
 
@@ -1051,23 +233,19 @@ void main() {
     );
   });
 
-  // -----------------------------------------------------------------------
-  // Wish selection (when playing Mah Jong)
-  // -----------------------------------------------------------------------
-
   group('wish selection', () {
     test('prefers the card schupfed to the next player', () async {
       final forcedWish = Card(CardFace.seven, CardColor.red);
       final schupfAgent = SmartAiAgent(
-        _aiId,
-        schupfStrategy: _FixedSchupfStrategy(
+        aiId,
+        schupfStrategy: FixedSchupfStrategy(
           toLeft: forcedWish,
           toPartner: Card(CardFace.three, CardColor.green),
           toRight: Card(CardFace.two, CardColor.black),
         ),
       );
 
-      final schupfSnapshot = _snapshot(
+      final schupfSnapshot = aiSnapshot(
         myHand: [
           forcedWish,
           Card(CardFace.mahJong, CardColor.special),
@@ -1077,13 +255,13 @@ void main() {
       );
       await schupfAgent.selectSchupfCards(schupfSnapshot);
 
-      final playSnapshot = _snapshot(
+      final playSnapshot = aiSnapshot(
         myHand: [
           Card(CardFace.mahJong, CardColor.special),
           Card(CardFace.seven, CardColor.blue),
           Card(CardFace.ace, CardColor.blue),
         ],
-        deck: _emptyDeck(),
+        deck: emptyDeck(),
       );
 
       final action = await schupfAgent.selectTurn(playSnapshot);
@@ -1100,7 +278,7 @@ void main() {
         Card(CardFace.two, CardColor.red),
         Card(CardFace.five, CardColor.blue),
       ];
-      final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
+      final snapshot = aiSnapshot(myHand: hand, deck: emptyDeck());
 
       final action = await agent.selectTurn(snapshot);
       expect(action, isA<PlayTurnAction>());
@@ -1129,7 +307,7 @@ void main() {
         Card(CardFace.jack, CardColor.black),
         Card(CardFace.ten, CardColor.red),
       ];
-      final snapshot = _snapshot(myHand: hand, deck: _emptyDeck());
+      final snapshot = aiSnapshot(myHand: hand, deck: emptyDeck());
 
       final action = await agent.selectTurn(snapshot);
       expect(action, isA<PlayTurnAction>());
@@ -1140,28 +318,24 @@ void main() {
     });
   });
 
-  // -----------------------------------------------------------------------
-  // Dragon give logic
-  // -----------------------------------------------------------------------
-
   group('selectDragonGive', () {
     test('avoids opponent who declared tichu', () {
-      final agent = SmartAiAgent(_aiId);
+      final agent = SmartAiAgent(aiId);
 
-      final snapshot = _snapshot(
+      final snapshot = aiSnapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(
+          leftId: List.generate(
             6,
             (final i) => Card(CardFace.two, CardColor.red),
           ),
-          _partnerId: _defaultHand(),
-          _rightId: List.generate(
+          partnerId: defaultHand(),
+          rightId: List.generate(
             2,
             (final i) => Card(CardFace.two, CardColor.blue),
           ),
         },
-        tichuCalls: {_leftId: TichuCall.tichu},
+        tichuCalls: {leftId: TichuCall.tichu},
       );
 
       final seat = agent.selectDragonGive(snapshot);
@@ -1170,18 +344,18 @@ void main() {
     });
 
     test('gives to opponent with more cards', () {
-      final agent = SmartAiAgent(_aiId);
+      final agent = SmartAiAgent(aiId);
 
       // Left has 8 cards, right has 3 cards.
-      final snapshot = _snapshot(
+      final snapshot = aiSnapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(
+          leftId: List.generate(
             8,
             (final i) => Card(CardFace.two, CardColor.red),
           ),
-          _partnerId: _defaultHand(),
-          _rightId: List.generate(
+          partnerId: defaultHand(),
+          rightId: List.generate(
             3,
             (final i) => Card(CardFace.two, CardColor.blue),
           ),
@@ -1194,17 +368,17 @@ void main() {
     });
 
     test('gives to right opponent when right has more cards', () {
-      final agent = SmartAiAgent(_aiId);
+      final agent = SmartAiAgent(aiId);
 
-      final snapshot = _snapshot(
+      final snapshot = aiSnapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          _leftId: List.generate(
+          leftId: List.generate(
             2,
             (final i) => Card(CardFace.two, CardColor.red),
           ),
-          _partnerId: _defaultHand(),
-          _rightId: List.generate(
+          partnerId: defaultHand(),
+          rightId: List.generate(
             10,
             (final i) => Card(CardFace.two, CardColor.blue),
           ),
@@ -1216,8 +390,4 @@ void main() {
       expect(seat, 3);
     });
   });
-
-  // -----------------------------------------------------------------------
-  // Phoenix value
-  // -----------------------------------------------------------------------
 }

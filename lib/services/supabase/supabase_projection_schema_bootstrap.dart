@@ -221,6 +221,36 @@ revoke all on public.tichu_authority_lobbies from authenticated
     '''
 revoke all on public.tichu_authority_actions from authenticated
 ''',
+    '''
+alter table public.tichu_authority_lobbies enable row level security
+''',
+    '''
+alter table public.tichu_authority_actions enable row level security
+''',
+    // Realtime postgres_changes only fires for tables in the publication.
+    r'''
+do $$
+declare t text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
+  end if;
+  foreach t in array array[
+    'tichu_lobby_views',
+    'tichu_match_player_views',
+    'tichu_match_connection_views'
+  ] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$
+''',
   ];
 
   Future<void> ensureReady() async {

@@ -1,6 +1,7 @@
 part of '../game_screen.dart';
 
-mixin _GameScreenHelpers on _GameScreenBindings {
+mixin _GameScreenHelpers on _GameScreenStateBase {
+  @override
   void _handleTurnEffects(final TichuTurn? previous, final TichuTurn? current) {
     if (current == null || previous == current) return;
     if (current.type == TurnType.dog) {
@@ -11,6 +12,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     }
   }
 
+  @override
   void _maybeAutoConfirmOpponentTurn(final PlayerSnapshot snapshot) {
     if (!snapshot.opponentAwaitingConfirmation) return;
     if (snapshot.scoreState.roundComplete) return;
@@ -39,6 +41,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     });
   }
 
+  @override
   void _maybeAutoPass(final PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
     if (!_autoPassEnabled) return;
@@ -71,6 +74,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     });
   }
 
+  @override
   void _maybeAutoSelectFinisher(final PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
     if (snapshot.scoreState.roundComplete) return;
@@ -99,7 +103,6 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     _bombController.forward(from: 0);
   }
 
-  @override
   List<Card> _selectedCards() {
     final selected = <Card>[];
     for (var i = 0; i < _hand.length; i++) {
@@ -118,6 +121,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
         hand: _hand,
       );
 
+  @override
   bool _canPlaySelected(final PlayerSnapshot snapshot) =>
       _playController.canPlaySelected(
         snapshot: snapshot,
@@ -127,6 +131,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
         schupfAckPending: _schupfAckPending,
       );
 
+  @override
   bool _canPlayAny(final PlayerSnapshot snapshot) => _playController.canPlayAny(
     snapshot: snapshot,
     humanId: _humanId,

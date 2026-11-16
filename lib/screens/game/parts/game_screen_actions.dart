@@ -1,6 +1,7 @@
 part of '../game_screen.dart';
 
-mixin _GameScreenActions on _GameScreenBindings {
+mixin _GameScreenActions on _GameScreenStateBase {
+  @override
   void _toggleSelect(final int index) {
     if (!_isSelfManual) return;
     setState(() {
@@ -20,6 +21,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     await _acknowledgeRoundSummary();
   }
 
+  @override
   Future<void> _playSelected() async {
     if (!_isSelfManual) return;
     final snapshot = _snapshot;
@@ -61,6 +63,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     }
   }
 
+  @override
   Future<void> _playBomb() async {
     if (!_isSelfManual) return;
     final snapshot = _snapshot;
@@ -131,6 +134,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     }
   }
 
+  @override
   Future<void> _declareTichu() async {
     if (!_isSelfManual) return;
     final snapshot = _snapshot;
@@ -146,6 +150,7 @@ mixin _GameScreenActions on _GameScreenBindings {
     }
   }
 
+  @override
   Future<void> _acknowledgeSchupfReceipts() async {
     final snapshot = _snapshot;
     if (snapshot == null) return;

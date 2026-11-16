@@ -4,15 +4,14 @@ import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
-import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/turn_handler.dart';
-import 'package:tichu/game/turn/utils/bomb_utils.dart';
 import 'package:tichu/game/turn/utils/engine/dealing.dart';
 import 'package:tichu/game/turn/utils/engine/grand_tichu.dart';
-import 'package:tichu/game/turn/utils/engine/schupf.dart';
+import 'package:tichu/game/turn/utils/engine/schupf.dart' as schupf_utils;
+import 'package:tichu/game/turn/utils/engine/snapshots.dart';
 import 'package:tichu/game/turn/utils/engine/trick_resolution.dart';
 import 'package:tichu/game/turn/utils/engine/turn_order.dart';
 
@@ -110,11 +109,14 @@ class GameEngineImpl implements GameEngine {
     }
 
     if (action is AcknowledgeSchupfAction) {
-      applyAcknowledgeSchupf(state, action);
+      schupf_utils.applyAcknowledgeSchupf(state, action);
       return;
     }
 
-    if (hasPendingSchupfReceiptsForPlayer(state, action.playerId)) {
+    if (schupf_utils.hasPendingSchupfReceiptsForPlayer(
+      state,
+      action.playerId,
+    )) {
       throw StateError('Accept schupf before continuing play.');
     }
 
@@ -136,7 +138,7 @@ class GameEngineImpl implements GameEngine {
       } else if (action is GrandTichuDecisionAction) {
         applyGrandTichuDecision(state, action);
       } else if (action is CallTichuAction) {
-        if (!_canPlayerCallTichu(state, action.playerId)) {
+        if (!canPlayerCallTichu(state, action.playerId)) {
           throw StateError(
             'Tichu can only be called before playing your first card.',
           );
@@ -154,11 +156,11 @@ class GameEngineImpl implements GameEngine {
 
     if (state.phase == GamePhase.schupf) {
       if (action is SchupfAction) {
-        applySchupfSelection(state, action);
+        schupf_utils.applySchupfSelection(state, action);
         return;
       }
       if (action is CallTichuAction) {
-        if (!_canPlayerCallTichu(state, action.playerId)) {
+        if (!canPlayerCallTichu(state, action.playerId)) {
           throw StateError(
             'Tichu can only be called before playing your first card.',
           );
@@ -172,7 +174,7 @@ class GameEngineImpl implements GameEngine {
     // Tichu may be called at any time before the player's first card,
     // not only on their own turn.
     if (action is CallTichuAction) {
-      if (!_canPlayerCallTichu(state, action.playerId)) {
+      if (!canPlayerCallTichu(state, action.playerId)) {
         throw StateError(
           'Tichu can only be called before playing your first card.',
         );
@@ -225,169 +227,23 @@ class GameEngineImpl implements GameEngine {
     final List<Card>? pendingOpponentCards,
     final bool pendingOpponentPass = false,
     final bool opponentAwaitingConfirmation = false,
-  }) {
-    final currentPlayer = state.players[state.currentPlayerIndex];
-    final snapshotHands = {
-      for (final entry in state.hands.entries)
-        entry.key: List<Card>.from(entry.value),
-    };
-    final snapshotDeck =
-        DeckState(
-            TichuTurn(
-              state.deck.turn.type,
-              List<Card>.from(state.deck.turn.cards),
-            ),
-            state.deck.wish,
-          )
-          // The engine never sets deck.currentWinner itself; the player who
-          // played the current top combination is the trick's winner so far.
-          ..currentWinner = state.deck.currentWinner.isNotEmpty
-              ? state.deck.currentWinner
-              : (_trickActive(state.deck) ? state.lastPlayedBy ?? '' : '')
-          ..cardStack = List<Card>.from(state.deck.cardStack);
-
-    return GameSnapshot(
-      gameId: state.gameId,
-      players: List<GamePlayer>.from(state.players),
-      hands: snapshotHands,
-      deck: snapshotDeck,
-      trickPoints: pointsForCards(state.currentTrickCards),
-      activeWish: state.deck.wish,
-      currentPlayerId: currentPlayer.id,
-      consecutivePasses: state.consecutivePasses,
-      lastPlayedBy: state.lastPlayedBy,
-      lastPlayedTurn: state.lastPlayedTurn,
-      lastDragonGiveBy: state.lastDragonGiveBy,
-      lastDragonGiveTo: state.lastDragonGiveTo,
-      pendingDragonGiveBy: state.pendingDragonGiveBy,
-      pendingDragonGiveTargets: List<String>.from(
-        state.pendingDragonGiveTargets,
-      ),
-      pendingOpponentPlayerId: pendingOpponentPlayerId,
-      pendingOpponentCards: List<Card>.from(
-        pendingOpponentCards ?? const <Card>[],
-      ),
-      pendingOpponentPass: pendingOpponentPass,
-      scoreState: state.scoreTracker.state,
-      opponentAwaitingConfirmation: opponentAwaitingConfirmation,
-      phase: state.phase,
-      canCallTichuByPlayer: {
-        for (final player in state.players)
-          player.id: _canPlayerCallTichu(state, player.id),
-      },
-      hasBombByPlayer: {
-        for (final player in state.players)
-          player.id: hasBombInHand(state.hands[player.id] ?? const <Card>[]),
-      },
-      canBombByPlayer: {
-        for (final player in state.players)
-          player.id: _canPlayerBombNow(state, player.id),
-      },
-      grandTichuDecisions: Map<String, bool>.from(state.grandTichuDecisions),
-      schupfCompletedPlayers: List<String>.from(state.schupfSelections.keys),
-      schupfSelections: Map<String, SchupfAction>.from(
-        state.schupfSelections.isNotEmpty
-            ? state.schupfSelections
-            : state.completedSchupfSelections,
-      ),
-      schupfReceipts: Map<String, List<SchupfReceipt>>.from(
-        state.schupfReceipts,
-      ),
-    );
-  }
+  }) => buildGameSnapshot(
+    state,
+    pendingOpponentPlayerId: pendingOpponentPlayerId,
+    pendingOpponentCards: pendingOpponentCards,
+    pendingOpponentPass: pendingOpponentPass,
+    opponentAwaitingConfirmation: opponentAwaitingConfirmation,
+  );
 
   @override
   PlayerSnapshot buildPlayerSnapshot(
     final GameSnapshot snapshot,
     final String playerId,
-  ) {
-    final hand = snapshot.hands[playerId] ?? <Card>[];
-    final opponentCardCounts = <String, int>{};
-    for (final entry in snapshot.hands.entries) {
-      if (entry.key == playerId) continue;
-      opponentCardCounts[entry.key] = entry.value.length;
-    }
-
-    return PlayerSnapshot(
-      gameId: snapshot.gameId,
-      players: snapshot.players,
-      hand: List<Card>.from(hand),
-      opponentCardCounts: opponentCardCounts,
-      deck: snapshot.deck,
-      trickPoints: snapshot.trickPoints,
-      activeWish: snapshot.activeWish,
-      currentPlayerId: snapshot.currentPlayerId,
-      consecutivePasses: snapshot.consecutivePasses,
-      lastPlayedBy: snapshot.lastPlayedBy,
-      lastPlayedTurn: snapshot.lastPlayedTurn,
-      lastDragonGiveBy: snapshot.lastDragonGiveBy,
-      lastDragonGiveTo: snapshot.lastDragonGiveTo,
-      pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
-      pendingDragonGiveTargets: List<String>.from(
-        snapshot.pendingDragonGiveTargets,
-      ),
-      pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
-      pendingOpponentCards: List<Card>.from(snapshot.pendingOpponentCards),
-      pendingOpponentPass: snapshot.pendingOpponentPass,
-      scoreState: snapshot.scoreState,
-      opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
-      phase: snapshot.phase,
-      canCallTichu: snapshot.canCallTichuByPlayer[playerId] ?? false,
-      hasBombInHand: snapshot.hasBombByPlayer[playerId] ?? false,
-      canBomb: snapshot.canBombByPlayer[playerId] ?? false,
-      grandTichuDecisions: Map<String, bool>.from(snapshot.grandTichuDecisions),
-      schupfCompletedPlayers: List<String>.from(
-        snapshot.schupfCompletedPlayers,
-      ),
-      schupfReceipts: List<SchupfReceipt>.from(
-        snapshot.schupfReceipts[playerId] ?? const <SchupfReceipt>[],
-      ),
-    );
-  }
-
-  bool _canPlayerCallTichu(final GameEngineState state, final String playerId) {
-    if (state.phase != GamePhase.play &&
-        state.phase != GamePhase.schupf &&
-        state.phase != GamePhase.grandTichu) {
-      return false;
-    }
-
-    final playerCall = state.scoreTracker.state.tichuCalls[playerId];
-    if (playerCall != null && playerCall != TichuCall.none) {
-      return false;
-    }
-
-    return !state.playersWhoPlayedCardsThisRound.contains(playerId);
-  }
-
-  bool _canPlayerBombNow(final GameEngineState state, final String playerId) {
-    if (state.phase != GamePhase.play) return false;
-    if (state.pendingDragonGiveBy == playerId) return false;
-
-    final hand = state.hands[playerId] ?? const <Card>[];
-    if (!hasBombInHand(hand)) return false;
-
-    final currentPlayer = state.players[state.currentPlayerIndex].id;
-    final deckType = state.deck.turn.type;
-    if (currentPlayer != playerId &&
-        (deckType == TurnType.empty || deckType == TurnType.none)) {
-      return false;
-    }
-
-    return true;
-  }
+  ) => buildPlayerView(snapshot, playerId);
 
   @override
-  bool hasPendingHumanSchupfReceipts(final GameEngineState state) {
-    for (final player in state.players) {
-      if (player.type != PlayerType.human) continue;
-      final receipts = state.schupfReceipts[player.id];
-      if (receipts != null && receipts.isNotEmpty) {
-        return true;
-      }
-    }
-    return false;
-  }
+  bool hasPendingHumanSchupfReceipts(final GameEngineState state) =>
+      schupf_utils.hasPendingHumanSchupfReceipts(state);
 
   @override
   bool shouldPauseForAutomatedOpponent(
@@ -413,7 +269,4 @@ class GameEngineImpl implements GameEngine {
     final GameEngineState state,
     final String playerId,
   ) => opponentIdsForPlayer(state, playerId);
-
-  static bool _trickActive(final DeckState deck) =>
-      deck.turn.type != TurnType.empty && deck.turn.type != TurnType.none;
 }

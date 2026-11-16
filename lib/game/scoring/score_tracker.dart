@@ -1,137 +1,12 @@
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_data.dart';
+import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-enum TichuCall { none, tichu, grandTichu }
+export 'package:tichu/game/scoring/score_state.dart';
 
-enum RoundEndType { normal, match }
-
-class RoundScore {
-  final int roundNumber;
-  final int teamOnePoints;
-  final int teamTwoPoints;
-  final int teamOneCardPoints;
-  final int teamTwoCardPoints;
-  final int teamOneBonusPoints;
-  final int teamTwoBonusPoints;
-  final List<String> finishOrder;
-  final RoundEndType roundEndType;
-
-  bool get isMatch => roundEndType == RoundEndType.match;
-
-  const RoundScore({
-    required this.roundNumber,
-    required this.teamOnePoints,
-    required this.teamTwoPoints,
-    required this.teamOneCardPoints,
-    required this.teamTwoCardPoints,
-    required this.teamOneBonusPoints,
-    required this.teamTwoBonusPoints,
-    required this.finishOrder,
-    required this.roundEndType,
-  });
-}
-
-class ScoreState {
-  static const Object _unset = Object();
-
-  final int roundNumber;
-  final int teamOneTotal;
-  final int teamTwoTotal;
-  final int teamOneRound;
-  final int teamTwoRound;
-  final Map<String, int> playerRoundPoints;
-  final bool roundComplete;
-  final int targetScore;
-  final bool gameComplete;
-  final int? winningTeam;
-  final List<String> finishOrder;
-  final List<RoundScore> rounds;
-  final Map<String, TichuCall> tichuCalls;
-
-  const ScoreState({
-    required this.roundNumber,
-    required this.teamOneTotal,
-    required this.teamTwoTotal,
-    required this.teamOneRound,
-    required this.teamTwoRound,
-    required this.playerRoundPoints,
-    required this.roundComplete,
-    required this.targetScore,
-    required this.gameComplete,
-    required this.winningTeam,
-    required this.finishOrder,
-    required this.rounds,
-    required this.tichuCalls,
-  });
-
-  ScoreState copyWith({
-    final int? roundNumber,
-    final int? teamOneTotal,
-    final int? teamTwoTotal,
-    final int? teamOneRound,
-    final int? teamTwoRound,
-    final Map<String, int>? playerRoundPoints,
-    final bool? roundComplete,
-    final int? targetScore,
-    final bool? gameComplete,
-    final Object? winningTeam = _unset,
-    final List<String>? finishOrder,
-    final List<RoundScore>? rounds,
-    final Map<String, TichuCall>? tichuCalls,
-  }) => ScoreState(
-    roundNumber: roundNumber ?? this.roundNumber,
-    teamOneTotal: teamOneTotal ?? this.teamOneTotal,
-    teamTwoTotal: teamTwoTotal ?? this.teamTwoTotal,
-    teamOneRound: teamOneRound ?? this.teamOneRound,
-    teamTwoRound: teamTwoRound ?? this.teamTwoRound,
-    playerRoundPoints: playerRoundPoints ?? this.playerRoundPoints,
-    roundComplete: roundComplete ?? this.roundComplete,
-    targetScore: targetScore ?? this.targetScore,
-    gameComplete: gameComplete ?? this.gameComplete,
-    winningTeam: identical(winningTeam, _unset)
-        ? this.winningTeam
-        : winningTeam as int?,
-    finishOrder: finishOrder ?? this.finishOrder,
-    rounds: rounds ?? this.rounds,
-    tichuCalls: tichuCalls ?? this.tichuCalls,
-  );
-
-  factory ScoreState.initial({final int targetScore = 1000}) => ScoreState(
-    roundNumber: 1,
-    teamOneTotal: 0,
-    teamTwoTotal: 0,
-    teamOneRound: 0,
-    teamTwoRound: 0,
-    playerRoundPoints: const {},
-    roundComplete: false,
-    targetScore: targetScore,
-    gameComplete: false,
-    winningTeam: null,
-    finishOrder: [],
-    rounds: [],
-    tichuCalls: {},
-  );
-}
-
-abstract class ScoreTracker {
-  ScoreState get state;
-
-  void startNewRound(final List<GamePlayer> players);
-
-  void recordTrick(final String winnerId, final List<Card> cards);
-
-  void recordPlayerFinished(
-    final String playerId,
-    final List<Card> remainingHand,
-  );
-
-  void recordTichuCall(final String playerId, {required final bool isGrand});
-
-  void finalizeRound(final Map<String, List<Card>> hands);
-}
-
-class LocalScoreTracker implements ScoreTracker {
+/// Tracks trick points, finish order and Tichu calls of a match.
+class LocalScoreTracker {
   ScoreState _state;
   final Map<String, List<Card>> _capturedCards = {};
   final Map<String, List<Card>> _remainingHands = {};
@@ -171,10 +46,8 @@ class LocalScoreTracker implements ScoreTracker {
     return c;
   }
 
-  @override
   ScoreState get state => _state;
 
-  @override
   void startNewRound(final List<GamePlayer> players) {
     _capturedCards
       ..clear()
@@ -201,7 +74,6 @@ class LocalScoreTracker implements ScoreTracker {
     );
   }
 
-  @override
   void recordTrick(final String winnerId, final List<Card> cards) {
     if (cards.isEmpty) return;
     final captured = _capturedCards[winnerId];
@@ -217,7 +89,6 @@ class LocalScoreTracker implements ScoreTracker {
     );
   }
 
-  @override
   void recordPlayerFinished(
     final String playerId,
     final List<Card> remainingHand,
@@ -228,7 +99,6 @@ class LocalScoreTracker implements ScoreTracker {
     _state = _state.copyWith(finishOrder: List<String>.from(_finishOrder));
   }
 
-  @override
   void recordTichuCall(final String playerId, {required final bool isGrand}) {
     _tichuCalls[playerId] = isGrand ? TichuCall.grandTichu : TichuCall.tichu;
     _state = _state.copyWith(
@@ -236,7 +106,6 @@ class LocalScoreTracker implements ScoreTracker {
     );
   }
 
-  @override
   void finalizeRound(final Map<String, List<Card>> hands) {
     if (_state.roundComplete) return;
 

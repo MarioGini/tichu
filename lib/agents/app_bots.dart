@@ -11,6 +11,11 @@ abstract final class AppBots {
 
   static BotConfig current = BotConfig.heuristic;
 
+  /// Short description of the current bots, stored in game records.
+  static String describe() => current.play != null
+      ? 'play: $playPolicyAsset; calls, schupf, dragon: heuristic'
+      : 'heuristic';
+
   static Future<void> load() async {
     try {
       final data = await rootBundle.load(playPolicyAsset);

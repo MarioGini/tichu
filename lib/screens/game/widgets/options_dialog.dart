@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// In-game options dialog for adjusting opponent delay, auto-pass, and sound.
@@ -12,7 +13,11 @@ class OptionsDialog extends StatefulWidget {
     required this.onOpponentDelayChanged,
     required this.onAutoPassChanged,
     required this.onSoundChanged,
+    this.gameId,
   });
+
+  /// Id of the running game; its record is stored under this id.
+  final String? gameId;
 
   final bool aiSuggestionEnabled;
   final double opponentDelay;
@@ -110,6 +115,19 @@ class _OptionsDialogState extends State<OptionsDialog> {
           contentPadding: EdgeInsets.zero,
           title: const Text('Sound effects'),
         ),
+        if (widget.gameId != null)
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Game ID'),
+            subtitle: SelectableText(widget.gameId!),
+            trailing: IconButton(
+              tooltip: 'Copy game ID',
+              icon: const Icon(Icons.copy),
+              onPressed: () =>
+                  Clipboard.setData(ClipboardData(text: widget.gameId!)),
+            ),
+          ),
       ],
     ),
     actions: [

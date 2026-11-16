@@ -7,6 +7,7 @@ import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/record/game_record.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/services/local/ai_turn_runner.dart';
 import 'package:tichu/services/local/local_game_state.dart';
@@ -47,7 +48,8 @@ class LocalMatchRuntime {
     final List<GamePlayer> players, {
     final int targetScore = 1000,
   }) async {
-    final gameId = DateTime.now().millisecondsSinceEpoch.toString();
+    // A UUID, so a stored game record can be looked up by the match id.
+    final gameId = generateUuidV4();
     final engineState = _engine.createGame(
       gameId: gameId,
       players: players,

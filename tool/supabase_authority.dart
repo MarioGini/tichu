@@ -2,9 +2,15 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:supabase/supabase.dart';
+import 'package:tichu/game/record/game_record_store.dart';
+import 'package:tichu/game/record/recording_game_engine.dart';
+import 'package:tichu/game/turn/engine/engine_impl.dart';
+import 'package:tichu/services/local/local_match_runtime.dart';
 import 'package:tichu/services/local/local_table_service.dart';
 import 'package:tichu/services/multiplayer/authority_state_store.dart';
+import 'package:tichu/services/records/file_game_record_store.dart';
 import 'package:tichu/services/supabase/postgres_authority_state_store.dart';
+import 'package:tichu/services/supabase/postgres_game_record_store.dart';
 import 'package:tichu/services/supabase/supabase_authority_server.dart';
 import 'package:tichu/services/supabase/supabase_projection_schema_bootstrap.dart';
 import 'package:tichu/services/supabase/supabase_table_projection_store.dart';
@@ -46,7 +52,13 @@ Future<void> main(final List<String> args) async {
   );
   final stateStore = _createStateStore(supabaseDbUrl: supabaseDbUrl);
 
+  // Every match is recorded (see GameRecord) under its match id.
+  final recordStore = _createRecordStore(supabaseDbUrl: supabaseDbUrl);
+
   final tableService = LocalGameTableService(
+    runtimeFactory: () => LocalMatchRuntime(
+      engine: RecordingGameEngine(GameEngineImpl(), store: recordStore),
+    ),
     projectionStore: projectionStore,
     stateStore: stateStore,
     heartbeatConfig: const HeartbeatConfig(enabled: true),
@@ -106,6 +118,11 @@ AuthorityStateStore? _createStateStore({required final String? supabaseDbUrl}) {
   }
   return PostgresAuthorityStateStore(databaseUrl: supabaseDbUrl);
 }
+
+GameRecordStore _createRecordStore({required final String? supabaseDbUrl}) =>
+    (supabaseDbUrl == null || supabaseDbUrl.isEmpty)
+    ? FileGameRecordStore.defaultLocation()
+    : PostgresGameRecordStore(databaseUrl: supabaseDbUrl);
 
 String _readStringArg(
   final List<String> args,

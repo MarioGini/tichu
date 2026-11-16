@@ -11,6 +11,7 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
         opponentDelay: _opponentDelaySeconds,
         autoPassEnabled: _autoPassEnabled,
         soundEnabled: _soundEnabled,
+        gameId: _gameId,
         onAiSuggestionChanged: (final value) {
           setState(() {
             _aiSuggestionEnabled = value;

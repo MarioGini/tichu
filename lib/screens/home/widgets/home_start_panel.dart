@@ -11,6 +11,7 @@ class HomeStartPanel extends StatelessWidget {
     required this.canAct,
     required this.isBusy,
     required this.onPlaySolo,
+    required this.onObserve,
     required this.onCreate,
     required this.onJoinWithCode,
   });
@@ -22,6 +23,7 @@ class HomeStartPanel extends StatelessWidget {
   final bool canAct;
   final bool isBusy;
   final VoidCallback onPlaySolo;
+  final VoidCallback onObserve;
   final VoidCallback onCreate;
   final VoidCallback onJoinWithCode;
 
@@ -90,6 +92,15 @@ class HomeStartPanel extends StatelessWidget {
                 : const Icon(Icons.smart_toy_outlined),
             label: const Text('Play vs AI'),
           ),
+        if (showSolo) ...[
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: isBusy ? null : onObserve,
+            style: _secondaryButtonStyle,
+            icon: const Icon(Icons.visibility_outlined),
+            label: const Text('Watch AI play'),
+          ),
+        ],
         const SizedBox(height: 10),
         Row(
           children: [

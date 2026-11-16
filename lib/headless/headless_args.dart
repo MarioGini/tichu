@@ -1,0 +1,290 @@
+part of 'headless.dart';
+
+class _HeadlessConfig {
+  final int? seed;
+  final int targetScore;
+  final int? rounds;
+  final int episodes;
+  final int maxStepsPerEpisode;
+  final String outputPath;
+  final _HeadlessOutputFormat outputFormat;
+  final bool showHelp;
+  final bool includeTimestamps;
+  final String? nnPolicyPath;
+  final String? opponentPolicyPath;
+  final double epsilon;
+  final bool mixed;
+  final bool swapTeams;
+  final int episodeOffset;
+  final int? dealSeed;
+  final String? tichuNetPath;
+  final String? grandNetPath;
+  final double callEpsilon;
+  final String? schupfNetPath;
+  final String? preTichuNetPath;
+  final HeuristicOptions heuristic;
+  final HeuristicOptions opponentHeuristic;
+  final double schupfEpsilon;
+  final bool shadowHeuristic;
+  final bool skipPlayRows;
+  final bool counterfactualCalls;
+  final double counterfactualRate;
+
+  const _HeadlessConfig({
+    required this.seed,
+    required this.targetScore,
+    required this.rounds,
+    required this.episodes,
+    required this.maxStepsPerEpisode,
+    required this.outputPath,
+    required this.outputFormat,
+    required this.showHelp,
+    required this.includeTimestamps,
+    required this.nnPolicyPath,
+    required this.opponentPolicyPath,
+    required this.epsilon,
+    required this.mixed,
+    required this.swapTeams,
+    required this.episodeOffset,
+    required this.dealSeed,
+    required this.tichuNetPath,
+    required this.grandNetPath,
+    required this.callEpsilon,
+    required this.schupfNetPath,
+    required this.preTichuNetPath,
+    required this.heuristic,
+    required this.opponentHeuristic,
+    required this.schupfEpsilon,
+    required this.shadowHeuristic,
+    required this.skipPlayRows,
+    required this.counterfactualCalls,
+    required this.counterfactualRate,
+  });
+}
+
+enum _HeadlessOutputFormat { csv, bcJsonl, summary, none }
+
+_HeadlessConfig _parseArgs(final List<String> args) {
+  int? seed;
+  var targetScore = _defaultTargetScore;
+  int? rounds;
+  var outputPath = 'game.csv';
+  var outputFormat = _HeadlessOutputFormat.csv;
+  var episodes = _defaultEpisodes;
+  var maxStepsPerEpisode = _defaultMaxStepsPerEpisode;
+  var includeTimestamps = true;
+  String? nnPolicyPath;
+  String? opponentPolicyPath;
+  var outputProvided = false;
+  var showHelp = false;
+  var epsilon = 0.0;
+  var mixed = false;
+  var swapTeams = false;
+  var episodeOffset = 0;
+  int? dealSeed;
+  String? tichuNetPath;
+  String? grandNetPath;
+  var callEpsilon = 0.0;
+  String? schupfNetPath;
+  String? preTichuNetPath;
+  var heuristic = HeuristicOptions.latest;
+  var opponentHeuristic = HeuristicOptions.latest;
+  var schupfEpsilon = 0.0;
+  var shadowHeuristic = false;
+  var skipPlayRows = false;
+  var counterfactualCalls = false;
+  var counterfactualRate = 1.0;
+
+  for (final arg in args) {
+    if (arg == '--help' || arg == '-h') {
+      showHelp = true;
+      continue;
+    }
+    if (arg.startsWith('--seed=')) {
+      seed = int.tryParse(arg.split('=').last);
+      continue;
+    }
+    if (arg.startsWith('--target-score=')) {
+      targetScore = int.tryParse(arg.split('=').last) ?? _defaultTargetScore;
+      continue;
+    }
+    if (arg.startsWith('--rounds=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) rounds = p;
+      continue;
+    }
+    if (arg.startsWith('--episodes=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) episodes = p;
+      continue;
+    }
+    if (arg.startsWith('--max-steps=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p > 0) maxStepsPerEpisode = p;
+      continue;
+    }
+    if (arg.startsWith('--format=')) {
+      switch (arg.split('=').last) {
+        case 'csv':
+          outputFormat = _HeadlessOutputFormat.csv;
+        case 'bc-jsonl':
+          outputFormat = _HeadlessOutputFormat.bcJsonl;
+        case 'summary':
+          outputFormat = _HeadlessOutputFormat.summary;
+        case 'none':
+          outputFormat = _HeadlessOutputFormat.none;
+      }
+      continue;
+    }
+    if (arg == '--no-timestamps') {
+      includeTimestamps = false;
+      continue;
+    }
+    if (arg.startsWith('--output=')) {
+      outputPath = arg.split('=').last;
+      outputProvided = true;
+      continue;
+    }
+    if (arg.startsWith('--epsilon=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) epsilon = p;
+      continue;
+    }
+    if (arg.startsWith('--nn-policy=')) {
+      nnPolicyPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--opponent-policy=')) {
+      opponentPolicyPath = arg.split('=').last;
+      continue;
+    }
+    if (arg == '--mixed') {
+      mixed = true;
+      continue;
+    }
+    if (arg == '--swap-teams') {
+      swapTeams = true;
+      continue;
+    }
+    if (arg.startsWith('--episode-offset=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p >= 0) episodeOffset = p;
+      continue;
+    }
+    if (arg.startsWith('--tichu-net=')) {
+      tichuNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--grand-net=')) {
+      grandNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--counterfactual-rate=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p > 0 && p <= 1) counterfactualRate = p;
+      continue;
+    }
+    if (arg == '--counterfactual-calls') {
+      counterfactualCalls = true;
+      continue;
+    }
+    if (arg == '--skip-play-rows') {
+      skipPlayRows = true;
+      continue;
+    }
+    if (arg == '--shadow-heuristic') {
+      shadowHeuristic = true;
+      continue;
+    }
+    if (arg.startsWith('--heuristic=')) {
+      heuristic = HeuristicOptions.parse(arg.split('=').last);
+      continue;
+    }
+    if (arg.startsWith('--opponent-heuristic=')) {
+      opponentHeuristic = HeuristicOptions.parse(arg.split('=').last);
+      continue;
+    }
+    if (arg.startsWith('--pre-tichu-net=')) {
+      preTichuNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--schupf-net=')) {
+      schupfNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--schupf-epsilon=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) schupfEpsilon = p;
+      continue;
+    }
+    if (arg.startsWith('--call-epsilon=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) callEpsilon = p;
+      continue;
+    }
+    if (arg.startsWith('--deal-seed=')) {
+      dealSeed = int.tryParse(arg.split('=').last);
+      continue;
+    }
+    stderr.writeln('Unknown argument: $arg');
+    exitCode = 64;
+    showHelp = true;
+  }
+
+  if (!outputProvided &&
+      (outputFormat == _HeadlessOutputFormat.bcJsonl ||
+          outputFormat == _HeadlessOutputFormat.summary)) {
+    outputPath = 'game.jsonl';
+  }
+
+  return _HeadlessConfig(
+    seed: seed,
+    targetScore: targetScore,
+    rounds: rounds,
+    episodes: episodes,
+    maxStepsPerEpisode: maxStepsPerEpisode,
+    outputPath: outputPath,
+    outputFormat: outputFormat,
+    showHelp: showHelp,
+    includeTimestamps: includeTimestamps,
+    nnPolicyPath: nnPolicyPath,
+    opponentPolicyPath: opponentPolicyPath,
+    epsilon: epsilon,
+    mixed: mixed,
+    swapTeams: swapTeams,
+    episodeOffset: episodeOffset,
+    dealSeed: dealSeed,
+    tichuNetPath: tichuNetPath,
+    grandNetPath: grandNetPath,
+    callEpsilon: callEpsilon,
+    schupfNetPath: schupfNetPath,
+    preTichuNetPath: preTichuNetPath,
+    heuristic: heuristic,
+    opponentHeuristic: opponentHeuristic,
+    schupfEpsilon: schupfEpsilon,
+    shadowHeuristic: shadowHeuristic,
+    skipPlayRows: skipPlayRows,
+    counterfactualCalls: counterfactualCalls,
+    counterfactualRate: counterfactualRate,
+  );
+}
+
+void _printUsage() {
+  stdout.writeln('Headless Tichu automated-opponent runner');
+  stdout.writeln('Usage: dart run lib/headless/headless.dart [--seed=N]');
+  stdout.writeln('       [--target-score=N] [--rounds=N] [--episodes=N]');
+  stdout.writeln('       [--max-steps=N]');
+  stdout.writeln('       [--format=csv|bc-jsonl|summary|none] [--output=path]');
+  stdout.writeln('       [--no-timestamps]');
+  stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
+  stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
+  stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
+  stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
+  stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
+  stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
+  stdout.writeln('       [--heuristic=latest|legacy|support,announce,strict]');
+  stdout.writeln('       [--opponent-heuristic=...]  (A/B heuristic rules)');
+  stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
+  stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
+  stdout.writeln('       [--epsilon=0.1]');
+}

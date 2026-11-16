@@ -17,19 +17,6 @@ class LocalScoreTracker {
   LocalScoreTracker({final int targetScore = 1000})
     : _state = ScoreState.initial(targetScore: targetScore);
 
-  /// Create a tracker pre-loaded with mid-round state for forward simulation.
-  LocalScoreTracker.forRollout({
-    required final ScoreState scoreState,
-    required final List<GamePlayer> players,
-  }) : _state = scoreState {
-    for (final player in players) {
-      _capturedCards[player.id] = <Card>[];
-      _playerSeats[player.id] = player.seat;
-    }
-    _finishOrder.addAll(scoreState.finishOrder);
-    _tichuCalls.addAll(scoreState.tichuCalls);
-  }
-
   /// Independent deep copy (for forking a round, e.g. counterfactual
   /// training labels).
   LocalScoreTracker copy() {

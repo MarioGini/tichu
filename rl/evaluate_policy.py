@@ -231,7 +231,7 @@ def main() -> None:
         "--extra",
         action="append",
         default=[],
-        help="Extra headless args for the policy side, e.g. --extra=--ismcts",
+        help="Extra headless args for the policy side, e.g. --extra=--heuristic=legacy",
     )
     parser.add_argument(
         "--no-duplicate",

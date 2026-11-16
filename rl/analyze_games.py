@@ -82,7 +82,7 @@ def main() -> None:
         "--extra",
         action="append",
         default=[],
-        help="Extra headless arg for the policy team (repeatable: --extra=--ismcts)",
+        help="Extra headless arg for the policy team (repeatable, e.g. --extra=--heuristic=legacy)",
     )
     p.add_argument("--episodes", type=int, default=100, help="Deal sequences (×2 seatings)")
     p.add_argument("--target-score", type=int, default=500)

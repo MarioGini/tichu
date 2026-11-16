@@ -5,7 +5,6 @@ import 'dart:math';
 import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
-import 'package:tichu/agents/mcts/ismcts_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
@@ -60,20 +59,11 @@ Future<void> main(final List<String> args) async {
     heuristicOptions: config.heuristic,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
-  final policyFactory = _buildAgentFactory(
-    config: policyConfig,
-    useIsmcts: config.useIsmcts,
-    ismctsSimulations: config.ismctsSimulations,
-    valueNet: await _loadNet(config.valueNetPath),
-    random: random,
-  );
-  final opponentFactory = _buildAgentFactory(
-    config: BotConfig(
-      play: opponentPolicy,
-      heuristicOptions: config.opponentHeuristic,
-    ),
-    random: random,
-  );
+  final policyFactory = policyConfig.build;
+  final opponentFactory = BotConfig(
+    play: opponentPolicy,
+    heuristicOptions: config.opponentHeuristic,
+  ).build;
 
   final PlayerAgent Function(String, int) agentFactory;
   if (opponentPolicy != null || config.mixed) {
@@ -135,13 +125,10 @@ class _HeadlessConfig {
   final String? nnPolicyPath;
   final String? opponentPolicyPath;
   final double epsilon;
-  final bool useIsmcts;
-  final int ismctsSimulations;
   final bool mixed;
   final bool swapTeams;
   final int episodeOffset;
   final int? dealSeed;
-  final String? valueNetPath;
   final String? tichuNetPath;
   final String? grandNetPath;
   final double callEpsilon;
@@ -168,13 +155,10 @@ class _HeadlessConfig {
     required this.nnPolicyPath,
     required this.opponentPolicyPath,
     required this.epsilon,
-    required this.useIsmcts,
-    required this.ismctsSimulations,
     required this.mixed,
     required this.swapTeams,
     required this.episodeOffset,
     required this.dealSeed,
-    required this.valueNetPath,
     required this.tichuNetPath,
     required this.grandNetPath,
     required this.callEpsilon,
@@ -206,13 +190,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var outputProvided = false;
   var showHelp = false;
   var epsilon = 0.0;
-  var useIsmcts = false;
-  var ismctsSimulations = 100;
   var mixed = false;
   var swapTeams = false;
   var episodeOffset = 0;
   int? dealSeed;
-  String? valueNetPath;
   String? tichuNetPath;
   String? grandNetPath;
   var callEpsilon = 0.0;
@@ -289,16 +270,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       opponentPolicyPath = arg.split('=').last;
       continue;
     }
-    if (arg == '--ismcts') {
-      useIsmcts = true;
-      continue;
-    }
-    if (arg.startsWith('--ismcts-simulations=')) {
-      final p = int.tryParse(arg.split('=').last);
-      if (p != null && p > 0) ismctsSimulations = p;
-      useIsmcts = true;
-      continue;
-    }
     if (arg == '--mixed') {
       mixed = true;
       continue;
@@ -363,10 +334,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 0 && p <= 1) callEpsilon = p;
       continue;
     }
-    if (arg.startsWith('--value-net=')) {
-      valueNetPath = arg.split('=').last;
-      continue;
-    }
     if (arg.startsWith('--deal-seed=')) {
       dealSeed = int.tryParse(arg.split('=').last);
       continue;
@@ -395,13 +362,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     nnPolicyPath: nnPolicyPath,
     opponentPolicyPath: opponentPolicyPath,
     epsilon: epsilon,
-    useIsmcts: useIsmcts,
-    ismctsSimulations: ismctsSimulations,
     mixed: mixed,
     swapTeams: swapTeams,
     episodeOffset: episodeOffset,
     dealSeed: dealSeed,
-    valueNetPath: valueNetPath,
     tichuNetPath: tichuNetPath,
     grandNetPath: grandNetPath,
     callEpsilon: callEpsilon,
@@ -427,8 +391,6 @@ void _printUsage() {
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
   stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
   stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
-  stdout.writeln('       [--ismcts] [--ismcts-simulations=N]');
-  stdout.writeln('       [--value-net=value.safetensors]');
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
   stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
   stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
@@ -462,29 +424,4 @@ Future<LoadedNet?> _loadNet(final String? path) async {
     throw StateError('Network file does not exist: $path');
   }
   return LoadedNet.fromBytes(await file.readAsBytes());
-}
-
-/// Agent factory for one team: a [BotConfig] (learned components or the
-/// heuristic), optionally with a search player for the play phase.
-PlayerAgent Function(String playerId) _buildAgentFactory({
-  required final BotConfig config,
-  final bool useIsmcts = false,
-  final int ismctsSimulations = 100,
-  final LoadedNet? valueNet,
-  final Random? random,
-}) {
-  if (useIsmcts) {
-    return (final playerId) => config.build(
-      playerId,
-      playOverride: IsmctsPlaySelectionStrategy(
-        playerId: playerId,
-        numSimulations: ismctsSimulations,
-        valueNetwork: valueNet?.network,
-        valueNetworkMean: valueNet?.targetMean,
-        valueNetworkStd: valueNet?.targetStd,
-        random: random,
-      ),
-    );
-  }
-  return config.build;
 }

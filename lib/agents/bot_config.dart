@@ -5,7 +5,6 @@ import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
-import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/player_agent.dart';
@@ -34,7 +33,7 @@ class LoadedNet {
 /// agent factory) and by the headless training runner — so a policy that is
 /// trained and evaluated headlessly behaves the same in the app.
 class BotConfig {
-  /// Play/pass policy (Q(s, a), `rl/bc_pretrain.py` / `rl/awr_train.py`).
+  /// Play/pass policy (Q(s, a), `rl/bc_pretrain.py` / `rl/q_train.py`).
   final LoadedNet? play;
 
   /// Tichu call-value net (`rl/call_train.py`).
@@ -69,26 +68,15 @@ class BotConfig {
   static const heuristic = BotConfig();
 
   /// Build the agent for [playerId].
-  ///
-  /// [playOverride] replaces the play strategy (e.g. a search player such as
-  /// ISMCTS in headless experiments) while keeping the other components.
-  PlayerAgent build(
-    final String playerId, {
-    final PlaySelectionStrategy? playOverride,
-  }) {
+  PlayerAgent build(final String playerId) {
     final play = this.play;
     final schupf = this.schupf;
     return SmartAiAgent(
       playerId,
       options: heuristicOptions,
-      playSelectionStrategy:
-          playOverride ??
-          (play == null
-              ? null
-              : NnPlaySelectionStrategy(
-                  playerId: playerId,
-                  network: play.network,
-                )),
+      playSelectionStrategy: (play == null
+          ? null
+          : NnPlaySelectionStrategy(playerId: playerId, network: play.network)),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null
           ? null

@@ -8,7 +8,8 @@ Each iteration:
      Call/schupf rows come from a lean run (``--skip-play-rows``); play rows
      from a smaller full run.
   2. Train candidates on that data: call nets (call_train.py), schupf net
-     (schupf_train.py), play policy (awr_train.py, warm-started from best).
+     (schupf_train.py), play policy (q_train.py: DouZero-style Monte-Carlo Q
+     step with oracle baseline, warm-started from best).
   3. Evaluate vs the heuristic (duplicate, target 1000): each component
      group (play, calls, schupf) is tried on top of the current best and
      promoted only on a significant paired gain.
@@ -36,14 +37,10 @@ from headless_runner import run_headless_sharded
 
 RL = Path(__file__).resolve().parent
 OUT = RL / "outputs"
-# Component groups promoted independently (the value net follows the policy).
+# Component groups promoted independently.
 # Each entry: candidate file -> file name in the bot directory.
 GROUPS = {
-    "play": {"best_policy.safetensors": "best_policy.safetensors",
-             "value.safetensors": "value.safetensors"},
-    # DouZero-style Monte-Carlo Q step (with oracle baseline) as an
-    # alternative play learner.
-    "play_q": {"q_policy.safetensors": "best_policy.safetensors"},
+    "play": {"q_policy.safetensors": "best_policy.safetensors"},
     "calls": {n: n for n in ("tichu_net.safetensors", "grand_net.safetensors",
                              "pre_net.safetensors")},
     "schupf": {"schupf_net.safetensors": "schupf_net.safetensors"},
@@ -115,13 +112,10 @@ def main() -> None:
     # 2 SE: with 1 SE a call-net group was promoted at +2.8 +- 2.5 pp and
     # later measured -6 pp on fresh deals.
     p.add_argument("--promote-z", type=float, default=2.0)
-    p.add_argument("--awr-epochs", type=int, default=6)
-    p.add_argument("--no-q", dest="q", action="store_false", help="Skip the Q-learning candidate")
     p.add_argument("--shards", type=int, default=0)
     p.add_argument("--seed", type=int, default=50000)
     p.add_argument("--out-dir", default=str(OUT))
     p.add_argument("--init-policy", default=str(OUT / "best_policy.safetensors"))
-    p.add_argument("--init-value", default=str(OUT / "value_policy.safetensors"))
     args = p.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -129,8 +123,6 @@ def main() -> None:
     best.mkdir(parents=True, exist_ok=True)
     if not (best / "best_policy.safetensors").exists():
         shutil.copy2(args.init_policy, best / "best_policy.safetensors")
-    if Path(args.init_value).exists() and not (best / "value.safetensors").exists():
-        shutil.copy2(args.init_value, best / "value.safetensors")
     history_path = out_dir / "train_loop_history.json"
     history = json.loads(history_path.read_text()) if history_path.exists() else []
 
@@ -180,22 +172,12 @@ def main() -> None:
             out = run([py, str(RL / "schupf_train.py"), f"--jsonl={calls}",
                        f"--output={cand / 'schupf_net.safetensors'}"])
             print("  ", out.strip().splitlines()[-2].strip())
-            out = run([py, str(RL / "awr_train.py"), f"--jsonl={plays}",
-                       f"--output={cand / 'best_policy.safetensors'}",
+            out = run([py, str(RL / "q_train.py"), f"--jsonl={plays}",
                        f"--init-from={best / 'best_policy.safetensors'}",
-                       f"--epochs={args.awr_epochs}",
-                       f"--value-init={best / 'value.safetensors'}",
-                       f"--value-output={cand / 'value.safetensors'}"])
+                       f"--output={cand / 'q_policy.safetensors'}"])
             for line in out.splitlines():
-                if line.startswith("  value:") or "oracle baseline" in line:
+                if "oracle baseline" in line or "epoch" in line:
                     print("  ", line.strip())
-            if args.q:
-                out = run([py, str(RL / "q_train.py"), f"--jsonl={plays}",
-                           f"--init-from={best / 'best_policy.safetensors'}",
-                           f"--output={cand / 'q_policy.safetensors'}"])
-                for line in out.splitlines():
-                    if "oracle baseline" in line or "epoch" in line:
-                        print("  ", line.strip())
 
             print("3) evaluate (each component group on top of the current best)", flush=True)
             results = {}

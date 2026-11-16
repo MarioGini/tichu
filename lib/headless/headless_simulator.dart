@@ -203,14 +203,6 @@ class _HeadlessSimulator {
         csvWriter?.emitOpponentAction(snapshot: before, action: appliedAction);
       }
 
-      if (appliedAction is PassAction) {
-        _notifyIsmctsPass(
-          agents: agents,
-          passPlayerId: appliedAction.playerId,
-          deckTurn: before.deck.turn,
-        );
-      }
-
       snapshot = engine.buildSnapshot(state);
       csvWriter?.processSnapshot(snapshot);
       if (!skipPlayRows) {
@@ -658,21 +650,6 @@ class _HeadlessSimulator {
       return false;
     }
     return !mahJong(snapshot.deck, TichuTurn(TurnType.none, const []), hand);
-  }
-
-  void _notifyIsmctsPass({
-    required final Map<String, PlayerAgent> agents,
-    required final String passPlayerId,
-    required final TichuTurn deckTurn,
-  }) {
-    for (final agent in agents.values) {
-      if (agent is SmartAiAgent) {
-        final strategy = agent.playSelectionStrategy;
-        if (strategy is IsmctsPlaySelectionStrategy) {
-          strategy.recordPass(passPlayerId: passPlayerId, deckTurn: deckTurn);
-        }
-      }
-    }
   }
 
   /// SplitMix-style mix of (seed, episode) into a 32-bit Random seed.

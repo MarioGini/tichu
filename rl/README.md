@@ -23,8 +23,8 @@ VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>
 
 ## Quick start
 
-There is currently no trained policy: the feature schema moved to v4 and all
-older policies were deleted. Train a new one with the commands below.
+The shipped play policy is `assets/bots/tichu_q_v3.safetensors` (see
+`rl/models/README.md`). Train a new one with the commands below.
 
 **Before any RL command, compile the Dart headless runner once.** Every
 Python script auto-detects `build/bin/headless` and uses it; without
@@ -35,7 +35,7 @@ dart compile exe lib/headless/headless.dart -o build/bin/headless
 ```
 
 To regenerate from scratch (`bc_pretrain.py`, `evaluate_policy.py`,
-`self_play.py` and `call_train.py` accept `--shards=N` to fan headless work
+`train_loop.py` and `call_train.py` accept `--shards=N` to fan headless work
 across CPU cores; default `0` = `cpu_count - 1`):
 
 ```bash
@@ -79,7 +79,7 @@ hands — the same family as Dou Dizhu, Guandan and Big Two. What works there:
   critic sees all hands during training, the policy does not. That removes
   card luck from the learning signal; it beat DouZero with ~10× fewer
   samples. Here: the `oracle` field and oracle baselines (`oracle.py`) in
-  `awr_train.py`, `call_train.py`, `schupf_train.py`, `q_train.py`.
+  `call_train.py`, `schupf_train.py`, `q_train.py`.
 - **GuanZero** (Guandan, a 2-team climbing game): DMC plus features for
   cooperation between partners.
 - **Tichu thesis (Wyss, Bern 2024)**: DQN / PPO for Tichu; behaviour cloning
@@ -154,21 +154,7 @@ Python entry points:
    - `--jsonl=...` reuse an existing JSONL instead of regenerating
    - `--shards=N` parallel headless workers for the data-gen phase
 
-2. **`self_play.py`** — iterative self-play loop. Per iteration: candidate
-   plays vs current best, fine-tune with KL anchor to best, duplicate-evaluate
-   vs heuristic, promote on a significant paired gain. `--algo=awr` (default)
-   trains with `awr_train.py`; `--algo=bc` is the old winners-only BC.
-
-3. **`awr_train.py`** — advantage-weighted regression. Fits a value net
-   V(s) on the 201 state features to the round point difference (own team
-   minus opponents, incl. Tichu bonuses, /100), then fine-tunes the policy
-   with cross-entropy weighted by `min(exp((R - V(s)) / beta), max_weight)`
-   plus a KL anchor. Uses all decisions, exploration moves included.
-   `--value-output` saves V(s) (`target_std=100`, so Dart reads points);
-   `headless --ismcts --value-net=value.safetensors` uses it as the leaf
-   evaluator instead of heuristic rollouts.
-
-4. **`call_train.py`** — call-value nets. Data comes from
+2. **`call_train.py`** — call-value nets. Data comes from
    `headless --call-epsilon=p`, which flips Tichu / Grand Tichu decisions
    with probability p (first Tichu opportunity per player and round) and
    logs `{"call": "tichu"|"grand", "called", "state_features", ...}` rows.
@@ -184,16 +170,16 @@ Python entry points:
        --output=rl/outputs/eval_calls.safetensors --episodes=200 --target-score=500
    ```
 
-5. **`schupf_train.py`** — schupf value net Q(hand, pass) on
+3. **`schupf_train.py`** — schupf value net Q(hand, pass) on
    `SchupfFeatures` (232: hand bitmap, one-hot card to left / partner /
    right, `[grand, tichu]` call flags for me / partner / left / right).
    Data: `headless --schupf-epsilon=p` (mostly one card swapped). Dart's
    `NnSchupfStrategy` scores all 2184 assignments with an incremental first
    layer.
 
-6. **`train_loop.py`** — the joint loop for the whole bot. Each iteration
+4. **`train_loop.py`** — the joint loop for the whole bot. Each iteration
    generates exploration data with the *current* bot (calls, schupf, plays),
-   retrains call nets, schupf net and play policy (AWR), and tries each
+   retrains call nets, schupf net and play policy (Q step), and tries each
    component group (play / calls / schupf) on top of the best bot, promoting
    it only on a significant paired gain (duplicate, 100 deals, target 1000).
    Because everything is retrained on the current bot's games, components
@@ -204,9 +190,10 @@ Python entry points:
    # best bot: rl/outputs/bot_best/*.safetensors
    ```
 
-7. **`q_train.py`** — experimental Monte-Carlo Q fine-tune of the play net.
+5. **`q_train.py`** — DouZero-style Monte-Carlo Q fine-tune of the play net
+   (oracle baseline); the play learner used by `train_loop.py`.
 
-8. **`analyze_games.py`** — duplicate games vs the heuristic with
+6. **`analyze_games.py`** — duplicate games vs the heuristic with
    `--shadow-heuristic`: round stats per side (going out first, double wins,
    call rates and success) and where / how often the policy's moves differ
    from what the heuristic would have played.
@@ -250,9 +237,8 @@ Without nets the heuristic decides (it never calls Grand Tichu).
 `evaluate_policy.py` is duplicate by default: every deal sequence is played
 twice with the same deals (`--deal-seed`), once with the policy on team 0
 and once swapped. It reports the per-deal win rate with its standard error
-and stores per-deal results, so `self_play.py` promotes a candidate only if
-its paired gain over the best policy exceeds `--promote-z` SEs; a rejected
-candidate is discarded (unless `--keep-rejected`).
+and stores per-deal results, so `train_loop.py` promotes a candidate only if
+its paired gain over the best bot exceeds `--promote-z` SEs.
 
 ### Headless output formats
 
@@ -290,7 +276,6 @@ Only two RL-relevant formats remain:
   separate NN — used by self-play to pit candidate vs best.
 - `--epsilon=0.1` ε-greedy exploration during dataset generation (play
   phase only; Grand Tichu calls and Dragon gifts are never randomised).
-- `--ismcts`, `--ismcts-simulations=N` Information-Set MCTS player.
 
 ## Results (2026-11-15, CPU, 4 cores)
 
@@ -322,7 +307,8 @@ All numbers: duplicate, matches to 1000, vs the latest heuristic.
 | + second promoted Q step | 74.2 % ± 2.6 (loop eval) | +277 |
 | **Final: Q play net, heuristic calls + schupf** | **70.8 % ± 1.9** (fresh deals, 400 matches) | **+280** |
 
-- AWR steps never beat the Q steps; the Q step is the learner that works.
+- AWR steps never beat the Q steps (AWR was removed); the Q step is the
+  learner that works.
 - Learned call nets *hurt* (−6.0 ± 2.2 pp vs heuristic calls on fresh
   deals; an earlier promotion at +1 SE was a false positive — promotion now
   needs 2 SE). Learned schupf nets were always clearly worse (−13 to −31 pp).
@@ -332,9 +318,9 @@ All numbers: duplicate, matches to 1000, vs the latest heuristic.
 
 To beat the heuristic by a wider margin requires one of:
 
-1. A search head at inference (IS-MCTS with the policy as prior; the value
-   net already replaces rollouts at the leaves).
-2. More AWR self-play iterations / data (see `self_play.py`).
+1. A search head at inference (IS-MCTS with the policy as prior; needs a
+   value function over post-move states).
+2. More Q iterations / data (`train_loop.py`).
 3. NN decisions for schupf, Dragon gift and wish (still heuristic).
 
 ## Output contract

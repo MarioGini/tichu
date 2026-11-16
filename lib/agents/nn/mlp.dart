@@ -31,7 +31,7 @@ class Mlp {
   /// allocation during forward().
   final List<Float64List> _buffers;
 
-  // ── Random init (for tests / MCTS value baseline) ──────────────────────
+  // ── Random init (for tests) ──────────────────────
 
   factory Mlp({required final List<int> layerSizes, final int? seed}) {
     if (layerSizes.length < 2) {

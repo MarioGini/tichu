@@ -208,7 +208,7 @@ Useful headless options:
 - `--format=csv|bc-jsonl|summary|none`: event CSV (default), RL training
   rows, one summary line per match, or no file output.
 - `--no-timestamps`: disable wall-clock timestamps in CSV rows.
-- `--help`: list all flags (NN policies, ISMCTS, call nets, ...).
+- `--help`: list all flags (NN policies, call nets, ...).
 
 For training data use `--format=bc-jsonl` (see [rl/README.md](rl/README.md));
 for fast dry runs use `--format=none` and keep `--target-score` low or

@@ -5,9 +5,8 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-/// Hand-plan aware play rules (`HeuristicOptions.planPlay`), from the
-/// weakness analysis in doc/heuristic_weaknesses.md: think in "plays needed
-/// to go out" (HandShape.estPlays) and in sure winners (CardKnowledge).
+/// Hand-plan aware play rules (`HeuristicOptions.planPlay`): think in "plays
+/// needed to go out" (HandShape.estPlays) and in sure winners (CardKnowledge).
 abstract final class PlanPlay {
   static int estPlays(final Iterable<Card> cards) =>
       HandShape.fromCards(cards).estPlays;

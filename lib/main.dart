@@ -1,7 +1,7 @@
 import 'package:flutter/semantics.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'package:tichu/agents/app_bots.dart';
+import 'package:tichu/agents/app_bots_loader.dart';
 import 'package:tichu/screens/home/home_screen.dart';
 import 'package:tichu/services/multiplayer/configured_multiplayer_backend.dart';
 import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
@@ -14,7 +14,7 @@ Future<void> main() async {
   if (const bool.fromEnvironment('TICHU_SEMANTICS')) {
     SemanticsBinding.instance.ensureSemantics();
   }
-  await AppBots.load();
+  await loadAppBotsFromAssets();
 
   try {
     final multiplayerBackend = await createConfiguredMultiplayerBackend();

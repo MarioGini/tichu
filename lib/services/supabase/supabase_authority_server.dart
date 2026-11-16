@@ -51,6 +51,15 @@ class SupabaseAuthorityServer {
         return;
       }
 
+      final action = request.uri.pathSegments.isEmpty
+          ? ''
+          : request.uri.pathSegments.last;
+      // Unauthenticated so the host's health checks can reach it.
+      if (request.method == 'GET' && action == 'health') {
+        await _writeJson(request.response, <String, dynamic>{'status': 'ok'});
+        return;
+      }
+
       if (!_isAuthorized(request)) {
         await _writeError(
           request.response,
@@ -60,13 +69,6 @@ class SupabaseAuthorityServer {
         return;
       }
 
-      final action = request.uri.pathSegments.isEmpty
-          ? ''
-          : request.uri.pathSegments.last;
-      if (request.method == 'GET' && action == 'health') {
-        await _writeJson(request.response, <String, dynamic>{'status': 'ok'});
-        return;
-      }
       if (request.method != 'POST') {
         await _writeError(
           request.response,

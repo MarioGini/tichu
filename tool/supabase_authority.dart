@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:supabase/supabase.dart';
+import 'package:tichu/agents/app_bots.dart';
 import 'package:tichu/services/local/local_table_service.dart';
 import 'package:tichu/services/multiplayer/authority_state_store.dart';
 import 'package:tichu/services/supabase/postgres_authority_state_store.dart';
@@ -15,6 +16,8 @@ Future<void> main(final List<String> args) async {
     return;
   }
 
+  _loadBotPolicy();
+
   final host = _readStringArg(
     args,
     '--host',
@@ -25,7 +28,10 @@ Future<void> main(final List<String> args) async {
     _readStringArg(
       args,
       '--port',
-      fallback: Platform.environment['TICHU_SUPABASE_AUTHORITY_PORT'] ?? '8081',
+      fallback:
+          Platform.environment['TICHU_SUPABASE_AUTHORITY_PORT'] ??
+          Platform.environment['PORT'] ??
+          '8081',
     ),
   );
   final proxySecret = _readOptionalStringArg(
@@ -71,6 +77,8 @@ Future<void> main(final List<String> args) async {
   stdout.writeln('Shutting down authority server.');
   tableService.dispose();
   await authorityServer.close(force: true);
+  // Pending timers (e.g. bot turn delays) would otherwise keep the VM alive.
+  exit(0);
 }
 
 Future<SupabaseTableProjectionStore?> _createProjectionStore({
@@ -143,3 +151,21 @@ Environment:
   SUPABASE_DB_URL                 Direct Postgres URL used to bootstrap projection schema, RLS,
                                   and durable lobby/action-log persistence
 ''';
+
+/// Loads the trained play policy so server bots match the app's bots.
+/// Looks next to the working directory, or at TICHU_BOT_POLICY_PATH.
+void _loadBotPolicy() {
+  final path =
+      Platform.environment['TICHU_BOT_POLICY_PATH'] ?? AppBots.playPolicyAsset;
+  final file = File(path);
+  if (!file.existsSync()) {
+    stdout.writeln('Bot policy not found at $path; using heuristic bots.');
+    return;
+  }
+  AppBots.loadFromBytes(file.readAsBytesSync());
+  stdout.writeln(
+    AppBots.current.play == null
+        ? 'Failed to parse bot policy at $path; using heuristic bots.'
+        : 'Loaded bot policy from $path.',
+  );
+}

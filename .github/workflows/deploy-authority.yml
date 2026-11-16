@@ -1,0 +1,53 @@
+name: Deploy authority
+
+# Builds tool/supabase_authority.dart and deploys it to Fly.io.
+# Needs these repository secrets:
+#   FLY_API_TOKEN                 Fly org token (fly.io dashboard → Tokens)
+#   SUPABASE_SERVICE_ROLE_KEY     Supabase → Project Settings → API keys
+#   SUPABASE_DB_URL               Supabase → Connect → direct connection string
+#   TICHU_AUTHORITY_PROXY_SECRET  same value as the Edge Function secret
+
+on:
+  push:
+    branches: ["develop"]
+    paths:
+      - "lib/**"
+      - "tool/supabase_authority.dart"
+      - "assets/bots/**"
+      - "deploy/authority/**"
+      - "pubspec.*"
+      - ".github/workflows/deploy-authority.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-authority
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP: tichu-authority
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-flutter
+      - name: Compile authority
+        run: |
+          dart compile exe tool/supabase_authority.dart -o deploy/authority/authority
+          cp assets/bots/tichu_q_v3.safetensors deploy/authority/
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Create Fly app (first run only)
+        run: flyctl apps list --json | grep -q "\"$FLY_APP\"" || flyctl apps create "$FLY_APP"
+      - name: Set Fly secrets
+        run: |
+          flyctl secrets set --stage --app "$FLY_APP" \
+            SUPABASE_SERVICE_ROLE_KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            SUPABASE_DB_URL="${{ secrets.SUPABASE_DB_URL }}" \
+            TICHU_AUTHORITY_PROXY_SECRET="${{ secrets.TICHU_AUTHORITY_PROXY_SECRET }}"
+      - name: Deploy
+        working-directory: deploy/authority
+        run: flyctl deploy --remote-only --ha=false --app "$FLY_APP"

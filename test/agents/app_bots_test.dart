@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/app_bots.dart';
+import 'package:tichu/agents/app_bots_loader.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -9,7 +10,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('loads the bundled play policy and makes legal moves', () async {
-    await AppBots.load();
+    await loadAppBotsFromAssets();
     expect(AppBots.current.play, isNotNull);
 
     final hand = [

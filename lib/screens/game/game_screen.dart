@@ -667,22 +667,10 @@ class _GameScreenState extends State<GameScreen>
       onMatchContinue: () => Navigator.of(context).pop(),
     );
 
+    final landscape = isLandscapeTable(MediaQuery.sizeOf(context));
+    final expandHand = phase == GamePhase.schupf || pendingReceipts;
+
     return Scaffold(
-      appBar: AppBar(
-        title: scoreState == null
-            ? const Text('Tichu')
-            : ScoreBar(
-                scoreState: scoreState,
-                isTeamOne: (_resolveSelfSeat(snapshot) ?? 0).isEven,
-              ),
-        actions: [
-          IconButton(
-            tooltip: 'Options',
-            onPressed: _showOptionsDialog,
-            icon: const Icon(Icons.settings),
-          ),
-        ],
-      ),
       body: Focus(
         focusNode: _schupfFocusNode,
         autofocus: true,
@@ -694,6 +682,23 @@ class _GameScreenState extends State<GameScreen>
         ),
         child: SafeArea(
           child: GameBoard(
+            expandHand: expandHand,
+            topBarLeading: _TopBarButton(
+              tooltip: 'Leave table',
+              icon: Icons.arrow_back_rounded,
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            topBarCenter: scoreState == null
+                ? const SizedBox.shrink()
+                : ScoreBar(
+                    scoreState: scoreState,
+                    isTeamOne: (_resolveSelfSeat(snapshot) ?? 0).isEven,
+                  ),
+            topBarTrailing: _TopBarButton(
+              tooltip: 'Options',
+              icon: Icons.settings,
+              onPressed: _showOptionsDialog,
+            ),
             reserveTopPendingSlot: showOpponentPendingCards,
             reserveSidePendingSlots: showOpponentPendingCards,
             topOpponent: _buildOpponent(
@@ -706,6 +711,7 @@ class _GameScreenState extends State<GameScreen>
               showTurnIndicators: showTurnIndicators,
               showPoints: showPoints,
               teamScore: displayPartnerScore,
+              pill: landscape,
             ),
             topPendingSlot: _buildPendingSlot(
               playerId: partnerPlayer?.id,
@@ -722,6 +728,7 @@ class _GameScreenState extends State<GameScreen>
               showTurnIndicators: showTurnIndicators,
               showPoints: showPoints,
               teamScore: displayLeftScore,
+              pill: landscape,
             ),
             leftPendingSlot: _buildPendingSlot(
               playerId: leftPlayer?.id,
@@ -743,6 +750,7 @@ class _GameScreenState extends State<GameScreen>
               showTurnIndicators: showTurnIndicators,
               showPoints: showPoints,
               teamScore: displayRightScore,
+              pill: landscape,
             ),
             trickArea: centerArea,
             handArea: handArea,
@@ -817,6 +825,7 @@ class _GameScreenState extends State<GameScreen>
     required final bool showTurnIndicators,
     required final bool showPoints,
     required final int teamScore,
+    final bool pill = false,
   }) {
     final playerId = player?.id;
     final name = player?.name ?? fallbackName;
@@ -846,6 +855,7 @@ class _GameScreenState extends State<GameScreen>
       icon: icon,
       teamScore: teamScore,
       showPoints: showPoints,
+      pill: pill,
     );
   }
 
@@ -1107,4 +1117,33 @@ class _GameScreenState extends State<GameScreen>
         return false;
     }
   }
+}
+
+class _TopBarButton extends StatelessWidget {
+  const _TopBarButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(final BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon),
+      style: IconButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: Colors.black.withValues(alpha: 0.22),
+        fixedSize: const Size.square(40),
+        minimumSize: const Size.square(40),
+        padding: EdgeInsets.zero,
+      ),
+    ),
+  );
 }

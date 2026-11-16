@@ -8,13 +8,19 @@ class GameGradientBackground extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) {
+    // Card-table felt: lighter in the middle, darker towards the edges.
     final surface = Theme.of(context).colorScheme.surface;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [surface, surface.withValues(alpha: 0.7)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+        color: surface,
+        gradient: RadialGradient(
+          radius: 1.1,
+          colors: [
+            Color.lerp(surface, const Color(0xFF2E8B57), 0.35)!,
+            surface,
+            Color.lerp(surface, Colors.black, 0.35)!,
+          ],
+          stops: const [0, 0.6, 1],
         ),
       ),
       child: child,

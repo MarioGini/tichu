@@ -79,9 +79,14 @@ class SchupfPanel extends StatelessWidget {
       final contentHeight = totalHeight == null
           ? null
           : (totalHeight - _containerPadding).clamp(0.0, double.infinity);
+      final compact =
+          totalHeight != null &&
+          totalHeight < 330 &&
+          constraints.maxWidth > totalHeight * 1.5;
       final layout = computeSchupfLayout(
         maxHeight: contentHeight,
-        hasHeader: header != null,
+        hasHeader: header != null && !compact,
+        compact: compact,
       );
 
       return switch (mode) {
@@ -90,12 +95,14 @@ class SchupfPanel extends StatelessWidget {
           constraints,
           layout,
           m,
+          compact: compact,
         ),
         final SchupfReceiptMode m => _buildReceipt(
           context,
           constraints,
           layout,
           m,
+          compact: compact,
         ),
       };
     },
@@ -107,8 +114,9 @@ class SchupfPanel extends StatelessWidget {
     final BuildContext context,
     final BoxConstraints constraints,
     final SchupfLayout layout,
-    final SchupfSelectionMode m,
-  ) {
+    final SchupfSelectionMode m, {
+    required final bool compact,
+  }) {
     final canSubmit =
         m.schupfToLeft != null &&
         m.schupfToPartner != null &&
@@ -158,46 +166,59 @@ class SchupfPanel extends StatelessWidget {
 
     final handRow = _handRow(layout, available, m, maxWidth: contentMaxWidth);
 
-    final fixedChildren = [
-      if (header != null) ...[header!, SizedBox(height: layout.tightGap)],
-      _title(context, 'Schupf your cards'),
-      SizedBox(height: layout.tightGap + layout.looseGap),
-      _targetRow([
-        buildTarget(
-          label: 'Left',
-          value: m.schupfToRight,
-          onRemove: () => m.onClearSlot(SchupfSlot.right),
-          onAccept: (final card) => m.onSetSlot(SchupfSlot.right, card),
-        ),
-        buildTarget(
-          label: 'Partner',
-          value: m.schupfToPartner,
-          onRemove: () => m.onClearSlot(SchupfSlot.partner),
-          onAccept: (final card) => m.onSetSlot(SchupfSlot.partner, card),
-        ),
-        buildTarget(
-          label: 'Right',
-          value: m.schupfToLeft,
-          onRemove: () => m.onClearSlot(SchupfSlot.left),
-          onAccept: (final card) => m.onSetSlot(SchupfSlot.left, card),
-        ),
-      ], maxWidth: contentMaxWidth),
-      SizedBox(height: layout.tightGap),
-      Center(
-        child: ElevatedButton.icon(
-          onPressed: canSubmit ? m.onSubmit : null,
-          icon: const Icon(Icons.swap_horiz),
-          style: ElevatedButton.styleFrom(
-            side: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              width: 0.6,
-            ),
-          ),
-          label: const Text('Schupf'),
+    final targets = [
+      buildTarget(
+        label: 'Left',
+        value: m.schupfToRight,
+        onRemove: () => m.onClearSlot(SchupfSlot.right),
+        onAccept: (final card) => m.onSetSlot(SchupfSlot.right, card),
+      ),
+      buildTarget(
+        label: 'Partner',
+        value: m.schupfToPartner,
+        onRemove: () => m.onClearSlot(SchupfSlot.partner),
+        onAccept: (final card) => m.onSetSlot(SchupfSlot.partner, card),
+      ),
+      buildTarget(
+        label: 'Right',
+        value: m.schupfToLeft,
+        onRemove: () => m.onClearSlot(SchupfSlot.left),
+        onAccept: (final card) => m.onSetSlot(SchupfSlot.left, card),
+      ),
+    ];
+    final schupfButton = ElevatedButton.icon(
+      onPressed: canSubmit ? m.onSubmit : null,
+      icon: const Icon(Icons.swap_horiz),
+      style: ElevatedButton.styleFrom(
+        side: BorderSide(
+          color: Theme.of(context).colorScheme.outlineVariant,
+          width: 0.6,
         ),
       ),
-      SizedBox(height: layout.tightGap),
-    ];
+      label: const Text('Schupf'),
+    );
+
+    final fixedChildren = compact
+        ? [
+            _compactTopRow(
+              context,
+              title: 'Schupf your cards',
+              hint: 'Tap cards to pass them',
+              targets: targets,
+              button: schupfButton,
+              maxWidth: contentMaxWidth,
+            ),
+            SizedBox(height: layout.tightGap + 2),
+          ]
+        : [
+            if (header != null) ...[header!, SizedBox(height: layout.tightGap)],
+            _title(context, 'Schupf your cards'),
+            SizedBox(height: layout.tightGap + layout.looseGap),
+            _targetRow(targets, maxWidth: contentMaxWidth),
+            SizedBox(height: layout.tightGap),
+            Center(child: schupfButton),
+            SizedBox(height: layout.tightGap),
+          ];
 
     final content = Column(
       mainAxisSize: MainAxisSize.min,
@@ -240,8 +261,10 @@ class SchupfPanel extends StatelessWidget {
 
         final isCursor = m.schupfCursorIndex == index;
 
+        // A single tap moves the card into the next free slot; dragging
+        // onto a specific slot still works.
         Widget buildCard() => GestureDetector(
-          onDoubleTap: onQuickAssign,
+          onTap: onQuickAssign,
           child: CardWidget(
             card: card,
             isSelected: isCursor,
@@ -274,8 +297,9 @@ class SchupfPanel extends StatelessWidget {
     final BuildContext context,
     final BoxConstraints constraints,
     final SchupfLayout layout,
-    final SchupfReceiptMode m,
-  ) {
+    final SchupfReceiptMode m, {
+    required final bool compact,
+  }) {
     final receiptByDirection = {
       for (final receipt in m.receipts) receipt.direction: receipt,
     };
@@ -339,34 +363,47 @@ class SchupfPanel extends StatelessWidget {
             ),
           );
 
+    final receiptTargets = [
+      buildTarget(
+        label: 'Left',
+        receipt: receiptByDirection[SchupfDirection.right],
+      ),
+      buildTarget(
+        label: 'Partner',
+        receipt: receiptByDirection[SchupfDirection.partner],
+      ),
+      buildTarget(
+        label: 'Right',
+        receipt: receiptByDirection[SchupfDirection.left],
+      ),
+    ];
+    final playButton = ElevatedButton.icon(
+      onPressed: m.schupfAckPending || m.receipts.isEmpty
+          ? null
+          : m.onAcknowledge,
+      icon: const Icon(Icons.check_circle_outline),
+      label: const Text('PLAY'),
+    );
+
     final content = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (header != null) ...[header!, SizedBox(height: layout.tightGap)],
-        _title(context, 'Schupf received'),
-        const SizedBox(height: 8),
-        _targetRow([
-          buildTarget(
-            label: 'Left',
-            receipt: receiptByDirection[SchupfDirection.right],
-          ),
-          buildTarget(
-            label: 'Partner',
-            receipt: receiptByDirection[SchupfDirection.partner],
-          ),
-          buildTarget(
-            label: 'Right',
-            receipt: receiptByDirection[SchupfDirection.left],
-          ),
-        ], maxWidth: contentMaxWidth),
-        const SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: m.schupfAckPending || m.receipts.isEmpty
-              ? null
-              : m.onAcknowledge,
-          icon: const Icon(Icons.check_circle_outline),
-          label: const Text('PLAY'),
-        ),
+        if (compact)
+          _compactTopRow(
+            context,
+            title: 'Schupf received',
+            targets: receiptTargets,
+            button: playButton,
+            maxWidth: contentMaxWidth,
+          )
+        else ...[
+          if (header != null) ...[header!, SizedBox(height: layout.tightGap)],
+          _title(context, 'Schupf received'),
+          const SizedBox(height: 8),
+          _targetRow(receiptTargets, maxWidth: contentMaxWidth),
+          const SizedBox(height: 8),
+          playButton,
+        ],
         if (filteredHandRow != null) SizedBox(height: layout.tightGap),
         if (filteredHandRow != null)
           ClipRect(
@@ -409,6 +446,48 @@ class SchupfPanel extends StatelessWidget {
     style: Theme.of(context).textTheme.titleMedium?.copyWith(
       color: Colors.white,
       fontWeight: FontWeight.w600,
+    ),
+  );
+
+  /// Short screens: title and button next to the three slots.
+  static Widget _compactTopRow(
+    final BuildContext context, {
+    required final String title,
+    required final List<Widget> targets,
+    required final Widget button,
+    required final double maxWidth,
+    final String? hint,
+  }) => SizedBox(
+    width: maxWidth,
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          targets[0],
+          const SizedBox(width: 10),
+          targets[1],
+          const SizedBox(width: 10),
+          targets[2],
+          const SizedBox(width: 20),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _title(context, title),
+              if (hint != null)
+                Text(
+                  hint,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: Colors.white60),
+                ),
+              const SizedBox(height: 8),
+              button,
+            ],
+          ),
+        ],
+      ),
     ),
   );
 

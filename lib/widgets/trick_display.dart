@@ -54,13 +54,17 @@ class TrickDisplay extends StatelessWidget {
         );
         final showWish = activeWish != CardFace.none && !hasMahjongInTrick;
 
+        // Short boxes (phone landscape): winner and points share one line.
+        final compactHeader = availH < 170;
         final showHeaderLine =
             currentWinnerLabel.isNotEmpty || dragonGiveLabel.isNotEmpty;
-        final reservedHeaderH = showHeaderLine ? 28 : 0;
+        final reservedHeaderH = showHeaderLine ? (compactHeader ? 20 : 28) : 0;
         final reservedWishH = showWish
             ? CardWidget.compactHeight * placeholderScale * 0.5 + gap
             : 0;
-        final reservedPointsH = showTrickPoints ? 14 : 0;
+        final pointsInHeader =
+            compactHeader && showTrickPoints && currentWinnerLabel.isNotEmpty;
+        final reservedPointsH = showTrickPoints && !pointsInHeader ? 14 : 0;
         final cardTopGap = cards.isNotEmpty ? math.max(1, gap * 0.45) : 0.0;
         final reservedGapH = cardTopGap.toDouble();
         final cardAreaH = math.max(
@@ -95,10 +99,16 @@ class TrickDisplay extends StatelessWidget {
           children: [
             if (currentWinnerLabel.isNotEmpty) ...[
               Text(
-                currentWinnerLabel,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(color: Colors.white),
+                pointsInHeader
+                    ? '$currentWinnerLabel · $trickPoints pts'
+                    : currentWinnerLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    (compactHeader
+                            ? Theme.of(context).textTheme.labelLarge
+                            : Theme.of(context).textTheme.titleSmall)
+                        ?.copyWith(color: Colors.white),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: gap),
@@ -123,7 +133,7 @@ class TrickDisplay extends StatelessWidget {
               ),
               SizedBox(height: gap),
             ],
-            if (showTrickPoints)
+            if (showTrickPoints && !pointsInHeader)
               Text(
                 'Trick points: $trickPoints',
                 style: Theme.of(

@@ -90,17 +90,15 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: const Text('Tichu'),
-        ),
         body: GameGradientBackground(
           child: SafeArea(
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
+                // Scrolls when many rounds (or a landscape phone) make the
+                // table taller than the screen.
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
                   child: Stack(
                     alignment: Alignment.topCenter,
                     children: [

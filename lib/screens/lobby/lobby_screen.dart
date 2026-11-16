@@ -198,127 +198,151 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final hasOpenSeats =
         lobby != null &&
         lobby.seats.any((final seat) => seat.state == GameLobbySeatState.open);
+    final size = MediaQuery.sizeOf(context);
+    final shortScreen = size.height < 500;
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: shortScreen ? 44 : null,
+        backgroundColor: const Color(0xFF0B4A30),
         title: Text(
           lobby?.gameName.isNotEmpty == true ? lobby!.gameName : 'Game Lobby',
         ),
       ),
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0B4A30), Color(0xFF0F5D3D), Color(0xFF134E4A)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          gradient: RadialGradient(
+            center: Alignment(0, -0.4),
+            radius: 1.3,
+            colors: [Color(0xFF1C7A50), Color(0xFF0F5D3D), Color(0xFF07301F)],
+            stops: [0, 0.55, 1],
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 980),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: lobby == null
-                    ? const Center(child: CircularProgressIndicator())
-                    : Card(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildHeader(context, lobby),
-                              const SizedBox(height: 20),
-                              Text(
-                                localSeat == null
-                                    ? 'Choose a team to join the table.'
-                                    : 'You are on ${localSeat.seat.isEven ? "Team 1" : "Team 2"} (Seat ${localSeat.seat + 1}).',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 20),
-                              Wrap(
-                                spacing: 16,
-                                runSpacing: 16,
-                                children: [
-                                  for (final seat in lobby.seats)
-                                    _buildSeatCard(context, seat),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                alignment: WrapAlignment.center,
-                                children: [
-                                  ElevatedButton.icon(
-                                    onPressed: localSeat == null || _isBusy
-                                        ? null
-                                        : () => unawaited(_toggleReady()),
-                                    icon: Icon(
-                                      localSeat?.isReady ?? false
-                                          ? Icons.pause_circle_outline
-                                          : Icons.check_circle_outline,
-                                    ),
-                                    label: Text(
-                                      localSeat?.isReady ?? false
-                                          ? 'Mark Not Ready'
-                                          : 'Mark Ready',
-                                    ),
-                                  ),
-                                  if (lobby.isLocalPlayerHost &&
-                                      widget
-                                          .multiplayerBackend
-                                          .supportsAutomatedSeats &&
-                                      hasOpenSeats)
-                                    OutlinedButton.icon(
-                                      onPressed: _isBusy
-                                          ? null
-                                          : () => unawaited(
-                                              _fillOpenSeatsWithBots(),
+          top: false,
+          child: lobby == null
+              ? const Center(child: CircularProgressIndicator())
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 960),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildHeader(context, lobby, localSeat),
+                                const SizedBox(height: 10),
+                                LayoutBuilder(
+                                  builder: (final context, final constraints) {
+                                    final columns = constraints.maxWidth >= 560
+                                        ? 4
+                                        : 2;
+                                    const gap = 10.0;
+                                    final tileW =
+                                        (constraints.maxWidth -
+                                            gap * (columns - 1)) /
+                                        columns;
+                                    return Wrap(
+                                      spacing: gap,
+                                      runSpacing: gap,
+                                      children: [
+                                        for (final seat in lobby.seats)
+                                          SizedBox(
+                                            width: tileW,
+                                            child: _buildSeatCard(
+                                              context,
+                                              seat,
                                             ),
-                                      icon: const Icon(
-                                        Icons.smart_toy_outlined,
-                                      ),
-                                      label: const Text(
-                                        'Fill Empty Seats With Bots',
-                                      ),
-                                    ),
-                                  if (lobby.isLocalPlayerHost)
-                                    ElevatedButton.icon(
-                                      onPressed: lobby.canStart && !_isBusy
-                                          ? () => unawaited(_startMatch())
-                                          : null,
-                                      icon: const Icon(
-                                        Icons.rocket_launch_outlined,
-                                      ),
-                                      label: const Text('Start Match'),
-                                    ),
-                                  OutlinedButton.icon(
-                                    onPressed: _isBusy
-                                        ? null
-                                        : () => unawaited(_leaveLobby()),
-                                    icon: const Icon(Icons.exit_to_app),
-                                    label: const Text('Leave Game'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                widget.multiplayerBackend.supportsAutomatedSeats
-                                    ? 'Invite other people with the code or fill the remaining seats with bots.'
-                                    : 'Open another client on the same backend and join with this code.',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                                          ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  widget
+                                          .multiplayerBackend
+                                          .supportsAutomatedSeats
+                                      ? 'Invite people with the code or fill the empty seats with bots.'
+                                      : 'Open another client on the same backend and join with this code.',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: Colors.white60),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-              ),
-            ),
-          ),
+                        _buildActions(context, lobby, localSeat, hasOpenSeats),
+                      ],
+                    ),
+                  ),
+                ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildActions(
+    final BuildContext context,
+    final GameLobbySnapshot lobby,
+    final GameLobbySeatSnapshot? localSeat,
+    final bool hasOpenSeats,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isReady = localSeat?.isReady ?? false;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.25),
+        border: const Border(top: BorderSide(color: Colors.white12)),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _isBusy ? null : () => unawaited(_leaveLobby()),
+            icon: const Icon(Icons.exit_to_app),
+            label: const Text('Leave'),
+          ),
+          if (lobby.isLocalPlayerHost &&
+              widget.multiplayerBackend.supportsAutomatedSeats &&
+              hasOpenSeats)
+            OutlinedButton.icon(
+              onPressed: _isBusy
+                  ? null
+                  : () => unawaited(_fillOpenSeatsWithBots()),
+              icon: const Icon(Icons.smart_toy_outlined),
+              label: const Text('Fill with bots'),
+            ),
+          ElevatedButton.icon(
+            onPressed: localSeat == null || _isBusy
+                ? null
+                : () => unawaited(_toggleReady()),
+            icon: Icon(
+              isReady ? Icons.pause_circle_outline : Icons.check_circle_outline,
+            ),
+            label: Text(isReady ? 'Not ready' : 'Ready'),
+          ),
+          if (lobby.isLocalPlayerHost)
+            FilledButton.icon(
+              onPressed: lobby.canStart && !_isBusy
+                  ? () => unawaited(_startMatch())
+                  : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: colorScheme.secondary,
+                foregroundColor: Colors.black87,
+              ),
+              icon: const Icon(Icons.rocket_launch_outlined),
+              label: const Text('Start match'),
+            ),
+        ],
       ),
     );
   }
@@ -326,55 +350,43 @@ class _LobbyScreenState extends State<LobbyScreen> {
   Widget _buildHeader(
     final BuildContext context,
     final GameLobbySnapshot lobby,
-  ) => DecoratedBox(
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(16),
-      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.35),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (lobby.gameName.isNotEmpty) ...[
-            Text(
-              lobby.gameName,
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 4),
-          ],
-          Text(
-            'First team to ${lobby.targetScore} • ${lobby.visibility == GameLobbyVisibility.private ? "Private" : "Public"}',
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              if (lobby.visibility == GameLobbyVisibility.private)
-                OutlinedButton.icon(
-                  onPressed: lobby.joinCode == null ? null : _copyJoinCode,
-                  icon: const Icon(Icons.copy_outlined),
-                  label: Text('Code: ${lobby.joinCode ?? ""}'),
-                ),
-              Chip(
-                avatar: Icon(
-                  lobby.isLocalPlayerHost ? Icons.star : Icons.person_outline,
-                  size: 18,
-                ),
-                label: Text(
-                  lobby.isLocalPlayerHost ? 'You are host' : 'Waiting for host',
-                ),
-              ),
-            ],
-          ),
-        ],
+    final GameLobbySeatSnapshot? localSeat,
+  ) => Wrap(
+    alignment: WrapAlignment.center,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: 10,
+    runSpacing: 6,
+    children: [
+      Text(
+        'First to ${lobby.targetScore} • '
+        '${lobby.visibility == GameLobbyVisibility.private ? "Private" : "Public"}',
+        style: Theme.of(context).textTheme.bodyMedium,
       ),
-    ),
+      if (lobby.visibility == GameLobbyVisibility.private)
+        OutlinedButton.icon(
+          onPressed: lobby.joinCode == null ? null : _copyJoinCode,
+          icon: const Icon(Icons.copy_outlined, size: 18),
+          label: Text('Code: ${lobby.joinCode ?? ""}'),
+        ),
+      Chip(
+        visualDensity: VisualDensity.compact,
+        avatar: Icon(
+          lobby.isLocalPlayerHost ? Icons.star : Icons.person_outline,
+          size: 16,
+        ),
+        label: Text(
+          lobby.isLocalPlayerHost ? 'You are host' : 'Waiting for host',
+        ),
+      ),
+      Text(
+        localSeat == null
+            ? 'Pick a seat to join the table.'
+            : 'You: ${localSeat.seat.isEven ? "Team 1" : "Team 2"}, seat ${localSeat.seat + 1}',
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+      ),
+    ],
   );
 
   Widget _buildSeatCard(
@@ -384,54 +396,99 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final isLocalSeat = seat.playerId == widget.sessionHandle.playerId;
     final isOpen = seat.state == GameLobbySeatState.open;
     final canClaim = isOpen && !_isBusy;
+    final teamColor = seat.seat.isEven
+        ? const Color(0xFF67D99A)
+        : const Color(0xFFF2C94C);
 
-    return SizedBox(
-      width: 280,
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: isLocalSeat ? 0.32 : 0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isLocalSeat ? teamColor : Colors.white12,
+          width: isLocalSeat ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '${seat.seat.isEven ? "Team 1" : "Team 2"} • Seat ${seat.seat + 1}',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: teamColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${seat.seat.isEven ? "Team 1" : "Team 2"} • Seat ${seat.seat + 1}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelMedium?.copyWith(color: Colors.white70),
+                ),
+              ),
+              if (isLocalSeat)
+                Text(
+                  'YOU',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: teamColor,
+                    fontWeight: FontWeight.w800,
                   ),
-                  if (isLocalSeat)
-                    const Chip(
-                      label: Text('You'),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(
+                isOpen
+                    ? Icons.event_seat_outlined
+                    : seat.type == PlayerType.automated
+                    ? Icons.smart_toy_outlined
+                    : Icons.person,
+                size: 20,
+                color: Colors.white70,
               ),
-              const SizedBox(height: 10),
-              Text(
-                _seatPrimaryLabel(seat),
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                _seatSecondaryLabel(seat),
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: canClaim
-                      ? () => unawaited(_claimSeat(seat.seat))
-                      : null,
-                  child: Text(isOpen ? 'Claim Seat' : 'Seat Occupied'),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _seatPrimaryLabel(seat),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 2),
+          Text(
+            _seatSecondaryLabel(seat),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+          ),
+          if (isOpen) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: canClaim
+                    ? () => unawaited(_claimSeat(seat.seat))
+                    : null,
+                child: const Text('Sit here'),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -445,7 +502,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   String _seatSecondaryLabel(final GameLobbySeatSnapshot seat) {
     if (seat.state == GameLobbySeatState.open) {
-      return 'Tap to take this seat.';
+      return 'Free seat';
     }
     if (seat.state == GameLobbySeatState.locked) {
       return 'Unavailable for this lobby.';

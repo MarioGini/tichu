@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:tichu/game/game_session.dart';
-import 'package:tichu/game/game_types.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/screens/lobby/lobby_screen.dart';
 import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
+import 'package:tichu/services/multiplayer/solo_match.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, final MultiplayerBackend? multiplayerBackend})
@@ -115,50 +115,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _playSolo() async {
     if (!_canAct) return;
     await _runBusyAction(() async {
-      final service = _multiplayerBackend.sessionService;
-      final handle = await service.createLobby(
-        CreateGameLobbyRequest(
-          displayName: _displayName,
-          gameName: '$_displayName vs Bots',
-          visibility: GameLobbyVisibility.private,
-        ),
-      );
-      await service.setReadyState(
-        handle.lobbyId,
-        accessToken: handle.accessToken,
-        isReady: true,
-      );
-      for (var seat = 0; seat < 4; seat++) {
-        final lobby = await service
-            .watchLobby(handle.lobbyId, accessToken: handle.accessToken)
-            .first;
-        final seatState = lobby.seats[seat];
-        if (seatState.state == GameLobbySeatState.open) {
-          await service.claimSeat(
-            handle.lobbyId,
-            accessToken: handle.accessToken,
-            seat: seat,
-            type: PlayerType.automated,
-            automatedDisplayName: 'Bot ${seat + 1}',
-          );
-        }
-      }
-      await service.startMatch(handle.lobbyId, accessToken: handle.accessToken);
-      final activeLobby = await service
-          .watchLobby(handle.lobbyId, accessToken: handle.accessToken)
-          .firstWhere((final s) => s.matchId != null);
-      final localSeat = activeLobby.seats.firstWhere(
-        (final s) => s.playerId == handle.playerId,
+      final handle = await startSoloMatch(
+        _multiplayerBackend,
+        displayName: _displayName,
       );
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => GameScreen(
             matchService: _multiplayerBackend.matchService,
-            sessionHandle: handle.copyWith(
-              seat: localSeat.seat,
-              matchId: activeLobby.matchId,
-            ),
+            sessionHandle: handle,
           ),
         ),
       );
@@ -207,116 +173,251 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0B4A30), Color(0xFF0F5D3D), Color(0xFF134E4A)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          gradient: RadialGradient(
+            center: Alignment(0, -0.4),
+            radius: 1.3,
+            colors: [Color(0xFF1C7A50), Color(0xFF0F5D3D), Color(0xFF07301F)],
+            stops: [0, 0.55, 1],
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 780),
-              child: Card(
-                margin: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+          child: LayoutBuilder(
+            builder: (final context, final constraints) {
+              final wide =
+                  constraints.maxWidth > constraints.maxHeight &&
+                  constraints.maxWidth >= 640;
+              final start = _buildStartPanel(context, compact: wide);
+              final games = _buildGamesPanel(context, publicGames);
+              if (wide) {
+                // Landscape: start actions left, open games right.
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1000),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            'TICHU',
-                            style: Theme.of(context).textTheme.headlineMedium,
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _displayNameController,
-                            onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
-                              labelText: 'Display name',
-                              hintText: 'Enter your player name',
-                              isDense: true,
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: start,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            alignment: WrapAlignment.center,
-                            children: [
-                              if (_multiplayerBackend.supportsAutomatedSeats)
-                                FilledButton.icon(
-                                  onPressed: _canAct
-                                      ? () => unawaited(_playSolo())
-                                      : null,
-                                  icon: const Icon(Icons.play_arrow_rounded),
-                                  label: const Text('Play Solo'),
-                                ),
-                              ElevatedButton.icon(
-                                onPressed: _canAct
-                                    ? () => unawaited(_showCreateGameDialog())
-                                    : null,
-                                icon: const Icon(Icons.add_circle_outline),
-                                label: const Text('Create Game'),
-                              ),
-                              OutlinedButton.icon(
-                                onPressed: _canAct
-                                    ? () => unawaited(_showJoinPrivateDialog())
-                                    : null,
-                                icon: const Icon(Icons.lock_outlined),
-                                label: const Text('Join Private Game'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Text(
-                                'Open Games',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const Spacer(),
-                              IconButton(
-                                onPressed: () => unawaited(_refreshGames()),
-                                icon: const Icon(Icons.refresh),
-                                tooltip: 'Refresh',
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 1),
+                          Expanded(child: games),
                         ],
                       ),
                     ),
-                    Expanded(
-                      child: publicGames.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No open games. Create one!',
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 28,
-                                vertical: 8,
-                              ),
-                              itemCount: publicGames.length,
-                              separatorBuilder: (_, _) =>
-                                  const Divider(height: 1),
-                              itemBuilder: (final context, final index) =>
-                                  _buildGameTile(context, publicGames[index]),
-                            ),
+                  ),
+                );
+              }
+              if (constraints.maxHeight < 560) {
+                // Short screens: scroll, with a fixed-height games list.
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 560),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          start,
+                          const SizedBox(height: 16),
+                          SizedBox(height: 240, child: games),
+                        ],
+                      ),
                     ),
-                  ],
+                  ),
+                );
+              }
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        start,
+                        const SizedBox(height: 16),
+                        Expanded(child: games),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStartPanel(
+    final BuildContext context, {
+    required final bool compact,
+  }) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: compact ? 0 : 12),
+        Text(
+          'TICHU',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.displaySmall?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 8,
+            fontSize: compact ? 30 : 40,
+          ),
+        ),
+        Text(
+          'The climbing card game for four',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white60),
+        ),
+        SizedBox(height: compact ? 12 : 24),
+        TextField(
+          controller: _displayNameController,
+          onChanged: (_) => setState(() {}),
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            labelText: 'Your name',
+            prefixIcon: const Icon(Icons.person_outline),
+            isDense: true,
+            filled: true,
+            fillColor: Colors.black.withValues(alpha: 0.2),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
             ),
           ),
         ),
+        SizedBox(height: compact ? 10 : 16),
+        if (_multiplayerBackend.supportsAutomatedSeats)
+          FilledButton.icon(
+            onPressed: _canAct ? () => unawaited(_playSolo()) : null,
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.secondary,
+              foregroundColor: Colors.black87,
+              minimumSize: Size.fromHeight(compact ? 48 : 56),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            icon: _isBusy
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                  )
+                : const Icon(Icons.smart_toy_outlined),
+            label: const Text('Play vs AI'),
+          ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _canAct
+                    ? () => unawaited(_showCreateGameDialog())
+                    : null,
+                style: _secondaryButtonStyle,
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Create game'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _canAct
+                    ? () => unawaited(_showJoinPrivateDialog())
+                    : null,
+                style: _secondaryButtonStyle,
+                icon: const Icon(Icons.vpn_key_outlined),
+                label: const Text('Join with code'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  ButtonStyle get _secondaryButtonStyle => OutlinedButton.styleFrom(
+    foregroundColor: Colors.white,
+    backgroundColor: Colors.black.withValues(alpha: 0.18),
+    side: const BorderSide(color: Colors.white24),
+    minimumSize: const Size.fromHeight(46),
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+  );
+
+  Widget _buildGamesPanel(
+    final BuildContext context,
+    final List<GameLobbyListEntry> publicGames,
+  ) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 6, 6, 0),
+            child: Row(
+              children: [
+                const Icon(Icons.public, size: 18, color: Colors.white70),
+                const SizedBox(width: 8),
+                Text('Open games', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => unawaited(_refreshGames()),
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Refresh',
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: Colors.white12),
+          Expanded(
+            child: publicGames.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'No open games right now.\nCreate one or play vs AI.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white54,
+                        ),
+                      ),
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    itemCount: publicGames.length,
+                    separatorBuilder: (_, _) =>
+                        const Divider(height: 1, color: Colors.white12),
+                    itemBuilder: (final context, final index) =>
+                        _buildGameTile(context, publicGames[index]),
+                  ),
+          ),
+        ],
       ),
     );
   }

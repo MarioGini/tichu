@@ -23,40 +23,52 @@ class ScoreBar extends StatelessWidget {
     final them = isTeamOne ? scoreState.teamTwoTotal : scoreState.teamOneTotal;
     final big = theme.textTheme.titleLarge?.copyWith(
       fontWeight: FontWeight.w700,
+      height: 1.15,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final label = theme.textTheme.labelMedium?.copyWith(color: Colors.white70);
 
     return FittedBox(
       fit: BoxFit.scaleDown,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Us ', style: label),
-              Text(
-                '$us',
-                style: big?.copyWith(
-                  color: us >= them ? Colors.greenAccent : Colors.white,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Us ', style: label),
+                Text(
+                  '$us',
+                  style: big?.copyWith(
+                    color: us >= them ? Colors.greenAccent : Colors.white,
+                  ),
                 ),
-              ),
-              Text('  :  ', style: big?.copyWith(color: Colors.white54)),
-              Text(
-                '$them',
-                style: big?.copyWith(
-                  color: them > us ? Colors.orangeAccent : Colors.white,
+                Text('  :  ', style: big?.copyWith(color: Colors.white54)),
+                Text(
+                  '$them',
+                  style: big?.copyWith(
+                    color: them > us ? Colors.orangeAccent : Colors.white,
+                  ),
                 ),
+                Text(' Them', style: label),
+              ],
+            ),
+            Text(
+              'Round ${scoreState.roundNumber} · to ${scoreState.targetScore}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: Colors.white54,
+                height: 1.1,
               ),
-              Text(' Them', style: label),
-            ],
-          ),
-          Text(
-            'Round ${scoreState.roundNumber} · to ${scoreState.targetScore}',
-            style: theme.textTheme.labelSmall?.copyWith(color: Colors.white54),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

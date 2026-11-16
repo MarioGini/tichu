@@ -44,6 +44,9 @@ class _OptionsDialogState extends State<OptionsDialog> {
 
   @override
   Widget build(final BuildContext context) => AlertDialog(
+    // Scrolls on short (landscape phone) screens instead of overflowing.
+    scrollable: true,
+    insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
     title: const Text('Options'),
     content: Column(
       mainAxisSize: MainAxisSize.min,
@@ -56,6 +59,8 @@ class _OptionsDialogState extends State<OptionsDialog> {
             });
             widget.onAiSuggestionChanged(value);
           },
+          dense: true,
+          contentPadding: EdgeInsets.zero,
           title: const Text('AI move suggestion'),
         ),
         Row(
@@ -89,6 +94,8 @@ class _OptionsDialogState extends State<OptionsDialog> {
             });
             widget.onAutoPassChanged(value);
           },
+          dense: true,
+          contentPadding: EdgeInsets.zero,
           title: const Text('Auto-pass when no legal move'),
         ),
         SwitchListTile(
@@ -99,6 +106,8 @@ class _OptionsDialogState extends State<OptionsDialog> {
             });
             widget.onSoundChanged(value);
           },
+          dense: true,
+          contentPadding: EdgeInsets.zero,
           title: const Text('Sound effects'),
         ),
       ],

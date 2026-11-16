@@ -20,6 +20,7 @@ typedef SchupfLayout = ({
 SchupfLayout computeSchupfLayout({
   required final double? maxHeight,
   final bool hasHeader = true,
+  final bool compact = false,
 }) {
   // Precise overhead for all fixed-height items in the selection Column:
   //   header + gap:       hasHeader ? ~38  : 0
@@ -44,7 +45,11 @@ SchupfLayout computeSchupfLayout({
       40 +
       3 +
       16.0; // 111 (incl labels+inset+gaps+button+margin)
-  final fixedOverhead = headerOverhead + nonCardOverhead + targetInsetTotal;
+  // Compact (short landscape screens): no header, title and button sit next
+  // to the slots, so only the slot labels, insets and gaps remain.
+  final fixedOverhead = compact
+      ? 16 + 3 + 6 + 8 + targetInsetTotal
+      : headerOverhead + nonCardOverhead + targetInsetTotal;
 
   // Budget remaining for actual card images (target card + hand cards).
   final budgetForCards = maxHeight == null
@@ -52,8 +57,8 @@ SchupfLayout computeSchupfLayout({
       : (maxHeight - fixedOverhead).clamp(30.0, 280.0);
 
   // Split closer to even so both target and hand cards remain readable.
-  final targetCardBudget = budgetForCards * 0.5;
-  final handBudget = budgetForCards * 0.5;
+  final targetCardBudget = budgetForCards * (compact ? 0.45 : 0.5);
+  final handBudget = budgetForCards * (compact ? 0.55 : 0.5);
 
   final maxTargetCardHeight = targetCardBudget.clamp(
     32.0,

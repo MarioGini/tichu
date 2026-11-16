@@ -135,7 +135,7 @@ class PlayerHandArea extends StatelessWidget {
       final maxHeight = constraints.maxHeight.isFinite
           ? constraints.maxHeight
           : null;
-      final showHeader = maxHeight == null || maxHeight >= 120;
+      final showHeader = maxHeight == null || maxHeight >= 100;
       final headerWidget = showHeader ? _buildHeader(context) : null;
 
       final handDisplay = HandDisplay(

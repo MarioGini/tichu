@@ -5,7 +5,9 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Tichu, the climbing card game for four. Play against AI or with friends.">
+  <meta name="theme-color" content="#0D3B2C">
+  <meta name="mobile-web-app-capable" content="yes">
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,16 +21,15 @@
   <title>Tichu</title>
   <link rel="manifest" href="manifest.json">
 
-  <script>
-    // The value below is injected by flutter build, do not touch.
-    var flutterServiceWorkerVersion = "{{flutter_service_worker_version}}";
-  </script>
 </head>
 
-<body>
-  <div id="loading" style="font-family: Arial, sans-serif; color: #ffffff; background:#0f5d3d; padding:16px;">Loading
-    Tichu…</div>
+<body style="margin:0; background:#0d3b2c;">
+  <div id="loading" style="position:fixed; inset:0; display:flex; align-items:center; justify-content:center; font-family: Roboto, Arial, sans-serif; letter-spacing:6px; font-weight:900; font-size:32px; color:#ffffff; background:radial-gradient(circle at 50% 35%, #1c7a50, #0f5d3d 55%, #07301f);">TICHU</div>
   <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var loading = document.getElementById('loading');
+      if (loading) loading.remove();
+    });
     window.addEventListener('load', function () {
       if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
         if ('serviceWorker' in navigator) {

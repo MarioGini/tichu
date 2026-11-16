@@ -41,9 +41,15 @@ class _WishDialogState extends State<WishDialog> {
       onRight: () {},
     ),
     child: AlertDialog(
+      // Wider on landscape phones (fewer chip rows) and scrollable when short.
+      scrollable: true,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       title: const Text('Declare a wish'),
       content: SizedBox(
-        width: 360,
+        width:
+            MediaQuery.sizeOf(context).width > MediaQuery.sizeOf(context).height
+            ? 560
+            : 360,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

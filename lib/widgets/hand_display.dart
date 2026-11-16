@@ -36,7 +36,7 @@ class HandDisplay extends StatelessWidget {
   final Widget? header;
 
   /// Share of a card's width left visible when cards overlap.
-  static const double visibleFraction = 0.40;
+  static const double visibleFraction = 0.34;
 
   /// Hand size the card size is computed for.
   static const int referenceHandSize = 14;
@@ -57,7 +57,7 @@ class HandDisplay extends StatelessWidget {
         // Reserve space for header, padding, selection offset.
         const containerPad = 12.0; // vertical padding (6+6)
         const selOffset = 8.0;
-        final headerH = header != null ? 34.0 : 0.0;
+        final headerH = header != null ? 26.0 : 0.0;
         final positionH = finishPosition != null ? 24.0 : 0.0;
         final cardBudget =
             availH - containerPad - selOffset - headerH - positionH - 1.0;

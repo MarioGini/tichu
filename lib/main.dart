@@ -1,3 +1,4 @@
+import 'package:flutter/semantics.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'package:tichu/agents/app_bots.dart';
@@ -8,6 +9,11 @@ import 'package:tichu/theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Opt-in for browser automation (Playwright), which finds widgets through
+  // the semantics tree: --dart-define=TICHU_SEMANTICS=true
+  if (const bool.fromEnvironment('TICHU_SEMANTICS')) {
+    SemanticsBinding.instance.ensureSemantics();
+  }
   await AppBots.load();
 
   try {

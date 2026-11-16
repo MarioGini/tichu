@@ -122,46 +122,49 @@ class HandDisplay extends StatelessWidget {
     );
   }
 
+  /// Hand played out: a slim full-width bar with the header and position.
   Widget _buildEmpty(final BuildContext context) {
     if (header == null && finishPosition == null) {
       return const SizedBox.shrink();
     }
-    return LayoutBuilder(
-      builder: (final context, final constraints) {
-        final maxW = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : CardWidget.normalHeight;
-        final maxH = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : CardWidget.normalHeight;
-        final side = math.min(math.min(maxW, maxH), 128).toDouble();
-
-        return Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox.square(
-            dimension: side,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: buildPlayerStateFrameDecoration(
-                isActive: isActive,
-                isFinished: isFinished,
-                borderRadius: 16,
-              ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ?header,
-                    if (finishPosition != null)
-                      buildPlayerOutLabel(context, finishPosition!),
-                  ],
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: buildPlayerStateFrameDecoration(
+        isActive: isActive,
+        isFinished: isFinished,
+        borderRadius: 16,
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ?header,
+            if (finishPosition != null) ...[
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.greenAccent.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.greenAccent),
+                ),
+                child: Text(
+                  'Out #$finishPosition',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(color: Colors.greenAccent),
                 ),
               ),
-            ),
-          ),
-        );
-      },
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

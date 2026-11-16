@@ -13,6 +13,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
 
   void _maybeAutoConfirmOpponentTurn(final PlayerSnapshot snapshot) {
     if (!snapshot.opponentAwaitingConfirmation) return;
+    if (snapshot.scoreState.roundComplete) return;
     final pendingPlayer = snapshot.pendingOpponentPlayerId;
     if (pendingPlayer == null) return;
     if (_isSelfManual && pendingPlayer == _humanId) return;
@@ -42,6 +43,8 @@ mixin _GameScreenHelpers on _GameScreenBindings {
     if (!_isSelfManual) return;
     if (!_autoPassEnabled) return;
     if (snapshot.phase != GamePhase.play) return;
+    // A double victory ends the round while others still hold cards.
+    if (snapshot.scoreState.roundComplete) return;
     if (snapshot.currentPlayerId != _humanId) return;
     if (snapshot.pendingDragonGiveBy == _humanId) return;
     if (_canPlayAny(snapshot)) return;
@@ -61,6 +64,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
       final current = _snapshot;
       if (current == null) return;
       if (current.phase != GamePhase.play) return;
+      if (current.scoreState.roundComplete) return;
       if (current.currentPlayerId != _humanId) return;
       if (_canPlayAny(current)) return;
       unawaited(_pass());
@@ -69,6 +73,7 @@ mixin _GameScreenHelpers on _GameScreenBindings {
 
   void _maybeAutoSelectFinisher(final PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
+    if (snapshot.scoreState.roundComplete) return;
     final shouldAutoSelect = _playController.shouldAutoSelectFinisher(
       snapshot: snapshot,
       humanId: _humanId,

@@ -90,4 +90,51 @@ void main() {
       expect(find.text('Start next round'), findsOneWidget);
     });
   }
+
+  testWidgets('round summary labels teams from the local player view', (
+    final tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RoundSummaryScreen(
+          localTeam: 1,
+          scoreState: const ScoreState(
+            roundNumber: 5,
+            teamOneTotal: 400,
+            teamTwoTotal: 1100,
+            teamOneRound: 0,
+            teamTwoRound: 200,
+            playerRoundPoints: {},
+            roundComplete: true,
+            targetScore: 1000,
+            gameComplete: true,
+            winningTeam: 1,
+            finishOrder: [],
+            rounds: [
+              RoundScore(
+                roundNumber: 1,
+                teamOnePoints: 400,
+                teamTwoPoints: 1100,
+                teamOneCardPoints: 0,
+                teamTwoCardPoints: 0,
+                teamOneBonusPoints: 0,
+                teamTwoBonusPoints: 0,
+                finishOrder: [],
+                roundEndType: RoundEndType.normal,
+              ),
+            ],
+            tichuCalls: {},
+          ),
+          onBackHome: () {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Your team wins!'), findsOneWidget);
+    // "Your team" column comes first and shows team two's total.
+    final yourTotal = tester.getCenter(find.text('1100').last);
+    final otherTotal = tester.getCenter(find.text('400').last);
+    expect(yourTotal.dx, lessThan(otherTotal.dx));
+  });
 }

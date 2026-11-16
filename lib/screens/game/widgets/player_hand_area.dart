@@ -183,17 +183,11 @@ class PlayerHandArea extends StatelessWidget {
             )
           : handDisplay;
 
+      // Once the match is over the hand no longer matters: show the result.
       final handContent = showMatchEndBanner && winningTeam != null
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                baseContent,
-                const SizedBox(height: 8),
-                MatchEndBanner(
-                  winningTeam: winningTeam!,
-                  onContinue: onMatchContinue,
-                ),
-              ],
+          ? MatchEndBanner(
+              winningTeam: winningTeam!,
+              onContinue: onMatchContinue,
             )
           : baseContent;
 

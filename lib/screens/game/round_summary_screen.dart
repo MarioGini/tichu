@@ -10,12 +10,16 @@ class RoundSummaryScreen extends StatefulWidget {
     super.key,
     required this.scoreState,
     required this.onBackHome,
+    this.localTeam = 0,
     this.onStartNextRound,
     this.tichuSuccessMessage,
   });
 
   final ScoreState scoreState;
   final VoidCallback onBackHome;
+
+  /// The local player's team (0 = even seats, 1 = odd seats).
+  final int localTeam;
   final Future<void> Function()? onStartNextRound;
   final String? tichuSuccessMessage;
 
@@ -81,10 +85,11 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
   @override
   Widget build(final BuildContext context) {
     final isMatchComplete = widget.scoreState.gameComplete;
-    final winnerLabel = switch (widget.scoreState.winningTeam) {
-      0 => 'Your team wins!',
-      1 => 'Other team wins!',
-      _ => "It's a tie!",
+    final winningTeam = widget.scoreState.winningTeam;
+    final winnerLabel = switch (winningTeam) {
+      null => "It's a tie!",
+      final team when team == widget.localTeam => 'Your team wins!',
+      _ => 'Other team wins!',
     };
 
     return PopScope(
@@ -115,7 +120,10 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 12),
-                            _ScoreSummaryTable(scoreState: widget.scoreState),
+                            _ScoreSummaryTable(
+                              scoreState: widget.scoreState,
+                              localTeam: widget.localTeam,
+                            ),
                             if (isMatchComplete) ...[
                               const SizedBox(height: 12),
                               Text(
@@ -194,9 +202,10 @@ class _RoundSummaryScreenState extends State<RoundSummaryScreen>
 }
 
 class _ScoreSummaryTable extends StatelessWidget {
-  const _ScoreSummaryTable({required this.scoreState});
+  const _ScoreSummaryTable({required this.scoreState, required this.localTeam});
 
   final ScoreState scoreState;
+  final int localTeam;
 
   @override
   Widget build(final BuildContext context) {
@@ -204,14 +213,25 @@ class _ScoreSummaryTable extends StatelessWidget {
       return const Text('No scoring data yet.');
     }
 
-    final headerStyle = Theme.of(context).textTheme.labelLarge;
-    final numberStyle = Theme.of(context).textTheme.bodyMedium;
+    final theme = Theme.of(context);
+    final headerStyle = theme.textTheme.labelLarge?.copyWith(
+      color: Colors.white70,
+    );
+    final numberStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: Colors.white,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final totalStyle = theme.textTheme.titleMedium?.copyWith(
+      color: Colors.white,
+      fontWeight: FontWeight.w800,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    final usFirst = localTeam == 0;
+    int us(final int one, final int two) => usFirst ? one : two;
+    int them(final int one, final int two) => usFirst ? two : one;
 
     final rows = <TableRow>[
       TableRow(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        ),
         children: [
           _ScoreSummaryCell('Round', style: headerStyle),
           _ScoreSummaryCell('Your team', style: headerStyle),
@@ -222,34 +242,50 @@ class _ScoreSummaryTable extends StatelessWidget {
         (final round) => TableRow(
           children: [
             _ScoreSummaryCell('${round.roundNumber}', style: numberStyle),
-            _ScoreSummaryCell('${round.teamOnePoints}', style: numberStyle),
-            _ScoreSummaryCell('${round.teamTwoPoints}', style: numberStyle),
+            _ScoreSummaryCell(
+              '${us(round.teamOnePoints, round.teamTwoPoints)}',
+              style: numberStyle,
+            ),
+            _ScoreSummaryCell(
+              '${them(round.teamOnePoints, round.teamTwoPoints)}',
+              style: numberStyle,
+            ),
           ],
         ),
       ),
       TableRow(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        ),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08)),
         children: [
-          _ScoreSummaryCell('Total', style: headerStyle),
-          _ScoreSummaryCell('${scoreState.teamOneTotal}', style: headerStyle),
-          _ScoreSummaryCell('${scoreState.teamTwoTotal}', style: headerStyle),
+          _ScoreSummaryCell('Total', style: totalStyle),
+          _ScoreSummaryCell(
+            '${us(scoreState.teamOneTotal, scoreState.teamTwoTotal)}',
+            style: totalStyle?.copyWith(color: Colors.greenAccent),
+          ),
+          _ScoreSummaryCell(
+            '${them(scoreState.teamOneTotal, scoreState.teamTwoTotal)}',
+            style: totalStyle?.copyWith(color: Colors.orangeAccent),
+          ),
         ],
       ),
     ];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Center(
-        child: Table(
-          defaultColumnWidth: const IntrinsicColumnWidth(),
-          border: TableBorder.all(
-            color: Theme.of(context).dividerColor,
-            width: 0.5,
-          ),
-          children: rows,
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(0.8),
+          1: FlexColumnWidth(),
+          2: FlexColumnWidth(),
+        },
+        border: const TableBorder(
+          horizontalInside: BorderSide(color: Colors.white10),
         ),
+        children: rows,
       ),
     );
   }
@@ -264,6 +300,6 @@ class _ScoreSummaryCell extends StatelessWidget {
   @override
   Widget build(final BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    child: Text(text, style: style),
+    child: Text(text, style: style, textAlign: TextAlign.center),
   );
 }

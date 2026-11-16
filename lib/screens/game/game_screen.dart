@@ -308,6 +308,7 @@ class _GameScreenState extends State<GameScreen>
       return;
     }
     if (snapshot.phase != GamePhase.play ||
+        snapshot.scoreState.roundComplete ||
         snapshot.currentPlayerId != _humanId) {
       _clearAiSuggestionSelection();
       return;
@@ -573,7 +574,10 @@ class _GameScreenState extends State<GameScreen>
         snapshot.schupfReceipts.isNotEmpty;
 
     // ── Phase: play ────────────────────────────────────────────────────
-    final isPlayPhase = phase == GamePhase.play;
+    // After the last play (or a double victory) the round is over: no turn
+    // actions until the next round starts.
+    final isPlayPhase =
+        phase == GamePhase.play && !isRoundComplete && !isGameComplete;
     final pendingReceipts =
         _schupfAckPending ||
         (snapshot != null && snapshot.schupfReceipts.isNotEmpty);
@@ -635,7 +639,13 @@ class _GameScreenState extends State<GameScreen>
     final humanGrandTichu = humanTichuCall == TichuCall.grandTichu;
     final showGrandTichuDecision =
         snapshot != null && _shouldShowGrandTichuDecision(snapshot);
-    final winningTeam = scoreState?.winningTeam;
+    // The match-end banner expects 0 = the local player's team.
+    final absoluteWinningTeam = scoreState?.winningTeam;
+    final winningTeam = absoluteWinningTeam == null
+        ? null
+        : (absoluteWinningTeam == (_resolveSelfSeat(snapshot) ?? 0) % 2
+              ? 0
+              : 1);
     final showMatchPanel = isGameComplete && winningTeam != null;
     final handArea = PlayerHandArea(
       hand: _hand,

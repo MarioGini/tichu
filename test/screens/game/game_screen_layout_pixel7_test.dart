@@ -147,6 +147,36 @@ void main() {
       }
     });
 
+    testWidgets('match end fits at $label', (final tester) async {
+      final backend = await pumpAt(tester, size);
+      backend.emit(
+        buildPlayerSnapshot(
+          currentPlayerId: testOpponentLeftId,
+          hand: const [],
+          scoreState: const ScoreState(
+            roundNumber: 9,
+            teamOneTotal: 1020,
+            teamTwoTotal: 640,
+            teamOneRound: 0,
+            teamTwoRound: 0,
+            playerRoundPoints: {},
+            roundComplete: false,
+            targetScore: 1000,
+            gameComplete: true,
+            winningTeam: 0,
+            finishOrder: [testHumanId, testOpponentLeftId],
+            rounds: [],
+            tichuCalls: {testHumanId: TichuCall.tichu},
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('Your team wins'), findsOneWidget);
+      expect(find.text('PLAY'), findsNothing);
+    });
+
     testWidgets('schupf phase fits on screen at $label', (final tester) async {
       final backend = await pumpAt(tester, size);
       backend.emit(

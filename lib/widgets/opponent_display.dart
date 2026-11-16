@@ -272,19 +272,29 @@ class OpponentDisplay extends StatelessWidget {
           context,
         ).textTheme.titleSmall?.copyWith(color: Colors.white),
       ),
-      if (showPoints)
-        Text(
-          '$teamScore pts',
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: Colors.white60),
+      // Points and Tichu badge share one row; the finish position sits on
+      // the avatar badge, so finished tiles stay as compact as live ones.
+      if (showPoints || tichuDeclared || grandTichuDeclared)
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showPoints)
+                Text(
+                  '$teamScore pts',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelSmall?.copyWith(color: Colors.white60),
+                ),
+              if (showPoints && (tichuDeclared || grandTichuDeclared))
+                const SizedBox(width: 6),
+              _tichuBadge(context, isHorizontal: true, compact: true),
+            ],
+          ),
         ),
-      // "Out #n" when the finish position is known, else a plain "Out" pill.
-      if (finishPosition != null)
-        buildPlayerOutLabel(context, finishPosition!)
-      else
+      if (isFinished && finishPosition == null)
         _statusPill(context, colorScheme),
-      _tichuBadge(context, isHorizontal: false),
     ],
   );
 
@@ -333,14 +343,18 @@ class OpponentDisplay extends StatelessWidget {
               constraints: const BoxConstraints(minWidth: 20),
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
-                color: cardCount == 0 ? Colors.white24 : Colors.white,
+                color: finishPosition != null
+                    ? Colors.greenAccent
+                    : cardCount == 0
+                    ? Colors.white24
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(999),
                 boxShadow: const [
                   BoxShadow(color: Colors.black38, blurRadius: 3),
                 ],
               ),
               child: Text(
-                '$cardCount',
+                finishPosition != null ? '#$finishPosition' : '$cardCount',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Color(0xFF0B3B2A),

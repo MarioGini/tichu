@@ -52,7 +52,10 @@ mixin _GameScreenDialogs on _GameScreenBindings {
     _lastDialogRoundNumber = scoreState.roundNumber;
     _roundCompleteAcknowledged = false;
     final tichuSuccess = _buildTichuSuccessMessage(snapshot);
-    final matchSuccess = _buildMatchSuccessMessage(scoreState);
+    final matchSuccess = _buildMatchSuccessMessage(
+      scoreState,
+      localTeam: _localTeam(snapshot),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -79,6 +82,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         MaterialPageRoute<void>(
           builder: (final context) => RoundSummaryScreen(
             scoreState: scoreState,
+            localTeam: _localTeam(snapshot),
             onBackHome: () {
               Navigator.of(context).pop();
               Navigator.of(context).pop();
@@ -121,14 +125,24 @@ mixin _GameScreenDialogs on _GameScreenBindings {
   }
 
   ({String message, bool isPositive})? _buildMatchSuccessMessage(
-    final ScoreState scoreState,
-  ) {
+    final ScoreState scoreState, {
+    required final int localTeam,
+  }) {
     if (!scoreState.gameComplete) return null;
-    return switch (scoreState.winningTeam) {
-      0 => (message: 'Your team wins the match!', isPositive: true),
-      1 => (message: 'Other team wins the match!', isPositive: false),
-      _ => (message: 'The match ends in a tie!', isPositive: false),
-    };
+    final winningTeam = scoreState.winningTeam;
+    if (winningTeam == null) {
+      return (message: 'The match ends in a tie!', isPositive: false);
+    }
+    return winningTeam == localTeam
+        ? (message: 'Your team wins the match!', isPositive: true)
+        : (message: 'Other team wins the match!', isPositive: false);
+  }
+
+  int _localTeam(final PlayerSnapshot snapshot) {
+    for (final player in snapshot.players) {
+      if (player.id == _humanId) return player.seat % 2;
+    }
+    return 0;
   }
 
   ({String message, bool isPositive})? _buildTichuSuccessMessage(
@@ -193,6 +207,7 @@ mixin _GameScreenDialogs on _GameScreenBindings {
         barrierDismissible: false,
         builder: (final context) => AlertDialog(
           title: const Text('Who receives the dragon?'),
+          content: const Text('The trick goes to an opponent.'),
           actionsAlignment: MainAxisAlignment.center,
           actions: targetIds.map((final targetId) {
             final name = snapshot.players
@@ -200,6 +215,11 @@ mixin _GameScreenDialogs on _GameScreenBindings {
                 .name;
             return TextButton(
               onPressed: () => Navigator.of(context).pop(targetId),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(110, 44),
+                shape: const StadiumBorder(),
+                backgroundColor: Colors.white.withValues(alpha: 0.08),
+              ),
               child: Text(name),
             );
           }).toList(),

@@ -49,19 +49,17 @@ class TrickDisplay extends StatelessWidget {
         );
         final gap = 1.0 + 1.5 * placeholderScale;
 
-        final hasMahjongInTrick = cards.any(
-          (final card) => card.face == CardFace.mahJong,
-        );
-        final showWish = activeWish != CardFace.none && !hasMahjongInTrick;
+        // The active wish is shown as a readable pill ("WISH  A") rather
+        // than as a chip on a tiny Mah Jong card, so it is clear which rank
+        // has to be played.
+        final showWish = activeWish != CardFace.none;
 
         // Short boxes (phone landscape): winner and points share one line.
         final compactHeader = availH < 170;
         final showHeaderLine =
             currentWinnerLabel.isNotEmpty || dragonGiveLabel.isNotEmpty;
         final reservedHeaderH = showHeaderLine ? (compactHeader ? 20 : 28) : 0;
-        final reservedWishH = showWish
-            ? CardWidget.compactHeight * placeholderScale * 0.5 + gap
-            : 0;
+        final reservedWishH = showWish ? 26 + gap : 0;
         final pointsInHeader =
             compactHeader && showTrickPoints && currentWinnerLabel.isNotEmpty;
         final reservedPointsH = showTrickPoints && !pointsInHeader ? 14 : 0;
@@ -124,13 +122,7 @@ class TrickDisplay extends StatelessWidget {
               SizedBox(height: gap),
             ],
             if (showWish) ...[
-              CardWidget(
-                card: Card(CardFace.mahJong, CardColor.special),
-                isSelected: false,
-                compact: true,
-                scale: scale * 0.5,
-                overlayChipText: _wishLabel(activeWish),
-              ),
+              _WishPill(label: _wishLabel(activeWish)),
               SizedBox(height: gap),
             ],
             if (showTrickPoints && !pointsInHeader)
@@ -153,16 +145,10 @@ class TrickDisplay extends StatelessWidget {
                     height: cardH + 8,
                     itemBuilder: (final context, final index) {
                       final card = cards[index];
-                      final wishOverlay =
-                          activeWish != CardFace.none &&
-                              card.face == CardFace.mahJong
-                          ? _wishLabel(activeWish)
-                          : null;
                       return CardWidget(
                         card: card,
                         isSelected: false,
                         scale: scale,
-                        overlayChipText: wishOverlay,
                       );
                     },
                   ),
@@ -195,4 +181,37 @@ class TrickDisplay extends StatelessWidget {
     CardFace.three => '3',
     CardFace.two => '2',
   };
+}
+
+class _WishPill extends StatelessWidget {
+  const _WishPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(final BuildContext context) => Container(
+    height: 26,
+    padding: const EdgeInsets.only(left: 10, right: 3),
+    decoration: BoxDecoration(
+      color: Colors.amber.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: Colors.amber.withValues(alpha: 0.8)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'WISH',
+          style: TextStyle(
+            color: Colors.amber,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(width: 6),
+        CardValueChip(text: label, scale: 1.05, textColor: Colors.amber),
+      ],
+    ),
+  );
 }

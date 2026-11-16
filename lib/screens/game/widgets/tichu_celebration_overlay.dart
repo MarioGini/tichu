@@ -66,38 +66,49 @@ class _TichuCelebrationOverlayState extends State<TichuCelebrationOverlay>
 
   @override
   Widget build(final BuildContext context) => Material(
-    color: Colors.transparent,
+    // Dim the table so the message reads clearly over the cards.
+    color: Colors.black.withValues(alpha: 0.55),
     child: SafeArea(
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            EventSlamOverlay(
-              slide: _slide,
-              scale: _scale,
-              icon: widget.isPositive
-                  ? Icons.emoji_events
-                  : Icons.warning_amber,
-              label: widget.label,
-              gradientColors: widget.isPositive
-                  ? [
-                      Colors.orangeAccent,
-                      Colors.deepOrange.shade700,
-                      Colors.black87,
-                    ]
-                  : [Colors.pinkAccent, Colors.red.shade800, Colors.black87],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              widget.message,
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: widget.isPositive ? Colors.white : Colors.red.shade100,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              EventSlamOverlay(
+                slide: _slide,
+                scale: _scale,
+                icon: widget.isPositive
+                    ? Icons.emoji_events
+                    : Icons.warning_amber,
+                label: widget.label,
+                gradientColors: widget.isPositive
+                    ? [
+                        Colors.orangeAccent,
+                        Colors.deepOrange.shade700,
+                        Colors.black87,
+                      ]
+                    : [Colors.pinkAccent, Colors.red.shade800, Colors.black87],
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 14),
-            FilledButton(onPressed: _dismiss, child: const Text('Next')),
-          ],
+              const SizedBox(height: 10),
+              Text(
+                widget.message,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: widget.isPositive ? Colors.white : Colors.red.shade100,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _dismiss,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(140, 44),
+                  shape: const StadiumBorder(),
+                ),
+                child: const Text('Next'),
+              ),
+            ],
+          ),
         ),
       ),
     ),

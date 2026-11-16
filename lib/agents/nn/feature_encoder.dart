@@ -65,35 +65,6 @@ List<double> encodeStateFeatures({
   required final String playerId,
 }) => FeatureEncoder(snapshot: snapshot, playerId: playerId).stateFeatures;
 
-/// Encode one legal action (or pass) for [playerId] in [snapshot].
-///
-/// When encoding many actions for the same decision, build one
-/// [FeatureEncoder] and call [FeatureEncoder.actionFeatures] instead; it
-/// caches the hand/unseen analysis.
-List<double> encodeActionFeatures({
-  required final GameSnapshot snapshot,
-  required final String playerId,
-  required final TichuTurn play,
-  final bool isPass = false,
-}) => FeatureEncoder(
-  snapshot: snapshot,
-  playerId: playerId,
-).actionFeatures(play, isPass: isPass);
-
-/// Combine state + action features into a single input vector.
-List<double> encodeStateActionFeatures({
-  required final GameSnapshot snapshot,
-  required final String playerId,
-  required final TichuTurn play,
-  final bool isPass = false,
-}) {
-  final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
-  return [
-    ...encoder.stateFeatures,
-    ...encoder.actionFeatures(play, isPass: isPass),
-  ];
-}
-
 /// Per-decision feature encoder. Analyses the snapshot once; state features
 /// are computed lazily and cached, action features are computed per call.
 class FeatureEncoder {

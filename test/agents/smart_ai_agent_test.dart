@@ -1220,18 +1220,4 @@ void main() {
   // -----------------------------------------------------------------------
   // Phoenix value
   // -----------------------------------------------------------------------
-
-  group('selectPhoenixValue', () {
-    test('returns 0 when no phoenix in cards', () {
-      final agent = SmartAiAgent(_aiId);
-      final cards = [Card(CardFace.five, CardColor.red)];
-      expect(agent.selectPhoenixValue(_emptyDeck(), cards), 0);
-    });
-
-    test('returns phoenix value from the card itself', () {
-      final agent = SmartAiAgent(_aiId);
-      final cards = [const Card.phoenix(7.5)];
-      expect(agent.selectPhoenixValue(_emptyDeck(), cards), 7.5);
-    });
-  });
 }

@@ -68,13 +68,6 @@ class BotConfig {
   /// The pure heuristic bot.
   static const heuristic = BotConfig();
 
-  bool get isHeuristic =>
-      play == null &&
-      tichu == null &&
-      grandTichu == null &&
-      preSchupfTichu == null &&
-      schupf == null;
-
   /// Build the agent for [playerId].
   ///
   /// [playOverride] replaces the play strategy (e.g. a search player such as

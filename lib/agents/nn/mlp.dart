@@ -69,7 +69,6 @@ class Mlp {
        ];
 
   int get inputSize => layerSizes.first;
-  int get outputSize => layerSizes.last;
   int get numLayers => _weights.length;
 
   // ── Inference ───────────────────────────────────────────────────────────
@@ -105,17 +104,6 @@ class Mlp {
     }
 
     return _buffers.last;
-  }
-
-  /// Compute output from input features.
-  List<double> forward(final List<double> input) {
-    if (input.length != inputSize) {
-      throw ArgumentError(
-        'Expected input of size $inputSize, got ${input.length}.',
-      );
-    }
-    final typed = input is Float64List ? input : Float64List.fromList(input);
-    return List<double>.from(_forwardTyped(typed));
   }
 
   /// Compute Q-value for a single state-action pair (output size == 1).

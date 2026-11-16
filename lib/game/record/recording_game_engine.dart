@@ -16,7 +16,15 @@ import 'package:tichu/game/turn/tichu_data.dart';
 /// record holds each move together with the hand it was made from. The
 /// record is saved to [store] after every change.
 class RecordingGameEngine implements GameEngine {
-  RecordingGameEngine(this._inner, {this.store, this.botDescription});
+  RecordingGameEngine(
+    this._inner, {
+    this.store,
+    this.botDescription,
+    this.onSaved,
+  });
+
+  /// Called after each save attempt (with the error, if it failed).
+  final void Function(String gameId, Object? error)? onSaved;
 
   final GameEngine _inner;
   final GameRecordStore? store;
@@ -429,7 +437,10 @@ class RecordingGameEngine implements GameEngine {
     if (store != null) {
       _saves
           .putIfAbsent(gameId, _SaveQueue.new)
-          .schedule(() => store.save(record));
+          .schedule(
+            () => store.save(record),
+            (final error) => onSaved?.call(gameId, error),
+          );
     }
   }
 
@@ -544,16 +555,23 @@ class _SaveQueue {
 
   Future<void> get idle => _tail;
 
-  void schedule(final Future<void> Function() save) {
+  void schedule(
+    final Future<void> Function() save,
+    final void Function(Object? error) done,
+  ) {
     if (_queued) return;
     _queued = true;
     _tail = _tail.then((_) async {
       _queued = false;
+      Object? failure;
       try {
         await save();
         // A failing store must never break the game.
         // ignore: avoid_catches_without_on_clauses
-      } catch (_) {}
+      } catch (error) {
+        failure = error;
+      }
+      done(failure);
     });
   }
 }

@@ -10,6 +10,8 @@ import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/screens/observe/observe_controller.dart';
 import 'package:tichu/services/records/default_game_record_store.dart';
+import 'package:tichu/services/supabase/supabase_app_client.dart';
+import 'package:tichu/services/supabase/supabase_game_record_store.dart';
 import 'package:tichu/widgets/card_widget.dart';
 import 'package:tichu/widgets/game_gradient_background.dart';
 import 'package:tichu/widgets/overlapping_card_row.dart';
@@ -31,7 +33,13 @@ class ObserveScreen extends StatefulWidget {
 class _ObserveScreenState extends State<ObserveScreen> {
   late final ObserveController _controller =
       widget.controller ??
-      ObserveController(store: createDefaultGameRecordStore());
+      ObserveController(
+        // Watched games go to Supabase so they can be discussed later by id;
+        // builds without a Supabase project fall back to local files.
+        store: supabaseConfigured
+            ? SupabaseGameRecordStore()
+            : createDefaultGameRecordStore(),
+      );
   final FocusNode _focus = FocusNode(debugLabel: 'observe');
 
   @override
@@ -94,6 +102,8 @@ class _ObserveScreenState extends State<ObserveScreen> {
               _controller.recordLocation ?? 'not saved',
               style: const TextStyle(fontFamily: 'monospace'),
             ),
+            const SizedBox(height: 4),
+            Text(_uploadStatus().$2),
             const SizedBox(height: 12),
             const Text('Refer to moves by the # number shown above the table.'),
           ],
@@ -110,6 +120,23 @@ class _ObserveScreenState extends State<ObserveScreen> {
         ],
       ),
     );
+  }
+
+  /// Icon and text describing where the record is being saved.
+  (IconData, String) _uploadStatus() {
+    final store = _controller.store;
+    if (store is! SupabaseGameRecordStore) {
+      return (
+        Icons.save_outlined,
+        'Saved locally (this build has no Supabase project configured)',
+      );
+    }
+    final error = store.lastError;
+    if (error != null) return (Icons.cloud_off, 'Upload failed: $error');
+    if (store.lastSavedAt == null) {
+      return (Icons.cloud_upload_outlined, 'Uploading to Supabase…');
+    }
+    return (Icons.cloud_done_outlined, 'Saved to Supabase');
   }
 
   @override
@@ -151,6 +178,11 @@ class _ObserveScreenState extends State<ObserveScreen> {
                     'Record',
                   ),
                 ),
+              ),
+              IconButton(
+                tooltip: _uploadStatus().$2,
+                icon: Icon(_uploadStatus().$1),
+                onPressed: () => unawaited(_showRecordInfo()),
               ),
               IconButton(
                 tooltip: 'Record info',

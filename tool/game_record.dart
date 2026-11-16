@@ -3,8 +3,12 @@
 //   dart run tool/game_record.dart <game-id | path/to/record.json>
 //       [--round N] [--from SEQ] [--to SEQ] [--hands]
 //
-// A bare game id is looked up in the default record directory
+// A bare game id is fetched from Supabase when SUPABASE_URL is set
+// (key from SUPABASE_SERVICE_ROLE_KEY, sent as the `apikey` header),
+// otherwise looked up in the default record directory
 // (see FileGameRecordStore.defaultLocation).
+//
+//   dart run tool/game_record.dart --latest   # newest games in Supabase
 import 'dart:convert';
 import 'dart:io';
 
@@ -23,12 +27,35 @@ Future<void> main(final List<String> args) async {
     return i >= 0 && i + 1 < args.length ? int.parse(args[i + 1]) : null;
   }
 
+  final supabaseUrl = Platform.environment['SUPABASE_URL'] ?? '';
+  if (args.first == '--latest') {
+    final rows = await _supabaseGet(
+      supabaseUrl,
+      'select=id,summary&order=updated_at.desc&limit=15',
+    );
+    for (final row in rows) {
+      stdout.writeln('${row['id']}  ${jsonEncode(row['summary'])}');
+    }
+    return;
+  }
+
   final target = args.first;
   final Map<String, Object?> record;
   if (File(target).existsSync()) {
     record = Map<String, Object?>.from(
       jsonDecode(File(target).readAsStringSync()) as Map,
     );
+  } else if (supabaseUrl.isNotEmpty) {
+    final rows = await _supabaseGet(
+      supabaseUrl,
+      'select=record&id=eq.${Uri.encodeQueryComponent(target)}',
+    );
+    if (rows.isEmpty) {
+      stderr.writeln('No record $target in Supabase');
+      exitCode = 1;
+      return;
+    }
+    record = Map<String, Object?>.from(rows.single['record']! as Map);
   } else {
     final store = FileGameRecordStore.defaultLocation();
     final loaded = await store.load(target);
@@ -70,5 +97,35 @@ Future<void> main(final List<String> args) async {
         );
       }
     }
+  }
+}
+
+/// GET on the `tichu_game_records` REST endpoint of the Supabase project.
+Future<List<Map<String, Object?>>> _supabaseGet(
+  final String supabaseUrl,
+  final String query,
+) async {
+  if (supabaseUrl.isEmpty) throw StateError('SUPABASE_URL is not set.');
+  // A network proxy may inject the real key; any placeholder works then.
+  final key =
+      Platform.environment['SUPABASE_SERVICE_ROLE_KEY'] ?? 'injected-by-proxy';
+  final client = HttpClient()..findProxy = HttpClient.findProxyFromEnvironment;
+  try {
+    final base = supabaseUrl.endsWith('/') ? supabaseUrl : '$supabaseUrl/';
+    final request = await client.getUrl(
+      Uri.parse('${base}rest/v1/tichu_game_records?$query'),
+    );
+    request.headers.set('apikey', key);
+    if (Platform.environment.containsKey('SUPABASE_SERVICE_ROLE_KEY')) {
+      request.headers.set('Authorization', 'Bearer $key');
+    }
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    if (response.statusCode != 200) {
+      throw StateError('Supabase answered ${response.statusCode}: $body');
+    }
+    return (jsonDecode(body) as List).cast<Map<String, Object?>>();
+  } finally {
+    client.close();
   }
 }

@@ -5,7 +5,8 @@ import 'package:tichu/game/record/game_record.dart';
 import 'package:tichu/game/record/game_record_store.dart';
 
 /// Stores game records in `public.tichu_game_records` (one row per game,
-/// the whole record as jsonb). Used by the Supabase authority.
+/// the whole record as jsonb). Used by the Supabase authority; the table
+/// and its row-level security come from `supabase/migrations`.
 class PostgresGameRecordStore implements GameRecordStore {
   PostgresGameRecordStore({required final String databaseUrl})
     : _databaseUrl = databaseUrl;
@@ -20,6 +21,7 @@ create table if not exists public.tichu_game_records (
     complete boolean not null default false,
     summary jsonb not null,
     record jsonb not null,
+    owner uuid,
     created_at timestamptz not null default timezone('utc', now()),
     updated_at timestamptz not null default timezone('utc', now())
 )

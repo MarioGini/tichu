@@ -1,5 +1,5 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
+import 'package:tichu/services/supabase/supabase_app_client.dart';
 import 'package:tichu/services/supabase/supabase_multiplayer_backend.dart';
 
 Future<MultiplayerBackend> createConfiguredMultiplayerBackend() async {
@@ -13,14 +13,7 @@ Future<MultiplayerBackend> createConfiguredMultiplayerBackend() async {
       return LocalMultiplayerBackend();
     case 'supabase':
       final config = SupabaseMultiplayerConfig.fromEnvironment();
-      await Supabase.initialize(
-        url: config.url,
-        publishableKey: config.anonKey,
-      );
-      final client = Supabase.instance.client;
-      if (client.auth.currentSession == null) {
-        await client.auth.signInAnonymously();
-      }
+      final client = await appSupabaseClient();
       return SupabaseMultiplayerBackend(config: config, client: client);
     default:
       throw StateError(

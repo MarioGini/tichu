@@ -192,3 +192,30 @@ Open two browser windows against the same Supabase stack (see steps 6–7 above)
 - **No lobby expiry.** Abandoned lobbies stay in memory and Postgres until the authority restarts. A TTL sweep would fix this.
 - **Anonymous auth only.** There are no real user accounts. Each browser session is a separate anonymous identity. The projection RLS is sound but tied to ephemeral UUIDs.
 - **Single-process authority.** No horizontal scaling or failover. Fine for small-scale play.
+## Game records (Watch AI)
+
+Every game is recorded (each decision with the hand it was made from) under
+its game id (a UUID). "Watch AI play" uploads its records to Supabase when
+the build has `SUPABASE_URL` and `SUPABASE_ANON_KEY` dart-defines, whatever
+`TICHU_BACKEND` is:
+
+```
+flutter run -d linux \
+ --dart-define=SUPABASE_URL=https://your-project.supabase.co \
+ --dart-define=SUPABASE_ANON_KEY=your-anon-key
+```
+
+Apply `supabase/migrations/*_tichu_game_records.sql` once (`supabase db push`
+or paste it into the SQL editor). It creates `public.tichu_game_records`
+with row-level security: the app's anonymous user can only write and read its
+own rows; the service role reads everything. Without a Supabase project the
+records go to `~/.local/share/tichu/game_records/<id>.json`.
+
+Read a record back as a timeline:
+
+```
+SUPABASE_URL=https://your-project.supabase.co \
+SUPABASE_SERVICE_ROLE_KEY=... \
+dart run tool/game_record.dart <game-id> --hands
+dart run tool/game_record.dart --latest
+```

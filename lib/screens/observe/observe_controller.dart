@@ -50,6 +50,7 @@ class ObserveController extends ChangeNotifier {
     GameEngineImpl(),
     store: store,
     botDescription: AppBots.describe(),
+    onSaved: (_, _) => _notify(),
   );
   late final LocalMatchRuntime _runtime = LocalMatchRuntime(
     engine: _engine,

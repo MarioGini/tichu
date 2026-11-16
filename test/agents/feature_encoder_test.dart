@@ -1,71 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
-import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'ai_test_fixtures.dart';
 
-Card c(final CardFace face, [final CardColor color = CardColor.black]) =>
-    Card(face, color);
-
-GameSnapshot _snapshot({
-  required final List<Card> mine,
-  required final Map<String, List<Card>> others,
-  final DeckState? deck,
-  final int trickPoints = 0,
-  final List<String> finishOrder = const [],
-  final Map<String, TichuCall> calls = const {},
-  final Map<String, List<SchupfReceipt>> receipts = const {},
-}) {
-  final base = aiSnapshot(
-    myHand: mine,
-    otherHands: others,
-    deck: deck,
-    tichuCalls: calls,
-    schupfReceipts: receipts,
-  );
-  return GameSnapshot(
-    gameId: base.gameId,
-    players: base.players,
-    hands: base.hands,
-    deck: base.deck,
-    trickPoints: trickPoints,
-    activeWish: base.activeWish,
-    currentPlayerId: base.currentPlayerId,
-    consecutivePasses: base.consecutivePasses,
-    lastPlayedBy: base.lastPlayedBy,
-    lastPlayedTurn: base.lastPlayedTurn,
-    lastDragonGiveBy: null,
-    lastDragonGiveTo: null,
-    pendingDragonGiveBy: null,
-    pendingDragonGiveTargets: const [],
-    pendingOpponentPlayerId: null,
-    pendingOpponentCards: const [],
-    pendingOpponentPass: false,
-    scoreState: base.scoreState.copyWith(finishOrder: finishOrder),
-    opponentAwaitingConfirmation: false,
-    phase: GamePhase.play,
-    grandTichuDecisions: const {},
-    schupfCompletedPlayers: const [],
-    schupfReceipts: base.schupfReceipts,
-  );
-}
-
-int _slot(final String group, final int i) => switch (group) {
-  'hand' => handOffset + i,
-  'played' => playedOffset + i,
-  'unseen' => unseenOffset + i,
-  'trick' => trickOffset + i,
-  'seats' => seatsOffset + i,
-  'self' => selfOffset + i,
-  _ => throw ArgumentError(group),
-};
+import 'feature_encoder_fixtures.dart';
 
 void main() {
   test('vector sizes', () {
-    final snap = _snapshot(
+    final snap = fxSnapshot(
       mine: [c(CardFace.two)],
       others: {
         aiTestLeftId: [c(CardFace.three)],
@@ -82,7 +27,7 @@ void main() {
   });
 
   test('hand / played / unseen bitmaps are complementary', () {
-    final snap = _snapshot(
+    final snap = fxSnapshot(
       mine: [
         c(CardFace.ace, CardColor.red),
         c(CardFace.dragon, CardColor.special),
@@ -96,20 +41,20 @@ void main() {
     final f = encodeStateFeatures(snapshot: snap, playerId: aiTestSelfId);
     final redAce = cardSlot(c(CardFace.ace, CardColor.red));
     final blueAce = cardSlot(c(CardFace.ace, CardColor.blue));
-    expect(f[_slot('hand', redAce)], 1.0);
-    expect(f[_slot('hand', 55)], 1.0); // dragon
-    expect(f[_slot('played', redAce)], 0.0);
-    expect(f[_slot('played', blueAce)], 0.0); // still in left's hand
+    expect(f[slot('hand', redAce)], 1.0);
+    expect(f[slot('hand', 55)], 1.0); // dragon
+    expect(f[slot('played', redAce)], 0.0);
+    expect(f[slot('played', blueAce)], 0.0); // still in left's hand
     // Black and green aces are out of play.
-    expect(f[_slot('played', cardSlot(c(CardFace.ace)))], 1.0);
+    expect(f[slot('played', cardSlot(c(CardFace.ace)))], 1.0);
     // Unseen aces: only the blue one (1/4); phoenix unseen; dragon mine.
-    expect(f[_slot('unseen', 12)], 0.25);
-    expect(f[_slot('unseen', 15)], 1.0);
-    expect(f[_slot('unseen', 16)], 0.0);
+    expect(f[slot('unseen', 12)], 0.25);
+    expect(f[slot('unseen', 15)], 1.0);
+    expect(f[slot('unseen', 16)], 0.0);
   });
 
   test('seat features distinguish partner from opponents', () {
-    final snap = _snapshot(
+    final snap = fxSnapshot(
       mine: List.generate(5, (final i) => c(CardFace.values[2 + i])),
       others: {
         aiTestLeftId: [c(CardFace.king, CardColor.red)],
@@ -123,14 +68,14 @@ void main() {
       calls: const {aiTestRightId: TichuCall.tichu},
     );
     final f = encodeStateFeatures(snapshot: snap, playerId: aiTestSelfId);
-    expect(f[_slot('seats', 0)], 1 / 14); // left card count
-    expect(f[_slot('seats', 1)], 1.0); // left has one card
-    expect(f[_slot('seats', 9)], 2 / 14); // partner card count
-    expect(f[_slot('seats', 9 + 1)], 0.0);
-    expect(f[_slot('seats', 18 + 3)], 1.0); // right finished
-    expect(f[_slot('seats', 18 + 4)], 1.0); // right finished first
-    expect(f[_slot('seats', 18 + 5)], 1.0); // right called tichu
-    expect(f[_slot('self', 7)], 1.0); // opponent team finished first
+    expect(f[slot('seats', 0)], 1 / 14); // left card count
+    expect(f[slot('seats', 1)], 1.0); // left has one card
+    expect(f[slot('seats', 9)], 2 / 14); // partner card count
+    expect(f[slot('seats', 9 + 1)], 0.0);
+    expect(f[slot('seats', 18 + 3)], 1.0); // right finished
+    expect(f[slot('seats', 18 + 4)], 1.0); // right finished first
+    expect(f[slot('seats', 18 + 5)], 1.0); // right called tichu
+    expect(f[slot('self', 7)], 1.0); // opponent team finished first
   });
 
   test('action: hand-after shape and bomb breaking', () {
@@ -141,7 +86,7 @@ void main() {
       c(CardFace.seven, CardColor.blue),
       c(CardFace.three),
     ];
-    final snap = _snapshot(
+    final snap = fxSnapshot(
       mine: mine,
       others: {
         aiTestLeftId: [c(CardFace.ace, CardColor.red)],
@@ -184,7 +129,7 @@ void main() {
       CardFace.none,
     )..currentWinner = aiTestPartnerId;
     final mine = [c(CardFace.ace, CardColor.red), c(CardFace.jack)];
-    final snap = _snapshot(
+    final snap = fxSnapshot(
       mine: mine,
       deck: deck,
       trickPoints: 10,
@@ -196,9 +141,9 @@ void main() {
     );
     final enc = FeatureEncoder(snapshot: snap, playerId: aiTestSelfId);
     final f = enc.stateFeatures;
-    expect(f[_slot('trick', 1)], 1.0); // single on table
-    expect(f[_slot('trick', 10)], 0.2); // 10 points
-    expect(f[_slot('trick', 13)], 1.0); // partner is winning
+    expect(f[slot('trick', 1)], 1.0); // single on table
+    expect(f[slot('trick', 10)], 0.2); // 10 points
+    expect(f[slot('trick', 13)], 1.0); // partner is winning
 
     final ace = enc.actionFeatures(TichuTurn(TurnType.single, [mine[0]]));
     expect(ace[18], 1.0); // overtakes partner
@@ -209,7 +154,7 @@ void main() {
 
   test('known schupf cards still held', () {
     final passed = c(CardFace.dog, CardColor.special);
-    final snap = _snapshot(
+    final snap = fxSnapshot(
       mine: [c(CardFace.two)],
       others: {
         aiTestLeftId: [passed, c(CardFace.three)],
@@ -227,7 +172,7 @@ void main() {
       },
     );
     final f = encodeStateFeatures(snapshot: snap, playerId: aiTestSelfId);
-    expect(f[_slot('seats', 8)], 1 / 3);
+    expect(f[slot('seats', 8)], 1 / 3);
   });
 
   test('HandShape detects straights with phoenix and full houses', () {
@@ -266,7 +211,7 @@ void main() {
       final List<Card> mine,
       final Map<String, List<Card>> others,
     ) => FeatureEncoder(
-      snapshot: _snapshot(mine: mine, others: others),
+      snapshot: fxSnapshot(mine: mine, others: others),
       playerId: aiTestSelfId,
     );
 
@@ -323,7 +268,7 @@ void main() {
         ])
           c(CardFace.nine, color),
       ];
-      final snap = _snapshot(
+      final snap = fxSnapshot(
         mine: [dragon],
         others: {
           aiTestLeftId: quadNines,
@@ -333,7 +278,7 @@ void main() {
       );
       final enc = FeatureEncoder(snapshot: snap, playerId: aiTestSelfId);
       expect(enc.actionFeatures(TichuTurn(TurnType.single, [dragon]))[21], 1.0);
-      expect(enc.stateFeatures[_slot('self', 14)], 1.0); // bomb possible
+      expect(enc.stateFeatures[slot('self', 14)], 1.0); // bomb possible
     });
   });
 }

@@ -26,6 +26,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _displayNameController = TextEditingController(
     text: 'Player',
   );
+  // Keeps the start panel (and the name field's focus) alive when the
+  // layout switches, e.g. when the on-screen keyboard shrinks the screen
+  // below the short-screen breakpoint.
+  final GlobalKey _startPanelKey = GlobalKey();
   bool _isBusy = false;
   List<GameLobbyListEntry> _games = const <GameLobbyListEntry>[];
   Timer? _refreshTimer;
@@ -190,6 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   constraints.maxWidth > constraints.maxHeight &&
                   constraints.maxWidth >= 640;
               final start = HomeStartPanel(
+                key: _startPanelKey,
                 compact: wide,
                 nameController: _displayNameController,
                 onNameChanged: (_) => setState(() {}),

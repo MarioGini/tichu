@@ -48,7 +48,6 @@ mixin _GameScreenSeats on _GameScreenStateBase {
     final _TableFlags flags, {
     required final GamePlayer? player,
     required final String fallbackName,
-    required final Axis alignment,
     required final IconData icon,
     final bool pill = false,
   }) {
@@ -65,7 +64,6 @@ mixin _GameScreenSeats on _GameScreenStateBase {
       tichuDeclared: call == TichuCall.tichu || call == TichuCall.grandTichu,
       grandTichuDeclared: call == TichuCall.grandTichu,
       finishPosition: flags.finishPositionFor(playerId),
-      alignment: alignment,
       icon: icon,
       teamScore: flags.roundPointsFor(playerId),
       showPoints: flags.showPlayInfo,
@@ -83,7 +81,6 @@ mixin _GameScreenSeats on _GameScreenStateBase {
     return PendingPlaySlot(
       cards: isActive ? _pendingOpponentCards : const [],
       isPassed: isActive && _pendingOpponentPass,
-      alignment: alignment,
       label: label,
     );
   }

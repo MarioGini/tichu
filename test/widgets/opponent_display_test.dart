@@ -1,8 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart' hide Card;
-import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/widgets/opponent_display.dart';
-import 'package:tichu/widgets/overlapping_card_row.dart';
 
 void main() {
   testWidgets('grand tichu uses badge without coloring whole player box', (
@@ -23,7 +21,6 @@ void main() {
                 tichuDeclared: true,
                 grandTichuDeclared: true,
                 finishPosition: null,
-                alignment: Axis.vertical,
                 icon: Icons.smart_toy_outlined,
                 teamScore: 0,
               ),
@@ -46,67 +43,7 @@ void main() {
     expect(decoration.boxShadow, isNull);
   });
 
-  testWidgets('horizontal and vertical boxes share same inner chrome', (
-    final tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 260,
-                height: 260,
-                child: OpponentDisplay(
-                  name: 'Opponent Top',
-                  cardCount: 8,
-                  isActive: false,
-                  isFinished: false,
-                  tichuDeclared: false,
-                  grandTichuDeclared: false,
-                  finishPosition: null,
-                  alignment: Axis.horizontal,
-                  icon: Icons.psychology_alt,
-                  teamScore: 0,
-                ),
-              ),
-              SizedBox(
-                width: 260,
-                height: 260,
-                child: OpponentDisplay(
-                  name: 'Opponent Side',
-                  cardCount: 8,
-                  isActive: false,
-                  isFinished: false,
-                  tichuDeclared: false,
-                  grandTichuDeclared: false,
-                  finishPosition: null,
-                  alignment: Axis.vertical,
-                  icon: Icons.memory,
-                  teamScore: 0,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    final topContainer = tester.widget<AnimatedContainer>(
-      find.byType(AnimatedContainer).at(0),
-    );
-    final sideContainer = tester.widget<AnimatedContainer>(
-      find.byType(AnimatedContainer).at(1),
-    );
-
-    expect(topContainer.margin, const EdgeInsets.all(6));
-    expect(sideContainer.margin, const EdgeInsets.all(6));
-    expect(topContainer.padding, const EdgeInsets.all(8));
-    expect(sideContainer.padding, const EdgeInsets.all(8));
-  });
-
-  testWidgets('horizontal player box is always square', (final tester) async {
+  testWidgets('player box is always square', (final tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -122,7 +59,6 @@ void main() {
                 tichuDeclared: false,
                 grandTichuDeclared: false,
                 finishPosition: null,
-                alignment: Axis.horizontal,
                 icon: Icons.psychology_alt,
                 teamScore: 0,
               ),
@@ -142,219 +78,5 @@ void main() {
     );
 
     expect(boxSize.width, closeTo(boxSize.height, 0.001));
-  });
-
-  testWidgets('vertical box shrinks to make room for side pending cards', (
-    final tester,
-  ) async {
-    Finder playerBoxFinder() {
-      final candidates = find.byWidgetPredicate((final widget) {
-        if (widget is! AnimatedContainer) return false;
-        return widget.margin == const EdgeInsets.all(6) &&
-            widget.padding == const EdgeInsets.all(8);
-      });
-      return candidates.first;
-    }
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 260,
-              height: 260,
-              child: OpponentDisplay(
-                name: 'Opponent Side',
-                cardCount: 8,
-                isActive: false,
-                isFinished: false,
-                tichuDeclared: false,
-                grandTichuDeclared: false,
-                finishPosition: null,
-                alignment: Axis.vertical,
-                icon: Icons.memory,
-                teamScore: 0,
-                pendingPlacement: PendingPlacement.left,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    // Without pending cards the box fills the available space.
-    final sizeWithoutPending = tester.getSize(playerBoxFinder());
-    expect(sizeWithoutPending.width, closeTo(260, 0.001));
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 260,
-              height: 260,
-              child: OpponentDisplay(
-                name: 'Opponent Side',
-                cardCount: 8,
-                isActive: false,
-                isFinished: false,
-                tichuDeclared: false,
-                grandTichuDeclared: false,
-                finishPosition: null,
-                alignment: Axis.vertical,
-                icon: Icons.memory,
-                teamScore: 0,
-                pendingPlacement: PendingPlacement.left,
-                pendingCards: [
-                  Card(CardFace.ace, CardColor.blue),
-                  Card(CardFace.king, CardColor.red),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump();
-
-    final sizeWithPending = tester.getSize(playerBoxFinder());
-
-    // Box shrinks to make room for the pending lane.
-    expect(sizeWithPending.width, lessThan(sizeWithoutPending.width));
-    // Box remains square (height == width).
-    expect(sizeWithPending.width, closeTo(sizeWithPending.height, 0.001));
-    // Pending card row is rendered alongside.
-    expect(find.byType(OverlappingCardRow), findsOneWidget);
-  });
-
-  testWidgets('horizontal pending cards fit available pending area', (
-    final tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 280,
-              height: 140,
-              child: OpponentDisplay(
-                name: 'Opponent Top',
-                cardCount: 7,
-                isActive: true,
-                isFinished: false,
-                tichuDeclared: false,
-                grandTichuDeclared: false,
-                finishPosition: null,
-                alignment: Axis.horizontal,
-                icon: Icons.psychology_alt,
-                teamScore: 10,
-                pendingCards: [
-                  Card(CardFace.ace, CardColor.blue),
-                  Card(CardFace.king, CardColor.red),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final pendingRow = tester.widget<OverlappingCardRow>(
-      find.byType(OverlappingCardRow),
-    );
-    final pendingCard = tester.getSize(
-      find
-          .descendant(
-            of: find.byType(OverlappingCardRow),
-            matching: find.byType(AnimatedContainer),
-          )
-          .first,
-    );
-
-    expect(pendingRow.height, isNotNull);
-    expect(pendingRow.height, greaterThanOrEqualTo(pendingCard.height));
-    expect(find.byType(OverflowBar), findsNothing);
-  });
-
-  testWidgets('horizontal pending cards stay visible in tight mobile layout', (
-    final tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 220,
-              height: 110,
-              child: OpponentDisplay(
-                name: 'Opponent Top',
-                cardCount: 5,
-                isActive: true,
-                isFinished: false,
-                tichuDeclared: false,
-                grandTichuDeclared: false,
-                finishPosition: null,
-                alignment: Axis.horizontal,
-                icon: Icons.psychology_alt,
-                teamScore: 12,
-                pendingCards: [
-                  Card(CardFace.ace, CardColor.blue),
-                  Card(CardFace.king, CardColor.red),
-                  Card(CardFace.queen, CardColor.green),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final pendingRow = tester.widget<OverlappingCardRow>(
-      find.byType(OverlappingCardRow),
-    );
-    final pendingCard = tester.getSize(
-      find
-          .descendant(
-            of: find.byType(OverlappingCardRow),
-            matching: find.byType(AnimatedContainer),
-          )
-          .first,
-    );
-
-    expect(pendingRow.height, isNotNull);
-    expect(pendingRow.height, greaterThanOrEqualTo(pendingCard.height));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('pending pass does not render pass text', (final tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 260,
-              height: 260,
-              child: OpponentDisplay(
-                name: 'Opponent',
-                cardCount: 8,
-                isActive: false,
-                isFinished: false,
-                tichuDeclared: false,
-                grandTichuDeclared: false,
-                finishPosition: null,
-                alignment: Axis.vertical,
-                icon: Icons.smart_toy_outlined,
-                teamScore: 0,
-                pendingPass: true,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('Pass'), findsNothing);
-    expect(find.text('PASS'), findsNothing);
-    expect(find.text('Their turn'), findsNothing);
   });
 }

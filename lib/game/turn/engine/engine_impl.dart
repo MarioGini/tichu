@@ -169,6 +169,18 @@ class GameEngineImpl implements GameEngine {
       throw StateError('Schupfen required before play.');
     }
 
+    // Tichu may be called at any time before the player's first card,
+    // not only on their own turn.
+    if (action is CallTichuAction) {
+      if (!_canPlayerCallTichu(state, action.playerId)) {
+        throw StateError(
+          'Tichu can only be called before playing your first card.',
+        );
+      }
+      state.scoreTracker.recordTichuCall(action.playerId, isGrand: false);
+      return;
+    }
+
     if (state.pendingDragonGiveBy != null) {
       if (action is! GiveDragonAction ||
           action.playerId != state.pendingDragonGiveBy) {
@@ -201,13 +213,6 @@ class GameEngineImpl implements GameEngine {
       applyPassAction(state, action);
     } else if (action is GiveDragonAction) {
       throw StateError('No dragon trick to give.');
-    } else if (action is CallTichuAction) {
-      if (!_canPlayerCallTichu(state, action.playerId)) {
-        throw StateError(
-          'Tichu can only be called before playing your first card.',
-        );
-      }
-      state.scoreTracker.recordTichuCall(action.playerId, isGrand: false);
     } else if (action is CallGrandTichuAction) {
       state.scoreTracker.recordTichuCall(action.playerId, isGrand: true);
     }

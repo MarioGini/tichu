@@ -726,7 +726,10 @@ class _GameScreenState extends State<GameScreen>
             topPendingSlot: _buildPendingSlot(
               playerId: partnerPlayer?.id,
               showPending: showOpponentPendingCards,
-              alignment: Alignment.bottomCenter,
+              alignment: landscape
+                  ? Alignment.topCenter
+                  : Alignment.bottomCenter,
+              label: landscape ? partnerPlayer?.name : null,
             ),
             leftOpponent: _buildOpponent(
               player: leftPlayer,
@@ -873,12 +876,14 @@ class _GameScreenState extends State<GameScreen>
     required final String? playerId,
     required final bool showPending,
     required final Alignment alignment,
+    final String? label,
   }) {
     final isActive = showPending && _pendingOpponentPlayerId == playerId;
     return PendingPlaySlot(
       cards: isActive ? _pendingOpponentCards : const [],
       isPassed: isActive && _pendingOpponentPass,
       alignment: alignment,
+      label: label,
     );
   }
 

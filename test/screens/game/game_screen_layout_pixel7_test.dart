@@ -6,6 +6,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/screens/game/game_screen.dart';
 import 'package:tichu/screens/game/widgets/schupf_panel.dart';
 import 'package:tichu/widgets/card_widget.dart';
+import 'package:tichu/widgets/trick_display.dart';
 
 import '../../utils/test_game_fixtures.dart';
 import '../../utils/test_game_match_service.dart';
@@ -140,6 +141,17 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('GRAND'), findsOneWidget);
+      // Staged (pending) partner cards never cover the trick.
+      final trickRect = tester.getRect(find.byType(TrickDisplay));
+      for (final element in find.byType(CardWidget).evaluate()) {
+        final card = (element.widget as CardWidget).card;
+        if (card.color != CardColor.red || card.face == CardFace.dragon) {
+          continue;
+        }
+        final rect = tester.getRect(find.byWidget(element.widget));
+        if (rect.bottom > size.height * 0.75) continue; // hand cards
+        expect(rect.overlaps(trickRect), isFalse, reason: '$card $rect');
+      }
       for (final element in find.byType(CardWidget).evaluate()) {
         final rect = tester.getRect(find.byWidget(element.widget));
         expect(rect.bottom, lessThanOrEqualTo(size.height + 0.5));

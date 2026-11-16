@@ -130,18 +130,26 @@ class GameBoard extends StatelessWidget {
     final op = math.min(w * 0.24, math.min(h * 0.26, 108)).toDouble();
     // Trick: as large as the space between the side opponents allows.
     final trickW = math.min<double>(w - 2 * (op + pad + gap), 320);
-    final trickH = math
+    final idealTrickH = math
         .min(h - 2 * (op + gap) - 8, CardWidget.normalHeight + 56)
         .clamp(60.0, 400.0);
+    final pendingH = math.min(math.max(0, idealTrickH - 44) * 0.6, op);
+    // The partner's staged play sits between the partner and the trick;
+    // the trick starts below it (and shrinks on short screens) so the two
+    // never overlap.
+    final topReserve =
+        op + gap + (reserveTopPendingSlot ? pendingH + gap : 0).toDouble();
+    final trickH = math
+        .max(60, math.min(idealTrickH, h - topReserve - 4))
+        .toDouble();
     final laneH = math.max(0, trickH - 44).toDouble();
     final playedCardScale =
         (math.max(0, laneH - 8) / (CardWidget.normalHeight + 8)).clamp(
           0.25,
           1.0,
         );
-    final pendingH = math.min(laneH * 0.6, op);
     final pendingW = CardWidget.normalWidth * playedCardScale * 1.6;
-    final trickTop = math.max(op + gap, (h - trickH) / 2 + op * 0.2);
+    final trickTop = math.max(topReserve, (h - trickH) / 2 + op * 0.2);
 
     return PlayedCardSizeScope(
       cardScale: playedCardScale,
@@ -223,7 +231,10 @@ class GameBoard extends StatelessWidget {
           math.max(0, middleH - pillH - 12),
         )
         .toDouble();
-    final partnerPendingW = CardWidget.normalWidth * playedCardScale * 2.2;
+    final partnerLaneW = (CardWidget.normalWidth * playedCardScale * 1.9).clamp(
+      72.0,
+      130.0,
+    );
 
     Widget sideColumn(final Widget pill, final Widget pending) => SizedBox(
       width: sideW,
@@ -300,11 +311,32 @@ class GameBoard extends StatelessWidget {
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.only(top: 2),
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 520),
-                              child: trickArea,
-                            ),
+                          // The partner's staged play gets its own lane next
+                          // to the trick (mirrored by a spacer so the trick
+                          // stays centred) instead of covering the trick.
+                          child: Row(
+                            children: [
+                              if (reserveTopPendingSlot)
+                                SizedBox(width: partnerLaneW),
+                              Expanded(
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 520,
+                                    ),
+                                    child: trickArea,
+                                  ),
+                                ),
+                              ),
+                              if (reserveTopPendingSlot)
+                                SizedBox(
+                                  width: partnerLaneW,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 6),
+                                    child: topPendingSlot,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
@@ -334,14 +366,6 @@ class GameBoard extends StatelessWidget {
         children: [
           Positioned.fill(child: body),
           // Partner's staged play hangs next to the partner pill.
-          if (reserveTopPendingSlot && !expandHand)
-            Positioned(
-              top: 4,
-              left: w / 2 + pillW / 2 + 8,
-              width: partnerPendingW,
-              height: math.max(0, math.min(pendingH, topBarH + middleH * 0.5)),
-              child: topPendingSlot,
-            ),
         ],
       ),
     );

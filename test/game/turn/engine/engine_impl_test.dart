@@ -147,6 +147,20 @@ void main() {
       expect(tichuCall, TichuCall.tichu);
     });
 
+    test('allows calling tichu off-turn during play', () {
+      final engine = GameEngineImpl();
+      final state = _state(phase: GamePhase.play);
+      final notCurrent = state.players
+          .firstWhere(
+            (final p) => p.id != state.players[state.currentPlayerIndex].id,
+          )
+          .id;
+
+      engine.applyAction(state, CallTichuAction(playerId: notCurrent));
+
+      expect(state.scoreTracker.state.tichuCalls[notCurrent], TichuCall.tichu);
+    });
+
     test('blocks non dragon action while dragon give is pending', () {
       final engine = GameEngineImpl();
       final state = _state(phase: GamePhase.play);

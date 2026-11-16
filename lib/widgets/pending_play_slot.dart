@@ -16,16 +16,46 @@ class PendingPlaySlot extends StatelessWidget {
     this.cards = const [],
     this.isPassed = false,
     this.alignment = Alignment.center,
+    this.label,
   });
 
   final List<Card> cards;
   final bool isPassed;
   final Alignment alignment;
 
+  /// Optional player name shown above the cards, for slots that are not
+  /// right next to the player's seat (the partner lane in landscape).
+  final String? label;
+
   @override
   Widget build(final BuildContext context) {
     if (cards.isEmpty || isPassed) {
       return const SizedBox.expand();
+    }
+
+    final label = this.label;
+    if (label != null) {
+      return Column(
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Colors.white70,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Expanded(
+            child: PendingPlaySlot(
+              cards: cards,
+              isPassed: isPassed,
+              alignment: alignment,
+            ),
+          ),
+        ],
+      );
     }
 
     return LayoutBuilder(

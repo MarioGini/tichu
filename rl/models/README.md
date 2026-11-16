@@ -1,5 +1,8 @@
 # Trained models
 
+The app's bots use `assets/bots/tichu_q_v3.safetensors` (loaded by
+`lib/agents/app_bots.dart`).
+
 ## tichu_q_v3.safetensors
 
 Play/pass policy (Q(s, a) MLP, feature schema v4, 252 inputs) trained by
@@ -12,7 +15,7 @@ Monte-Carlo Q steps (DouZero-style, PerfectDou-style oracle baseline).
   nets measured worse):
 
 ```bash
-build/bin/headless --nn-policy=rl/models/tichu_q_v3.safetensors ...
+build/bin/headless --nn-policy=assets/bots/tichu_q_v3.safetensors ...
 ```
 
 In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.

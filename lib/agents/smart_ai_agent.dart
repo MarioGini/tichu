@@ -419,6 +419,24 @@ class SmartAiAgent extends PlayerAgent {
         return PassAction(playerId: playerId);
       }
     }
+    if (options.conserveControls &&
+        !isLeading &&
+        LegalPlayGuard.canPass(deck: deck, hand: hand)) {
+      final winnerId = deck.currentWinner.isNotEmpty
+          ? deck.currentWinner
+          : snapshot.lastPlayedBy;
+      if (winnerId != null && table.isOpponent(winnerId)) {
+        // Empty result = pass (handled below).
+        validPlays = PlanPlay.conserveControls(
+          snapshot: snapshot,
+          playerId: playerId,
+          plays: validPlays,
+          hand: hand,
+          table: table,
+          deck: deck,
+        );
+      }
+    }
 
     if (validPlays.isEmpty) {
       if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {

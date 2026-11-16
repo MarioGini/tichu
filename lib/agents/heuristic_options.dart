@@ -38,6 +38,10 @@ class HeuristicOptions {
   final bool sureFirst;
   final bool noDogAfterPartnerOut;
 
+  /// Don't spend Aces / Phoenix / Dragon / K-K or A-A pairs on an
+  /// opponent's cheap single or pair early (learned from the trained bot).
+  final bool conserveControls;
+
   const HeuristicOptions({
     this.supportPartnerTichu = false,
     this.guardPartnerTichu = true,
@@ -53,6 +57,7 @@ class HeuristicOptions {
     this.feedPartner = false,
     this.sureFirst = false,
     this.noDogAfterPartnerOut = false,
+    this.conserveControls = false,
   });
 
   static const latest = HeuristicOptions();
@@ -90,6 +95,7 @@ class HeuristicOptions {
       'feed_partner',
       'lead_sure',
       'no_dog',
+      'conserve',
     };
     final plan = on.contains('plan');
     final unknown = on.difference(known);
@@ -111,6 +117,7 @@ class HeuristicOptions {
       feedPartner: on.contains('feed_partner'),
       sureFirst: on.contains('lead_sure'),
       noDogAfterPartnerOut: on.contains('no_dog'),
+      conserveControls: on.contains('conserve'),
     );
   }
 

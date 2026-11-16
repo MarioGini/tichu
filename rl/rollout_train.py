@@ -41,6 +41,8 @@ from qnet import (
 from schema import ACTION_OFFSET, TOTAL_FEATURE_COUNT
 
 SCALE = 100.0
+HAND_OFFSET = 0
+PLAYED_OFFSET = 56
 
 
 class RolloutData:
@@ -59,6 +61,7 @@ class RolloutData:
 
 
 def load(paths: list[Path], *, max_decisions: int = 0) -> RolloutData:
+    """Load rollout rows from bc-jsonl files (or ``.npz`` caches of them)."""
     xs: list[np.ndarray] = []
     qs: list[np.ndarray] = []
     starts = [0]
@@ -66,6 +69,15 @@ def load(paths: list[Path], *, max_decisions: int = 0) -> RolloutData:
     explore: list[bool] = []
     cursor = 0
     for path in paths:
+        if path.suffix == ".npz":
+            d = np.load(path)
+            xs.append(d["x"])
+            qs.append(d["q"])
+            chosen.extend(int(c) + cursor if c >= 0 else -1 for c in d["chosen"])
+            explore.extend(bool(e) for e in d["explore"])
+            starts.extend(int(v) + cursor for v in d["starts"][1:])
+            cursor += int(d["starts"][-1])
+            continue
         with path.open("r", encoding="utf-8") as fh:
             for line in fh:
                 if '"q_rollout"' not in line:
@@ -97,16 +109,56 @@ def load(paths: list[Path], *, max_decisions: int = 0) -> RolloutData:
     )
 
 
+def save_npz(data: RolloutData, path: Path) -> None:
+    """Compact cache of parsed rollout rows (JSON parsing dominates load time)."""
+    starts = data.starts.numpy()
+    chosen = data.chosen.numpy().copy()
+    # Store the chosen action relative to this file's rows.
+    np.savez(
+        path,
+        x=data.x.numpy(),
+        q=data.q.numpy(),
+        starts=starts,
+        chosen=chosen,
+        explore=data.explore.numpy(),
+    )
+
+
+def permute_suits(x: torch.Tensor, group: torch.Tensor, k: int) -> torch.Tensor:
+    """Random suit relabelling per decision (the game is suit-symmetric).
+
+    The hand and played bitmaps are 4 x 13 (suit x rank) blocks; all other
+    features do not depend on suit identity.
+    """
+    perms = torch.argsort(torch.rand(k, 4), dim=1)[group]  # (rows, 4)
+    idx = perms[:, :, None].expand(-1, 4, 13)
+    x = x.clone()
+    for start in (HAND_OFFSET, PLAYED_OFFSET):
+        block = x[:, start : start + 52].reshape(-1, 4, 13)
+        x[:, start : start + 52] = block.gather(1, idx).reshape(-1, 52)
+    return x
+
+
 def _centred(values: torch.Tensor, group: torch.Tensor, k: int) -> torch.Tensor:
     sums = torch.zeros(k, dtype=values.dtype).scatter_add_(0, group, values)
     counts = torch.zeros(k, dtype=values.dtype).scatter_add_(0, group, torch.ones_like(values))
     return values - (sums / counts)[group]
 
 
-def batch_loss(model: nn.Module, data: RolloutData, idx: torch.Tensor, huber: float):
+def batch_loss(
+    model: nn.Module,
+    data: RolloutData,
+    idx: torch.Tensor,
+    huber: float,
+    *,
+    augment: bool = True,
+):
     rows, group, _ = gather_batch_indices(idx, data.starts)
-    out = model(data.x[rows]).squeeze(-1)
     k = int(idx.numel())
+    x = data.x[rows]
+    if augment:
+        x = permute_suits(x, group, k)
+    out = model(x).squeeze(-1)
     return nn.functional.huber_loss(
         _centred(out, group, k), _centred(data.q[rows], group, k), delta=huber
     )
@@ -141,9 +193,19 @@ def evaluate(model: nn.Module, data: RolloutData, idx: torch.Tensor) -> dict[str
     }
 
 
-def widen_inputs(model: QNetwork, hidden: list[int]) -> QNetwork:
-    """Fresh net of another size (no weight transfer)."""
-    return QNetwork(TOTAL_FEATURE_COUNT, hidden)
+def _export(model: nn.Module, path: Path, decisions: int) -> None:
+    lin = [mod for mod in model.net if isinstance(mod, nn.Linear)]
+    export_safetensors(
+        model,
+        path,
+        target_mean=0.0,
+        target_std=SCALE,
+        metadata={
+            "algorithm": "rollout_pi",
+            "architecture": [TOTAL_FEATURE_COUNT] + [m_.out_features for m_ in lin],
+            "decisions": str(decisions),
+        },
+    )
 
 
 def train(args: argparse.Namespace) -> dict[str, float]:
@@ -151,6 +213,8 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     torch.manual_seed(args.seed)
     t0 = time.time()
     data = load([Path(p) for p in args.jsonl.split(",") if p])
+    if args.save_cache:
+        save_npz(data, Path(args.save_cache))
     d = data.num_decisions
     print(f"rollout data: decisions={d} rows={data.x.shape[0]} ({time.time()-t0:.0f}s)", flush=True)
 
@@ -166,6 +230,9 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     print("  start: " + "  ".join(f"{k}={v:.3f}" for k, v in m0.items()), flush=True)
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    # L2-SP: pull towards the starting weights, so a noisy step cannot wipe
+    # out what the previous policy already knows.
+    anchor = [p_.detach().clone() for p_ in model.parameters()] if args.l2sp > 0 else None
     steps_per_epoch = (tr.numel() + args.batch_decisions - 1) // args.batch_decisions
     sched = torch.optim.lr_scheduler.OneCycleLR(
         opt, max_lr=args.lr, total_steps=args.epochs * steps_per_epoch, pct_start=0.1
@@ -176,7 +243,11 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         order = tr[torch.randperm(tr.numel())]
         for i in range(steps_per_epoch):
             idx = order[i * args.batch_decisions : (i + 1) * args.batch_decisions]
-            loss = batch_loss(model, data, idx, args.huber)
+            loss = batch_loss(model, data, idx, args.huber, augment=not args.no_augment)
+            if anchor is not None:
+                loss = loss + args.l2sp * sum(
+                    ((p_ - a_) ** 2).sum() for p_, a_ in zip(model.parameters(), anchor)
+                )
             opt.zero_grad(set_to_none=True)
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 5.0)
@@ -190,6 +261,8 @@ def train(args: argparse.Namespace) -> dict[str, float]:
             + f"  [{time.time()-t0:.0f}s]",
             flush=True,
         )
+        if args.save_epochs:
+            _export(model, Path(f"{args.output}.ep{epoch+1}"), d)
         if m["gain_vs_uniform"] > best_gain:
             best_gain, metrics = m["gain_vs_uniform"], m
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
@@ -198,18 +271,7 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     else:
         metrics = m
 
-    lin = [mod for mod in model.net if isinstance(mod, nn.Linear)]
-    export_safetensors(
-        model.cpu(),
-        Path(args.output),
-        target_mean=0.0,
-        target_std=SCALE,
-        metadata={
-            "algorithm": "rollout_pi",
-            "architecture": [TOTAL_FEATURE_COUNT] + [m_.out_features for m_ in lin],
-            "decisions": str(d),
-        },
-    )
+    _export(model, Path(args.output), d)
     print(f"Saved {args.output}  " + "  ".join(f"{k}={v:.3f}" for k, v in metrics.items()))
     return metrics
 
@@ -227,6 +289,10 @@ def main() -> None:
     p.add_argument("--huber", type=float, default=2.0)
     p.add_argument("--val-fraction", type=float, default=0.1)
     p.add_argument("--keep-last", action="store_true")
+    p.add_argument("--l2sp", type=float, default=0.0, help="L2 pull towards the initial weights")
+    p.add_argument("--no-augment", action="store_true", help="disable suit-permutation augmentation")
+    p.add_argument("--save-epochs", action="store_true", help="also export OUTPUT.epN after every epoch")
+    p.add_argument("--save-cache", default="", help="write the parsed rows to this .npz")
     p.add_argument("--seed", type=int, default=0)
     train(p.parse_args())
 

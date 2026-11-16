@@ -6,7 +6,12 @@ extension _BcActionEncoding on _BcTransitionWriter {
   /// return them together with the index of the chosen action. Returns null
   /// when the chosen action cannot be located among the enumerated legal
   /// actions (defensive: should not happen in the play phase).
-  ({List<List<double>> features, int chosenIndex, int shadowIndex})?
+  ({
+    List<List<double>> features,
+    int chosenIndex,
+    int shadowIndex,
+    List<String> keys,
+  })?
   _legalPlayActionFeatures({
     required final GameSnapshot snapshot,
     required final GameAction chosen,
@@ -27,6 +32,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
     final canPass = LegalPlayGuard.canPass(deck: snapshot.deck, hand: hand);
 
     final features = <List<double>>[];
+    final keys = <String>[];
     var chosenIndex = -1;
     var shadowIndex = -1;
 
@@ -42,6 +48,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
         shadowIndex = features.length;
       }
       features.add(feat);
+      keys.add(key);
     }
 
     if (canPass) {
@@ -56,6 +63,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
         shadowIndex = features.length;
       }
       features.add(passFeat);
+      keys.add('pass');
     }
 
     if (chosenIndex < 0) return null;
@@ -63,8 +71,102 @@ extension _BcActionEncoding on _BcTransitionWriter {
       features: features,
       chosenIndex: chosenIndex,
       shadowIndex: shadowIndex,
+      keys: keys,
     );
   }
+
+  /// Index of [action] among the legal-action [keys] (-1 when absent).
+  int _indexOf(final List<String> keys, final GameAction? action) {
+    if (action is PassAction) return keys.indexOf('pass');
+    if (action is PlayTurnAction) return keys.indexOf(_cardKey(action.cards));
+    return -1;
+  }
+
+  /// Human-readable position for analysis (`--describe`): cards as rank
+  /// tokens, seats relative to the actor (L = next player, P, R).
+  Map<String, Object?> _describePosition(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) {
+    final table = TableRelationships(snapshot, playerId);
+    final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
+    final ids = [
+      table.playerBySeat(table.leftSeat()).id,
+      table.partnerId ?? '',
+      table.playerBySeat(table.rightSeat()).id,
+    ];
+    String rel(final String? id) {
+      if (id == null || id.isEmpty) return '-';
+      if (id == playerId) return 'me';
+      final i = ids.indexOf(id);
+      return i < 0 ? '?' : const ['L', 'P', 'R'][i];
+    }
+
+    final score = snapshot.scoreState;
+    final legalTurns = LegalPlayGuard.filterMoveGeneratorTurns(
+      deck: snapshot.deck,
+      hand: hand,
+      moveGeneratorTurns: generateLegalTurns(snapshot.deck, hand),
+    );
+    return {
+      'hand': _tokens(hand),
+      'trick': _tokens(snapshot.deck.turn.cards),
+      'trick_type': snapshot.deck.turn.type.name,
+      'trick_points': snapshot.trickPoints,
+      'winner': rel(
+        snapshot.deck.currentWinner.isNotEmpty
+            ? snapshot.deck.currentWinner
+            : null,
+      ),
+      'counts': [
+        for (final id in ids) (snapshot.hands[id] ?? const <Card>[]).length,
+      ],
+      'hands': [
+        for (final id in ids) _tokens(snapshot.hands[id] ?? const <Card>[]),
+      ],
+      'calls': {
+        for (final id in [playerId, ...ids])
+          if ((score.tichuCalls[id] ?? TichuCall.none) != TichuCall.none)
+            rel(id): score.tichuCalls[id]!.name,
+      },
+      'out': [for (final id in score.finishOrder) rel(id)],
+      'wish': snapshot.activeWish == CardFace.none
+          ? ''
+          : _rankToken(snapshot.activeWish),
+      'acts': [
+        for (final t in legalTurns) _tokens(t.cards),
+        if (LegalPlayGuard.canPass(deck: snapshot.deck, hand: hand)) 'pass',
+      ],
+    };
+  }
+
+  String _tokens(final List<Card> cards) {
+    final sorted = [...cards]
+      ..sort((final a, final b) => _order(a).compareTo(_order(b)));
+    return sorted.map((final c) => _rankToken(c.face)).join(' ');
+  }
+
+  int _order(final Card c) => switch (c.face) {
+    CardFace.dog => -1,
+    CardFace.mahJong => 1,
+    CardFace.phoenix => 15,
+    CardFace.dragon => 16,
+    _ => faceRank(c.face),
+  };
+
+  String _rankToken(final CardFace face) => switch (face) {
+    CardFace.dog => 'Dog',
+    CardFace.mahJong => '1',
+    CardFace.phoenix => 'Ph',
+    CardFace.dragon => 'Dr',
+    CardFace.ten => 'T',
+    CardFace.jack => 'J',
+    CardFace.queen => 'Q',
+    CardFace.king => 'K',
+    CardFace.ace => 'A',
+    CardFace.none => '?',
+    _ => '${faceRank(face)}',
+  };
 
   String _describe(final GameAction action) {
     if (action is PassAction) return 'pass';

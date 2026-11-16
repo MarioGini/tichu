@@ -58,13 +58,15 @@ class SmartAiAgent extends PlayerAgent {
            dragonGiveStrategy ?? const DefaultDragonGiveStrategy() {
     this.playSelectionStrategy =
         playSelectionStrategy ??
-        (options.planScore
-            ? const DefaultPlaySelectionStrategy(
-                turnScorer: TurnScorer(
-                  weights: PolicyWeights(planEfficiency: 2.5),
-                ),
-              )
-            : const DefaultPlaySelectionStrategy());
+        DefaultPlaySelectionStrategy(
+          turnScorer: TurnScorer(
+            weights:
+                (options.planScore
+                        ? const PolicyWeights(planEfficiency: 2.5)
+                        : const PolicyWeights())
+                    .withOverrides(options.weights),
+          ),
+        );
   }
 
   // ---------------------------------------------------------------------------

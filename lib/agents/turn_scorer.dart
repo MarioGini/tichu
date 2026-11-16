@@ -67,6 +67,70 @@ class PolicyWeights {
     this.pointGift = 0.15,
     this.planEfficiency = 0,
   });
+
+  /// These weights with the named [overrides] applied (A/B testing; names
+  /// are the field names).
+  PolicyWeights withOverrides(final Map<String, double> overrides) {
+    if (overrides.isEmpty) return this;
+    final v = <String, double>{
+      'lowLeadPreference': lowLeadPreference,
+      'controlPreservation': controlPreservation,
+      'avoidHighBurn': avoidHighBurn,
+      'sheddingRiskyLowSingle': sheddingRiskyLowSingle,
+      'comboEfficiency': comboEfficiency,
+      'bombUsageEarly': bombUsageEarly,
+      'bombUsageLate': bombUsageLate,
+      'unbeatableLine': unbeatableLine,
+      'givePartnerLead': givePartnerLead,
+      'preferMultiCardWhenOpponentLow': preferMultiCardWhenOpponentLow,
+      'avoidSingleWhenOpponentLow': avoidSingleWhenOpponentLow,
+      'supportPartnerTichu': supportPartnerTichu,
+      'disruptOpponentTichuNearFinish': disruptOpponentTichuNearFinish,
+      'avoidSoftLeadAgainstOpponentTichu': avoidSoftLeadAgainstOpponentTichu,
+      'trickPointCapture': trickPointCapture,
+      'phoenixTrumpLeadCapture': phoenixTrumpLeadCapture,
+      'phoenixTrumpOnAceBonus': phoenixTrumpOnAceBonus,
+      'phoenixTrumpAgainstNearFinishBonus': phoenixTrumpAgainstNearFinishBonus,
+      'preserveFlexibleTrump': preserveFlexibleTrump,
+      'preferNaturalTrumpResponse': preferNaturalTrumpResponse,
+      'sureTrickCapture': sureTrickCapture,
+      'pointGift': pointGift,
+      'planEfficiency': planEfficiency,
+    };
+    for (final e in overrides.entries) {
+      if (!v.containsKey(e.key)) {
+        throw ArgumentError('Unknown scorer weight: ${e.key}');
+      }
+      v[e.key] = e.value;
+    }
+    return PolicyWeights(
+      lowLeadPreference: v['lowLeadPreference']!,
+      controlPreservation: v['controlPreservation']!,
+      avoidHighBurn: v['avoidHighBurn']!,
+      sheddingRiskyLowSingle: v['sheddingRiskyLowSingle']!,
+      comboEfficiency: v['comboEfficiency']!,
+      bombUsageEarly: v['bombUsageEarly']!,
+      bombUsageLate: v['bombUsageLate']!,
+      unbeatableLine: v['unbeatableLine']!,
+      givePartnerLead: v['givePartnerLead']!,
+      preferMultiCardWhenOpponentLow: v['preferMultiCardWhenOpponentLow']!,
+      avoidSingleWhenOpponentLow: v['avoidSingleWhenOpponentLow']!,
+      supportPartnerTichu: v['supportPartnerTichu']!,
+      disruptOpponentTichuNearFinish: v['disruptOpponentTichuNearFinish']!,
+      avoidSoftLeadAgainstOpponentTichu:
+          v['avoidSoftLeadAgainstOpponentTichu']!,
+      trickPointCapture: v['trickPointCapture']!,
+      phoenixTrumpLeadCapture: v['phoenixTrumpLeadCapture']!,
+      phoenixTrumpOnAceBonus: v['phoenixTrumpOnAceBonus']!,
+      phoenixTrumpAgainstNearFinishBonus:
+          v['phoenixTrumpAgainstNearFinishBonus']!,
+      preserveFlexibleTrump: v['preserveFlexibleTrump']!,
+      preferNaturalTrumpResponse: v['preferNaturalTrumpResponse']!,
+      sureTrickCapture: v['sureTrickCapture']!,
+      pointGift: v['pointGift']!,
+      planEfficiency: v['planEfficiency']!,
+    );
+  }
 }
 
 class TurnScorer {

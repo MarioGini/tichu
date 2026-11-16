@@ -56,6 +56,17 @@ class _HeadlessSimulator {
   final int rolloutMaxActions;
   final bool Function(int seat) isLearnerSeat;
 
+  /// Add a human-readable description of the position to labelled rows.
+  final bool describe;
+
+  /// Heuristic variants whose choice is logged on every labelled row
+  /// (`shadow_indices`), so one rollout dataset gives the exact one-step
+  /// value of each variant.
+  final List<HeuristicOptions> shadowVariants;
+  late final List<Map<String, SmartAiAgent>> _variantAgents = [
+    for (final _ in shadowVariants) <String, SmartAiAgent>{},
+  ];
+
   /// Omit play/pass rows from bc-jsonl (call / schupf / round data only).
   final bool skipPlayRows;
   final _shadowAgents = <String, SmartAiAgent>{};
@@ -93,6 +104,8 @@ class _HeadlessSimulator {
     this.rolloutRate = 0,
     this.rolloutMaxActions = 12,
     this.isLearnerSeat = _everySeat,
+    this.describe = false,
+    this.shadowVariants = const [],
   });
 
   static bool _everySeat(final int _) => true;
@@ -114,9 +127,34 @@ class _HeadlessSimulator {
     }
   }
 
+  /// What each shadow variant would play in [snapshot] (null = no move).
+  Future<List<GameAction?>> _variantTurns(
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) async {
+    final turns = <GameAction?>[];
+    for (var i = 0; i < shadowVariants.length; i++) {
+      final agent = _variantAgents[i].putIfAbsent(
+        playerId,
+        () => SmartAiAgent(playerId, options: shadowVariants[i]),
+      );
+      try {
+        turns.add(await agent.selectTurn(snapshot));
+        // Agents signal "no legal action" with StateError.
+        // ignore: avoid_catching_errors
+      } on StateError {
+        turns.add(null);
+      }
+    }
+    return turns;
+  }
+
   Future<void> run() async {
     for (var episode = 0; episode < episodes; episode++) {
       await _runEpisode(episodeOffset + episode + 1);
+      // The game loop never yields to the event loop, so without this the
+      // sink would buffer the whole run in memory.
+      await output?.flush();
     }
   }
 
@@ -218,6 +256,9 @@ class _HeadlessSimulator {
           chosen: action,
         );
       }
+      final variants = rollouts != null && shadowVariants.isNotEmpty
+          ? await _variantTurns(snapshot, action.playerId)
+          : null;
       final appliedAction = _applyActionWithRecovery(
         engine: engine,
         state: state,
@@ -239,6 +280,8 @@ class _HeadlessSimulator {
           explored: explored,
           shadow: shadow,
           rollouts: rollouts,
+          describe: describe,
+          variants: variants,
         );
       }
 

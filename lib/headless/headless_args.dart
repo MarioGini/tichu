@@ -31,6 +31,9 @@ class _HeadlessConfig {
   final double counterfactualRate;
   final double rolloutRate;
   final int rolloutMaxActions;
+  final String labelSeats;
+  final bool describe;
+  final List<HeuristicOptions> shadowVariants;
 
   const _HeadlessConfig({
     required this.seed,
@@ -63,6 +66,9 @@ class _HeadlessConfig {
     required this.counterfactualRate,
     required this.rolloutRate,
     required this.rolloutMaxActions,
+    required this.labelSeats,
+    required this.describe,
+    required this.shadowVariants,
   });
 }
 
@@ -100,6 +106,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var counterfactualRate = 1.0;
   var rolloutRate = 0.0;
   var rolloutMaxActions = 12;
+  var labelSeats = 'policy';
+  var describe = false;
+  var shadowVariants = const <HeuristicOptions>[];
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -200,6 +209,25 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 2) rolloutMaxActions = p;
       continue;
     }
+    if (arg.startsWith('--label-seats=')) {
+      final v = arg.split('=').last;
+      if (v == 'policy' || v == 'opponent' || v == 'all') {
+        labelSeats = v;
+        continue;
+      }
+    }
+    if (arg.startsWith('--shadow-heuristics=')) {
+      // Variants separated by '|': log what each would play on labelled rows.
+      shadowVariants = [
+        for (final spec in arg.substring(arg.indexOf('=') + 1).split('|'))
+          HeuristicOptions.parse(spec),
+      ];
+      continue;
+    }
+    if (arg == '--describe') {
+      describe = true;
+      continue;
+    }
     if (arg == '--counterfactual-calls') {
       counterfactualCalls = true;
       continue;
@@ -213,11 +241,13 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       continue;
     }
     if (arg.startsWith('--heuristic=')) {
-      heuristic = HeuristicOptions.parse(arg.split('=').last);
+      heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
     }
     if (arg.startsWith('--opponent-heuristic=')) {
-      opponentHeuristic = HeuristicOptions.parse(arg.split('=').last);
+      opponentHeuristic = HeuristicOptions.parse(
+        arg.substring(arg.indexOf('=') + 1),
+      );
       continue;
     }
     if (arg.startsWith('--pre-tichu-net=')) {
@@ -284,6 +314,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     counterfactualRate: counterfactualRate,
     rolloutRate: rolloutRate,
     rolloutMaxActions: rolloutMaxActions,
+    labelSeats: labelSeats,
+    describe: describe,
+    shadowVariants: shadowVariants,
   );
 }
 
@@ -305,5 +338,7 @@ void _printUsage() {
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
+  stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
+  stdout.writeln('       [--shadow-heuristics=spec|spec|...]');
   stdout.writeln('       [--epsilon=0.1]');
 }

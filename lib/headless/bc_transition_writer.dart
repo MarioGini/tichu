@@ -173,6 +173,8 @@ class _BcTransitionWriter {
     required final bool explored,
     final GameAction? shadow,
     final List<double?>? rollouts,
+    final bool describe = false,
+    final List<GameAction?>? variants,
   }) {
     if (before.phase != GamePhase.play) return;
     if (before.currentPlayerId != action.playerId) return;
@@ -205,6 +207,12 @@ class _BcTransitionWriter {
       if (rollouts != null &&
           rollouts.length == legalPlayFeatures.features.length)
         'q_rollout': rollouts,
+      if (describe) 'desc': _describePosition(before, action.playerId),
+      // --shadow-heuristics: index each variant would have chosen (-1 = n/a).
+      if (variants != null)
+        'shadow_indices': [
+          for (final v in variants) _indexOf(legalPlayFeatures.keys, v),
+        ],
       // --shadow-heuristic: what the heuristic would have done here.
       if (shadow != null) ...{
         'shadow_index': legalPlayFeatures.shadowIndex,

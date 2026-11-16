@@ -106,10 +106,16 @@ Future<void> main(final List<String> args) async {
     counterfactualRate: config.counterfactualRate,
     rolloutRate: config.rolloutRate,
     rolloutMaxActions: config.rolloutMaxActions,
-    // Only the policy team's decisions are labelled against a fixed opponent.
-    isLearnerSeat: (opponentPolicy != null || config.mixed)
-        ? (final seat) => seat.isEven != config.swapTeams
+    // Which seats get rollout labels: by default the policy team when it
+    // plays a different opponent (--mixed / --opponent-policy), else all.
+    isLearnerSeat:
+        (opponentPolicy != null || config.mixed) && config.labelSeats != 'all'
+        ? (final seat) =>
+              (seat.isEven != config.swapTeams) ==
+              (config.labelSeats == 'policy')
         : (final _) => true,
+    describe: config.describe,
+    shadowVariants: config.shadowVariants,
   );
 
   try {

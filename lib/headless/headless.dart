@@ -33,6 +33,7 @@ part 'headless_decisions.dart';
 part 'headless_exploration.dart';
 part 'headless_legality.dart';
 part 'headless_rollouts.dart';
+part 'headless_schupf_labels.dart';
 part 'headless_simulator.dart';
 part 'summary_writer.dart';
 
@@ -118,6 +119,8 @@ Future<void> main(final List<String> args) async {
         : (final _) => true,
     describe: config.describe,
     shadowVariants: config.shadowVariants,
+    schupfRolloutRate: config.schupfRolloutRate,
+    schupfCandidates: config.schupfCandidates,
   );
 
   try {

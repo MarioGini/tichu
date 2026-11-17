@@ -83,11 +83,23 @@ extension _Decisions on _HeadlessSimulator {
             snapshot.hands[playerId] ?? const <Card>[],
           );
         }
-        _bcWriter?.emitSchupfDecision(
-          snapshot: snapshot,
-          action: selection,
-          explored: explored,
-        );
+        if (schupfRolloutRate > 0) {
+          if (random.nextDouble() < schupfRolloutRate) {
+            await _labelSchupf(
+              engine: engine,
+              state: state,
+              snapshot: snapshot,
+              playerId: playerId,
+              chosen: selection,
+            );
+          }
+        } else {
+          _bcWriter?.emitSchupfDecision(
+            snapshot: snapshot,
+            action: selection,
+            explored: explored,
+          );
+        }
         return selection;
       case TurnRequest(:final playerId):
         return _selectTurn(

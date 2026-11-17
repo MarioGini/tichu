@@ -63,6 +63,10 @@ class _HeadlessSimulator {
   /// (`shadow_indices`), so one rollout dataset gives the exact one-step
   /// value of each variant.
   final List<HeuristicOptions> shadowVariants;
+
+  /// Share of schupf decisions labelled with exact candidate values.
+  final double schupfRolloutRate;
+  final int schupfCandidates;
   late final List<Map<String, SmartAiAgent>> _variantAgents = [
     for (final _ in shadowVariants) <String, SmartAiAgent>{},
   ];
@@ -106,6 +110,8 @@ class _HeadlessSimulator {
     this.isLearnerSeat = _everySeat,
     this.describe = false,
     this.shadowVariants = const [],
+    this.schupfRolloutRate = 0,
+    this.schupfCandidates = 16,
   });
 
   static bool _everySeat(final int _) => true;

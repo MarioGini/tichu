@@ -112,6 +112,42 @@ class _BcTransitionWriter {
     );
   }
 
+  /// One row per labelled schupf decision (`--schupf-rollout-rate`): the
+  /// pre-exchange hands of all four players (me, left, partner, right),
+  /// the candidate passes ([left, partner, right] slots; index 0 = the
+  /// bot's own choice) and their exact outcomes (see `_labelSchupf`).
+  void emitSchupfLabels({
+    required final GameSnapshot snapshot,
+    required final String playerId,
+    required final List<SchupfAction> candidates,
+    required final List<List<int>?> outcomes,
+  }) {
+    final table = TableRelationships(snapshot, playerId);
+    List<int> slots(final String? id) => [
+      for (final c in snapshot.hands[id] ?? const <Card>[]) cardSlot(c),
+    ];
+    output.writeln(
+      jsonEncode(<String, Object?>{
+        'episode': episode,
+        'round': snapshot.scoreState.roundNumber,
+        'team': _teamForPlayer(snapshot, playerId),
+        'schupf_cf': true,
+        'hands': [
+          slots(playerId),
+          slots(table.playerBySeat(table.leftSeat()).id),
+          slots(table.partnerId),
+          slots(table.playerBySeat(table.rightSeat()).id),
+        ],
+        'context': SchupfFeatures.context(snapshot, playerId),
+        'cands': [
+          for (final a in candidates)
+            [cardSlot(a.toLeft), cardSlot(a.toPartner), cardSlot(a.toRight)],
+        ],
+        'out': outcomes,
+      }),
+    );
+  }
+
   void emitRoundEnd(
     final GameSnapshot after, {
     final Map<int, int>? cardsLeftAtFirstOut,

@@ -35,6 +35,8 @@ class _HeadlessConfig {
   final bool describe;
   final List<HeuristicOptions> shadowVariants;
   final bool simd;
+  final double schupfRolloutRate;
+  final int schupfCandidates;
 
   const _HeadlessConfig({
     required this.seed,
@@ -71,6 +73,8 @@ class _HeadlessConfig {
     required this.describe,
     required this.shadowVariants,
     required this.simd,
+    required this.schupfRolloutRate,
+    required this.schupfCandidates,
   });
 }
 
@@ -112,6 +116,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var describe = false;
   var shadowVariants = const <HeuristicOptions>[];
   var simd = true;
+  var schupfRolloutRate = 0.0;
+  var schupfCandidates = 16;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -227,6 +233,16 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       ];
       continue;
     }
+    if (arg.startsWith('--schupf-rollout-rate=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) schupfRolloutRate = p;
+      continue;
+    }
+    if (arg.startsWith('--schupf-candidates=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p >= 2) schupfCandidates = p;
+      continue;
+    }
     if (arg == '--no-simd') {
       simd = false;
       continue;
@@ -325,6 +341,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     describe: describe,
     shadowVariants: shadowVariants,
     simd: simd,
+    schupfRolloutRate: schupfRolloutRate,
+    schupfCandidates: schupfCandidates,
   );
 }
 
@@ -348,5 +366,6 @@ void _printUsage() {
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
   stdout.writeln('       [--shadow-heuristics=spec|spec|...] [--no-simd]');
+  stdout.writeln('       [--schupf-rollout-rate=p] [--schupf-candidates=N]');
   stdout.writeln('       [--epsilon=0.1]');
 }

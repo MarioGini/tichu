@@ -47,7 +47,7 @@ Measure any two bots against each other (duplicate deals, both seatings):
 
 ```bash
 rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v5.safetensors" \
-    --b="--opponent-policy=assets/bots/tichu_q_v3.safetensors" --deals=1000
+    --b="--opponent-policy=old_policy.safetensors" --deals=1000
 rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
 ```

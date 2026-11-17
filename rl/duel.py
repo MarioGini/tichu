@@ -12,7 +12,7 @@ the result is the per-deal average, so card luck largely cancels out.
   # a policy vs the heuristic / vs another policy
   rl/.venv/bin/python rl/duel.py --a="--nn-policy=new.safetensors" --deals=1000
   rl/.venv/bin/python rl/duel.py --a="--nn-policy=new.safetensors" \
-      --b="--opponent-policy=assets/bots/tichu_q_v3.safetensors" --deals=1000
+      --b="--opponent-policy=old_policy.safetensors" --deals=1000
 
 With a heuristic-only matchup this plays ~100 matches per second and core.
 """

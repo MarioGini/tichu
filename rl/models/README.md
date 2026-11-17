@@ -43,7 +43,9 @@ build/bin/headless --nn-policy=assets/bots/tichu_q_v5.safetensors ...
 
 In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.
 
-## tichu_q_v3.safetensors
+## tichu_q_v3.safetensors (removed)
+
+No longer in the repo (`git show 92aed27:assets/bots/tichu_q_v3.safetensors`).
 
 The previous policy (behaviour cloning of the heuristic plus Monte-Carlo Q
 steps, `rl/train_loop.py`). Kept as the fixed reference opponent for duels:

@@ -115,7 +115,7 @@ stays on CPU.
 
 ### Feature schema (single source of truth)
 
-`rl/schema/feature_spec.json` (v4) defines the 252-dim feature vector
+`rl/schema/feature_spec.json` (v5) defines the 318-dim feature vector
 consumed by both Python (training) and Dart (inference). Layout:
 
 | Group           | Size | Indices | Content                                          |
@@ -127,11 +127,25 @@ consumed by both Python (training) and Dart (inference). Layout:
 | seats           | 27   | 149-175 | left/partner/right: cards, finish, calls, points |
 | self            | 15   | 176-190 | own calls, round and match score context         |
 | hand_structure  | 10   | 191-200 | singles/pairs/runs/bombs, est. plays to finish   |
-| action          | 51   | 201-251 | type, strength, beaters, cards used, hand after  |
+| history         | 66   | 201-266 | per other player: cards played, passes (below)   |
+| action          | 51   | 267-317 | type, strength, beaters, cards used, hand after  |
+
+`history` (new in v5) comes from the engine's public round log
+(`lib/game/round_log.dart`: every play and pass with the trick it answered).
+Per other player (left, partner, right; 22 each): the cards they played this
+round as a rank histogram, the lowest single and the lowest pair they passed
+on while one of their opponents was winning the trick, and the number of such
+passes. Before v5 the net could not tell who played or passed on what, so it
+could not read hands from the play.
+
+Nets of the v4 layout (252 inputs: v3, v4) still load and play unchanged;
+they read the first 201 state features. `rl/widen_net.py` converts them to
+the v5 layout with zero weights for the history features (identical play),
+which is how training warm-starts from them.
 
 Only Dart encodes features (`lib/agents/nn/feature_encoder.dart`); the
 headless `--format=bc-jsonl` output carries them pre-encoded, so Python never
-re-encodes. Policies trained on an older schema are rejected at load time.
+re-encodes. Python rejects nets of another layout at load time.
 
 The Python loader is `rl/schema/__init__.py`; the Dart constants live in
 `lib/agents/nn/feature_encoder.dart` and are asserted against the JSON spec
@@ -320,7 +334,7 @@ Only two RL-relevant formats remain:
 - **`--format=summary`** — one JSONL line per finished match.
   `evaluate_policy.py` consumes this. ~50 lines for a 50-match eval.
 - **`--format=bc-jsonl`** — one JSONL line per play-phase decision with
-  ≥2 legal actions: `episode`, `round`, `team`, `state_features` (201 floats),
+  ≥2 legal actions: `episode`, `round`, `team`, `state_features` (267 floats),
   `legal_play_action_features` (n × 51 floats), `legal_play_chosen_index`,
   and `explore: true` when the move came from ε-exploration (BC skips those).
   The legal set is exactly what the NN scores at inference: wish-filtered
@@ -429,6 +443,30 @@ lab showed:
 - Calls: refitting the Tichu rule on 39k exact counterfactual labels gives
   at most +1 point per decision (needs interaction terms); a linear Grand
   Tichu rule is worth +1.1 ± 0.45 (the heuristic never calls it).
+
+## Review of v4's games (2026-11-17)
+
+`rl/review_games.py` labels v4's own decisions with exact rollouts (every
+legal move played out on the same deal) and breaks them down. On 28,000
+decisions of v4 against itself:
+
+- **The endgame is not where v4 loses.** With 3 cards or fewer it plays the
+  best move on the actual deal 77 % of the time and this phase holds 5 % of
+  the total regret; most of the rest needs the hidden cards. Twelve simple
+  endgame rules (lead the highest single against a one-card opponent, never
+  pass after calling Tichu, pass on the partner's trick, ...) were all equal
+  or worse than v4's own choice.
+- 82 % of the regret is with 7+ cards in hand, the largest per decision on
+  early leads (best move only 31 % of the time). That is mostly hidden
+  information: v4 had no way to read hands from the play (see `history`).
+- One improvement step on v4's self-play gains +3.2 points per round,
+  spread thinly: +2.6 card points, +0.5 % double wins, +0.9 % Tichu success.
+- Nobody called Grand Tichu. A simple rule (strength >= 5 in eight cards)
+  is worth +2.0 pp for the heuristic and +0.9 pp with v4's play.
+
+Best response to v4 (layout v4, `rollout_loop.py --opponent-nets`): one step
+on v4's self-play 53.2 % ± 0.9 against v4, a second step on games against v4
+57.9 % ± 0.9 (margin +88).
 
 ## Next steps
 

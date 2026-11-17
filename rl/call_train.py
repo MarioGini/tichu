@@ -5,7 +5,7 @@ Reads headless ``--format=bc-jsonl`` output generated with
 ``--call-epsilon=p`` (decisions flipped with probability p, so both "call"
 and "no call" are observed for similar hands). For each logged decision
 
-  x = [state (201), called, called * state]   y = round point diff / 100
+  x = [state, called, called * state]   y = round point diff / 100
 
 (own team minus opponents, incl. Tichu bonuses / penalties). A small MLP is
 fit by MSE, giving Q(s, call) and Q(s, no call); Dart's

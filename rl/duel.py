@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Duplicate match between two bot configurations (heuristics and/or nets).
 
-Side A is the headless "policy" team, side B the "opponent" team. Every deal
+Side A is the headless "policy" team, side B the "opponent" team; by default
+side B is the shipped bot (``BASELINE``: play net v5 + learned schupf). Every deal
 sequence is played twice with the seats swapped (same ``--deal-seed``), and
 the result is the per-deal average, so card luck largely cancels out.
 
@@ -27,6 +28,13 @@ import tempfile
 from pathlib import Path
 
 from headless_runner import run_headless_sharded
+
+# The reference opponent for comparisons: the shipped bot (play net + learned
+# schupf; calls heuristic). The heuristic is too weak to tell strong bots apart.
+BASELINE = (
+    "--opponent-policy=assets/bots/tichu_q_v5.safetensors "
+    "--opponent-schupf-net=assets/bots/tichu_schupf_v1.safetensors"
+)
 
 
 def duel(
@@ -93,7 +101,9 @@ def duel(
 def main() -> None:
     p = argparse.ArgumentParser(description="Duplicate duel between two bots")
     p.add_argument("--a", default="", help="headless args of side A (e.g. --nn-policy=.. --heuristic=..)")
-    p.add_argument("--b", default="", help="headless args of side B (e.g. --opponent-heuristic=.. --opponent-policy=..)")
+    p.add_argument("--b", default=BASELINE,
+                   help="headless args of side B (default: the shipped bot, v5 + learned schupf; "
+                        "'' for the heuristic)")
     p.add_argument("--deals", type=int, default=1000)
     p.add_argument("--seed", type=int, default=4242)
     p.add_argument("--target-score", type=int, default=1000)

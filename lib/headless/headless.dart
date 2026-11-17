@@ -68,14 +68,16 @@ Future<void> main(final List<String> args) async {
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig.build;
+  final opponentSchupf = await _loadNet(config.opponentSchupfNetPath);
   final opponentFactory = BotConfig(
     play: opponentPolicy,
+    schupf: opponentSchupf,
     heuristicOptions: config.opponentHeuristic,
     simdInference: config.simd,
   ).build;
 
   final PlayerAgent Function(String, int) agentFactory;
-  if (opponentPolicy != null || config.mixed) {
+  if (opponentPolicy != null || opponentSchupf != null || config.mixed) {
     // Self-play / mixed mode: team0 (even seats) plays the loaded policy,
     // team1 (odd seats) plays the frozen opponent policy (or the heuristic).
     // --swap-teams flips this so duplicate evaluation can replay the same
@@ -112,7 +114,8 @@ Future<void> main(final List<String> args) async {
     // Which seats get rollout labels: by default the policy team when it
     // plays a different opponent (--mixed / --opponent-policy), else all.
     isLearnerSeat:
-        (opponentPolicy != null || config.mixed) && config.labelSeats != 'all'
+        (opponentPolicy != null || opponentSchupf != null || config.mixed) &&
+            config.labelSeats != 'all'
         ? (final seat) =>
               (seat.isEven != config.swapTeams) ==
               (config.labelSeats == 'policy')

@@ -81,6 +81,11 @@ def main() -> None:
         help="fixed play nets to train and measure against, separated by ';' "
         "(share --mixed-episodes with the heuristic opponents)",
     )
+    p.add_argument(
+        "--opponent-schupf-net",
+        default="",
+        help="schupf net of the --opponent-nets team (e.g. assets/bots/tichu_schupf_v1.safetensors)",
+    )
     p.add_argument("--rollout-rate", type=float, default=0.5)
     p.add_argument("--epsilon", type=float, default=0.02)
     p.add_argument("--target-score", type=int, default=1000)
@@ -126,6 +131,7 @@ def main() -> None:
                     shards=args.shards,
                     args=common
                     + ["--mixed", f"--opponent-policy={net}"]
+                    + ([f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else [])
                     + (["--swap-teams"] if swap else []),
                 )
         for i, spec in enumerate(opponents):
@@ -209,7 +215,8 @@ def main() -> None:
         for net in opponent_nets:
             r = duel(
                 [f"--nn-policy={cand}"],
-                [f"--opponent-policy={net}"],
+                [f"--opponent-policy={net}"]
+                + ([f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else []),
                 deals=args.duel_deals,
                 seed=4242,
                 shards=args.shards,

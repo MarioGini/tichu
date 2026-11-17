@@ -12,6 +12,7 @@ class _HeadlessConfig {
   final bool includeTimestamps;
   final String? nnPolicyPath;
   final String? opponentPolicyPath;
+  final String? opponentSchupfNetPath;
   final double epsilon;
   final bool mixed;
   final bool swapTeams;
@@ -50,6 +51,7 @@ class _HeadlessConfig {
     required this.includeTimestamps,
     required this.nnPolicyPath,
     required this.opponentPolicyPath,
+    required this.opponentSchupfNetPath,
     required this.epsilon,
     required this.mixed,
     required this.swapTeams,
@@ -91,6 +93,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var includeTimestamps = true;
   String? nnPolicyPath;
   String? opponentPolicyPath;
+  String? opponentSchupfNetPath;
   var outputProvided = false;
   var showHelp = false;
   var epsilon = 0.0;
@@ -176,6 +179,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     }
     if (arg.startsWith('--nn-policy=')) {
       nnPolicyPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--opponent-schupf-net=')) {
+      opponentSchupfNetPath = arg.split('=').last;
       continue;
     }
     if (arg.startsWith('--opponent-policy=')) {
@@ -318,6 +325,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     includeTimestamps: includeTimestamps,
     nnPolicyPath: nnPolicyPath,
     opponentPolicyPath: opponentPolicyPath,
+    opponentSchupfNetPath: opponentSchupfNetPath,
     epsilon: epsilon,
     mixed: mixed,
     swapTeams: swapTeams,
@@ -355,6 +363,7 @@ void _printUsage() {
   stdout.writeln('       [--no-timestamps]');
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
   stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
+  stdout.writeln('       [--opponent-schupf-net=..]');
   stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
   stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');

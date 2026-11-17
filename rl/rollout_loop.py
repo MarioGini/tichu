@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import shutil
 import subprocess
 import sys
@@ -38,6 +39,7 @@ from duel import duel
 from headless_runner import run_headless_sharded
 
 RL = Path(__file__).resolve().parent
+SCHUPF = "assets/bots/tichu_schupf_v2.safetensors"
 
 
 def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str]) -> None:
@@ -82,19 +84,31 @@ def main() -> None:
         "(share --mixed-episodes with the heuristic opponents)",
     )
     p.add_argument(
+        "--schupf-net",
+        default=SCHUPF,
+        help="schupf net of the learner in every game and duel ('' = heuristic schupf); "
+        "the play net is trained for the exchange it actually plays with",
+    )
+    p.add_argument(
         "--opponent-schupf-net",
-        default="",
-        help="schupf net of the --opponent-nets team (e.g. assets/bots/tichu_schupf_v2.safetensors)",
+        default=SCHUPF,
+        help="schupf net of the --opponent-nets team ('' = heuristic schupf)",
+    )
+    p.add_argument(
+        "--train-args",
+        default="--ema=0.999",
+        help="extra rollout_train.py arguments (the epoch with the best held-out "
+        "gain is kept; the labels are noisy and later epochs overfit)",
     )
     p.add_argument("--rollout-rate", type=float, default=0.5)
     p.add_argument("--epsilon", type=float, default=0.02)
     p.add_argument("--target-score", type=int, default=1000)
-    p.add_argument("--epochs", type=int, default=8)
+    p.add_argument("--epochs", type=int, default=4)
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--window", type=int, default=0, help="train on the last N iterations (0 = all)")
     p.add_argument("--duel-deals", type=int, default=1000)
     p.add_argument("--promote-z", type=float, default=2.0)
-    p.add_argument("--shards", type=int, default=3)
+    p.add_argument("--shards", type=int, default=4)
     p.add_argument("--seed", type=int, default=100_000)
     args = p.parse_args()
 
@@ -110,6 +124,10 @@ def main() -> None:
     start = 1 + max((h["iter"] for h in history), default=0)
     opponents = [o for o in args.opponents.split(";") if o]
     opponent_nets = [o for o in args.opponent_nets.split(";") if o]
+    own_schupf = [f"--schupf-net={args.schupf_net}"] if args.schupf_net else []
+    opp_schupf = [f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else []
+    # The candidate and the best net play the duel with the same schupf.
+    best_schupf = [f"--opponent-schupf-net={args.schupf_net}"] if args.schupf_net else []
 
     for it in range(start, start + args.iterations):
         t0 = time.time()
@@ -119,6 +137,7 @@ def main() -> None:
             f"--rollout-rate={args.rollout_rate}",
             f"--epsilon={args.epsilon}",
             f"--nn-policy={best}",
+            *own_schupf,
         ]
         seed = args.seed + 10_000 * it
         per = max(1, args.mixed_episodes // (2 * max(1, len(opponents) + len(opponent_nets))))
@@ -130,8 +149,7 @@ def main() -> None:
                     episodes=per,
                     shards=args.shards,
                     args=common
-                    + ["--mixed", f"--opponent-policy={net}"]
-                    + ([f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else [])
+                    + ["--mixed", f"--opponent-policy={net}", *opp_schupf]
                     + (["--swap-teams"] if swap else []),
                 )
         for i, spec in enumerate(opponents):
@@ -169,7 +187,7 @@ def main() -> None:
                 f"--output={cand}",
                 f"--epochs={args.epochs}",
                 f"--lr={args.lr}",
-                "--keep-last",
+                *shlex.split(args.train_args),
             ],
             cwd=RL.parent,
             capture_output=True,
@@ -185,8 +203,8 @@ def main() -> None:
 
         print("3) duels", flush=True)
         vs_best = duel(
-            [f"--nn-policy={cand}"],
-            [f"--opponent-policy={best}"],
+            [f"--nn-policy={cand}", *own_schupf],
+            [f"--opponent-policy={best}", *best_schupf],
             deals=args.duel_deals,
             seed=4242 + it,
             shards=args.shards,
@@ -200,7 +218,7 @@ def main() -> None:
         entry = {"iter": it, "vs_best": vs_best, "promoted": promoted, "data_files": len(files)}
         for spec in opponents:
             r = duel(
-                [f"--nn-policy={cand}"],
+                [f"--nn-policy={cand}", *own_schupf],
                 [f"--opponent-heuristic={spec}"],
                 deals=args.duel_deals,
                 seed=4242,
@@ -214,9 +232,8 @@ def main() -> None:
             )
         for net in opponent_nets:
             r = duel(
-                [f"--nn-policy={cand}"],
-                [f"--opponent-policy={net}"]
-                + ([f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else []),
+                [f"--nn-policy={cand}", *own_schupf],
+                [f"--opponent-policy={net}", *opp_schupf],
                 deals=args.duel_deals,
                 seed=4242,
                 shards=args.shards,

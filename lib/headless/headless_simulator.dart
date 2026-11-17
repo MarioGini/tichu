@@ -255,7 +255,7 @@ class _HeadlessSimulator {
           ? await _shadowHeuristicTurn(snapshot, action.playerId)
           : null;
       final before = snapshot;
-      List<double?>? rollouts;
+      ({List<double?> diff, List<double?> own})? rollouts;
       if (rolloutRate > 0 &&
           bcWriter != null &&
           (action is PlayTurnAction || action is PassAction) &&
@@ -293,7 +293,8 @@ class _HeadlessSimulator {
           action: appliedAction,
           explored: explored,
           shadow: shadow,
-          rollouts: rollouts,
+          rollouts: rollouts?.diff,
+          rolloutsOwn: rollouts?.own,
           describe: describe,
           variants: variants,
         );

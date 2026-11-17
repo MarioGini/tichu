@@ -39,8 +39,9 @@ def select_device() -> torch.device:
     """
     if torch.cuda.is_available():
         return torch.device("cuda")
-    # Use all available CPU threads for MKL/MKLDNN.
-    torch.set_num_threads(max(1, (os.cpu_count() or 1)))
+    # All CPU threads by default; TICHU_TORCH_THREADS limits them when
+    # headless runners share the machine (oversubscribed threads spin).
+    torch.set_num_threads(int(os.environ.get("TICHU_TORCH_THREADS", 0)) or max(1, os.cpu_count() or 1))
     return torch.device("cpu")
 
 

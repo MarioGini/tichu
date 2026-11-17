@@ -48,22 +48,15 @@ In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.
 No longer in the repo (`git show 92aed27:assets/bots/tichu_q_v3.safetensors`).
 
 The previous policy (behaviour cloning of the heuristic plus Monte-Carlo Q
-steps, `rl/train_loop.py`). Kept as the fixed reference opponent for duels:
+steps, `rl/train_loop.py`, since removed). Kept as the fixed reference opponent for duels:
 74.6 % ± 0.9 vs the classic heuristic on the bench above (70.8 % ± 1.9 in
 the original 400-match measurement).
 
-## tichu_call_v1.safetensors (shipped)
+## tichu_call_v1.safetensors (removed)
 
-Tichu call model (input = state + received schupf cards, 435), trained by
-`rl/call_success_train.py` on 64,738 Tichu decisions of the shipped bot. It
-predicts P(go out first | call) from the hand after the schupf; ground truth
-comes from playing every decision out with the call (`call_first`). The
-threshold (p >= 0.52, tuned on exact call values) is baked into the output
-bias: call when the output is positive. Well calibrated (predicted 0.5-0.6
--> 56 % success, 0.7-0.8 -> 74 %). Held out: +4.38 points per decision vs
-+3.99 for the strength rule; duel against the previous bot 51.5 % ± 0.6
-(2000 deals x 2). The same model for Grand Tichu gave no gain (+1.87 vs
-+1.74), so Grand Tichu keeps the rule.
+A Tichu call model (P(go out first | call) from the hand after the schupf);
++0.4 points per decision over the strength rule, not worth a model (see
+rl/README.md, "Schupf and calls"). Calls use the heuristic rule.
 
 ## tichu_schupf_v2.safetensors (shipped)
 

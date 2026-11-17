@@ -79,12 +79,12 @@ hands — the same family as Dou Dizhu, Guandan and Big Two. What works there:
 - **DouZero** (Dou Dizhu, ICML 2021): Deep Monte Carlo — a Q(s, a) network
   with an explicit action encoding, trained on whole-game returns from
   massive ε-greedy self-play. Simple, and it beat every earlier Dou Dizhu AI.
-  `q_train.py` is one step of this.
+  (`q_train.py`, removed, was one step of this.)
 - **PerfectDou** (NeurIPS 2022): perfect-training / imperfect-execution — the
   critic sees all hands during training, the policy does not. That removes
   card luck from the learning signal; it beat DouZero with ~10× fewer
   samples. Here: the `oracle` field and oracle baselines (`oracle.py`) in
-  `call_train.py`, `schupf_train.py`, `q_train.py`.
+  `call_train.py`, `schupf_train.py`.
 - **GuanZero** (Guandan, a 2-team climbing game): DMC plus features for
   cooperation between partners.
 - **Tichu thesis (Wyss, Bern 2024)**: DQN / PPO for Tichu; behaviour cloning
@@ -164,10 +164,10 @@ Why the earlier loop stalled, measured with exact rollouts:
   and double wins), while the *expected* difference a policy can exploit is
   a few points. v3's whole edge over the heuristic (74.6 % of matches) is
   +1.5 points per decision; they agree on 82 % of moves.
-- `q_train.py` saw one return for one action per decision and explored 5 %
-  of moves at random, on 600 games per iteration: far too little signal to
-  rank the actions it rarely tried, so the policy stayed close to its
-  behaviour-cloning start.
+- The old DMC step (`q_train.py`, removed) saw one return for one action
+  per decision and explored 5 % of moves at random, on 600 games per
+  iteration: far too little signal to rank the actions it rarely tried, so
+  the policy stayed close to its behaviour-cloning start.
 - Promotion was decided on 100 deals (± 2.8 pp), which cannot see the
   2-5 pp steps that add up.
 
@@ -224,12 +224,7 @@ Python entry points:
    ```bash
    rl/.venv/bin/python rl/call_train.py --generate --episodes=1500 \
        --target-score=500 --call-epsilon=0.15 \
-       --nn-policy=rl/outputs/best_policy.safetensors --output-dir=rl/outputs
-   rl/.venv/bin/python rl/evaluate_policy.py \
-       --nn-policy=rl/outputs/best_policy.safetensors \
-       --tichu-net=rl/outputs/tichu_net.safetensors \
-       --grand-net=rl/outputs/grand_net.safetensors \
-       --output=rl/outputs/eval_calls.safetensors --episodes=200 --target-score=500
+       --nn-policy=assets/bots/tichu_q_v5.safetensors --output-dir=rl/outputs
    ```
 
 3. **`schupf_train.py`** — schupf value net Q(hand, pass) on
@@ -239,32 +234,19 @@ Python entry points:
    `NnSchupfStrategy` scores all 2184 assignments with an incremental first
    layer.
 
-4. **`train_loop.py`** — the joint loop for the whole bot. Each iteration
-   generates exploration data with the *current* bot (calls, schupf, plays),
-   retrains call nets, schupf net and play policy (Q step), and tries each
-   component group (play / calls / schupf) on top of the best bot, promoting
-   it only on a significant paired gain (duplicate, 100 deals, target 1000).
-   Because everything is retrained on the current bot's games, components
-   adapt to each other (e.g. passing to a partner who announced Tichu).
+4. **`rollout_loop.py`** / **`rollout_train.py`** — rollout policy
+   iteration for the play net (above); `win_prob.py` builds the match-win
+   table for `--objective=win`.
 
-   ```bash
-   rl/.venv/bin/python rl/train_loop.py --iterations=4 --shards=4
-   # best bot: rl/outputs/bot_best/*.safetensors
-   ```
-
-5. **`q_train.py`** — DouZero-style Monte-Carlo Q fine-tune of the play net
-   (oracle baseline); the play learner used by `train_loop.py`. Superseded
-   for the play net by `rollout_train.py` / `rollout_loop.py` (above).
-
-6. **`analyze_games.py`** — duplicate games vs the heuristic with
+5. **`analyze_games.py`** — duplicate games vs the heuristic with
    `--shadow-heuristic`: round stats per side (going out first, double wins,
    call rates and success) and where / how often the policy's moves differ
    from what the heuristic would have played.
 
-7. **`duel.py`** — duplicate duel between any two bot configurations
+6. **`duel.py`** — duplicate duel between any two bot configurations
    (nets and / or heuristic variants).
 
-8. **`call_labels.sh`** — background generation of exact counterfactual
+7. **`call_labels.sh`** — background generation of exact counterfactual
    call labels with the current best policy, for `call_train.py`.
 
 ### Heuristic lab
@@ -321,18 +303,17 @@ Without nets the heuristic decides (it never calls Grand Tichu).
 
 ### Evaluation
 
-`evaluate_policy.py` is duplicate by default: every deal sequence is played
-twice with the same deals (`--deal-seed`), once with the policy on team 0
-and once swapped. It reports the per-deal win rate with its standard error
-and stores per-deal results, so `train_loop.py` promotes a candidate only if
-its paired gain over the best bot exceeds `--promote-z` SEs.
+`duel.py` is duplicate: every deal sequence is played twice with the same
+deals (`--deal-seed`), once per seating, and the result is the per-deal
+average with its standard error. `rollout_loop.py` promotes a candidate only
+if it beats the best net by more than `--promote-z` SEs.
 
 ### Headless output formats
 
 Only two RL-relevant formats remain:
 
 - **`--format=summary`** — one JSONL line per finished match.
-  `evaluate_policy.py` consumes this. ~50 lines for a 50-match eval.
+  `duel.py` consumes this. ~50 lines for a 50-match eval.
 - **`--format=bc-jsonl`** — one JSONL line per play-phase decision with
   ≥2 legal actions: `episode`, `round`, `team`, `state_features` (267 floats),
   `legal_play_action_features` (n × 51 floats), `legal_play_chosen_index`,
@@ -386,7 +367,7 @@ yet (the round outcome is very noisy; they need more data).
 
 ## Results v3 (2026-11-16): Q-learning beats the heuristic
 
-Joint loop (`train_loop.py`) from a BC policy of the improved heuristic
+Joint loop (`train_loop.py`, since removed) from a BC policy of the improved heuristic
 (hand-strength Tichu calls, partner guard, plan-aware play, fixed scoring).
 All numbers: duplicate, matches to 1000, vs the latest heuristic.
 
@@ -554,7 +535,6 @@ information a player could have. The strength rule is already near the
 practical ceiling, so learned call models were dropped (a +0.4 model was
 briefly shipped and removed).
 
-## Next steps
 ## Next steps
 
 1. More best-response iterations against v4 (`rollout_loop.py

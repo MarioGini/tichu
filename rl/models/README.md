@@ -24,6 +24,13 @@ Iteration 3 also wins 90.5 % ± 0.6 against the tuned heuristic
 file in `assets/bots/` is the newest promoted iteration; later iterations of
 the hill climb replace it.
 
+Size and speed: 105,985 float32 parameters (layers 252-256-128-64-1), a
+415 KB file. Ranking the legal moves of one decision (6.7 on average) takes
+0.33 ms in the app's float64 code path and 0.12 ms with the headless
+runner's float32 SIMD path (native code, one 2.1 GHz Xeon core; feature
+encoding included, 0.02 ms). A whole match to 1000 between four v4 bots
+simulates in 85 ms.
+
 Use with the heuristic's Tichu calls and schupf:
 
 ```bash

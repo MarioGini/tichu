@@ -530,16 +530,25 @@ decisions with v5 playing (`rl/call_analysis.py`):
   Perfect calling would be worth +50 / +82: the rest depends on cards the
   caller cannot see.
 
-Hand-strength model for calls (`rl/call_success_train.py`): call labels now
-also carry the ground truth of both branches (`call_points`, `call_first`,
-`nocall_points`, `nocall_first`). A classifier of P(go out first | call) on
-the hand after the schupf, with the call threshold tuned on exact call
-values, beats the Tichu rule by +0.39 ± 0.22 points per decision (130k
-decisions) and wins 51.5 % ± 0.6 in duels; shipped as
-`assets/bots/tichu_call_v1.safetensors`. For Grand Tichu it does not beat the
-rule. Comparisons default to the shipped bot (play v5, schupf v2, Tichu
-calls v1).
+Why better Tichu calls are worth so little (2026-11-17 review). Exact call
+values on the real deal; current rule (strength >= -0.1) +3.99 to +4.12
+points per decision:
 
+| Call method | value vs the rule (pts/decision) |
+|-------------|----------------------------------|
+| success model P(first \| call) on the hand after the schupf, 65k decisions (`call_success_train.py`) | +0.41 ± 0.23 |
+| same model also given all four hands (`--oracle`) | +0.55 ± 0.26 |
+| decision-time simulation: both branches played on 16 guessed deals of the unseen cards (`--pimc-worlds`, `pimc_calls.py`) | -1.9 ± 0.8 (best variant +0.7 ± 0.3, rule and simulation agreeing) |
+| knowing the outcome | +44 |
+
+Seeing every hand barely helps (AUC 0.797 -> 0.812), and simulating on
+guessed deals correlates only 0.27 with the real value: whether a call
+succeeds is decided by how the round is played (it is chaotic), not by
+information a player could have. The strength rule is already near the
+practical ceiling, so learned call models were dropped (a +0.4 model was
+briefly shipped and removed).
+
+## Next steps
 ## Next steps
 
 1. More best-response iterations against v4 (`rollout_loop.py

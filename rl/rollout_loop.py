@@ -5,7 +5,8 @@ Each iteration improves the current best play policy by one exact
 policy-improvement step:
 
   1. Data. The best bot plays (a) against the heuristic variants in
-     ``--opponents`` (both seatings) and (b) against itself. For a sampled
+     ``--opponents`` and the fixed nets in ``--opponent-nets`` (both
+     seatings) and (b) against itself. For a sampled
      share of its play decisions the round is forked once per legal action
      and played out (``headless --rollout-rate``), which gives the exact
      round result of every legal action on that deal.
@@ -74,6 +75,12 @@ def main() -> None:
         default="latest",
         help="heuristic specs for the mixed games, separated by ';' (matches are split evenly)",
     )
+    p.add_argument(
+        "--opponent-nets",
+        default="",
+        help="fixed play nets to train and measure against, separated by ';' "
+        "(share --mixed-episodes with the heuristic opponents)",
+    )
     p.add_argument("--rollout-rate", type=float, default=0.5)
     p.add_argument("--epsilon", type=float, default=0.02)
     p.add_argument("--target-score", type=int, default=1000)
@@ -97,6 +104,7 @@ def main() -> None:
     history = json.loads(history_path.read_text()) if history_path.exists() else []
     start = 1 + max((h["iter"] for h in history), default=0)
     opponents = [o for o in args.opponents.split(";") if o]
+    opponent_nets = [o for o in args.opponent_nets.split(";") if o]
 
     for it in range(start, start + args.iterations):
         t0 = time.time()
@@ -108,7 +116,18 @@ def main() -> None:
             f"--nn-policy={best}",
         ]
         seed = args.seed + 10_000 * it
-        per = max(1, args.mixed_episodes // (2 * len(opponents)))
+        per = max(1, args.mixed_episodes // (2 * max(1, len(opponents) + len(opponent_nets))))
+        for i, net in enumerate(opponent_nets):
+            for swap in (False, True):
+                generate(
+                    data_dir / f"it{it:02d}_net{i}{'b' if swap else 'a'}.npz",
+                    seed=seed + 2000 + 100 * i + int(swap),
+                    episodes=per,
+                    shards=args.shards,
+                    args=common
+                    + ["--mixed", f"--opponent-policy={net}"]
+                    + (["--swap-teams"] if swap else []),
+                )
         for i, spec in enumerate(opponents):
             for swap in (False, True):
                 generate(
@@ -184,6 +203,20 @@ def main() -> None:
             entry[f"vs_heuristic[{spec}]"] = r
             print(
                 f"   vs heuristic [{spec}]: {r['win_rate']:.1f}% ± {r['win_rate_se']:.1f} "
+                f"margin {r['margin']:+.0f}",
+                flush=True,
+            )
+        for net in opponent_nets:
+            r = duel(
+                [f"--nn-policy={cand}"],
+                [f"--opponent-policy={net}"],
+                deals=args.duel_deals,
+                seed=4242,
+                shards=args.shards,
+            )
+            entry[f"vs_net[{Path(net).stem}]"] = r
+            print(
+                f"   vs {Path(net).stem}: {r['win_rate']:.1f}% ± {r['win_rate_se']:.1f} "
                 f"margin {r['margin']:+.0f}",
                 flush=True,
             )

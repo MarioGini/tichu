@@ -24,10 +24,11 @@ import torch
 import torch.nn as nn
 
 from call_data import received_onehot
+from oracle import oracle_onehot
 from qnet import QNetwork, export_safetensors
 
 
-def load(pattern: str, kind: str):
+def load(pattern: str, kind: str, features: str = "full"):
     xs, ys, strength = [], [], []
     for f in sorted(glob.glob(pattern)):
         rounds, rows = {}, []
@@ -52,7 +53,15 @@ def load(pattern: str, kind: str):
                 rank = order.index(seat)
             else:
                 rank = 3
-            feats = r["state_features"] + received_onehot(r.get("received")) + [float(r["called"])]
+            called = [float(r["called"])]
+            if features == "strength":
+                feats = [r.get("strength", 0.0)] + called
+            elif features == "noreceived":
+                feats = r["state_features"] + called
+            else:
+                feats = r["state_features"] + received_onehot(r.get("received")) + called
+                if features == "oracle":  # analysis: the other three hands
+                    feats = feats + list(oracle_onehot(r.get("oracle")))
             xs.append(np.asarray(feats, dtype=np.float32))
             ys.append(rank)
             strength.append(r.get("strength", 0.0))
@@ -88,8 +97,9 @@ def main() -> None:
     a.add_argument("--hidden", default="128,64")
     a.add_argument("--epochs", type=int, default=8)
     a.add_argument("--output", default="")
+    a.add_argument("--features", default="full", choices=["full", "noreceived", "strength", "oracle"])
     args = a.parse_args()
-    x, y, strength = load(args.jsonl, args.kind)
+    x, y, strength = load(args.jsonl, args.kind, args.features)
     n = len(y)
     perm = np.random.default_rng(0).permutation(n)
     te, tr = perm[: n // 5], perm[n // 5 :]
@@ -101,7 +111,7 @@ def main() -> None:
     ll = -np.log(p[np.arange(len(yt)), yt] + 1e-9).mean()
     ll0 = -np.log(prior[yt]).mean()
     exp_rank = p @ np.arange(1, 5)
-    print(f"[{args.kind}] {n} hands; rank frequencies 1st..4th "
+    print(f"[{args.kind} / {args.features}] {n} hands; rank frequencies 1st..4th "
           + " ".join(f"{100 * v:.1f}%" for v in prior))
     print(f"  held-out ({len(yt)}): log-loss {ll:.3f} vs {ll0:.3f} for the base rates "
           f"(information gained {100 * (1 - ll / ll0):.1f}%); accuracy {100 * (p.argmax(1) == yt).mean():.1f}% "

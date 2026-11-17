@@ -7,22 +7,62 @@ import 'ai_test_fixtures.dart';
 void main() {
   const strategy = DefaultTichuCallStrategy();
 
-  test('grand tichu always returns false', () async {
-    final snapshot = aiSnapshot(
-      myHand: [
-        Card(CardFace.dragon, CardColor.special),
-        Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.ace, CardColor.red),
-        Card(CardFace.ace, CardColor.blue),
-        Card(CardFace.ace, CardColor.green),
-        Card(CardFace.ace, CardColor.black),
-        Card(CardFace.king, CardColor.red),
-        Card(CardFace.king, CardColor.blue),
-      ],
+  test('grand tichu needs strength 5 in the first eight cards', () async {
+    Card card(final CardFace f, [final CardColor c = CardColor.red]) =>
+        Card(f, c);
+    final fillers = [
+      card(CardFace.two),
+      card(CardFace.three, CardColor.blue),
+      card(CardFace.five, CardColor.green),
+      card(CardFace.seven, CardColor.black),
+    ];
+    Future<bool> call(final List<Card> strong) => strategy.shouldCallGrandTichu(
+      aiSnapshot(myHand: [...strong, ...fillers].take(8).toList()),
+      aiTestSelfId,
     );
-
+    // Phoenix + two aces = 5.
     expect(
-      await strategy.shouldCallGrandTichu(snapshot, aiTestSelfId),
+      await call([
+        card(CardFace.phoenix, CardColor.special),
+        card(CardFace.ace),
+        card(CardFace.ace, CardColor.blue),
+        card(CardFace.nine),
+      ]),
+      isTrue,
+    );
+    // The Dog costs one: 4.
+    expect(
+      await call([
+        card(CardFace.phoenix, CardColor.special),
+        card(CardFace.ace),
+        card(CardFace.ace, CardColor.blue),
+        card(CardFace.dog, CardColor.special),
+      ]),
+      isFalse,
+    );
+    expect(
+      DefaultTichuCallStrategy.grandStrength([
+        card(CardFace.dragon, CardColor.special),
+        card(CardFace.ace),
+        card(CardFace.king),
+        card(CardFace.queen),
+        card(CardFace.queen, CardColor.blue),
+      ]),
+      closeTo(5, 1e-9),
+    );
+    expect(
+      await const DefaultTichuCallStrategy(
+        grandTichu: false,
+      ).shouldCallGrandTichu(
+        aiSnapshot(
+          myHand: [
+            card(CardFace.dragon, CardColor.special),
+            card(CardFace.phoenix, CardColor.special),
+            ...fillers,
+          ],
+        ),
+        aiTestSelfId,
+      ),
       isFalse,
     );
   });

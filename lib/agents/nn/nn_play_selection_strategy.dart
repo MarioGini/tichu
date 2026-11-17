@@ -27,8 +27,14 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// the first layer once, each action only adds its own features. This is
   /// the hot path of headless self-play and of the bots in the app.
   late final PrefixScorer _scorer = simd
-      ? network.simdPrefixScorer(stateFeatureCount)
-      : network.prefixScorer(stateFeatureCount);
+      ? network.simdPrefixScorer(_stateLength)
+      : network.prefixScorer(_stateLength);
+
+  /// State prefix the net was trained on: nets from before the `history`
+  /// group (v3, v4) read only the first [legacyStateFeatureCount] features.
+  late final int _stateLength = network.inputSize == legacyTotalFeatureCount
+      ? legacyStateFeatureCount
+      : stateFeatureCount;
 
   /// Use float32 SIMD inference (headless runs; see [Mlp.simdPrefixScorer]).
   final bool simd;
@@ -40,7 +46,8 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     this.fallback = const DefaultPlaySelectionStrategy(),
     this.simd = false,
   }) {
-    if (network.inputSize != totalFeatureCount) {
+    if (network.inputSize != totalFeatureCount &&
+        network.inputSize != legacyTotalFeatureCount) {
       throw ArgumentError.value(
         network.inputSize,
         'network.inputSize',

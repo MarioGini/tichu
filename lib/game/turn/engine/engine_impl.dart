@@ -52,6 +52,7 @@ class GameEngineImpl implements GameEngine {
     state.schupfReceipts.clear();
     state.schupfPendingAdditions.clear();
     state.playersWhoPlayedCardsThisRound.clear();
+    state.roundLog.clear();
     return state;
   }
 
@@ -82,6 +83,7 @@ class GameEngineImpl implements GameEngine {
     state.currentTrickCards.clear();
     state.finishedPlayers.clear();
     state.playersWhoPlayedCardsThisRound.clear();
+    state.roundLog.clear();
     state.grandTichuDecisions.clear();
     state.schupfSelections.clear();
     state.completedSchupfSelections.clear();
@@ -100,6 +102,7 @@ class GameEngineImpl implements GameEngine {
     state.lastDragonGiveBy = null;
     state.lastDragonGiveTo = null;
     state.playersWhoPlayedCardsThisRound.clear();
+    state.roundLog.clear();
   }
 
   @override

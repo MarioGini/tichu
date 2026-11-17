@@ -1,5 +1,6 @@
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/turn_handler.dart';
 import 'package:tichu/game/turn/utils/engine/hand_utils.dart';
@@ -26,6 +27,7 @@ void applyPlayAction(
     throw StateError('Invalid turn.');
   }
 
+  _logAction(state, action.playerId, List<Card>.unmodifiable(action.cards));
   removeCardsFromHand(hand, action.cards);
   state.playersWhoPlayedCardsThisRound.add(action.playerId);
   state.deck = updatedDeck;
@@ -85,6 +87,7 @@ void applyPassAction(final GameEngineState state, final PassAction action) {
     throw StateError('Wish must be fulfilled when possible.');
   }
 
+  _logAction(state, action.playerId, const <Card>[]);
   state.consecutivePasses += 1;
   advanceToNextPlayer(state);
 
@@ -223,4 +226,26 @@ bool dragonWonTrick(final GameEngineState state) {
   if (lastTurn == null) return false;
   if (lastTurn.type != TurnType.single) return false;
   return lastTurn.cards.any((final card) => card.face == CardFace.dragon);
+}
+
+/// Records a play or pass with the trick it answered (see [RoundLogEntry]).
+void _logAction(
+  final GameEngineState state,
+  final String playerId,
+  final List<Card> cards,
+) {
+  final turn = state.deck.turn;
+  final active =
+      turn.type != TurnType.empty &&
+      turn.type != TurnType.none &&
+      turn.type != TurnType.dog;
+  state.roundLog.add(
+    RoundLogEntry(
+      playerId: playerId,
+      cards: cards,
+      trickType: turn.type,
+      trickValue: turn.value,
+      trickWinner: active ? state.lastPlayedBy ?? '' : '',
+    ),
+  );
 }

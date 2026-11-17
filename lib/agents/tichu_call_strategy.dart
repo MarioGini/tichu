@@ -21,11 +21,15 @@ abstract class TichuCallStrategy {
   );
 }
 
-/// The heuristic's calls: never Grand Tichu, never before the schupf, and
-/// Tichu when [tichuStrength] reaches a threshold calibrated on exact
+/// The heuristic's calls: Grand Tichu when [grandStrength] reaches
+/// [grandThreshold], never before the schupf, and Tichu when [tichuStrength]
+/// reaches a threshold. Both thresholds are calibrated on exact
 /// counterfactual call values.
 class DefaultTichuCallStrategy implements TichuCallStrategy {
-  const DefaultTichuCallStrategy();
+  const DefaultTichuCallStrategy({this.grandTichu = true});
+
+  /// Whether Grand Tichu is ever called (A/B switch `grand_tichu`).
+  final bool grandTichu;
 
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
@@ -37,7 +41,33 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
   Future<bool> shouldCallGrandTichu(
     final GameSnapshot snapshot,
     final String playerId,
-  ) async => false;
+  ) async =>
+      grandTichu &&
+      grandStrength(snapshot.hands[playerId] ?? const <Card>[]) >=
+          grandThreshold;
+
+  /// Call Grand Tichu at this [grandStrength]: Dragon + Phoenix, either of
+  /// them with two Aces, or with an Ace and three Kings / Queens.
+  static const double grandThreshold = 5;
+
+  /// Grand Tichu strength of the first eight cards: Dragon and Phoenix 3,
+  /// Ace 1, King and Queen 1/3, four of a kind 4, the Dog -1.
+  static double grandStrength(final List<Card> hand) {
+    final counts = <CardFace, int>{};
+    for (final c in hand) {
+      counts[c.face] = (counts[c.face] ?? 0) + 1;
+    }
+    int n(final CardFace f) => counts[f] ?? 0;
+    final quads = counts.entries
+        .where((final e) => e.value == 4 && Card.getValue(e.key) >= 2)
+        .length;
+    return 3.0 * n(CardFace.dragon) +
+        3.0 * n(CardFace.phoenix) +
+        n(CardFace.ace) +
+        (n(CardFace.king) + n(CardFace.queen)) / 3 +
+        4.0 * quads -
+        n(CardFace.dog);
+  }
 
   @override
   Future<bool> shouldCallTichu(

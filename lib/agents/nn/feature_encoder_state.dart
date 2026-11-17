@@ -42,7 +42,57 @@ extension _StateEncoding on FeatureEncoder {
     _encodeSeats(f);
     _encodeSelf(f);
     _handShape.writeTo(f, handStructureOffset);
+    _encodeHistory(f);
     return f;
+  }
+
+  /// Per other player (left, partner, right; 22 features each), from the
+  /// public round log: the cards they played this round (rank histogram as
+  /// in `unseen`), the lowest single and the lowest pair they passed on
+  /// while one of their opponents was winning the trick (flag + value), and
+  /// how often they passed on an opponent's trick.
+  void _encodeHistory(final List<double> f) {
+    final log = snapshot.roundLog;
+    if (log.isEmpty) return;
+    final teamOf = <String, int>{
+      for (final p in snapshot.players) p.id: p.seat % 2,
+    };
+    for (var rel = 1; rel <= 3; rel++) {
+      final player = _playerAtSeat((_mySeat + rel) % 4);
+      if (player == null) continue;
+      final team = player.seat % 2;
+      final o = historyOffset + (rel - 1) * 22;
+      var minSingle = double.infinity;
+      var minPair = double.infinity;
+      var passes = 0;
+      for (final e in log) {
+        if (e.playerId != player.id) continue;
+        if (!e.isPass) {
+          for (final card in e.cards) {
+            final h = _histIndex(card);
+            if (h >= 0) f[o + h] += h < 13 ? 0.25 : 1.0;
+          }
+          continue;
+        }
+        final winnerTeam = teamOf[e.trickWinner];
+        if (winnerTeam == null || winnerTeam == team) continue;
+        passes++;
+        if (e.trickType == TurnType.single && e.trickValue < minSingle) {
+          minSingle = e.trickValue;
+        } else if (e.trickType == TurnType.pair && e.trickValue < minPair) {
+          minPair = e.trickValue;
+        }
+      }
+      if (minSingle.isFinite) {
+        f[o + 17] = 1.0;
+        f[o + 18] = (minSingle / 15.0).clamp(0.0, 1.0);
+      }
+      if (minPair.isFinite) {
+        f[o + 19] = 1.0;
+        f[o + 20] = (minPair / 15.0).clamp(0.0, 1.0);
+      }
+      f[o + 21] = (passes / 5.0).clamp(0.0, 1.0);
+    }
   }
 
   void _encodeTrick(final List<double> f) {

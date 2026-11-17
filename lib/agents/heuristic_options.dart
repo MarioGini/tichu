@@ -30,6 +30,7 @@ class HeuristicOptions {
     'singleton_response',
     'cheap_combos',
     'guard',
+    'grand_tichu',
   };
 
   /// Whether [rule] is active.

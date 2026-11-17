@@ -2,6 +2,7 @@ import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
+import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -78,6 +79,7 @@ GameSnapshot buildGameSnapshot(
           : state.completedSchupfSelections,
     ),
     schupfReceipts: Map<String, List<SchupfReceipt>>.from(state.schupfReceipts),
+    roundLog: List<RoundLogEntry>.unmodifiable(state.roundLog),
   );
 }
 

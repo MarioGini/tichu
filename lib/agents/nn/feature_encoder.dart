@@ -13,7 +13,7 @@ part 'feature_encoder_state.dart';
 
 /// Fixed-size numeric feature vector for neural network input.
 ///
-/// **Authoritative layout lives in `rl/schema/feature_spec.json` (v4).**
+/// **Authoritative layout lives in `rl/schema/feature_spec.json` (v5).**
 /// `test/agents/feature_layout_test.dart` asserts the constants below match
 /// the spec; edit the spec first, then this file.
 ///
@@ -28,6 +28,7 @@ part 'feature_encoder_state.dart';
 /// | seats          |  27  | left / partner / right: counts, calls, finish  |
 /// | self           |  15  | own calls, round + match score context         |
 /// | hand_structure |  10  | combinatorial shape of my hand                 |
+/// | history        |  66  | per other player: cards played, passes         |
 ///
 /// Action suffix (one per legal action): type, strength, which cards it
 /// uses, whether it can be beaten by unseen cards, and the shape of the hand
@@ -46,6 +47,7 @@ const int trickFeatureCount = 20;
 const int seatsFeatureCount = 27;
 const int selfFeatureCount = 15;
 const int handStructureFeatureCount = 10;
+const int historyFeatureCount = 66;
 const int actionFeatureCount = 51;
 
 const int handOffset = 0;
@@ -55,11 +57,20 @@ const int trickOffset = unseenOffset + unseenFeatureCount; // 129
 const int seatsOffset = trickOffset + trickFeatureCount; // 149
 const int selfOffset = seatsOffset + seatsFeatureCount; // 176
 const int handStructureOffset = selfOffset + selfFeatureCount; // 191
-const int actionOffset = handStructureOffset + handStructureFeatureCount; // 201
+const int historyOffset =
+    handStructureOffset + handStructureFeatureCount; // 201
+const int actionOffset = historyOffset + historyFeatureCount; // 267
 
 /// Length of the per-decision state prefix (all groups before `action`).
 const int stateFeatureCount = actionOffset;
-const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 252
+const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 318
+
+/// Layout before the `history` group (schema v4, e.g. the v3 / v4 play
+/// policies): the state prefix stopped at [historyOffset]. Such nets still
+/// work; they read the first [legacyStateFeatureCount] state features.
+const int legacyStateFeatureCount = historyOffset; // 201
+const int legacyTotalFeatureCount =
+    legacyStateFeatureCount + actionFeatureCount; // 252
 
 /// Encode the state prefix for [playerId].
 List<double> encodeStateFeatures({

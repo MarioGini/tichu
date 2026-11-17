@@ -1,6 +1,7 @@
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
+import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -17,6 +18,7 @@ GameSnapshot fxSnapshot({
   final List<String> finishOrder = const [],
   final Map<String, TichuCall> calls = const {},
   final Map<String, List<SchupfReceipt>> receipts = const {},
+  final List<RoundLogEntry> roundLog = const [],
 }) {
   final base = aiSnapshot(
     myHand: mine,
@@ -49,6 +51,7 @@ GameSnapshot fxSnapshot({
     grandTichuDecisions: const {},
     schupfCompletedPlayers: const [],
     schupfReceipts: base.schupfReceipts,
+    roundLog: roundLog,
   );
 }
 
@@ -59,5 +62,6 @@ int slot(final String group, final int i) => switch (group) {
   'trick' => trickOffset + i,
   'seats' => seatsOffset + i,
   'self' => selfOffset + i,
+  'history' => historyOffset + i,
   _ => throw ArgumentError(group),
 };

@@ -14,20 +14,37 @@ void main() {
   });
 
   group('shouldCallGrandTichu', () {
-    test('always returns false', () async {
-      final snapshot = aiSnapshot(
-        myHand: [
+    test('calls with a Grand Tichu hand, not with a weak one', () async {
+      Future<bool> call(final List<Card> hand) =>
+          agent.shouldCallGrandTichu(aiSnapshot(myHand: hand));
+      // Dragon + Phoenix: strength 6.
+      expect(
+        await call([
           Card(CardFace.dragon, CardColor.special),
           Card(CardFace.phoenix, CardColor.special),
-          Card(CardFace.ace, CardColor.red),
-          Card(CardFace.ace, CardColor.blue),
-          Card(CardFace.ace, CardColor.green),
-          Card(CardFace.ace, CardColor.black),
-          Card(CardFace.king, CardColor.red),
-          Card(CardFace.king, CardColor.blue),
-        ],
+          Card(CardFace.two, CardColor.red),
+          Card(CardFace.three, CardColor.blue),
+          Card(CardFace.five, CardColor.green),
+          Card(CardFace.seven, CardColor.black),
+          Card(CardFace.eight, CardColor.red),
+          Card(CardFace.ten, CardColor.blue),
+        ]),
+        isTrue,
       );
-      expect(await agent.shouldCallGrandTichu(snapshot), false);
+      // Dragon + Ace + King: strength 4.33.
+      expect(
+        await call([
+          Card(CardFace.dragon, CardColor.special),
+          Card(CardFace.ace, CardColor.red),
+          Card(CardFace.king, CardColor.blue),
+          Card(CardFace.two, CardColor.red),
+          Card(CardFace.three, CardColor.blue),
+          Card(CardFace.five, CardColor.green),
+          Card(CardFace.seven, CardColor.black),
+          Card(CardFace.eight, CardColor.red),
+        ]),
+        isFalse,
+      );
     });
   });
 

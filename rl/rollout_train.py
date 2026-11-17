@@ -38,7 +38,7 @@ from qnet import (
     load_qnetwork_from_safetensors,
     select_device,
 )
-from schema import ACTION_OFFSET, TOTAL_FEATURE_COUNT
+from schema import ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT
 
 SCALE = 100.0
 HAND_OFFSET = 0
@@ -213,6 +213,11 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     torch.manual_seed(args.seed)
     t0 = time.time()
     data = load([Path(p) for p in args.jsonl.split(",") if p])
+    if args.zero_history:
+        # A/B control: same data and net, but the per-player history inputs
+        # are always zero (what a net without them would see).
+        hist = SPEC.group("history")
+        data.x[:, hist.offset : hist.offset + hist.size] = 0.0
     if args.save_cache:
         save_npz(data, Path(args.save_cache))
     d = data.num_decisions
@@ -293,6 +298,7 @@ def main() -> None:
     p.add_argument("--no-augment", action="store_true", help="disable suit-permutation augmentation")
     p.add_argument("--save-epochs", action="store_true", help="also export OUTPUT.epN after every epoch")
     p.add_argument("--save-cache", default="", help="write the parsed rows to this .npz")
+    p.add_argument("--zero-history", action="store_true", help="A/B control: zero the history inputs")
     p.add_argument("--seed", type=int, default=0)
     train(p.parse_args())
 

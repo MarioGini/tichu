@@ -49,7 +49,8 @@ class SmartAiAgent extends PlayerAgent {
     final WishStrategy? wishStrategy,
     final DragonGiveStrategy? dragonGiveStrategy,
   }) : tichuCallStrategy =
-           tichuCallStrategy ?? const DefaultTichuCallStrategy(),
+           tichuCallStrategy ??
+           DefaultTichuCallStrategy(grandTichu: options.on('grand_tichu')),
        schupfStrategy = schupfStrategy ?? const DefaultSchupfStrategy(),
        playTacticsPolicy = playTacticsPolicy ?? const PlayTacticsPolicy(),
        wishStrategy = wishStrategy ?? const DefaultWishStrategy(),

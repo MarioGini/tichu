@@ -247,4 +247,49 @@ void main() {
       expect(state.lastPlayedTurn?.type, TurnType.bomb);
     });
   });
+
+  test('round log records plays and passes with the trick they answered', () {
+    final engine = GameEngineImpl();
+    final state = fxState(
+      phase: GamePhase.play,
+      hands: {
+        testHumanId: [
+          fxCard(CardFace.nine, CardColor.red),
+          fxCard(CardFace.two, CardColor.red),
+        ],
+        testOpponentLeftId: [
+          fxCard(CardFace.three, CardColor.red),
+          fxCard(CardFace.four, CardColor.red),
+        ],
+        testOpponentPartnerId: [fxCard(CardFace.king, CardColor.red)],
+        testOpponentRightId: [fxCard(CardFace.five, CardColor.red)],
+      },
+    );
+    engine.applyAction(
+      state,
+      PlayTurnAction(
+        playerId: testHumanId,
+        cards: [fxCard(CardFace.nine, CardColor.red)],
+      ),
+    );
+    engine.applyAction(state, const PassAction(playerId: testOpponentLeftId));
+
+    expect(state.roundLog, hasLength(2));
+    final lead = state.roundLog[0];
+    expect(lead.playerId, testHumanId);
+    expect(lead.isPass, isFalse);
+    expect(lead.trickWinner, '');
+    final pass = state.roundLog[1];
+    expect(pass.playerId, testOpponentLeftId);
+    expect(pass.isPass, isTrue);
+    expect(pass.trickType, TurnType.single);
+    expect(pass.trickValue, 9);
+    expect(pass.trickWinner, testHumanId);
+    // Snapshots carry the log; copies are independent.
+    expect(engine.buildSnapshot(state).roundLog, hasLength(2));
+    final copy = state.copy();
+    engine.applyAction(copy, const PassAction(playerId: testOpponentPartnerId));
+    expect(copy.roundLog, hasLength(3));
+    expect(state.roundLog, hasLength(2));
+  });
 }

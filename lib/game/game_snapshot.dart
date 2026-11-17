@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_types.dart';
+import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -43,6 +44,10 @@ class GameSnapshot {
   /// only read what their player is entitled to see.
   final Map<String, SchupfAction> schupfSelections;
 
+  /// Every play and pass of the current round, in order (public record).
+  /// Backends that do not track it leave it empty.
+  final List<RoundLogEntry> roundLog;
+
   const GameSnapshot({
     required this.gameId,
     required this.players,
@@ -71,6 +76,7 @@ class GameSnapshot {
     required this.schupfCompletedPlayers,
     required this.schupfReceipts,
     this.schupfSelections = const {},
+    this.roundLog = const [],
   });
 }
 

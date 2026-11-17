@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/game/game_types.dart';
+import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -280,5 +281,62 @@ void main() {
       expect(enc.actionFeatures(TichuTurn(TurnType.single, [dragon]))[21], 1.0);
       expect(enc.stateFeatures[slot('self', 14)], 1.0); // bomb possible
     });
+  });
+
+  test('history: cards played and passes on opponents per player', () {
+    RoundLogEntry play(final String id, final List<Card> cards) =>
+        RoundLogEntry(
+          playerId: id,
+          cards: cards,
+          trickType: TurnType.empty,
+          trickValue: 0,
+          trickWinner: '',
+        );
+    RoundLogEntry pass(
+      final String id,
+      final TurnType type,
+      final double value,
+      final String winner,
+    ) => RoundLogEntry(
+      playerId: id,
+      cards: const [],
+      trickType: type,
+      trickValue: value,
+      trickWinner: winner,
+    );
+    final snap = fxSnapshot(
+      mine: [c(CardFace.two)],
+      others: {
+        aiTestLeftId: [c(CardFace.three)],
+        aiTestPartnerId: [c(CardFace.four)],
+        aiTestRightId: [c(CardFace.five)],
+      },
+      roundLog: [
+        play(aiTestLeftId, [c(CardFace.king), c(CardFace.king, CardColor.red)]),
+        play(aiTestLeftId, [c(CardFace.dragon, CardColor.special)]),
+        // Left passes on my (an opponent's) queen and on a pair of nines.
+        pass(aiTestLeftId, TurnType.single, 12, aiTestSelfId),
+        pass(aiTestLeftId, TurnType.single, 10, aiTestRightId),
+        pass(aiTestLeftId, TurnType.pair, 9, aiTestSelfId),
+        // Partner passes on left's ace: an opponent's trick.
+        pass(aiTestPartnerId, TurnType.single, 14, aiTestLeftId),
+        // Right passes on left's (its partner's) trick: no evidence.
+        pass(aiTestRightId, TurnType.single, 3, aiTestLeftId),
+      ],
+    );
+    final f = encodeStateFeatures(snapshot: snap, playerId: aiTestSelfId);
+    // Left (block 0): two kings, the dragon.
+    expect(f[slot('history', 11)], 0.5);
+    expect(f[slot('history', 16)], 1.0);
+    expect(f[slot('history', 17)], 1.0);
+    expect(f[slot('history', 18)], closeTo(12 / 15, 1e-9));
+    expect(f[slot('history', 19)], 1.0);
+    expect(f[slot('history', 20)], closeTo(9 / 15, 1e-9));
+    expect(f[slot('history', 21)], closeTo(2 / 5, 1e-9));
+    // Partner (block 1): passed on an ace.
+    expect(f[slot('history', 22 + 18)], closeTo(14 / 15, 1e-9));
+    // Right (block 2): its partner's trick is no evidence.
+    expect(f[slot('history', 44 + 17)], 0.0);
+    expect(f[slot('history', 44 + 21)], 0.0);
   });
 }

@@ -1,5 +1,6 @@
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_types.dart';
+import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -23,6 +24,9 @@ class GameEngineState {
   final List<Card> currentTrickCards = [];
   final Set<String> finishedPlayers = {};
   final Set<String> playersWhoPlayedCardsThisRound = {};
+
+  /// Every play and pass of the current round, in order (public record).
+  final List<RoundLogEntry> roundLog = [];
   GamePhase phase;
   final Map<String, bool> grandTichuDecisions = {};
   final Map<String, SchupfAction> schupfSelections = {};
@@ -76,6 +80,7 @@ class GameEngineState {
     c.currentTrickCards.addAll(currentTrickCards);
     c.finishedPlayers.addAll(finishedPlayers);
     c.playersWhoPlayedCardsThisRound.addAll(playersWhoPlayedCardsThisRound);
+    c.roundLog.addAll(roundLog);
     c.grandTichuDecisions.addAll(grandTichuDecisions);
     c.schupfSelections.addAll(schupfSelections);
     c.completedSchupfSelections.addAll(completedSchupfSelections);

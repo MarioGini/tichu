@@ -5,7 +5,7 @@ layout (318: the 66 `history` features inserted before the action group).
 The new input weights are zero, so the converted net plays exactly like the
 original one; training then learns to use the history.
 
-  rl/.venv/bin/python rl/widen_net.py assets/bots/tichu_q_v4.safetensors out.safetensors
+  rl/.venv/bin/python rl/widen_net.py old_v4_layout.safetensors out.safetensors
 """
 
 from __future__ import annotations

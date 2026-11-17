@@ -23,7 +23,7 @@ VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>
 
 ## Quick start
 
-The shipped play policy is `assets/bots/tichu_q_v4.safetensors` (see
+The shipped play policy is `assets/bots/tichu_q_v5.safetensors` (see
 `rl/models/README.md`). It is trained by **rollout policy iteration**
 (`rollout_loop.py`, see "Rollout policy iteration" below).
 
@@ -46,7 +46,7 @@ tail -f rl/outputs/rollout_loop/loop.log
 Measure any two bots against each other (duplicate deals, both seatings):
 
 ```bash
-rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v4.safetensors" \
+rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v5.safetensors" \
     --b="--opponent-policy=assets/bots/tichu_q_v3.safetensors" --deals=1000
 rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
@@ -483,8 +483,7 @@ are from the new runner:
 Head to head, with history vs without: 48.7 % ± 0.9. At this data size the
 history features do not help yet; their 66 inputs start at zero weight and
 the advantage targets are noisy (± 90 points per action and deal). The best
-net (`rl/models/tichu_q_v5_candidate.safetensors`) is not shipped: it beats
-v4 only 57 : 43.
+net is shipped as `assets/bots/tichu_q_v5.safetensors` (v4 removed).
 
 ## Next steps
 

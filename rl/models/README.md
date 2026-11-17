@@ -1,9 +1,13 @@
 # Trained models
 
-The app's bots use `assets/bots/tichu_q_v4.safetensors` (loaded by
+The app's bots use `assets/bots/tichu_q_v5.safetensors` (loaded by
 `lib/agents/app_bots.dart`).
 
-## tichu_q_v4.safetensors
+## tichu_q_v4.safetensors (removed)
+
+No longer in the repo; restore it as the benchmark opponent with
+`git show 92aed27:assets/bots/tichu_q_v4.safetensors > v4.safetensors`.
+
 
 Play/pass policy (Q(s, a) MLP, feature schema v4, 252 inputs, same
 architecture as v3), trained by `rl/rollout_loop.py`: rollout policy
@@ -34,7 +38,7 @@ simulates in 85 ms.
 Use with the heuristic's Tichu calls and schupf:
 
 ```bash
-build/bin/headless --nn-policy=assets/bots/tichu_q_v4.safetensors ...
+build/bin/headless --nn-policy=assets/bots/tichu_q_v5.safetensors ...
 ```
 
 In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.
@@ -46,9 +50,9 @@ steps, `rl/train_loop.py`). Kept as the fixed reference opponent for duels:
 74.6 % ± 0.9 vs the classic heuristic on the bench above (70.8 % ± 1.9 in
 the original 400-match measurement).
 
-## tichu_q_v5_candidate.safetensors
+## tichu_q_v5.safetensors (shipped)
 
-Not shipped. Two best-response steps against v4 plus one on games against
+Two best-response steps against v4 plus one on games against
 v4 with the Grand Tichu rule (feature layout v5, history weights zero).
 57.3 % ± 0.9 against v4 and 89.7 % ± 0.6 against the heuristic (v4: 88.2 %),
 duplicate, 1000 deals x 2, new runner. See rl/README.md, "Review of v4's

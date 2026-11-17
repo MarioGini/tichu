@@ -468,10 +468,29 @@ Best response to v4 (layout v4, `rollout_loop.py --opponent-nets`): one step
 on v4's self-play 53.2 % ± 0.9 against v4, a second step on games against v4
 57.9 % ± 0.9 (margin +88).
 
+History features, A/B on identical data (143k decisions of games against
+v4, same start net, history inputs zeroed for the control). With the Grand
+Tichu rule both teams now call it, which adds variance, so all numbers below
+are from the new runner:
+
+| Net | vs v4 | vs heuristic |
+|-----|-------|--------------|
+| start (the 57.9 % net, widened) | 54.9 % ± 0.9 | |
+| + step, without history | **57.3 % ± 0.9** | 89.7 % ± 0.6 |
+| + step, with history | 55.6 % ± 0.9 | |
+| v4 | — | 88.2 % ± 0.7 |
+
+Head to head, with history vs without: 48.7 % ± 0.9. At this data size the
+history features do not help yet; their 66 inputs start at zero weight and
+the advantage targets are noisy (± 90 points per action and deal). The best
+net (`rl/models/tichu_q_v5_candidate.safetensors`) is not shipped: it beats
+v4 only 57 : 43.
+
 ## Next steps
 
-1. Keep iterating `rollout_loop.py`; shift the data towards self-play as the
-   heuristics stop being a challenge.
+1. More best-response iterations against v4 (`rollout_loop.py
+   --opponent-nets`, ~+2-4 pp per 25-minute iteration so far), keeping the
+   data of earlier iterations, and the history A/B again at 3-5x the data.
 2. Learned calls on exact counterfactual labels from the best policy
    (`call_labels.sh` + `call_train.py`); then the same for the schupf.
 3. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:

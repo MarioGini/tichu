@@ -45,3 +45,12 @@ The previous policy (behaviour cloning of the heuristic plus Monte-Carlo Q
 steps, `rl/train_loop.py`). Kept as the fixed reference opponent for duels:
 74.6 % ± 0.9 vs the classic heuristic on the bench above (70.8 % ± 1.9 in
 the original 400-match measurement).
+
+## tichu_q_v5_candidate.safetensors
+
+Not shipped. Two best-response steps against v4 plus one on games against
+v4 with the Grand Tichu rule (feature layout v5, history weights zero).
+57.3 % ± 0.9 against v4 and 89.7 % ± 0.6 against the heuristic (v4: 88.2 %),
+duplicate, 1000 deals x 2, new runner. See rl/README.md, "Review of v4's
+games".
+

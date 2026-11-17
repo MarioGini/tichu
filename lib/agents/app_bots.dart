@@ -5,9 +5,10 @@ import 'package:tichu/agents/bot_config.dart';
 /// The bots the app plays with. [load] is called once at startup; until
 /// then (and in tests, or if loading fails) bots use the heuristic.
 abstract final class AppBots {
-  /// Trained play policy (rl/models/README.md): ~71 % match win rate vs the
-  /// heuristic. Tichu calls and schupf stay heuristic (they measured better).
-  static const playPolicyAsset = 'assets/bots/tichu_q_v3.safetensors';
+  /// Trained play policy (rl/models/README.md): rollout policy iteration on
+  /// top of v3; beats v3 about 4 matches in 5. Tichu calls and schupf stay
+  /// heuristic.
+  static const playPolicyAsset = 'assets/bots/tichu_q_v4.safetensors';
 
   static BotConfig current = BotConfig.heuristic;
 

@@ -30,4 +30,4 @@ flutter:
   assets:
     - assets/cards/
     - assets/sfx/
-    - assets/bots/tichu_q_v3.safetensors
+    - assets/bots/tichu_q_v4.safetensors

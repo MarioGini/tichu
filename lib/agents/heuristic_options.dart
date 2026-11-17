@@ -1,9 +1,7 @@
 /// Switchable heuristic rules, so variants can be A/B-tested against each
-/// other in one headless match (`--heuristic=` / `--opponent-heuristic=`).
-/// The app uses [latest]: guard + strict, the best combination measured
-/// against [legacy] (duplicate, 150 deals to 1000). Always passing for a
-/// calling partner (`support`) and announcing before the schupf
-/// (`announce`) measured slightly worse, so they are off.
+/// other in one headless match (`--heuristic=` / `--opponent-heuristic=`) or
+/// scored on one rollout-labelled dataset (`--shadow-heuristics=`).
+/// The app uses [latest].
 class HeuristicOptions {
   /// Partner called Tichu: pass whenever allowed and never go out first.
   final bool supportPartnerTichu;
@@ -77,7 +75,20 @@ class HeuristicOptions {
     this.weights = const <String, double>{},
   });
 
-  static const latest = HeuristicOptions();
+  /// The current heuristic: [classic] plus the changes that paid off in the
+  /// rollout lab (exact one-step values) and in 6000-match duplicate duels:
+  /// cheapest multi-card combination (+9 pp win rate vs classic), no
+  /// "pass instead of damaging the plan" rule, a smaller unbeatable-line
+  /// bonus and a larger control-preservation penalty (+2.7 pp together).
+  static const latest = HeuristicOptions(
+    planPass: false,
+    cheapCombos: true,
+    weights: {'unbeatableLine': 2.5, 'controlPreservation': 6},
+  );
+
+  /// The heuristic the v3 play policy was trained and measured against
+  /// (the constructor defaults). Kept as the fixed baseline for comparisons.
+  static const classic = HeuristicOptions();
 
   /// Rules before these options existed.
   static const legacy = HeuristicOptions(
@@ -142,8 +153,8 @@ class HeuristicOptions {
     if (cheapCombos) 'cheap_combos',
   };
 
-  /// Parses a comma list on top of a preset: `latest` or `legacy` (the
-  /// default base, so `support,announce` means legacy plus those rules).
+  /// Parses a comma list on top of a preset: `latest`, `classic` or `legacy`
+  /// (the default base, so `support,announce` means legacy plus those rules).
   ///
   ///  * `name` enables a rule (`support`, `plan_lead`, `cheap_combos`, ...);
   ///  * `-name` disables a rule or a tactical shortcut ([shortcutRules]);
@@ -155,12 +166,16 @@ class HeuristicOptions {
         .map((final s) => s.trim())
         .where((final s) => s.isNotEmpty)
         .toList();
-    final base = tokens.contains('latest') ? latest : legacy;
+    final base = tokens.contains('latest')
+        ? latest
+        : (tokens.contains('classic') ? classic : legacy);
     final on = base._enabledFlags;
     final off = {...base.off};
     final weights = {...base.weights};
     for (final token in tokens) {
-      if (token == 'latest' || token == 'legacy') continue;
+      if (token == 'latest' || token == 'classic' || token == 'legacy') {
+        continue;
+      }
       final colon = token.indexOf(':');
       if (colon > 0) {
         final value = double.tryParse(token.substring(colon + 1));

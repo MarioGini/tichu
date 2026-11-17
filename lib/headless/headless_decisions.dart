@@ -135,11 +135,20 @@ extension _Decisions on _HeadlessSimulator {
 
     try {
       final tichuKey = '${snapshot.scoreState.roundNumber}:$playerId';
-      if ((snapshot.canCallTichuByPlayer[playerId] ?? false) &&
+      final canCall =
+          (snapshot.canCallTichuByPlayer[playerId] ?? false) &&
           (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
               TichuCall.none &&
-          _tichuDecided.add(tichuKey)) {
-        // First Tichu opportunity this round: explore + log the decision.
+          !_tichuDecided.contains(tichuKey);
+      // With `delay_tichu` the bot decides when it plays its first card; a
+      // pass keeps the option (see SmartAiAgent.selectAction).
+      GameAction? turn;
+      if (canCall && agent is SmartAiAgent && agent.options.on('delay_tichu')) {
+        turn = await agent.selectTurn(snapshot);
+        if (turn is PassAction) return turn;
+      }
+      if (canCall && _tichuDecided.add(tichuKey)) {
+        // The Tichu decision of this round: explore + log it.
         var shouldCall = await agent.shouldCallTichu(snapshot);
         final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
         if (explored) shouldCall = !shouldCall;
@@ -155,7 +164,7 @@ extension _Decisions on _HeadlessSimulator {
           cfDetails: _lastCallDetails,
         );
         if (shouldCall) return CallTichuAction(playerId: playerId);
-        return await agent.selectTurn(snapshot);
+        return turn ?? await agent.selectTurn(snapshot);
       }
       return await agent.selectAction(snapshot);
       // Agents signal "no legal action" with StateError.

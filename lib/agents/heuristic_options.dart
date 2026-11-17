@@ -31,6 +31,7 @@ class HeuristicOptions {
     'cheap_combos',
     'guard',
     'grand_tichu',
+    'delay_tichu',
   };
 
   /// Whether [rule] is active.

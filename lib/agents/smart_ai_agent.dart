@@ -87,6 +87,27 @@ class SmartAiAgent extends PlayerAgent {
     return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
   }
 
+  /// Tichu may be called until the player's first card. With `delay_tichu`
+  /// the decision waits for the turn in which the bot plays its first card
+  /// (while it passes it keeps the option and sees more of the round).
+  @override
+  Future<GameAction> selectAction(final GameSnapshot snapshot) async {
+    if (!canStillCallTichu(snapshot)) return selectTurn(snapshot);
+    if (!options.on('delay_tichu')) return super.selectAction(snapshot);
+    final turn = await selectTurn(snapshot);
+    if (turn is PassAction) return turn;
+    if (await shouldCallTichu(snapshot)) {
+      return CallTichuAction(playerId: playerId);
+    }
+    return turn;
+  }
+
+  /// No call yet and no card played yet this round.
+  bool canStillCallTichu(final GameSnapshot snapshot) =>
+      (snapshot.canCallTichuByPlayer[playerId] ?? false) &&
+      (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
+          TichuCall.none;
+
   bool _partnerAlreadyCalled(final GameSnapshot snapshot) {
     final table = TableRelationships(snapshot, playerId);
     final partnerId = table.partnerId;

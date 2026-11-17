@@ -16,12 +16,14 @@ void main() {
         final rng = Random(5);
         const prefixLength = 18;
         final scorer = net.prefixScorer(prefixLength);
+        final simd = net.simdPrefixScorer(prefixLength);
         for (var decision = 0; decision < 20; decision++) {
           // Sparse inputs with zeros and negatives, like the real features.
           double value() =>
               rng.nextDouble() < 0.6 ? 0.0 : rng.nextDouble() * 2 - 1;
           final prefix = [for (var i = 0; i < prefixLength; i++) value()];
           scorer.setPrefix(prefix);
+          simd.setPrefix(prefix);
           for (var action = 0; action < 5; action++) {
             final suffix = Float64List.fromList([
               for (var i = prefixLength; i < sizes.first; i++) value(),
@@ -30,6 +32,8 @@ void main() {
               Float64List.fromList([...prefix, ...suffix]),
             );
             expect(scorer.score(suffix), closeTo(dense, 1e-9));
+            // The float32 SIMD scorer agrees up to single precision.
+            expect(simd.score(suffix), closeTo(dense, 1e-4));
           }
         }
       });

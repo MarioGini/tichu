@@ -26,13 +26,19 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// Scores every legal action of a decision: the state prefix goes through
   /// the first layer once, each action only adds its own features. This is
   /// the hot path of headless self-play and of the bots in the app.
-  late final MlpPrefixScorer _scorer = network.prefixScorer(stateFeatureCount);
+  late final PrefixScorer _scorer = simd
+      ? network.simdPrefixScorer(stateFeatureCount)
+      : network.prefixScorer(stateFeatureCount);
+
+  /// Use float32 SIMD inference (headless runs; see [Mlp.simdPrefixScorer]).
+  final bool simd;
   final Float64List _actionBuffer = Float64List(actionFeatureCount);
 
   NnPlaySelectionStrategy({
     required this.playerId,
     required this.network,
     this.fallback = const DefaultPlaySelectionStrategy(),
+    this.simd = false,
   }) {
     if (network.inputSize != totalFeatureCount) {
       throw ArgumentError.value(

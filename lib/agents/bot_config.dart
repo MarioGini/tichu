@@ -54,6 +54,10 @@ class BotConfig {
   /// Required call advantage (round points) before calling (Grand) Tichu.
   final double callMargin;
 
+  /// Float32 SIMD inference for the play net: ~2x faster simulation in the
+  /// compiled headless runner. The app keeps the float64 path.
+  final bool simdInference;
+
   const BotConfig({
     this.play,
     this.tichu,
@@ -61,6 +65,7 @@ class BotConfig {
     this.preSchupfTichu,
     this.schupf,
     this.callMargin = 0,
+    this.simdInference = false,
     this.heuristicOptions = HeuristicOptions.latest,
   });
 
@@ -76,7 +81,11 @@ class BotConfig {
       options: heuristicOptions,
       playSelectionStrategy: (play == null
           ? null
-          : NnPlaySelectionStrategy(playerId: playerId, network: play.network)),
+          : NnPlaySelectionStrategy(
+              playerId: playerId,
+              network: play.network,
+              simd: simdInference,
+            )),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null
           ? null

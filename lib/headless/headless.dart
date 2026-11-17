@@ -63,12 +63,14 @@ Future<void> main(final List<String> args) async {
     preSchupfTichu: await _loadNet(config.preTichuNetPath),
     schupf: await _loadNet(config.schupfNetPath),
     heuristicOptions: config.heuristic,
+    simdInference: config.simd,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig.build;
   final opponentFactory = BotConfig(
     play: opponentPolicy,
     heuristicOptions: config.opponentHeuristic,
+    simdInference: config.simd,
   ).build;
 
   final PlayerAgent Function(String, int) agentFactory;

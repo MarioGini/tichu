@@ -12,10 +12,16 @@ if pgrep -f "rl/rollout_loop.py" >/dev/null; then
 fi
 [ -x build/bin/headless ] || dart compile exe lib/headless/headless.dart -o build/bin/headless
 mkdir -p rl/outputs/rollout_loop
+# Shard files of a run that was killed (e.g. by a VM restart).
+rm -rf /tmp/tichu_shards_* /tmp/tichu_duel_*
+# About 30 minutes per iteration on 3 cores: ~70k labelled decisions against
+# the heuristics and ~100k from self-play (a quarter of the decisions of
+# each game are labelled, so the data covers many different deals).
 setsid nohup rl/.venv/bin/python rl/rollout_loop.py \
   --iterations="${ITERATIONS:-30}" \
   --opponents="${OPPONENTS:-classic;latest}" \
-  --mixed-episodes="${MIXED:-600}" --self-episodes="${SELF:-250}" \
-  --window="${WINDOW:-5}" --duel-deals="${DEALS:-800}" --shards="${SHARDS:-3}" \
+  --mixed-episodes="${MIXED:-1200}" --self-episodes="${SELF:-900}" \
+  --rollout-rate="${RATE:-0.25}" \
+  --window="${WINDOW:-5}" --duel-deals="${DEALS:-1500}" --shards="${SHARDS:-3}" \
   >> rl/outputs/rollout_loop/loop.log 2>&1 &
 echo "hill climb started (log: rl/outputs/rollout_loop/loop.log)"

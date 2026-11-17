@@ -34,6 +34,7 @@ class _HeadlessConfig {
   final String labelSeats;
   final bool describe;
   final List<HeuristicOptions> shadowVariants;
+  final bool simd;
 
   const _HeadlessConfig({
     required this.seed,
@@ -69,6 +70,7 @@ class _HeadlessConfig {
     required this.labelSeats,
     required this.describe,
     required this.shadowVariants,
+    required this.simd,
   });
 }
 
@@ -109,6 +111,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var labelSeats = 'policy';
   var describe = false;
   var shadowVariants = const <HeuristicOptions>[];
+  var simd = true;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -224,6 +227,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       ];
       continue;
     }
+    if (arg == '--no-simd') {
+      simd = false;
+      continue;
+    }
     if (arg == '--describe') {
       describe = true;
       continue;
@@ -317,6 +324,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     labelSeats: labelSeats,
     describe: describe,
     shadowVariants: shadowVariants,
+    simd: simd,
   );
 }
 
@@ -339,6 +347,6 @@ void _printUsage() {
   stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
-  stdout.writeln('       [--shadow-heuristics=spec|spec|...]');
+  stdout.writeln('       [--shadow-heuristics=spec|spec|...] [--no-simd]');
   stdout.writeln('       [--epsilon=0.1]');
 }

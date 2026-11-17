@@ -213,6 +213,51 @@ class Mlp {
     return MlpPrefixScorer._(this, prefixLength);
   }
 
+  /// [prefixScorer] with 4-wide float32 SIMD. About 3x faster when compiled
+  /// ahead of time (headless training runs); results differ from the
+  /// float64 scorer only by float32 rounding (~1e-6 relative).
+  MlpSimdPrefixScorer simdPrefixScorer(final int prefixLength) {
+    if (prefixLength < 0 || prefixLength > inputSize) {
+      throw ArgumentError.value(prefixLength, 'prefixLength');
+    }
+    return MlpSimdPrefixScorer._(this, prefixLength);
+  }
+
+  /// Column-major float32 weights, every column padded with zeros to a
+  /// multiple of four outputs (`[l][i * vecLen(l) + v]`).
+  late final List<Float32x4List> _simdWeights = [
+    for (var l = 0; l < numLayers; l++) _simdTranspose(l),
+  ];
+
+  late final List<Float32x4List> _simdBiases = [
+    for (var l = 0; l < numLayers; l++) _simdBias(l),
+  ];
+
+  int _vecLen(final int l) => (layerSizes[l + 1] + 3) ~/ 4;
+
+  Float32x4List _simdTranspose(final int l) {
+    final inLen = layerSizes[l];
+    final outLen = layerSizes[l + 1];
+    final vecLen = _vecLen(l);
+    final w = _weights[l];
+    final flat = Float32List(inLen * vecLen * 4);
+    for (var j = 0; j < outLen; j++) {
+      for (var i = 0; i < inLen; i++) {
+        flat[i * vecLen * 4 + j] = w[j * inLen + i];
+      }
+    }
+    return Float32x4List.view(flat.buffer);
+  }
+
+  Float32x4List _simdBias(final int l) {
+    final flat = Float32List(_vecLen(l) * 4);
+    final b = _biases[l];
+    for (var j = 0; j < b.length; j++) {
+      flat[j] = b[j];
+    }
+    return Float32x4List.view(flat.buffer);
+  }
+
   // ── Safetensors loading ─────────────────────────────────────────────────
 
   /// Load weights from a safetensors binary file.
@@ -301,6 +346,13 @@ class Mlp {
   }
 }
 
+/// Scores the legal actions of one decision: [setPrefix] once with the
+/// state features, then [score] per action.
+abstract interface class PrefixScorer {
+  void setPrefix(List<double> prefix);
+  double score(List<double> suffix, [int offset]);
+}
+
 /// Scores inputs of an [Mlp] (first output unit) that share a prefix.
 ///
 /// The first layer's contribution of the prefix is computed once per
@@ -309,7 +361,7 @@ class Mlp {
 /// makes scoring the legal actions of one decision several times cheaper
 /// than a dense forward pass per action. Results equal [Mlp.predictBuffer]
 /// up to floating-point summation order.
-class MlpPrefixScorer {
+class MlpPrefixScorer implements PrefixScorer {
   final Mlp _net;
   final int prefixLength;
   final Float64List _base;
@@ -325,6 +377,7 @@ class MlpPrefixScorer {
   int get suffixLength => _net.inputSize - prefixLength;
 
   /// Set the shared prefix (the first [prefixLength] inputs).
+  @override
   void setPrefix(final List<double> prefix) {
     final bias = _net._biases[0];
     final wt = _net._transposed[0];
@@ -345,6 +398,7 @@ class MlpPrefixScorer {
 
   /// Network output for the current prefix followed by [suffix]
   /// (read from [offset], [suffixLength] entries).
+  @override
   double score(final List<double> suffix, [final int offset = 0]) {
     final net = _net;
     var cur = _acts[0];
@@ -383,6 +437,97 @@ class MlpPrefixScorer {
       curLen = outLen;
     }
     return cur[0];
+  }
+}
+
+/// [MlpPrefixScorer] on 4-wide float32 SIMD vectors (see
+/// [Mlp.simdPrefixScorer]). Padded outputs have zero weights and biases, so
+/// they stay zero and are skipped like any inactive ReLU unit.
+class MlpSimdPrefixScorer implements PrefixScorer {
+  final Mlp _net;
+  final int prefixLength;
+  final Float32x4List _base;
+  final List<Float32x4List> _acts;
+
+  /// Scalar views of [_acts] (same memory) for the ReLU test.
+  final List<Float32List> _scalar;
+
+  MlpSimdPrefixScorer._(this._net, this.prefixLength)
+    : _base = Float32x4List(_net._vecLen(0)),
+      _acts = [
+        for (var l = 0; l < _net.numLayers; l++) Float32x4List(_net._vecLen(l)),
+      ],
+      _scalar = [] {
+    for (final a in _acts) {
+      _scalar.add(Float32List.view(a.buffer));
+    }
+  }
+
+  int get suffixLength => _net.inputSize - prefixLength;
+
+  @override
+  void setPrefix(final List<double> prefix) {
+    final bias = _net._simdBiases[0];
+    final wt = _net._simdWeights[0];
+    final vecLen = bias.length;
+    final base = _base;
+    for (var v = 0; v < vecLen; v++) {
+      base[v] = bias[v];
+    }
+    for (var i = 0; i < prefixLength; i++) {
+      final x = prefix[i];
+      if (x == 0) continue;
+      final xv = Float32x4.splat(x);
+      final off = i * vecLen;
+      for (var v = 0; v < vecLen; v++) {
+        base[v] += wt[off + v] * xv;
+      }
+    }
+  }
+
+  @override
+  double score(final List<double> suffix, [final int offset = 0]) {
+    final net = _net;
+    var cur = _acts[0];
+    var vecLen = cur.length;
+    final base = _base;
+    for (var v = 0; v < vecLen; v++) {
+      cur[v] = base[v];
+    }
+    final wt0 = net._simdWeights[0];
+    final n = suffixLength;
+    for (var i = 0; i < n; i++) {
+      final x = suffix[offset + i];
+      if (x == 0) continue;
+      final xv = Float32x4.splat(x);
+      final off = (prefixLength + i) * vecLen;
+      for (var v = 0; v < vecLen; v++) {
+        cur[v] += wt0[off + v] * xv;
+      }
+    }
+    for (var l = 1; l < net.numLayers; l++) {
+      final bias = net._simdBiases[l];
+      final wt = net._simdWeights[l];
+      final next = _acts[l];
+      final nextLen = bias.length;
+      for (var v = 0; v < nextLen; v++) {
+        next[v] = bias[v];
+      }
+      final curScalar = _scalar[l - 1];
+      final inLen = net.layerSizes[l];
+      for (var i = 0; i < inLen; i++) {
+        final x = curScalar[i];
+        if (x <= 0) continue; // ReLU
+        final xv = Float32x4.splat(x);
+        final off = i * nextLen;
+        for (var v = 0; v < nextLen; v++) {
+          next[v] += wt[off + v] * xv;
+        }
+      }
+      cur = next;
+      vecLen = nextLen;
+    }
+    return _scalar[net.numLayers - 1][0];
   }
 }
 

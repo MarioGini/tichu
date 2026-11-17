@@ -84,7 +84,7 @@ def main() -> None:
     p.add_argument(
         "--opponent-schupf-net",
         default="",
-        help="schupf net of the --opponent-nets team (e.g. assets/bots/tichu_schupf_v1.safetensors)",
+        help="schupf net of the --opponent-nets team (e.g. assets/bots/tichu_schupf_v2.safetensors)",
     )
     p.add_argument("--rollout-rate", type=float, default=0.5)
     p.add_argument("--epsilon", type=float, default=0.02)

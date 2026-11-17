@@ -10,8 +10,8 @@ abstract final class AppBots {
   static const playPolicyAsset = 'assets/bots/tichu_q_v5.safetensors';
 
   /// Learned schupf (rl/schupf_cf_train.py): with it v5 beats v5 with the
-  /// heuristic schupf 55 %.
-  static const schupfAsset = 'assets/bots/tichu_schupf_v1.safetensors';
+  /// first learned schupf 54 % (which beat the heuristic schupf 55 %).
+  static const schupfAsset = 'assets/bots/tichu_schupf_v2.safetensors';
 
   static BotConfig current = BotConfig.heuristic;
 

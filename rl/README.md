@@ -504,7 +504,16 @@ candidate):
 - The heuristic's pass is already +22 points per round better than an
   average sensible pass; the learned net (`schupf_cf_train.py`) adds +7 ± 2.5
   on held-out deals and wins 55.0 % ± 0.8 in duels against the same bot with
-  the heuristic schupf. Shipped as `assets/bots/tichu_schupf_v1.safetensors`.
+  the heuristic schupf. Retrained on 51,600 decisions (half generated with
+  the learned schupf in place) it beats that bot again, 54.0 % ± 0.7:
+  shipped as `assets/bots/tichu_schupf_v2.safetensors`.
+- Against an opponent's Grand Tichu (2,012 decisions): the Dog to the caller
+  +29 points (their success 75 % -> 65 %), the lowest card +8, J or higher
+  -23, the Mahjong -14; strength to the partner (Phoenix +19). The heuristic
+  already passes the Dog to the caller; the learned schupf beats the
+  heuristic's pass by +17 points per round in these deals.
+- Comparisons now default to the shipped bot (`rl/duel.py` side B =
+  v5 + learned schupf); the heuristic is too weak to tell strong bots apart.
 
 Calls, exact counterfactual labels from 34k Grand Tichu and 33k Tichu
 decisions with v5 playing (`rl/call_analysis.py`):

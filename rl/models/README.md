@@ -52,13 +52,16 @@ steps, `rl/train_loop.py`). Kept as the fixed reference opponent for duels:
 74.6 % ± 0.9 vs the classic heuristic on the bench above (70.8 % ± 1.9 in
 the original 400-match measurement).
 
-## tichu_schupf_v1.safetensors (shipped)
+## tichu_schupf_v2.safetensors (shipped)
 
 Schupf value net (232 inputs, `NnSchupfStrategy`), trained by
-`rl/schupf_cf_train.py` on 25,820 exact schupf decisions of v5 self-play
-(16 candidate passes per decision, each round played out). v5 with it beats
-v5 with the heuristic schupf 55.0 % ± 0.8 (1500 deals x 2), and the heuristic
-90.1 % ± 0.7.
+`rl/schupf_cf_train.py` on 51,600 exact schupf decisions of v5 self-play (16
+candidate passes per decision, each round played out); the second half of
+the data was generated with schupf v1 in place. v5 with it beats the previous
+bot (v5 + schupf v1) 54.0 % ± 0.7 (2000 deals x 2); v1 had beaten v5 with the
+heuristic schupf 55.0 % ± 0.8. Against an opponent's Grand Tichu it passes
+the Dog and the lowest cards to the caller and strength to the partner
+(`rl/schupf_vs_grand.py`).
 
 ## tichu_q_v5.safetensors (shipped)
 

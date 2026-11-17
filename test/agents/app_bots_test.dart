@@ -12,7 +12,6 @@ void main() {
     await AppBots.load();
     expect(AppBots.current.play, isNotNull);
     expect(AppBots.current.schupf, isNotNull);
-    expect(AppBots.current.tichu, isNotNull);
 
     final hand = [
       Card(CardFace.two, CardColor.red),

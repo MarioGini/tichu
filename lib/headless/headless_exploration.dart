@@ -21,8 +21,11 @@ extension _Exploration on _HeadlessSimulator {
   ) async {
     final team =
         state.players.firstWhere((final p) => p.id == playerId).seat % 2;
-    Future<(int, bool)?> playOut({required final bool call}) async {
-      final fork = state.copy();
+    Future<(int, bool)?> playOut({
+      required final bool call,
+      final GameEngineState? base,
+    }) async {
+      final fork = (base ?? state).copy();
       final forkAgents = {
         for (final p in fork.players) p.id: agentFactory(p.id, p.seat),
       };
@@ -87,7 +90,79 @@ extension _Exploration on _HeadlessSimulator {
       'nocall_points': without.$1,
       'nocall_first': without.$2,
     };
+    if (kind == 'tichu' && pimcWorlds > 0) {
+      // Decision-time simulation (PIMC): the same two playouts on guessed
+      // deals of the cards this player cannot see.
+      var sum = 0.0;
+      var firsts = 0;
+      var worlds = 0;
+      for (var w = 0; w < pimcWorlds; w++) {
+        final det = _determinize(state, playerId);
+        final c1 = await playOut(call: true, base: det);
+        final c0 = await playOut(call: false, base: det);
+        if (c1 == null || c0 == null) continue;
+        sum += c1.$1 - c0.$1;
+        if (c1.$2) firsts++;
+        worlds++;
+      }
+      if (worlds > 0) {
+        _lastCallDetails!['pimc_cf'] = sum / worlds;
+        _lastCallDetails!['pimc_first'] = firsts / worlds;
+      }
+    }
     return (withCall.$1 - without.$1).toDouble();
+  }
+
+  /// [state] with the cards [playerId] cannot see dealt anew among the
+  /// other three players: same hand sizes, and the cards [playerId] passed
+  /// them in the schupf stay with them (they are known).
+  GameEngineState _determinize(
+    final GameEngineState state,
+    final String playerId,
+  ) {
+    final det = state.copy();
+    final me = state.players.firstWhere((final p) => p.id == playerId);
+    String idAt(final int offset) => state.players
+        .firstWhere((final p) => p.seat == (me.seat + offset) % 4)
+        .id;
+    final pass = state.completedSchupfSelections[playerId];
+    final passed = <String, Card>{
+      if (pass != null) idAt(1): pass.toLeft,
+      if (pass != null) idAt(2): pass.toPartner,
+      if (pass != null) idAt(3): pass.toRight,
+    };
+    final known = <String, List<Card>>{};
+    final pool = <Card>[];
+    for (final p in state.players) {
+      if (p.id == playerId) continue;
+      final hand = det.hands[p.id] ?? <Card>[];
+      final k = passed[p.id];
+      known[p.id] = [];
+      for (final c in hand) {
+        if (k != null &&
+            known[p.id]!.isEmpty &&
+            c.face == k.face &&
+            c.color == k.color) {
+          known[p.id]!.add(c);
+        } else {
+          pool.add(c);
+        }
+      }
+    }
+    pool.shuffle(random);
+    var i = 0;
+    for (final p in state.players) {
+      if (p.id == playerId) continue;
+      final hand = det.hands[p.id]!;
+      final size = hand.length;
+      hand
+        ..clear()
+        ..addAll(known[p.id]!);
+      while (hand.length < size) {
+        hand.add(pool[i++]);
+      }
+    }
+    return det;
   }
 
   /// Replace one to three (mostly one) of the passed cards with random other

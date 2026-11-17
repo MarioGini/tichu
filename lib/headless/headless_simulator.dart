@@ -44,6 +44,10 @@ class _HeadlessSimulator {
   /// games ~30x slower).
   final double counterfactualRate;
 
+  /// Guessed deals per Tichu label for the decision-time simulation
+  /// estimate (`--pimc-worlds`, see [_counterfactualCall]).
+  final int pimcWorlds;
+
   /// Branch details of the last [_counterfactualCall] (see there).
   Map<String, Object?>? _lastCallDetails;
 
@@ -115,6 +119,7 @@ class _HeadlessSimulator {
     this.shadowVariants = const [],
     this.schupfRolloutRate = 0,
     this.schupfCandidates = 16,
+    this.pimcWorlds = 0,
   });
 
   static bool _everySeat(final int _) => true;

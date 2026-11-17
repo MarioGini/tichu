@@ -39,6 +39,7 @@ class _HeadlessConfig {
   final bool simd;
   final double schupfRolloutRate;
   final int schupfCandidates;
+  final int pimcWorlds;
 
   const _HeadlessConfig({
     required this.seed,
@@ -79,6 +80,7 @@ class _HeadlessConfig {
     required this.simd,
     required this.schupfRolloutRate,
     required this.schupfCandidates,
+    required this.pimcWorlds,
   });
 }
 
@@ -124,6 +126,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var simd = true;
   var schupfRolloutRate = 0.0;
   var schupfCandidates = 16;
+  var pimcWorlds = 0;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -252,6 +255,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 0 && p <= 1) schupfRolloutRate = p;
       continue;
     }
+    if (arg.startsWith('--pimc-worlds=')) {
+      final p = int.tryParse(arg.split('=').last);
+      if (p != null && p >= 0) pimcWorlds = p;
+      continue;
+    }
     if (arg.startsWith('--schupf-candidates=')) {
       final p = int.tryParse(arg.split('=').last);
       if (p != null && p >= 2) schupfCandidates = p;
@@ -359,6 +367,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     simd: simd,
     schupfRolloutRate: schupfRolloutRate,
     schupfCandidates: schupfCandidates,
+    pimcWorlds: pimcWorlds,
   );
 }
 

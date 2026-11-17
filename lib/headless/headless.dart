@@ -126,6 +126,7 @@ Future<void> main(final List<String> args) async {
     shadowVariants: config.shadowVariants,
     schupfRolloutRate: config.schupfRolloutRate,
     schupfCandidates: config.schupfCandidates,
+    pimcWorlds: config.pimcWorlds,
   );
 
   try {

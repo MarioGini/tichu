@@ -29,12 +29,13 @@ import torch
 import torch.nn as nn
 
 from call_data import received_onehot
+from oracle import oracle_onehot
 from qnet import QNetwork, export_safetensors
 
 PARTNER_CALL = (158 + 5, 158 + 6)  # partner's Tichu / Grand Tichu flags in `seats`
 
 
-def load(pattern: str, kind: str):
+def load(pattern: str, kind: str, oracle: bool = False):
     xs, first, cf, own, partner = [], [], [], [], []
     for f in sorted(glob.glob(pattern)):
         with open(f) as fh:
@@ -43,7 +44,10 @@ def load(pattern: str, kind: str):
                     continue
                 r = json.loads(line)
                 s = r["state_features"]
-                xs.append(np.asarray(s + received_onehot(r.get("received")), dtype=np.float32))
+                feats = s + received_onehot(r.get("received"))
+                if oracle:  # analysis only: the other three hands
+                    feats = feats + list(oracle_onehot(r.get("oracle")))
+                xs.append(np.asarray(feats, dtype=np.float32))
                 first.append(float(r["call_first"]))
                 cf.append(float(r["cf"]))
                 own.append(bool(r["called"]) != bool(r.get("explore", False)))
@@ -83,8 +87,10 @@ def main() -> None:
     a.add_argument("--lr", type=float, default=1e-3)
     a.add_argument("--folds", type=int, default=4)
     a.add_argument("--output", default="")
+    a.add_argument("--oracle", action="store_true", help="analysis: also see the other hands")
+    a.add_argument("--train-fraction", type=float, default=1.0, help="analysis: learning curve")
     args = a.parse_args()
-    x, first, cf, own, partner = load(args.jsonl, args.kind)
+    x, first, cf, own, partner = load(args.jsonl, args.kind, args.oracle)
     n = x.shape[0]
     allowed = ~partner.numpy()
     print(f"[{args.kind}] {n} decisions; success rate if called {100 * float(first.mean()):.1f}%; "
@@ -96,6 +102,7 @@ def main() -> None:
     for k in range(args.folds):
         te = perm[k :: args.folds]
         tr = np.setdiff1d(perm, te)
+        tr = tr[: int(len(tr) * args.train_fraction)]
         m = fit(x[tr], first[tr], hidden, args.epochs, args.lr, k)
         with torch.no_grad():
             p_tr = torch.sigmoid(m(x[tr]).squeeze(-1)).numpy()
@@ -112,6 +119,13 @@ def main() -> None:
     d = g - r
     print(f"[{args.kind}] held-out: success model {g.mean():+.2f} ± {g.std() / np.sqrt(len(g)):.2f}, "
           f"current rule {r.mean():+.2f}; difference {d.mean():+.2f} ± {d.std() / np.sqrt(len(d)):.2f} pts/decision")
+    y = first.numpy()
+    order = np.argsort(p_all)
+    ranks = np.empty(n); ranks[order] = np.arange(n)
+    pos = y > 0.5
+    auc = (ranks[pos].mean() - (pos.sum() - 1) / 2) / (~pos).sum()
+    perfect = np.maximum(cf.numpy(), 0).mean()
+    print(f"  AUC {auc:.3f}; perfect calling (knowing the outcome) {perfect:+.1f} pts/decision")
     # calibration
     bins = np.clip((p_all * 10).astype(int), 0, 9)
     print("  calibration (held-out): predicted p -> observed success, value of calling")

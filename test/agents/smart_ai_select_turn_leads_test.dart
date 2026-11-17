@@ -43,44 +43,6 @@ void main() {
       expect(action, isA<PlayTurnAction>());
     });
 
-    test(
-      'plays a stronger interrupt when opponent tichu is near finish',
-      () async {
-        final hand = [
-          Card(CardFace.two, CardColor.green),
-          Card(CardFace.six, CardColor.red),
-          Card(CardFace.king, CardColor.blue),
-        ];
-        final deckTurn = TichuTurn(TurnType.single, [
-          Card(CardFace.five, CardColor.black),
-        ]);
-        final deck = DeckState(deckTurn, CardFace.none);
-        deck.currentWinner = leftId;
-
-        final snapshot = aiSnapshot(
-          myHand: hand,
-          deck: deck,
-          otherHands: {
-            leftId: [
-              Card(CardFace.ace, CardColor.red),
-              Card(CardFace.queen, CardColor.green),
-            ],
-            partnerId: defaultHand(),
-            rightId: defaultHand(),
-          },
-          tichuCalls: {leftId: TichuCall.tichu},
-          lastPlayedBy: leftId,
-          lastPlayedTurn: deckTurn,
-        );
-
-        final action = await agent.selectTurn(snapshot);
-        expect(action, isA<PlayTurnAction>());
-        final play = action as PlayTurnAction;
-        expect(play.cards.length, 1);
-        expect(play.cards.first.face, CardFace.king);
-      },
-    );
-
     test('leads a single to help partner finish tichu', () async {
       final hand = [
         Card(CardFace.two, CardColor.red),

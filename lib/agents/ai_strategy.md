@@ -1,81 +1,87 @@
 # Tichu AI Agent Strategy Contract
 
-This file is the implementation-locked strategy contract for the current AI.
-Every rule listed here is expected to be present in code today (not
-aspirational).
+This file is the implementation-locked strategy contract for the heuristic
+bot (`SmartAiAgent`). Every rule listed here is present in code today.
+
+The rule set was cut down on 2026-11-17: every rule and `TurnScorer` weight
+was scored on exact rollout values (`headless --shadow-heuristics`, see
+[rl/README.md](../../rl/README.md)) and in duplicate duels, and rules
+without measurable value were deleted (section 3b). The heuristic before
+that is commit 92aed27.
 
 ---
 
 ## 1) Runtime Goal
-- Play a strong, tempo-aware, partner-supporting game that preserves control
-  cards early and increases disruption pressure near opponent exits.
+- Play a tempo-aware, partner-supporting game that preserves control cards
+  early and does not waste strength.
 - Keep decision flow deterministic and testable.
 
 ---
 
 ## 2) Decision Pipeline (authoritative)
-1. Update memory/tracker state.
-2. Build legal turns.
-3. Apply tactical overrides (partner support, mahjong lead, wish constraints).
-4. Score candidate turns.
-5. Select max score, tie-break by lower turn value.
+1. Build legal turns (wish enforcement included).
+2. Hard rules: go out when possible; never go out ahead of a partner who
+   called Tichu (R2).
+3. Tactical shortcuts, in order: partner support pass, Mahjong opening lead,
+   partner finish lead, early Dog lead, Dog lead for a Grand Tichu partner,
+   singleton response.
+4. Score the remaining candidates with `TurnScorer` (R10), pick the maximum
+   (tie-break: lower turn value).
+5. Swap a chosen multi-card combination for the cheapest equivalent one
+   (R12).
 
-Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart)
+Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart),
+[smart_ai_heuristic_turn.dart](smart_ai_heuristic_turn.dart)
 
 ---
 
 ## 3) Rule Set (must hold)
 
 ### R1 — Empty/No-Legal Safety
-- If hand is empty or no legal turns exist, return pass.
+- If the hand is empty or nothing beats the trick, pass.
 - Code: [smart_ai_agent.dart](smart_ai_agent.dart)
 
-### R2 — Partner Protection Pass
-- If partner is currently winning a high trick, prefer pass (unless urgent
-  opponent-Tichu disruption condition).
-- If partner called Tichu or Grand Tichu and partner has not yet finished,
-  pass whenever pass is legal only when self has not called Tichu/Grand Tichu
-  (avoid conflicting dual-support behavior).
-- Code: [play_tactics_policy.dart](play_tactics_policy.dart)
+### R2 — Partner Protection
+- Partner is winning the trick: pass, unless it is a low single (below 10)
+  and nobody called; with a calling partner pass on anything they can hold
+  (`partner_pass`).
+- Partner called Tichu and is still in: never go out ahead of them
+  (`guard`).
+- Code: [play_tactics_policy.dart](play_tactics_policy.dart),
+  [smart_ai_agent.dart](smart_ai_agent.dart)
 
 ### R3 — Partner Finish Enablement
-- If leading and partner called Tichu with exactly 1 card, lead lowest single
-  (prefer non-Dragon).
+- Leading, partner called Tichu and has exactly 1 card: lead the lowest
+  single (prefer non-Dragon) (`partner_finish_lead`).
 - Code: [play_tactics_policy.dart](play_tactics_policy.dart)
 
 ### R4 — Mahjong Lead Preference
-- When leading with Mahjong and no active wish, prefer Mahjong straights;
-  otherwise best Mahjong lead.
+- Opening lead of the game with the Mahjong and no active wish: prefer
+  Mahjong straights, otherwise the best Mahjong play (`mahjong_lead`).
 - Code: [play_tactics_policy.dart](play_tactics_policy.dart)
 
 ### R5 — Wish Compliance
-- If active wish exists, prefer turns containing wished face.
-- Filter out wish-violating turns via wish logic.
+- Turns that violate an active wish are never played (wish logic).
 - Code: [play_tactics_policy.dart](play_tactics_policy.dart),
   [../game/turn/wish_logic.dart](../game/turn/wish_logic.dart)
 
 ### R6 — Mahjong Wish Selection
-- Preferred wish source is the last card schupfed to next player (right in this
-  UI / seat+1 in engine order) when valid and still useful.
+- Preferred wish source is the last card schupfed to the next player when
+  valid and still useful.
 - Fallback order: first missing among A, K, Q, J, 10; else no wish.
 - Code: [smart_ai_agent.dart](smart_ai_agent.dart),
   [wish_strategy.dart](wish_strategy.dart)
 
-### R7 — Tichu Calling Thresholds
-- Implemented from the CS229 paper using rounded logistic-feature indices.
-- **Grand Tichu (8 cards):** the heuristic never calls Grand Tichu. Grand
-  Tichu (and optionally Tichu) calls can instead come from learned call-value
-  nets (`NnTichuCallStrategy`, see [rl/README.md](../../rl/README.md)).
-- **Tichu (14 cards):** compute
-  `It = 2*NAce - 2*NDog + 6*NDragon + 6*NPhoenix + 5*NBomb + NStraight - NSmallSingleton(2..7)`
-  and call when `It >= 7`.
-- Tichu is evaluated on full hand state.
-- Delayed Tichu timing for automated opponents is decided in the AI layer at
-  first legal call opportunity (`selectAction`), not in backend orchestration.
-- Team constraint in AI: never call Tichu when partner already has any call
-  (`tichu` or `grandTichu`) in the current round.
+### R7 — Tichu Calls
+- Never Grand Tichu, never before the schupf.
+- Tichu at the first opportunity when
+  `strength = Dragon + 0.8 Phoenix + 0.7/Ace + 1.2/bomb + 0.2/King
+  - 0.35 * plays-to-go-out - 0.7 if holding the Dog` reaches -0.1
+  (0.5 when an opponent already called), calibrated on exact
+  counterfactual call values.
+- Never call when the partner already called.
 - Code: [tichu_call_strategy.dart](tichu_call_strategy.dart),
-  [player_agent.dart](../game/player_agent.dart)
+  [smart_ai_agent.dart](smart_ai_agent.dart)
 
 ### R8 — Schupf Conventions
 - Reject schupf when hand has <3 cards.
@@ -90,78 +96,69 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart)
 - If symmetric, give to opponent with more cards.
 - Code: [dragon_give_strategy.dart](dragon_give_strategy.dart)
 
-### R10 — Turn Scoring Core
-- Immediate win bonus dominates (`1000`).
-- Lead-low preference, combo efficiency, control preservation.
-- Early high-card burn penalty with tracker-aware Ace/King exceptions.
-- Trick-point capture bonus while following.
-- Low-singleton shedding reward.
-- Bomb timing: early penalty vs late reward.
-- Opponent-low unbeatable-line bonus.
-- Opponent-at-one: prefer multi-card, penalize singles.
-- Opponent-Tichu-near-finish disruption/anti-soft-lead.
-- Dog lead bonus.
-- Partner-Tichu-overcall penalty.
+### R10 — Turn Scoring
+- Going out scores 1000.
+- Leading: prefer low plays. Every card played: small bonus.
+- Spending Ace / Phoenix / Dragon on a trick not sure to be taken from an
+  opponent: penalty. Early (9+ cards): penalty for K / A / Phoenix / Dragon,
+  smaller on tricks with points.
+- Own point cards into a trick not sure to be won: penalty.
+- Breaking the hand plan (more plays needed to go out): penalty.
+- Getting rid of unpaired low cards (<= 7): bonus.
+- An opponent with 4 cards or fewer: bonus for unbeatable plays; with 1
+  card: prefer multi-card plays, avoid singles.
 - Code: [turn_scorer.dart](turn_scorer.dart)
 
 ### R11 — Seat/Team Semantics
 - Partner/opponent semantics are parity-based seat relationships.
 - Code: [table_relationships.dart](table_relationships.dart)
 
----
-
-### R12 — Cheapest Equivalent Combination (`latest`)
+### R12 — Cheapest Equivalent Combination
 - After the scorer picked a multi-card, non-bomb combination, play the
   cheapest legal one of the same type and length (lowest rank sum; Phoenix
   and Dragon count as the most expensive cards): 6-6-Q-Q-Q instead of
-  J-J-Q-Q-Q, Q-Q-Q-x-x instead of A-A-A-x-x, 4-4-4-9-9 instead of 4-4-4-J-J.
-- Code: [smart_ai_helpers.dart](smart_ai_helpers.dart) (`_cheapestEquivalent`)
+  J-J-Q-Q-Q, Q-Q-Q-x-x instead of A-A-A-x-x, 4-4-4-9-9 instead of 4-4-4-J-J
+  (`cheap_combos`).
+- Code: [smart_ai_helpers.dart](smart_ai_helpers.dart)
 
 ---
 
-## 3b) Presets and measured value of the rules
+## 3b) Measured value of the rules
 
-`HeuristicOptions.latest` (the app's heuristic) = `classic` + R12, without the
-"pass instead of damaging the plan" rule, with `unbeatableLine` 2.5 and
-`controlPreservation` 6. It beats `classic` 61.6 % ± 0.5 in duplicate duels
-(R12 alone: 58.9 %).
-
-Every rule and weight was scored on exact rollout values
-(`headless --shadow-heuristics`, see [rl/README.md](../../rl/README.md)):
-
-- Rules that earn their keep (removing them costs 0.15-0.6 points per
-  decision): R12, control preservation, shedding low singletons,
-  avoid-high-burn, the early Dog lead, the singleton response.
-- Rules and weights that change fewer than 1 in 2000 decisions and have no
-  measurable value: `trickPointCapture`, `supportPartnerTichu` (both are the
-  same for every candidate play, so they cannot change the choice),
-  `givePartnerLead`, the three `phoenixTrump*` weights,
-  `preferNaturalTrumpResponse`, `preserveFlexibleTrump`,
-  `preferMultiCardWhenOpponentLow`, `avoidSingleWhenOpponentLow`,
-  `avoidSoftLeadAgainstOpponentTichu`, `sureTrickCapture`, both `bombUsage*`
-  weights, and the shortcuts valuable-bomb, keep-bombs, wish preference and
-  the low-single Phoenix filter. They are candidates for deletion.
-- Rules that lose points and stay off: plan-lead, lead-sure, feed-partner,
-  support (always pass for a calling partner), plan-singles.
+- R12 is the main gain over the old heuristic (58.9 % in duplicate duels on
+  its own; with the retuned weights and without "pass instead of damaging
+  the plan" 61.6 % ± 0.5).
+- Kept because removing them loses points: control preservation, shedding
+  low singletons, avoid-high-burn, point gift, the opponent-low weights, the
+  plan penalty, the early Dog lead, the singleton response, the partner
+  finish lead.
+- Deleted on 2026-11-17 (the remaining heuristic beats the old one
+  50.9 % ± 0.3 and plays bit-identically to the duel-tested variant): the
+  trick-point and partner-Tichu terms (same for every candidate, so they
+  never changed a choice), the Dog-lead, sure-capture and both bomb-timing
+  weights, the opponent-Tichu disruption terms, all five Phoenix/trump
+  weights and the low-single Phoenix filter, the valuable-bomb, keep-bombs
+  and wish-preference shortcuts, the A/B options that measured worse
+  (plan-lead, plan-pass, plan-singles, lead-sure, feed-partner, opponent-1
+  lead, no-Dog, conserve-controls, support, announce) and the legacy Tichu
+  index.
+- Rules can be switched off by name and weights overridden for experiments:
+  `--heuristic=latest,-early_dog,lowLeadPreference:4`
+  ([heuristic_options.dart](heuristic_options.dart)).
 
 ---
 
-## 4) Policy Weights (current defaults)
+## 4) Policy Weights (defaults)
 - `lowLeadPreference`: 2
-- `controlPreservation`: 3 (`latest`: 6)
+- `controlPreservation`: 6
 - `avoidHighBurn`: 4
 - `sheddingRiskyLowSingle`: 2
 - `comboEfficiency`: 2
-- `bombUsageEarly`: -6
-- `bombUsageLate`: 6
-- `unbeatableLine`: 5 (`latest`: 2.5)
-- `givePartnerLead`: 3
+- `unbeatableLine`: 2.5
 - `preferMultiCardWhenOpponentLow`: 4
 - `avoidSingleWhenOpponentLow`: 4
-- `supportPartnerTichu`: 4
-- `disruptOpponentTichuNearFinish`: 8
-- `avoidSoftLeadAgainstOpponentTichu`: 4
-- `trickPointCapture`: 1
+- `pointGift`: 0.15 (per point)
+- `planEfficiency`: 2.5 (per extra play)
 
 Code: [turn_scorer.dart](turn_scorer.dart)
 
@@ -172,6 +169,8 @@ Code: [turn_scorer.dart](turn_scorer.dart)
   [smart_ai_agent_test.dart](../../test/agents/smart_ai_agent_test.dart)
 - Tactical policy rules:
   [play_tactics_policy_test.dart](../../test/agents/play_tactics_policy_test.dart)
+- Rule switches and R12:
+  [heuristic_options_test.dart](../../test/agents/heuristic_options_test.dart)
 - Schupf rules:
   [schupf_strategy_test.dart](../../test/agents/schupf_strategy_test.dart)
 - Dragon give rules:

@@ -129,34 +129,6 @@ void main() {
       expect(play.cards.first.face, CardFace.ace);
     });
 
-    test('preserves phoenix when multiple aces can win over a king', () async {
-      final hand = [
-        Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.ace, CardColor.red),
-        Card(CardFace.ace, CardColor.blue),
-        Card(CardFace.ace, CardColor.green),
-      ];
-      final deckTurn = TichuTurn(TurnType.single, [
-        Card(CardFace.king, CardColor.black),
-      ]);
-      final deck = DeckState(deckTurn, CardFace.none);
-      deck.currentWinner = leftId;
-      final snapshot = aiSnapshot(
-        myHand: hand,
-        deck: deck,
-        lastPlayedBy: rightId,
-        lastPlayedTurn: TichuTurn(TurnType.single, [
-          Card(CardFace.dragon, CardColor.special),
-        ]),
-      );
-
-      final action = await agent.selectTurn(snapshot);
-      expect(action, isA<PlayTurnAction>());
-      final play = action as PlayTurnAction;
-      expect(play.cards.length, 1);
-      expect(play.cards.first.face, CardFace.ace);
-    });
-
     test(
       'plays when tactics policy filters all valid plays but pass is illegal',
       () async {

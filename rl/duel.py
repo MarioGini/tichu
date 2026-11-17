@@ -6,7 +6,7 @@ sequence is played twice with the seats swapped (same ``--deal-seed``), and
 the result is the per-deal average, so card luck largely cancels out.
 
   # heuristic variant vs the current heuristic, 5000 deals (10000 matches)
-  rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,conserve" \
+  rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
       --b="--opponent-heuristic=latest" --deals=5000
 
   # a policy vs the heuristic / vs another policy

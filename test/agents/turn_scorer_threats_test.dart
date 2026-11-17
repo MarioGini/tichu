@@ -53,41 +53,6 @@ void main() {
       expect(lowOpponentScore, lessThan(normalScore));
     });
 
-    test('adds trick-point capture reward when following', () {
-      final hand = [
-        Card(CardFace.king, CardColor.red),
-        Card(CardFace.six, CardColor.blue),
-      ];
-      final deck = DeckState(
-        TichuTurn(TurnType.single, [Card(CardFace.ten, CardColor.black)]),
-        CardFace.none,
-      );
-      final play = TichuTurn(TurnType.single, [
-        Card(CardFace.king, CardColor.red),
-      ]);
-
-      final withPoints = scorer.scoreTurn(
-        aiSnapshot(myHand: hand, deck: deck),
-        aiTestSelfId,
-        play,
-        deck,
-        hand,
-      );
-      final noPointsDeck = DeckState(
-        TichuTurn(TurnType.single, [Card(CardFace.nine, CardColor.black)]),
-        CardFace.none,
-      );
-      final withoutPoints = scorer.scoreTurn(
-        aiSnapshot(myHand: hand, deck: noPointsDeck),
-        aiTestSelfId,
-        play,
-        noPointsDeck,
-        hand,
-      );
-
-      expect(withPoints, greaterThan(withoutPoints));
-    });
-
     test('rewards unbeatable line when an opponent is low', () {
       final hand = [
         Card(CardFace.three, CardColor.red),

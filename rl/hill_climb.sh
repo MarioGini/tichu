@@ -22,7 +22,7 @@ rm -rf /tmp/tichu_shards_* /tmp/tichu_duel_*
 # each game are labelled, so the data covers many different deals).
 setsid nohup rl/.venv/bin/python rl/rollout_loop.py \
   --iterations="${ITERATIONS:-30}" \
-  --opponents="${OPPONENTS:-classic;latest}" \
+  --opponents="${OPPONENTS:-latest}" \
   --mixed-episodes="${MIXED:-1200}" --self-episodes="${SELF:-900}" \
   --rollout-rate="${RATE:-0.25}" \
   --window="${WINDOW:-5}" --duel-deals="${DEALS:-1500}" --shards="${SHARDS:-3}" \

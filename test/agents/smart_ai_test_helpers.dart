@@ -143,12 +143,6 @@ class ForceEmptyValidPlaysPolicy extends PlayTacticsPolicy {
   }) => null;
 
   @override
-  List<TichuTurn> wishPreferredTurns({
-    required final List<TichuTurn> legalTurns,
-    required final DeckState deck,
-  }) => const <TichuTurn>[];
-
-  @override
   List<TichuTurn> filterWishValidPlays({
     required final DeckState deck,
     required final List<TichuTurn> legalTurns,

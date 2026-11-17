@@ -47,8 +47,8 @@ Measure any two bots against each other (duplicate deals, both seatings):
 
 ```bash
 rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v4.safetensors" \
-    --b="--opponent-heuristic=classic" --deals=1000
-rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,conserve" \
+    --b="--opponent-policy=assets/bots/tichu_q_v3.safetensors" --deals=1000
+rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
 ```
 
@@ -260,8 +260,9 @@ The same rollout labels score heuristic rules exactly:
 - `headless --shadow-heuristics=specA|specB|...` logs, for every labelled
   decision, what each heuristic variant would have played. One dataset then
   gives the exact one-step value (points per decision) of all variants.
-- `--heuristic=` specs: a preset (`latest`, `classic`, `legacy`), rule names
-  to switch on, `-name` to switch a rule or tactical shortcut off, and
+- `--heuristic=` specs: `latest` (the heuristic as written), `-name` to
+  switch a rule off (`partner_pass`, `mahjong_lead`, `partner_finish_lead`,
+  `early_dog`, `singleton_response`, `cheap_combos`, `guard`) and
   `weight:value` to override a `TurnScorer` weight, e.g.
   `latest,-early_dog,lowLeadPreference:4`.
 - `--describe` adds a readable position (hands, trick, legal actions) to
@@ -392,8 +393,9 @@ All numbers: duplicate, matches to 1000, vs the latest heuristic.
 ## Results v4 (2026-11-17): rollout policy iteration
 
 Duplicate duels (`duel.py`), 1000 deal sequences x 2 seatings, matches to
-1000. "Classic" is the heuristic v3 was trained against
-(`--opponent-heuristic=classic`), "latest" the tuned heuristic.
+1000. "Classic" is the heuristic v3 was trained against, "latest" the tuned
+heuristic of 2026-11-17 (both from before the rule deletion below; build the
+runner from commit 92aed27 to reproduce them).
 
 | Net | vs classic | vs latest | vs v3 | vs previous |
 |-----|-----------|-----------|-------|-------------|
@@ -434,7 +436,9 @@ lab showed:
    heuristics stop being a challenge.
 2. Learned calls on exact counterfactual labels from the best policy
    (`call_labels.sh` + `call_train.py`); then the same for the schupf.
-3. Delete the dead heuristic rules listed above.
+3. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:
+   1,200 lines removed, the remaining heuristic beats the previous one
+   50.9 % ± 0.3 (see `lib/agents/ai_strategy.md`).
 4. A truncated rollout with a perfect-information value net (PerfectDou's
    critic) would make labels several times cheaper once more data is needed.
 

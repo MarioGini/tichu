@@ -139,21 +139,6 @@ class PlayTacticsPolicy {
     return nonDragon.isNotEmpty ? nonDragon.first : singles.first;
   }
 
-  List<TichuTurn> wishPreferredTurns({
-    required final List<TichuTurn> legalTurns,
-    required final DeckState deck,
-  }) {
-    if (deck.wish == CardFace.none) {
-      return const <TichuTurn>[];
-    }
-    return legalTurns
-        .where(
-          (final turn) =>
-              turn.cards.any((final card) => card.face == deck.wish),
-        )
-        .toList();
-  }
-
   List<TichuTurn> filterWishValidPlays({
     required final DeckState deck,
     required final List<TichuTurn> legalTurns,

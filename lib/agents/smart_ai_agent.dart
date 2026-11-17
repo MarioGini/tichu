@@ -1,7 +1,6 @@
 import 'package:tichu/agents/dragon_give_strategy.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
-import 'package:tichu/agents/plan_play.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
@@ -50,7 +49,7 @@ class SmartAiAgent extends PlayerAgent {
     final WishStrategy? wishStrategy,
     final DragonGiveStrategy? dragonGiveStrategy,
   }) : tichuCallStrategy =
-           tichuCallStrategy ?? DefaultTichuCallStrategy(options: options),
+           tichuCallStrategy ?? const DefaultTichuCallStrategy(),
        schupfStrategy = schupfStrategy ?? const DefaultSchupfStrategy(),
        playTacticsPolicy = playTacticsPolicy ?? const PlayTacticsPolicy(),
        wishStrategy = wishStrategy ?? const DefaultWishStrategy(),
@@ -60,11 +59,7 @@ class SmartAiAgent extends PlayerAgent {
         playSelectionStrategy ??
         DefaultPlaySelectionStrategy(
           turnScorer: TurnScorer(
-            weights:
-                (options.planScore
-                        ? const PolicyWeights(planEfficiency: 2.5)
-                        : const PolicyWeights())
-                    .withOverrides(options.weights),
+            weights: const PolicyWeights().withOverrides(options.weights),
           ),
         );
   }
@@ -159,15 +154,11 @@ class SmartAiAgent extends PlayerAgent {
       legalTurns = [recovered];
     }
 
-    // Partner called Tichu: support them — pass whenever allowed and never
-    // go out ahead of them (a quarter of the heuristic's failed Tichus were
-    // the caller's own partner finishing first). When leading, play anything
-    // but the last cards.
+    // Partner called Tichu: never go out ahead of them (a quarter of the
+    // heuristic's failed Tichus were the caller's own partner finishing
+    // first). When leading, play anything but the last cards.
     if (_holdBackForPartnerTichu(snapshot, table)) {
       final canPass = LegalPlayGuard.canPass(deck: deck, hand: hand);
-      if (options.supportPartnerTichu && canPass) {
-        return PassAction(playerId: playerId);
-      }
       if (canPass &&
           legalTurns.every((final turn) => turn.cards.length == hand.length)) {
         return PassAction(playerId: playerId);

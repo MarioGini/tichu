@@ -11,61 +11,53 @@ import 'package:tichu/game/turn/utils/card_utils.dart';
 
 part 'turn_scorer_helpers.dart';
 
+/// Weights of the [TurnScorer] terms. Every term was kept because removing
+/// it measurably loses points (exact rollout values, see
+/// `lib/agents/ai_strategy.md`).
 class PolicyWeights {
+  /// Leading: prefer low plays.
   final double lowLeadPreference;
+
+  /// Penalty per Ace / Phoenix / Dragon spent on a trick we are not sure to
+  /// take from an opponent.
   final double controlPreservation;
+
+  /// Early (9+ cards): penalty per King / Ace / Phoenix / Dragon spent,
+  /// scaled down on tricks with points.
   final double avoidHighBurn;
+
+  /// Bonus per unpaired low card (<= 7) the play gets rid of.
   final double sheddingRiskyLowSingle;
+
+  /// Bonus per card played.
   final double comboEfficiency;
-  final double bombUsageEarly;
-  final double bombUsageLate;
+
+  /// An opponent has 4 cards or fewer: bonus for a play nobody can beat.
   final double unbeatableLine;
-  final double givePartnerLead;
+
+  /// An opponent has 1 card: prefer multi-card plays, avoid singles.
   final double preferMultiCardWhenOpponentLow;
   final double avoidSingleWhenOpponentLow;
-  final double supportPartnerTichu;
-  final double disruptOpponentTichuNearFinish;
-  final double avoidSoftLeadAgainstOpponentTichu;
-  final double trickPointCapture;
-  final double phoenixTrumpLeadCapture;
-  final double phoenixTrumpOnAceBonus;
-  final double phoenixTrumpAgainstNearFinishBonus;
-  final double preserveFlexibleTrump;
-  final double preferNaturalTrumpResponse;
-  final double sureTrickCapture;
 
   /// Penalty per point (5 / 10 / K) of my own cards played into a trick I
   /// am not sure to win.
   final double pointGift;
 
   /// Penalty per extra play a move adds to the hand's plays-to-go-out
-  /// (breaking a straight / pair / full house). 0 = off (legacy).
+  /// (breaking a straight / pair / full house).
   final double planEfficiency;
 
   const PolicyWeights({
     this.lowLeadPreference = 2,
-    this.controlPreservation = 3,
+    this.controlPreservation = 6,
     this.avoidHighBurn = 4,
     this.sheddingRiskyLowSingle = 2,
     this.comboEfficiency = 2,
-    this.bombUsageEarly = -6,
-    this.bombUsageLate = 6,
-    this.unbeatableLine = 5,
-    this.givePartnerLead = 3,
+    this.unbeatableLine = 2.5,
     this.preferMultiCardWhenOpponentLow = 4,
     this.avoidSingleWhenOpponentLow = 4,
-    this.supportPartnerTichu = 4,
-    this.disruptOpponentTichuNearFinish = 8,
-    this.avoidSoftLeadAgainstOpponentTichu = 4,
-    this.trickPointCapture = 1,
-    this.phoenixTrumpLeadCapture = 8,
-    this.phoenixTrumpOnAceBonus = 6,
-    this.phoenixTrumpAgainstNearFinishBonus = 5,
-    this.preserveFlexibleTrump = 8,
-    this.preferNaturalTrumpResponse = 6,
-    this.sureTrickCapture = 4,
     this.pointGift = 0.15,
-    this.planEfficiency = 0,
+    this.planEfficiency = 2.5,
   });
 
   /// These weights with the named [overrides] applied (A/B testing; names
@@ -78,22 +70,9 @@ class PolicyWeights {
       'avoidHighBurn': avoidHighBurn,
       'sheddingRiskyLowSingle': sheddingRiskyLowSingle,
       'comboEfficiency': comboEfficiency,
-      'bombUsageEarly': bombUsageEarly,
-      'bombUsageLate': bombUsageLate,
       'unbeatableLine': unbeatableLine,
-      'givePartnerLead': givePartnerLead,
       'preferMultiCardWhenOpponentLow': preferMultiCardWhenOpponentLow,
       'avoidSingleWhenOpponentLow': avoidSingleWhenOpponentLow,
-      'supportPartnerTichu': supportPartnerTichu,
-      'disruptOpponentTichuNearFinish': disruptOpponentTichuNearFinish,
-      'avoidSoftLeadAgainstOpponentTichu': avoidSoftLeadAgainstOpponentTichu,
-      'trickPointCapture': trickPointCapture,
-      'phoenixTrumpLeadCapture': phoenixTrumpLeadCapture,
-      'phoenixTrumpOnAceBonus': phoenixTrumpOnAceBonus,
-      'phoenixTrumpAgainstNearFinishBonus': phoenixTrumpAgainstNearFinishBonus,
-      'preserveFlexibleTrump': preserveFlexibleTrump,
-      'preferNaturalTrumpResponse': preferNaturalTrumpResponse,
-      'sureTrickCapture': sureTrickCapture,
       'pointGift': pointGift,
       'planEfficiency': planEfficiency,
     };
@@ -109,24 +88,9 @@ class PolicyWeights {
       avoidHighBurn: v['avoidHighBurn']!,
       sheddingRiskyLowSingle: v['sheddingRiskyLowSingle']!,
       comboEfficiency: v['comboEfficiency']!,
-      bombUsageEarly: v['bombUsageEarly']!,
-      bombUsageLate: v['bombUsageLate']!,
       unbeatableLine: v['unbeatableLine']!,
-      givePartnerLead: v['givePartnerLead']!,
       preferMultiCardWhenOpponentLow: v['preferMultiCardWhenOpponentLow']!,
       avoidSingleWhenOpponentLow: v['avoidSingleWhenOpponentLow']!,
-      supportPartnerTichu: v['supportPartnerTichu']!,
-      disruptOpponentTichuNearFinish: v['disruptOpponentTichuNearFinish']!,
-      avoidSoftLeadAgainstOpponentTichu:
-          v['avoidSoftLeadAgainstOpponentTichu']!,
-      trickPointCapture: v['trickPointCapture']!,
-      phoenixTrumpLeadCapture: v['phoenixTrumpLeadCapture']!,
-      phoenixTrumpOnAceBonus: v['phoenixTrumpOnAceBonus']!,
-      phoenixTrumpAgainstNearFinishBonus:
-          v['phoenixTrumpAgainstNearFinishBonus']!,
-      preserveFlexibleTrump: v['preserveFlexibleTrump']!,
-      preferNaturalTrumpResponse: v['preferNaturalTrumpResponse']!,
-      sureTrickCapture: v['sureTrickCapture']!,
       pointGift: v['pointGift']!,
       planEfficiency: v['planEfficiency']!,
     );
@@ -165,15 +129,6 @@ class TurnScorer {
     final trickPoints = isLeading
         ? 0
         : math.max(snapshot.trickPoints, pointsForCards(deck.turn.cards));
-    final opponentTichuNearFinish = _opponentTichuNearFinish(
-      snapshot,
-      playerId,
-    );
-    final opponentTichuNearFinishWinning = _opponentTichuNearFinishWinningTrick(
-      snapshot,
-      playerId,
-      deck,
-    );
 
     const maxValue = 25.0;
     final lowValueFactor = (maxValue - play.value) / maxValue;
@@ -184,12 +139,12 @@ class TurnScorer {
 
     score += weights.comboEfficiency * play.cards.length;
 
-    final controlCards = <CardFace>{
+    const controlCards = <CardFace>{
       CardFace.dragon,
       CardFace.phoenix,
       CardFace.ace,
     };
-    final highCards = <CardFace>{
+    const highCards = <CardFace>{
       CardFace.dragon,
       CardFace.phoenix,
       CardFace.ace,
@@ -211,10 +166,6 @@ class TurnScorer {
       score -= weights.controlPreservation * controlCount;
     }
 
-    if (sureCapture) {
-      score += weights.sureTrickCapture;
-    }
-
     if (isEarly && !sureCapture) {
       final pointFactor = (trickPoints / 25).clamp(0, 1).toDouble();
       final highCount = play.cards
@@ -225,12 +176,10 @@ class TurnScorer {
       }
     }
 
-    if (!isLeading && trickPoints != 0) {
-      score += weights.trickPointCapture * trickPoints;
-    }
-
-    // Don't feed own point cards into a trick we are not sure to win.
-    if (!sureWin && !opponentTichuNearFinishWinning) {
+    // Don't feed own point cards into a trick we are not sure to win
+    // (unless an opponent who called Tichu is about to go out with it).
+    if (!sureWin &&
+        !_opponentTichuNearFinishWinningTrick(snapshot, playerId, deck)) {
       final ownPoints = pointsForCards(play.cards);
       if (ownPoints > 0) score -= weights.pointGift * ownPoints;
     }
@@ -247,15 +196,6 @@ class TurnScorer {
       score += weights.sheddingRiskyLowSingle * deltaSingles;
     }
 
-    if (play.type == TurnType.bomb) {
-      if (_opponentLow(snapshot, playerId) ||
-          _opponentCalledTichu(snapshot, playerId)) {
-        score += weights.bombUsageLate;
-      } else {
-        score += weights.bombUsageEarly;
-      }
-    }
-
     if (_opponentLow(snapshot, playerId) &&
         _isUnbeatableLine(play, knowledge)) {
       score += weights.unbeatableLine;
@@ -268,43 +208,6 @@ class TurnScorer {
         score -= weights.avoidSingleWhenOpponentLow;
       }
     }
-
-    if (opponentTichuNearFinish) {
-      if (isLeading) {
-        if (play.cards.length >= 2 || _isUnbeatableLine(play, knowledge)) {
-          score += weights.disruptOpponentTichuNearFinish;
-        } else if (play.type == TurnType.single) {
-          score -= weights.avoidSoftLeadAgainstOpponentTichu;
-        }
-      }
-      if (!isLeading && opponentTichuNearFinishWinning) {
-        final disruptionFactor = (play.value / 25).clamp(0, 1).toDouble();
-        score += weights.disruptOpponentTichuNearFinish * disruptionFactor;
-      }
-    }
-
-    if (play.type == TurnType.dog) {
-      score += weights.givePartnerLead;
-    }
-
-    final partnerId = table.partnerId;
-    if (_partnerCalledTichu(snapshot, playerId) &&
-        snapshot.lastPlayedBy == partnerId &&
-        deck.turn.type != TurnType.empty &&
-        deck.turn.type != TurnType.none) {
-      score -= weights.supportPartnerTichu;
-    }
-
-    score += _phoenixTrumpLeadScore(
-      snapshot: snapshot,
-      playerId: playerId,
-      play: play,
-      deck: deck,
-      hand: hand,
-      opponentTichuNearFinishWinning: opponentTichuNearFinishWinning,
-    );
-
-    score += _naturalTrumpResponseScore(play: play, deck: deck, hand: hand);
 
     return score;
   }

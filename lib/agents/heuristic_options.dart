@@ -1,181 +1,49 @@
-/// Switchable heuristic rules, so variants can be A/B-tested against each
-/// other in one headless match (`--heuristic=` / `--opponent-heuristic=`) or
-/// scored on one rollout-labelled dataset (`--shadow-heuristics=`).
-/// The app uses [latest].
+/// Switches for A/B-testing the heuristic in the headless runner
+/// (`--heuristic=`, `--opponent-heuristic=`, `--shadow-heuristics=`): rules
+/// can be switched off by name and `TurnScorer` weights overridden. The app
+/// uses [latest], the heuristic as written.
+///
+/// Rules that measured worthless or harmful were deleted from the code
+/// (2026-11-17, see `lib/agents/ai_strategy.md`); to compare against the
+/// heuristic before that, build the headless runner from commit 92aed27.
 class HeuristicOptions {
-  /// Partner called Tichu: pass whenever allowed and never go out first.
-  final bool supportPartnerTichu;
-
-  /// Partner called Tichu: never go out ahead of them (but still beat the
-  /// opponents' tricks). Weaker form of [supportPartnerTichu].
-  final bool guardPartnerTichu;
-
-  /// Call Tichu already before the exchange with a Tichu hand, so the
-  /// partner passes over their best card.
-  final bool announceBeforeSchupf;
-
-  /// Hands with the Dog or 4+ unpaired low cards need one more control.
-  final bool strictTichu;
-
-  /// Hand-plan aware play (plays-to-go-out, sure winners, bomb keeping,
-  /// 1-card leads, passing instead of breaking combos); see PlanPlay.
-  final bool planPlay;
-
-  /// Plan-play parts (A/B ablation); [planPlay] enables all of them.
-  final bool planLead;
-  final bool planPass;
-  final bool planBombs;
-  final bool planScore;
-  final bool planSingles;
-
-  /// Lead rules (A/B): combo / highest single into a 1-card opponent,
-  /// feed a 1-card partner, cash sure winners with one loser left, never
-  /// lead the Dog after the partner is out.
-  final bool leadOpponentOneCard;
-  final bool feedPartner;
-  final bool sureFirst;
-  final bool noDogAfterPartnerOut;
-
-  /// Don't spend Aces / Phoenix / Dragon / K-K or A-A pairs on an
-  /// opponent's cheap single or pair early (learned from the trained bot).
-  final bool conserveControls;
-
-  /// Once the scorer has picked a multi-card combination, play the cheapest
-  /// one of the same type and length instead (e.g. 6-6-Q-Q-Q rather than
-  /// J-J-Q-Q-Q, Q-Q-Q-x-x rather than A-A-A-x-x when both beat the trick).
-  /// Measured on exact rollout values: +0.3 points per decision both when
-  /// leading and when following.
-  final bool cheapCombos;
-
-  /// Tactical shortcut rules switched off by name (A/B ablation); see
-  /// [shortcutRules].
+  /// Rules switched off by name; see [rules].
   final Set<String> off;
 
-  /// TurnScorer weight overrides by `PolicyWeights` field name (A/B tests).
+  /// `PolicyWeights` overrides by field name.
   final Map<String, double> weights;
 
   const HeuristicOptions({
-    this.supportPartnerTichu = false,
-    this.guardPartnerTichu = true,
-    this.announceBeforeSchupf = false,
-    this.strictTichu = true,
-    this.planPlay = false,
-    this.planLead = false,
-    this.planPass = true,
-    this.planBombs = true,
-    this.planScore = true,
-    this.planSingles = false,
-    this.leadOpponentOneCard = false,
-    this.feedPartner = false,
-    this.sureFirst = false,
-    this.noDogAfterPartnerOut = false,
-    this.conserveControls = false,
-    this.cheapCombos = false,
     this.off = const <String>{},
     this.weights = const <String, double>{},
   });
 
-  /// The current heuristic: [classic] plus the changes that paid off in the
-  /// rollout lab (exact one-step values) and in 6000-match duplicate duels:
-  /// cheapest multi-card combination (+9 pp win rate vs classic), no
-  /// "pass instead of damaging the plan" rule, a smaller unbeatable-line
-  /// bonus and a larger control-preservation penalty (+2.7 pp together).
-  static const latest = HeuristicOptions(
-    planPass: false,
-    cheapCombos: true,
-    weights: {'unbeatableLine': 2.5, 'controlPreservation': 6},
-  );
+  /// The heuristic as written (nothing switched off).
+  static const latest = HeuristicOptions();
 
-  /// The heuristic the v3 play policy was trained and measured against
-  /// (the constructor defaults). Kept as the fixed baseline for comparisons.
-  static const classic = HeuristicOptions();
-
-  /// Rules before these options existed.
-  static const legacy = HeuristicOptions(
-    guardPartnerTichu: false,
-    strictTichu: false,
-    planPass: false,
-    planBombs: false,
-    planScore: false,
-  );
-
-  /// Tactical shortcuts of the heuristic turn that can be disabled with
-  /// `-name` in [HeuristicOptions.parse].
-  static const shortcutRules = {
+  /// Rules that can be switched off with `-name`.
+  static const rules = {
     'partner_pass',
     'mahjong_lead',
     'partner_finish_lead',
     'early_dog',
-    'wish_pref',
-    'phoenix_filter',
-    'valuable_bomb',
     'singleton_response',
+    'cheap_combos',
+    'guard',
   };
 
-  /// Whether the tactical shortcut [rule] is active.
+  /// Whether [rule] is active.
   bool on(final String rule) => !off.contains(rule);
 
-  static const _flags = {
-    'support',
-    'guard',
-    'announce',
-    'strict',
-    'plan',
-    'plan_lead',
-    'plan_pass',
-    'plan_bombs',
-    'plan_score',
-    'plan_singles',
-    'lead_opp1',
-    'feed_partner',
-    'lead_sure',
-    'no_dog',
-    'conserve',
-    'cheap_combos',
-  };
-
-  Set<String> get _enabledFlags => {
-    if (supportPartnerTichu) 'support',
-    if (guardPartnerTichu) 'guard',
-    if (announceBeforeSchupf) 'announce',
-    if (strictTichu) 'strict',
-    if (planPlay) 'plan',
-    if (planLead) 'plan_lead',
-    if (planPass) 'plan_pass',
-    if (planBombs) 'plan_bombs',
-    if (planScore) 'plan_score',
-    if (planSingles) 'plan_singles',
-    if (leadOpponentOneCard) 'lead_opp1',
-    if (feedPartner) 'feed_partner',
-    if (sureFirst) 'lead_sure',
-    if (noDogAfterPartnerOut) 'no_dog',
-    if (conserveControls) 'conserve',
-    if (cheapCombos) 'cheap_combos',
-  };
-
-  /// Parses a comma list on top of a preset: `latest`, `classic` or `legacy`
-  /// (the default base, so `support,announce` means legacy plus those rules).
-  ///
-  ///  * `name` enables a rule (`support`, `plan_lead`, `cheap_combos`, ...);
-  ///  * `-name` disables a rule or a tactical shortcut ([shortcutRules]);
-  ///  * `weight:value` overrides a TurnScorer weight
-  ///    (`lowLeadPreference:4`).
+  /// Parses a comma list: `latest` (optional), `-rule` to switch a rule off,
+  /// `rule` to switch it back on, and `weight:value` to override a
+  /// `TurnScorer` weight, e.g. `latest,-early_dog,lowLeadPreference:4`.
   factory HeuristicOptions.parse(final String spec) {
-    final tokens = spec
-        .split(',')
-        .map((final s) => s.trim())
-        .where((final s) => s.isNotEmpty)
-        .toList();
-    final base = tokens.contains('latest')
-        ? latest
-        : (tokens.contains('classic') ? classic : legacy);
-    final on = base._enabledFlags;
-    final off = {...base.off};
-    final weights = {...base.weights};
-    for (final token in tokens) {
-      if (token == 'latest' || token == 'classic' || token == 'legacy') {
-        continue;
-      }
+    final off = <String>{};
+    final weights = <String, double>{};
+    for (final raw in spec.split(',')) {
+      final token = raw.trim();
+      if (token.isEmpty || token == 'latest') continue;
       final colon = token.indexOf(':');
       if (colon > 0) {
         final value = double.tryParse(token.substring(colon + 1));
@@ -187,39 +55,15 @@ class HeuristicOptions {
       }
       final negative = token.startsWith('-');
       final name = negative ? token.substring(1) : token;
-      if (_flags.contains(name)) {
-        negative ? on.remove(name) : on.add(name);
-      } else if (shortcutRules.contains(name)) {
-        negative ? off.add(name) : off.remove(name);
-      } else {
-        throw ArgumentError('Unknown heuristic options: {$name}');
+      if (!rules.contains(name)) {
+        throw ArgumentError('Unknown heuristic rule: $name');
       }
+      negative ? off.add(name) : off.remove(name);
     }
-    final plan = on.contains('plan');
-    return HeuristicOptions(
-      supportPartnerTichu: on.contains('support'),
-      guardPartnerTichu: on.contains('guard'),
-      announceBeforeSchupf: on.contains('announce'),
-      strictTichu: on.contains('strict'),
-      planPlay: plan,
-      planLead: plan || on.contains('plan_lead'),
-      planPass: plan || on.contains('plan_pass'),
-      planBombs: plan || on.contains('plan_bombs'),
-      planScore: plan || on.contains('plan_score'),
-      planSingles: plan || on.contains('plan_singles'),
-      leadOpponentOneCard: on.contains('lead_opp1'),
-      feedPartner: on.contains('feed_partner'),
-      sureFirst: on.contains('lead_sure'),
-      noDogAfterPartnerOut: on.contains('no_dog'),
-      conserveControls: on.contains('conserve'),
-      cheapCombos: on.contains('cheap_combos'),
-      off: off,
-      weights: weights,
-    );
+    return HeuristicOptions(off: off, weights: weights);
   }
 
   @override
   String toString() =>
-      'support=$supportPartnerTichu guard=$guardPartnerTichu announce=$announceBeforeSchupf '
-      'strict=$strictTichu plan=$planPlay';
+      off.isEmpty && weights.isEmpty ? 'latest' : 'off=$off weights=$weights';
 }

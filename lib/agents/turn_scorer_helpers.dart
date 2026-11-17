@@ -1,86 +1,7 @@
 part of 'turn_scorer.dart';
 
-/// Trump-response bonuses and table predicates used by [TurnScorer].
+/// Table predicates and hand helpers used by [TurnScorer].
 extension _ScorerHelpers on TurnScorer {
-  double _phoenixTrumpLeadScore({
-    required final GameSnapshot snapshot,
-    required final String playerId,
-    required final TichuTurn play,
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final bool opponentTichuNearFinishWinning,
-  }) {
-    if (play.type != TurnType.single || play.cards.isEmpty) {
-      return 0;
-    }
-    if (deck.turn.type != TurnType.single || deck.turn.cards.isEmpty) {
-      return 0;
-    }
-    if (play.cards.first.face != CardFace.phoenix) {
-      return 0;
-    }
-
-    if (!CardKnowledge.of(snapshot, playerId).dragonPlayed) {
-      return 0;
-    }
-
-    final table = TableRelationships(snapshot, playerId);
-    final currentWinnerId = deck.currentWinner.isNotEmpty
-        ? deck.currentWinner
-        : snapshot.lastPlayedBy;
-    if (currentWinnerId != null && table.isPartner(currentWinnerId)) {
-      return 0;
-    }
-
-    var bonus = weights.phoenixTrumpLeadCapture;
-    final topCard = deck.turn.cards.first;
-    if (topCard.face == CardFace.ace) {
-      bonus += weights.phoenixTrumpOnAceBonus;
-    }
-    if (opponentTichuNearFinishWinning) {
-      bonus += weights.phoenixTrumpAgainstNearFinishBonus;
-    }
-    return bonus;
-  }
-
-  double _naturalTrumpResponseScore({
-    required final TichuTurn play,
-    required final DeckState deck,
-    required final List<Card> hand,
-  }) {
-    if (play.type != TurnType.single || play.cards.isEmpty) {
-      return 0;
-    }
-    if (deck.turn.type != TurnType.single || deck.turn.cards.isEmpty) {
-      return 0;
-    }
-
-    final selectedFace = play.cards.first.face;
-    final hasPhoenixInHand = hand.any(
-      (final card) => card.face == CardFace.phoenix,
-    );
-    final aceCount = hand
-        .where((final card) => card.face == CardFace.ace)
-        .length;
-    final hasNaturalWinningAce = hand.any(
-      (final card) => card.face == CardFace.ace && card.value > deck.turn.value,
-    );
-
-    if (selectedFace == CardFace.phoenix && hasNaturalWinningAce) {
-      return -weights.preserveFlexibleTrump;
-    }
-
-    if (selectedFace == CardFace.ace && hasPhoenixInHand) {
-      var bonus = weights.preferNaturalTrumpResponse;
-      if (aceCount >= 2) {
-        bonus += weights.preserveFlexibleTrump;
-      }
-      return bonus;
-    }
-
-    return 0;
-  }
-
   bool _opponentLow(final GameSnapshot snapshot, final String playerId) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
@@ -97,22 +18,6 @@ extension _ScorerHelpers on TurnScorer {
     for (final player in table.opponents) {
       final count = (snapshot.hands[player.id] ?? const <Card>[]).length;
       if (count == 1) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  bool _opponentTichuNearFinish(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) {
-    final table = TableRelationships(snapshot, playerId);
-    for (final player in table.opponents) {
-      final call = snapshot.scoreState.tichuCalls[player.id] ?? TichuCall.none;
-      if (call == TichuCall.none) continue;
-      final count = (snapshot.hands[player.id] ?? const <Card>[]).length;
-      if (count > 0 && count <= 2) {
         return true;
       }
     }
@@ -142,26 +47,6 @@ extension _ScorerHelpers on TurnScorer {
     }
     final count = (snapshot.hands[winnerId] ?? const <Card>[]).length;
     return count > 0 && count <= 2;
-  }
-
-  bool _partnerCalledTichu(final GameSnapshot snapshot, final String playerId) {
-    final partnerId = TableRelationships(snapshot, playerId).partnerId!;
-    final call = snapshot.scoreState.tichuCalls[partnerId] ?? TichuCall.none;
-    return call != TichuCall.none;
-  }
-
-  bool _opponentCalledTichu(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) {
-    final table = TableRelationships(snapshot, playerId);
-    for (final player in table.opponents) {
-      final call = snapshot.scoreState.tichuCalls[player.id] ?? TichuCall.none;
-      if (call != TichuCall.none) {
-        return true;
-      }
-    }
-    return false;
   }
 
   /// Bombs, plus anything the unseen cards provably cannot beat.

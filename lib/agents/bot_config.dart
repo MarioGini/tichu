@@ -6,7 +6,6 @@ import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
-import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/player_agent.dart';
 
 /// A loaded network plus the denormalisation from its safetensors metadata.
@@ -97,7 +96,6 @@ class BotConfig {
               preSchupfTichuNetwork: preSchupfTichu?.network,
               preSchupfTichuScale: preSchupfTichu?.targetStd ?? 100,
               margin: callMargin,
-              fallback: DefaultTichuCallStrategy(options: heuristicOptions),
             ),
       schupfStrategy: schupf == null
           ? null

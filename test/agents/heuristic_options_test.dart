@@ -8,53 +8,27 @@ import 'package:tichu/game/turn/tichu_data.dart';
 import 'smart_ai_test_helpers.dart';
 
 void main() {
-  test('parses presets and rule lists', () {
-    expect(HeuristicOptions.parse('latest').guardPartnerTichu, isTrue);
-    expect(HeuristicOptions.parse('latest').strictTichu, isTrue);
-    final legacy = HeuristicOptions.parse('legacy');
-    expect(legacy.guardPartnerTichu, isFalse);
-    expect(legacy.supportPartnerTichu, isFalse);
-    expect(legacy.strictTichu, isFalse);
-    expect(legacy.announceBeforeSchupf, isFalse);
-    final custom = HeuristicOptions.parse('support,announce');
-    expect(custom.supportPartnerTichu, isTrue);
-    expect(custom.announceBeforeSchupf, isTrue);
-    expect(custom.guardPartnerTichu, isFalse);
-    expect(custom.strictTichu, isFalse);
-  });
-
-  test('rejects unknown rules', () {
-    expect(() => HeuristicOptions.parse('support,bogus'), throwsArgumentError);
-  });
-
-  test('classic is the fixed baseline, latest adds the tuned rules', () {
-    final classic = HeuristicOptions.parse('classic');
-    expect(classic.cheapCombos, isFalse);
-    expect(classic.planPass, isTrue);
-    expect(classic.weights, isEmpty);
-    final latest = HeuristicOptions.parse('latest');
-    expect(latest.cheapCombos, isTrue);
-    expect(latest.planPass, isFalse);
-    expect(latest.weights['controlPreservation'], 6);
-  });
-
-  test('switches rules off and overrides scorer weights', () {
+  test('parses rule switches and scorer weights', () {
+    expect(HeuristicOptions.parse('latest').off, isEmpty);
+    expect(HeuristicOptions.parse('latest').weights, isEmpty);
     final o = HeuristicOptions.parse(
-      'latest,-early_dog,-cheap_combos,conserve,lowLeadPreference:4',
+      'latest,-early_dog,-cheap_combos,cheap_combos,lowLeadPreference:4',
     );
     expect(o.on('early_dog'), isFalse);
     expect(o.on('partner_pass'), isTrue);
-    expect(o.cheapCombos, isFalse);
-    expect(o.conserveControls, isTrue);
-    expect(o.weights['lowLeadPreference'], 4);
-    // The latest preset's own overrides are kept.
-    expect(o.weights['unbeatableLine'], 2.5);
+    expect(o.on('cheap_combos'), isTrue);
+    expect(o.weights, {'lowLeadPreference': 4.0});
     expect(const PolicyWeights().withOverrides(o.weights).lowLeadPreference, 4);
+  });
+
+  test('rejects unknown rules and weights', () {
+    expect(() => HeuristicOptions.parse('-bogus'), throwsArgumentError);
+    expect(() => HeuristicOptions.parse('classic'), throwsArgumentError);
+    expect(() => HeuristicOptions.parse('latest,x:abc'), throwsArgumentError);
     expect(
       () => const PolicyWeights().withOverrides({'bogus': 1}),
       throwsArgumentError,
     );
-    expect(() => HeuristicOptions.parse('latest,x:abc'), throwsArgumentError);
   });
 
   group('cheap_combos', () {
@@ -104,7 +78,7 @@ void main() {
     });
 
     test('leads the full house with the low pair', () async {
-      // Classic leads 4-4-4-J-J here and keeps the nines.
+      // Without the rule the scorer leads 4-4-4-J-J and keeps the nines.
       final leadHand = [
         c(CardFace.three, CardColor.red),
         c(CardFace.four, CardColor.red),
@@ -126,7 +100,7 @@ void main() {
           ..sort((final a, final b) => a.index.compareTo(b.index));
       }
 
-      expect(await lead(HeuristicOptions.classic), [
+      expect(await lead(HeuristicOptions.parse('-cheap_combos')), [
         CardFace.four,
         CardFace.four,
         CardFace.four,

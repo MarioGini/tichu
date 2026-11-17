@@ -530,6 +530,16 @@ decisions with v5 playing (`rl/call_analysis.py`):
   Perfect calling would be worth +50 / +82: the rest depends on cards the
   caller cannot see.
 
+Hand-strength model for calls (`rl/call_success_train.py`): call labels now
+also carry the ground truth of both branches (`call_points`, `call_first`,
+`nocall_points`, `nocall_first`). A classifier of P(go out first | call) on
+the hand after the schupf, with the call threshold tuned on exact call
+values, beats the Tichu rule by +0.39 ± 0.22 points per decision (130k
+decisions) and wins 51.5 % ± 0.6 in duels; shipped as
+`assets/bots/tichu_call_v1.safetensors`. For Grand Tichu it does not beat the
+rule. Comparisons default to the shipped bot (play v5, schupf v2, Tichu
+calls v1).
+
 ## Next steps
 
 1. More best-response iterations against v4 (`rollout_loop.py

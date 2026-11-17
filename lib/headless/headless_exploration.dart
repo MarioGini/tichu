@@ -21,7 +21,7 @@ extension _Exploration on _HeadlessSimulator {
   ) async {
     final team =
         state.players.firstWhere((final p) => p.id == playerId).seat % 2;
-    Future<int?> playOut({required final bool call}) async {
+    Future<(int, bool)?> playOut({required final bool call}) async {
       final fork = state.copy();
       final forkAgents = {
         for (final p in fork.players) p.id: agentFactory(p.id, p.seat),
@@ -40,7 +40,10 @@ extension _Exploration on _HeadlessSimulator {
         final score = fork.scoreTracker.state;
         if (score.roundComplete) {
           final diff = score.teamOneRound - score.teamTwoRound;
-          return team == 0 ? diff : -diff;
+          final first =
+              score.finishOrder.isNotEmpty &&
+              score.finishOrder.first == playerId;
+          return (team == 0 ? diff : -diff, first);
         }
         final request = AgentDecisions.next(
           engine,
@@ -72,10 +75,19 @@ extension _Exploration on _HeadlessSimulator {
       return null;
     }
 
+    _lastCallDetails = null;
     final withCall = await playOut(call: true);
     final without = await playOut(call: false);
     if (withCall == null || without == null) return null;
-    return (withCall - without).toDouble();
+    // Ground truth of both branches for success / strength models: round
+    // points (own team) and whether this player went out first.
+    _lastCallDetails = {
+      'call_points': withCall.$1,
+      'call_first': withCall.$2,
+      'nocall_points': without.$1,
+      'nocall_first': without.$2,
+    };
+    return (withCall.$1 - without.$1).toDouble();
   }
 
   /// Replace one to three (mostly one) of the passed cards with random other

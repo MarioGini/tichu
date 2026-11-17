@@ -39,6 +39,7 @@ extension _Decisions on _HeadlessSimulator {
         counterfactual: _labelCounterfactual()
             ? await _counterfactualCall(engine, state, playerId, 'pre')
             : null,
+        cfDetails: _lastCallDetails,
       );
       if (shouldCall) return CallTichuAction(playerId: playerId);
       request = AgentDecisions.next(
@@ -71,6 +72,7 @@ extension _Decisions on _HeadlessSimulator {
           counterfactual: _labelCounterfactual()
               ? await _counterfactualCall(engine, state, playerId, 'grand')
               : null,
+          cfDetails: _lastCallDetails,
         );
         return GrandTichuDecisionAction(playerId: playerId, call: shouldCall);
       case SchupfRequest(:final playerId):
@@ -150,6 +152,7 @@ extension _Decisions on _HeadlessSimulator {
           counterfactual: _labelCounterfactual()
               ? await _counterfactualCall(engine, state, playerId, 'tichu')
               : null,
+          cfDetails: _lastCallDetails,
         );
         if (shouldCall) return CallTichuAction(playerId: playerId);
         return await agent.selectTurn(snapshot);

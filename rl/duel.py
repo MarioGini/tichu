@@ -33,7 +33,8 @@ from headless_runner import run_headless_sharded
 # schupf; calls heuristic). The heuristic is too weak to tell strong bots apart.
 BASELINE = (
     "--opponent-policy=assets/bots/tichu_q_v5.safetensors "
-    "--opponent-schupf-net=assets/bots/tichu_schupf_v2.safetensors"
+    "--opponent-schupf-net=assets/bots/tichu_schupf_v2.safetensors "
+    "--opponent-tichu-net=assets/bots/tichu_call_v1.safetensors"
 )
 
 

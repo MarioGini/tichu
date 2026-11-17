@@ -44,6 +44,9 @@ class _HeadlessSimulator {
   /// games ~30x slower).
   final double counterfactualRate;
 
+  /// Branch details of the last [_counterfactualCall] (see there).
+  Map<String, Object?>? _lastCallDetails;
+
   bool _labelCounterfactual() =>
       counterfactualCalls &&
       _bcWriter != null &&

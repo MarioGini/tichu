@@ -13,6 +13,7 @@ class _HeadlessConfig {
   final String? nnPolicyPath;
   final String? opponentPolicyPath;
   final String? opponentSchupfNetPath;
+  final String? opponentTichuNetPath;
   final double epsilon;
   final bool mixed;
   final bool swapTeams;
@@ -52,6 +53,7 @@ class _HeadlessConfig {
     required this.nnPolicyPath,
     required this.opponentPolicyPath,
     required this.opponentSchupfNetPath,
+    required this.opponentTichuNetPath,
     required this.epsilon,
     required this.mixed,
     required this.swapTeams,
@@ -94,6 +96,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   String? nnPolicyPath;
   String? opponentPolicyPath;
   String? opponentSchupfNetPath;
+  String? opponentTichuNetPath;
   var outputProvided = false;
   var showHelp = false;
   var epsilon = 0.0;
@@ -179,6 +182,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     }
     if (arg.startsWith('--nn-policy=')) {
       nnPolicyPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--opponent-tichu-net=')) {
+      opponentTichuNetPath = arg.split('=').last;
       continue;
     }
     if (arg.startsWith('--opponent-schupf-net=')) {
@@ -326,6 +333,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     nnPolicyPath: nnPolicyPath,
     opponentPolicyPath: opponentPolicyPath,
     opponentSchupfNetPath: opponentSchupfNetPath,
+    opponentTichuNetPath: opponentTichuNetPath,
     epsilon: epsilon,
     mixed: mixed,
     swapTeams: swapTeams,
@@ -363,7 +371,7 @@ void _printUsage() {
   stdout.writeln('       [--no-timestamps]');
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
   stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
-  stdout.writeln('       [--opponent-schupf-net=..]');
+  stdout.writeln('       [--opponent-schupf-net=..] [--opponent-tichu-net=..]');
   stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
   stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');

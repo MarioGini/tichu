@@ -101,7 +101,9 @@ class NnTichuCallStrategy implements TichuCallStrategy {
       grandTichuNetwork,
       preSchupfTichuNetwork,
     ]) {
-      if (net != null && net.inputSize != callNetInputSize) {
+      if (net != null &&
+          net.inputSize != callNetInputSize &&
+          net.inputSize != callFeatureCount) {
         throw ArgumentError.value(
           net.inputSize,
           'network.inputSize',
@@ -111,6 +113,24 @@ class NnTichuCallStrategy implements TichuCallStrategy {
         );
       }
     }
+  }
+
+  /// Whether [network] says call. Two kinds of nets:
+  ///  * success nets (`rl/call_success_train.py`, input [callFeatureCount]):
+  ///    the logit of P(go out first | call) minus the logit of the tuned
+  ///    threshold; call when positive;
+  ///  * call-value nets (`rl/call_train.py`, input [callNetInputSize]):
+  ///    call when Q(s, call) - Q(s, no call) exceeds [margin].
+  bool _calls(
+    final Mlp network,
+    final double scale,
+    final GameSnapshot snapshot,
+    final String playerId,
+  ) {
+    if (network.inputSize == callFeatureCount) {
+      return network.predict(callFeatures(snapshot, playerId)) > 0;
+    }
+    return callAdvantage(network, scale, snapshot, playerId) > margin;
   }
 
   /// Q(s, call) - Q(s, no call) in round points.
@@ -133,7 +153,7 @@ class NnTichuCallStrategy implements TichuCallStrategy {
   ) async {
     final net = grandTichuNetwork;
     if (net == null) return fallback.shouldCallGrandTichu(snapshot, playerId);
-    return callAdvantage(net, grandTichuScale, snapshot, playerId) > margin;
+    return _calls(net, grandTichuScale, snapshot, playerId);
   }
 
   @override
@@ -145,7 +165,7 @@ class NnTichuCallStrategy implements TichuCallStrategy {
     if (net == null) {
       return fallback.shouldCallTichuBeforeSchupf(snapshot, playerId);
     }
-    return callAdvantage(net, preSchupfTichuScale, snapshot, playerId) > margin;
+    return _calls(net, preSchupfTichuScale, snapshot, playerId);
   }
 
   @override
@@ -155,6 +175,6 @@ class NnTichuCallStrategy implements TichuCallStrategy {
   ) async {
     final net = tichuNetwork;
     if (net == null) return fallback.shouldCallTichu(snapshot, playerId);
-    return callAdvantage(net, tichuScale, snapshot, playerId) > margin;
+    return _calls(net, tichuScale, snapshot, playerId);
   }
 }

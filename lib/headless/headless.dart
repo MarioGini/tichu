@@ -69,9 +69,11 @@ Future<void> main(final List<String> args) async {
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig.build;
   final opponentSchupf = await _loadNet(config.opponentSchupfNetPath);
+  final opponentTichu = await _loadNet(config.opponentTichuNetPath);
   final opponentFactory = BotConfig(
     play: opponentPolicy,
     schupf: opponentSchupf,
+    tichu: opponentTichu,
     heuristicOptions: config.opponentHeuristic,
     simdInference: config.simd,
   ).build;

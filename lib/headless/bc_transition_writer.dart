@@ -40,6 +40,7 @@ class _BcTransitionWriter {
     required final bool called,
     required final bool explored,
     final double? counterfactual,
+    final Map<String, Object?>? cfDetails,
   }) {
     output.writeln(
       jsonEncode(<String, Object?>{
@@ -49,6 +50,7 @@ class _BcTransitionWriter {
         'call': kind,
         // Exact R(call) - R(no call) for this deal, in points (optional).
         'cf': ?counterfactual,
+        if (counterfactual != null && cfDetails != null) ...cfDetails,
         'seat': snapshot.players.firstWhere((final p) => p.id == playerId).seat,
         // Heuristic hand strength (for calibrating the call threshold).
         'strength': DefaultTichuCallStrategy.tichuStrength(

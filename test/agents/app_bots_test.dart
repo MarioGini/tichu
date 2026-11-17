@@ -11,6 +11,7 @@ void main() {
   test('loads the bundled play policy and makes legal moves', () async {
     await AppBots.load();
     expect(AppBots.current.play, isNotNull);
+    expect(AppBots.current.schupf, isNotNull);
 
     final hand = [
       Card(CardFace.two, CardColor.red),

@@ -485,6 +485,42 @@ history features do not help yet; their 66 inputs start at zero weight and
 the advantage targets are noisy (± 90 points per action and deal). The best
 net is shipped as `assets/bots/tichu_q_v5.safetensors` (v4 removed).
 
+## Schupf and calls (2026-11-17)
+
+Exact labels for the exchange: `headless --schupf-rollout-rate=1` plays each
+labelled round out once per candidate pass (16 of the ~150 sensible passes
+from `SchupfFeatures.candidates`). `rl/schupf_analysis.py` on 25,820 decisions
+of v5 self-play (values = points per round relative to the deal's average
+candidate):
+
+- To the opponents: low cards 2-6 +2, the Dog +5.5 (opponent Tichus succeed
+  2 pp less, my own Tichu calls +3 pp; +39 when my hand is strong and my
+  partner's weak), J or higher -9.
+- To the partner, "concentrate on the strong hand": with a strong hand of my
+  own, keep the strength and pass a low card (+31); passing the Phoenix then
+  costs -33 because it moves the Tichu from me to my partner (my calls -22 pp,
+  partner's +13 pp). With a weak hand, give the partner my best card (Phoenix
+  +12..19, Ace +3..5). The Dog to the partner costs -10 overall.
+- The heuristic's pass is already +22 points per round better than an
+  average sensible pass; the learned net (`schupf_cf_train.py`) adds +7 ± 2.5
+  on held-out deals and wins 55.0 % ± 0.8 in duels against the same bot with
+  the heuristic schupf. Shipped as `assets/bots/tichu_schupf_v1.safetensors`.
+
+Calls, exact counterfactual labels from 34k Grand Tichu and 33k Tichu
+decisions with v5 playing (`rl/call_analysis.py`):
+
+- Grand Tichu: the rule (strength >= 5) is worth +0.97 ± 0.28 points per
+  decision; 4.5 is equal (+1.12). A conservative rule (>= 7) wins +55 per call
+  but calls 0.9 % of the time and is worth half as much (+0.49). Hands of
+  strength 3-4 lose 46 points per call. After a Grand Tichu the heuristic
+  already passes the caller's partner a low card and the partner passes the
+  caller their best card.
+- Tichu: the current rule +4.14 ± 0.34; the best threshold tried +4.49.
+- Learned call nets on the same labels (decision-focused training in
+  `call_train.py`) do not beat the rules (Tichu +2.8, Grand Tichu +0.9).
+  Perfect calling would be worth +50 / +82: the rest depends on cards the
+  caller cannot see.
+
 ## Next steps
 
 1. More best-response iterations against v4 (`rollout_loop.py

@@ -52,6 +52,14 @@ steps, `rl/train_loop.py`). Kept as the fixed reference opponent for duels:
 74.6 % ± 0.9 vs the classic heuristic on the bench above (70.8 % ± 1.9 in
 the original 400-match measurement).
 
+## tichu_schupf_v1.safetensors (shipped)
+
+Schupf value net (232 inputs, `NnSchupfStrategy`), trained by
+`rl/schupf_cf_train.py` on 25,820 exact schupf decisions of v5 self-play
+(16 candidate passes per decision, each round played out). v5 with it beats
+v5 with the heuristic schupf 55.0 % ± 0.8 (1500 deals x 2), and the heuristic
+90.1 % ± 0.7.
+
 ## tichu_q_v5.safetensors (shipped)
 
 Two best-response steps against v4 plus one on games against

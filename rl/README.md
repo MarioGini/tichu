@@ -541,6 +541,12 @@ points per decision:
 | decision-time simulation: both branches played on 16 guessed deals of the unseen cards (`--pimc-worlds`, `pimc_calls.py`) | -1.9 ± 0.8 (best variant +0.7 ± 0.3, rule and simulation agreeing) |
 | knowing the outcome | +44 |
 
+Deciding at the last moment (`delay_tichu`: the call is made in the turn the
+bot plays its first card; 75 % of these decisions see at least one card
+played, 22 % see 11 or more) does not change this: the success model there is
++0.39 ± 0.26 over the rule (AUC 0.802, 48.6k decisions), and with the rule the
+delay itself is neutral (49.9 % ± 0.4).
+
 Seeing every hand barely helps (AUC 0.797 -> 0.812), and simulating on
 guessed deals correlates only 0.27 with the real value: whether a call
 succeeds is decided by how the round is played (it is chaotic), not by

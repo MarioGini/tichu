@@ -58,6 +58,42 @@ abstract final class SchupfFeatures {
   static bool allowedRight(final Card c) =>
       !_isNormal(c) || c.value.toInt().isEven;
 
+  /// Strength order for passing: Dog 0, Mahjong 1, 2..A, Phoenix 15,
+  /// Dragon 16.
+  static int passStrength(final Card c) => switch (c.face) {
+    CardFace.dog => 0,
+    CardFace.mahJong => 1,
+    CardFace.phoenix => 15,
+    CardFace.dragon => 16,
+    _ => faceRank(c.face),
+  };
+
+  /// The sensible passes of [hand] as (left, partner, right) hand indices:
+  /// one of the five strongest cards or the Dog to the partner, one of the
+  /// five weakest cards each opponent may receive under the bomb-safety
+  /// convention to the opponents. Training labels and the net's choice both
+  /// use this set (about 150 of the 2184 assignments).
+  static List<(int, int, int)> candidates(final List<Card> hand) {
+    final order = List<int>.generate(hand.length, (final i) => i)
+      ..sort(
+        (final a, final b) =>
+            passStrength(hand[a]).compareTo(passStrength(hand[b])),
+      );
+    final partner = <int>{
+      ...order.reversed.take(5),
+      ...order.where((final i) => hand[i].face == CardFace.dog),
+    };
+    final left = order.where((final i) => allowedLeft(hand[i])).take(5);
+    final right = order.where((final i) => allowedRight(hand[i])).take(5);
+    return [
+      for (final p in partner)
+        for (final l in left)
+          if (l != p)
+            for (final r in right)
+              if (r != p && r != l) (l, p, r),
+    ];
+  }
+
   static bool _isNormal(final Card c) =>
       c.face != CardFace.dragon &&
       c.face != CardFace.phoenix &&
@@ -93,6 +129,8 @@ abstract final class SchupfFeatures {
 /// right) — 14·13·12 = 2184 candidates — and picks the one with the highest
 /// predicted round point difference. The hand/context part of the first
 /// layer is computed once; each candidate only adds three weight columns.
+/// Only [SchupfFeatures.candidates] are scored (the passes it was trained
+/// on).
 class NnSchupfStrategy implements SchupfStrategy {
   final Mlp network;
 
@@ -133,38 +171,19 @@ class NnSchupfStrategy implements SchupfStrategy {
     var bestL = 0;
     var bestP = 1;
     var bestR = 2;
-    // First pass respects the bomb-safety convention; only if no candidate
-    // satisfies it (rare) is every assignment considered.
-    for (final strict in [true, false]) {
-      for (var l = 0; l < hand.length; l++) {
-        if (strict && !SchupfFeatures.allowedLeft(hand[l])) continue;
-        for (var p = 0; p < hand.length; p++) {
-          if (p == l) continue;
-          for (var r = 0; r < hand.length; r++) {
-            if (r == l || r == p) continue;
-            if (strict && !SchupfFeatures.allowedRight(hand[r])) continue;
-            work.setAll(0, pre);
-            network
-              ..addFirstLayerColumn(work, SchupfFeatures.leftOffset + slots[l])
-              ..addFirstLayerColumn(
-                work,
-                SchupfFeatures.partnerOffset + slots[p],
-              )
-              ..addFirstLayerColumn(
-                work,
-                SchupfFeatures.rightOffset + slots[r],
-              );
-            final q = network.predictFromFirstLayer(work);
-            if (q > best) {
-              best = q;
-              bestL = l;
-              bestP = p;
-              bestR = r;
-            }
-          }
-        }
+    for (final (l, p, r) in SchupfFeatures.candidates(hand)) {
+      work.setAll(0, pre);
+      network
+        ..addFirstLayerColumn(work, SchupfFeatures.leftOffset + slots[l])
+        ..addFirstLayerColumn(work, SchupfFeatures.partnerOffset + slots[p])
+        ..addFirstLayerColumn(work, SchupfFeatures.rightOffset + slots[r]);
+      final q = network.predictFromFirstLayer(work);
+      if (q > best) {
+        best = q;
+        bestL = l;
+        bestP = p;
+        bestR = r;
       }
-      if (best > double.negativeInfinity) break;
     }
 
     return SchupfAction(

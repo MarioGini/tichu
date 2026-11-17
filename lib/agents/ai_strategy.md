@@ -110,15 +110,51 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart)
 
 ---
 
+### R12 — Cheapest Equivalent Combination (`latest`)
+- After the scorer picked a multi-card, non-bomb combination, play the
+  cheapest legal one of the same type and length (lowest rank sum; Phoenix
+  and Dragon count as the most expensive cards): 6-6-Q-Q-Q instead of
+  J-J-Q-Q-Q, Q-Q-Q-x-x instead of A-A-A-x-x, 4-4-4-9-9 instead of 4-4-4-J-J.
+- Code: [smart_ai_helpers.dart](smart_ai_helpers.dart) (`_cheapestEquivalent`)
+
+---
+
+## 3b) Presets and measured value of the rules
+
+`HeuristicOptions.latest` (the app's heuristic) = `classic` + R12, without the
+"pass instead of damaging the plan" rule, with `unbeatableLine` 2.5 and
+`controlPreservation` 6. It beats `classic` 61.6 % ± 0.5 in duplicate duels
+(R12 alone: 58.9 %).
+
+Every rule and weight was scored on exact rollout values
+(`headless --shadow-heuristics`, see [rl/README.md](../../rl/README.md)):
+
+- Rules that earn their keep (removing them costs 0.15-0.6 points per
+  decision): R12, control preservation, shedding low singletons,
+  avoid-high-burn, the early Dog lead, the singleton response.
+- Rules and weights that change fewer than 1 in 2000 decisions and have no
+  measurable value: `trickPointCapture`, `supportPartnerTichu` (both are the
+  same for every candidate play, so they cannot change the choice),
+  `givePartnerLead`, the three `phoenixTrump*` weights,
+  `preferNaturalTrumpResponse`, `preserveFlexibleTrump`,
+  `preferMultiCardWhenOpponentLow`, `avoidSingleWhenOpponentLow`,
+  `avoidSoftLeadAgainstOpponentTichu`, `sureTrickCapture`, both `bombUsage*`
+  weights, and the shortcuts valuable-bomb, keep-bombs, wish preference and
+  the low-single Phoenix filter. They are candidates for deletion.
+- Rules that lose points and stay off: plan-lead, lead-sure, feed-partner,
+  support (always pass for a calling partner), plan-singles.
+
+---
+
 ## 4) Policy Weights (current defaults)
 - `lowLeadPreference`: 2
-- `controlPreservation`: 3
+- `controlPreservation`: 3 (`latest`: 6)
 - `avoidHighBurn`: 4
 - `sheddingRiskyLowSingle`: 2
 - `comboEfficiency`: 2
 - `bombUsageEarly`: -6
 - `bombUsageLate`: 6
-- `unbeatableLine`: 5
+- `unbeatableLine`: 5 (`latest`: 2.5)
 - `givePartnerLead`: 3
 - `preferMultiCardWhenOpponentLow`: 4
 - `avoidSingleWhenOpponentLow`: 4

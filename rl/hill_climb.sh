@@ -6,6 +6,9 @@
 #   rl/hill_climb.sh            # start / resume
 #   tail -f rl/outputs/rollout_loop/loop.log
 cd "$(dirname "$0")/.." || exit 1
+# Also resume the call-label generation when it was started before
+# (rl/call_labels.sh, uses the remaining core).
+[ -d rl/outputs/calls ] && rl/call_labels.sh "${CALL_CHUNKS:-40}"
 if pgrep -f "rl/rollout_loop.py" >/dev/null; then
   echo "hill climb already running"
   exit 0

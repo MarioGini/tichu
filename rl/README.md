@@ -23,8 +23,9 @@ VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>
 
 ## Quick start
 
-The shipped play policy is `assets/bots/tichu_q_v3.safetensors` (see
-`rl/models/README.md`). Train a new one with the commands below.
+The shipped play policy is `assets/bots/tichu_q_v4.safetensors` (see
+`rl/models/README.md`). It is trained by **rollout policy iteration**
+(`rollout_loop.py`, see "Rollout policy iteration" below).
 
 **Before any RL command, compile the Dart headless runner once.** Every
 Python script auto-detects `build/bin/headless` and uses it; without
@@ -34,35 +35,39 @@ this you pay a 2.5 s VM cold-start per invocation.
 dart compile exe lib/headless/headless.dart -o build/bin/headless
 ```
 
-To regenerate from scratch (`bc_pretrain.py`, `evaluate_policy.py`,
-`train_loop.py` and `call_train.py` accept `--shards=N` to fan headless work
-across CPU cores; default `0` = `cpu_count - 1`):
+Continue training the current policy (restart-safe, ~30 min per iteration on
+4 cores; everything goes to `rl/outputs/rollout_loop/`):
 
 ```bash
-uv run --project rl python rl/bc_pretrain.py \
-    --output=rl/outputs/policy.safetensors \
-    --episodes=200 --epochs=15 \
-    --hidden=256,128,64 --seed=2024 --target-score=100
+rl/hill_climb.sh                              # start / resume in the background
+tail -f rl/outputs/rollout_loop/loop.log
 ```
 
-To evaluate against the heuristic:
+Measure any two bots against each other (duplicate deals, both seatings):
 
 ```bash
-uv run --project rl python rl/evaluate_policy.py \
-    --nn-policy=rl/outputs/policy.safetensors \
-    --output=rl/outputs/eval.safetensors \
-    --seed=12345 --episodes=300 --target-score=1000 \
-    --shards=7
+rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v4.safetensors" \
+    --b="--opponent-heuristic=classic" --deals=1000
+rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,conserve" \
+    --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
 ```
+
+To regenerate a policy from scratch, start with behaviour cloning
+(`bc_pretrain.py`, below) and run `rollout_loop.py --init-policy=...` on it.
 
 ### Performance notes
 
-- The compiled `build/bin/headless` is roughly 12× faster on cold start than
-  `dart run lib/headless/headless.dart` (250 ms vs 2.5 s) and ~2.5× faster
-  in steady state.
+- Heuristic games run at ~25 matches (to 1000) per second and core, games of
+  the play net at ~10: a 2000-match duplicate duel takes one to two minutes
+  on 4 cores, a rollout-labelled play decision ~10 ms.
+- This is 20x (heuristic) / 10x (net) faster than before 2026-11-16. Three
+  things did it: bots used to brute-force every subset of the hand before
+  passing (`LegalPlayGuard.firstLegalTurnBruteForce`, 90 % of the run time);
+  the net now shares the state prefix of the first layer across the legal
+  actions and skips zero inputs (`Mlp.prefixScorer`); and the headless runner
+  uses 4-wide float32 SIMD (`Mlp.simdPrefixScorer`, `--no-simd` to turn off).
 - `headless_runner.py` shards an episode count across N processes (one per
-  shard, distinct seed), then concatenates the JSONL output. On an 8-core
-  box this is ~6× wallclock for typical 300+ episode jobs.
+  shard, distinct seed), then concatenates the JSONL output.
 - Training stays on **CPU**: the ~100k-param net is too small to benefit from
   a GPU, so the project installs the CPU-only PyTorch build.
 
@@ -103,8 +108,8 @@ hand is a Tichu hand (then keep strength and pass low), always support a
 partner who called.
 
 Hardware used so far: 4 CPU cores (Xeon), 15 GB RAM, no GPU. Data
-generation dominates the run time (counterfactual call labels make games
-several times slower); the nets are small MLPs, so training stays on CPU.
+generation dominates the run time; the nets are small MLPs, so training
+stays on CPU.
 
 ## Architecture
 
@@ -135,6 +140,45 @@ encoder, then run the Dart tests.** Mismatches caused a silent, catastrophic
 bug in the previous iteration (action features ended up at different
 indices on each side, so trained nets saw zero action information at
 inference time).
+
+### Rollout policy iteration (the current trainer)
+
+Why the earlier loop stalled, measured with exact rollouts:
+
+- Per decision, the round result differs between two legal actions by about
+  ±80 points on a single deal (who wins a trick cascades into Tichu bonuses
+  and double wins), while the *expected* difference a policy can exploit is
+  a few points. v3's whole edge over the heuristic (74.6 % of matches) is
+  +1.5 points per decision; they agree on 82 % of moves.
+- `q_train.py` saw one return for one action per decision and explored 5 %
+  of moves at random, on 600 games per iteration: far too little signal to
+  rank the actions it rarely tried, so the policy stayed close to its
+  behaviour-cloning start.
+- Promotion was decided on 100 deals (± 2.8 pp), which cannot see the
+  2-5 pp steps that add up.
+
+The fix is to label **every** legal action exactly, and a lot of them:
+
+1. `headless --rollout-rate=p`: for a sampled play decision the round is
+   forked once per legal action and played out by the current bots
+   (`q_rollout`, same deal, deterministic policies — no card luck in the
+   differences). The rollout sees the true hidden hands, the net only public
+   information: perfect-information training, imperfect-information
+   execution as in PerfectDou, with a rollout instead of a learned critic.
+   Averaged over deals the net learns E[Q | information state].
+2. `rollout_train.py`: regression on per-decision **advantages** (targets
+   and outputs centred over the legal actions, so the value of the deal
+   never enters the loss), suit-permutation augmentation, warm start from
+   the previous net. Greedy play on the result is one exact
+   policy-improvement step.
+3. `rollout_loop.py`: iterate. Data comes from games against the heuristic
+   variants in `--opponents` (both seatings) and from self-play; the data of
+   earlier iterations is kept (training on all 318k decisions beat training
+   on the newest 121k by 4 pp). A candidate is promoted when it beats the
+   best net in a duplicate duel by more than 2 standard errors.
+
+The exported net has the same inputs and layers as before and plugs into
+`NnPlaySelectionStrategy` unchanged.
 
 ### Training pipelines
 
@@ -195,12 +239,36 @@ Python entry points:
    ```
 
 5. **`q_train.py`** — DouZero-style Monte-Carlo Q fine-tune of the play net
-   (oracle baseline); the play learner used by `train_loop.py`.
+   (oracle baseline); the play learner used by `train_loop.py`. Superseded
+   for the play net by `rollout_train.py` / `rollout_loop.py` (above).
 
 6. **`analyze_games.py`** — duplicate games vs the heuristic with
    `--shadow-heuristic`: round stats per side (going out first, double wins,
    call rates and success) and where / how often the policy's moves differ
    from what the heuristic would have played.
+
+7. **`duel.py`** — duplicate duel between any two bot configurations
+   (nets and / or heuristic variants).
+
+8. **`call_labels.sh`** — background generation of exact counterfactual
+   call labels with the current best policy, for `call_train.py`.
+
+### Heuristic lab
+
+The same rollout labels score heuristic rules exactly:
+
+- `headless --shadow-heuristics=specA|specB|...` logs, for every labelled
+  decision, what each heuristic variant would have played. One dataset then
+  gives the exact one-step value (points per decision) of all variants.
+- `--heuristic=` specs: a preset (`latest`, `classic`, `legacy`), rule names
+  to switch on, `-name` to switch a rule or tactical shortcut off, and
+  `weight:value` to override a `TurnScorer` weight, e.g.
+  `latest,-early_dog,lowLeadPreference:4`.
+- `--describe` adds a readable position (hands, trick, legal actions) to
+  labelled rows; `--label-seats=policy|opponent|all` chooses whose decisions
+  are labelled.
+
+Calibration: +0.1 points per decision is worth about +1.5 pp match win rate.
 
 ### One bot definition for app and training
 
@@ -264,6 +332,9 @@ Only two RL-relevant formats remain:
 
 ### Other headless flags
 
+- `--rollout-rate=p`, `--rollout-max-actions=N` (default 12): exact values
+  of every legal action for a share p of the labelled seats' play decisions
+  (`q_rollout`; only labelled play rows are written then).
 - `--schupf-net`, `--pre-tichu-net`, `--schupf-epsilon`, `--skip-play-rows`,
   `--shadow-heuristic`: see the scripts above. `TICHU_HEADLESS=path` makes
   the Python scripts use another runner binary.
@@ -318,14 +389,54 @@ All numbers: duplicate, matches to 1000, vs the latest heuristic.
   needs 2 SE). Learned schupf nets were always clearly worse (−13 to −31 pp).
 - The policy plateaus around 74–75 % at ~600 play games per iteration.
 
+## Results v4 (2026-11-17): rollout policy iteration
+
+Duplicate duels (`duel.py`), 1000 deal sequences x 2 seatings, matches to
+1000. "Classic" is the heuristic v3 was trained against
+(`--opponent-heuristic=classic`), "latest" the tuned heuristic.
+
+| Net | vs classic | vs latest | vs v3 | vs previous |
+|-----|-----------|-----------|-------|-------------|
+| v3 | 74.6 % ± 0.9 | 64.1 % ± 1.0 | — | — |
+| iteration 1 (197k decisions, vs classic) | 81.9 % ± 0.8 | | 57.3 % ± 0.9 | 57.3 % |
+| iteration 2 (+121k, a third self-play) | 92.7 % ± 0.6 | 86.3 % ± 0.7 | 74.3 % ± 0.9 | 67.3 % |
+| iteration 3 (+120k, classic / latest / self-play) | 94.2 % ± 0.5 | 90.5 % ± 0.6 | 79.2 % ± 0.8 | 56.8 % |
+
+Later iterations: `rl/outputs/rollout_loop/history.json` and
+`rl/models/README.md`.
+
+Heuristic (6000-match duels): latest beats classic 61.6 % ± 0.5 (the
+cheapest-combo rule alone 58.9 %), but still loses to v3 (35.9 %). What the
+lab showed:
+
+- Classic wasted strength: A-A-A-x-x on a full house that Q-Q-Q-x-x beats,
+  K-K on a pair of fives when 6-6 is enough, 4-4-4-J-J led instead of
+  4-4-4-9-9. Playing the cheapest multi-card combination of the chosen type
+  is worth +0.3 points per decision both leading and following.
+- About half of the 23 `TurnScorer` weights and several shortcuts
+  (`valuable_bomb`, `plan_bombs`, `wish_pref`, the Phoenix bonuses, the
+  opponent-low terms, `trickPointCapture`, `supportPartnerTichu`,
+  `givePartnerLead`, ...) change fewer than 1 in 2000 decisions and have no
+  measurable value: they can be deleted.
+- No further coarse rule helped. "Always pass on the partner's trick",
+  "save Aces / Dragon / Phoenix early", "lowest single first", "block an
+  opponent with one card" all lose points with the heuristic behind them.
+  The net's edge over the heuristic (+2.4 points per decision) is selective:
+  it passes on 9 % of the opponents' singles where the heuristic plays, but
+  no simple condition separates those positions.
+- Calls: refitting the Tichu rule on 39k exact counterfactual labels gives
+  at most +1 point per decision (needs interaction terms); a linear Grand
+  Tichu rule is worth +1.1 ± 0.45 (the heuristic never calls it).
+
 ## Next steps
 
-To beat the heuristic by a wider margin requires one of:
-
-1. A search head at inference (IS-MCTS with the policy as prior; needs a
-   value function over post-move states).
-2. More Q iterations / data (`train_loop.py`).
-3. NN decisions for schupf, Dragon gift and wish (still heuristic).
+1. Keep iterating `rollout_loop.py`; shift the data towards self-play as the
+   heuristics stop being a challenge.
+2. Learned calls on exact counterfactual labels from the best policy
+   (`call_labels.sh` + `call_train.py`); then the same for the schupf.
+3. Delete the dead heuristic rules listed above.
+4. A truncated rollout with a perfect-information value net (PerfectDou's
+   critic) would make labels several times cheaper once more data is needed.
 
 ## Output contract
 

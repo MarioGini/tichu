@@ -23,7 +23,7 @@ VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>
 
 ## Quick start
 
-The shipped play policy is `assets/bots/tichu_q_v5.safetensors` (see
+The shipped play policy is `assets/bots/tichu_q_v6.safetensors` (see
 `rl/models/README.md`). It is trained by **rollout policy iteration**
 (`rollout_loop.py`, see "Rollout policy iteration" below).
 
@@ -46,7 +46,7 @@ tail -f rl/outputs/rollout_loop/loop.log
 Measure any two bots against each other (duplicate deals, both seatings):
 
 ```bash
-rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v5.safetensors" \
+rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v6.safetensors" \
     --b="--opponent-policy=old_policy.safetensors" --deals=1000
 rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
@@ -224,7 +224,7 @@ Python entry points:
    ```bash
    rl/.venv/bin/python rl/call_train.py --generate --episodes=1500 \
        --target-score=500 --call-epsilon=0.15 \
-       --nn-policy=assets/bots/tichu_q_v5.safetensors --output-dir=rl/outputs
+       --nn-policy=assets/bots/tichu_q_v6.safetensors --output-dir=rl/outputs
    ```
 
 3. **`schupf_train.py`** — schupf value net Q(hand, pass) on
@@ -535,11 +535,96 @@ information a player could have. The strength rule is already near the
 practical ceiling, so learned call models were dropped (a +0.4 model was
 briefly shipped and removed).
 
+## Results v6 (2026-11-18): best response to v5, better trainer
+
+Three iterations of `rollout_loop.py` against v5 (outputs in
+`rl/outputs/v6/`, not in git). Per iteration ~245k labelled decisions:
+2400 matches against v5 (both seatings, only the learner's seats labelled)
+and 1000 self-play matches; training uses the data of all iterations.
+Duplicate duels, 2000 deals x 2 seatings, matches to 1000, both sides with
+the learned schupf v2:
+
+| Net | vs previous best | vs v5 |
+|-----|------------------|-------|
+| iteration 1, old trainer (8 epochs, last epoch kept) | | 53.9 % ± 0.6 |
+| iteration 1 data, same start, win-probability targets + EMA | | 54.9 % ± 0.6 |
+| iteration 1 data, same start, EMA + best of 4 epochs | | 56.2 % ± 0.6 |
+| iteration 2 (+243k decisions) | 53.9 % ± 0.6 | 59.6 % ± 0.7 |
+| **iteration 3 = v6** (+245k) | 51.7 % ± 0.6 | 60.3 % ± 0.6 |
+
+Fresh deals (seed 9001): v6 beats v5 **60.2 % ± 0.5** (3000 deals x 2,
+margin +137 per match) and the heuristic 93.9 % ± 0.5 (v5: 91.4 % ± 0.6).
+
+What changed in the setup:
+
+- **The learner now plays with the learned schupf.** Before, the loop trained
+  and gated the play net with the heuristic schupf, although the app and
+  every comparison use schupf v2: it learned for hands it never gets.
+- **Early stopping and EMA weights.** The rollout labels are noisy (± 58
+  points of clairvoyant regret per decision against ~1 point of learnable
+  gain): held-out gain peaked after 3-4 epochs and halved by epoch 8. The
+  trainer now runs 4 epochs, keeps the epoch with the best held-out gain and
+  exports an exponential moving average of the weights (`--ema=0.999`).
+  Same data, same start: +2.3 pp against v5.
+- **Match-win targets** (`--objective=win`, DouZero's win-probability
+  objective; `win_prob.py` gives P(win | totals) from 16k rounds of v5
+  self-play): the round result is mapped through the match-win probability
+  after the round. It lost to the point targets (54.9 % vs 56.2 %), so it is
+  off by default. The runner now writes each team's own rollout points
+  (`q_rollout_own`) so the mapping is exact.
+- Compact data cache: the state is stored once per decision (float16), ~7x
+  less memory than one full input row per action.
+
+Gains per iteration shrink (+3.4 pp, then +0.7 pp against v5); a fourth
+iteration was cut off by a container restart.
+
+### How v6 plays differently
+
+`rl/compare_policies.py` scores v5 and v6 on the same positions (66k v6
+decisions from v6-vs-v5 games, every legal move rolled out on the real deal,
+v6 continuing) and measures, where they disagree, how many round points v6's
+move gains over v5's. They disagree on 23 % of decisions; v6's move is
+worth +2.1 ± 1.0 points per disagreement (+0.5 per decision). That is a
+one-move swap; the full effect compounds over a round (+137 per match).
+
+Where the gain comes from (points per differing move):
+
+| Situation | gain |
+|-----------|------|
+| following an opponent's trick (13 % of all decisions) | +2.7 ± 1.4 |
+| endgame, 1-4 cards in hand | +5.9 ± 2.1 |
+| an opponent has one card left | +6.8 ± 2.4 |
+| partner called (Grand) Tichu | +5.2 ± 2.4 |
+| partner already out | +3.0 ± 1.0 |
+| following a pair / a triplet | +11.5 ± 4.5 / +53 ± 16 |
+| following the partner's trick | -2.4 ± 3.4 (no gain) |
+
+Style, on the same positions (share of decisions where the move is possible):
+
+| | v5 | v6 |
+|-|----|----|
+| bombs when it can | 15.5 % | 10.3 % |
+| plays the Dragon with 8+ cards | 10.7 % | 8.4 % |
+| plays the Phoenix with 8+ cards | 13.1 % | 11.5 % |
+| passes on an opponent's trick | 28.3 % | 30.3 % |
+| leads a single / triplet / pair straight | 53 / 4.4 / 6.6 % | 56 / 2.9 / 5.0 % |
+
+- **It keeps its bombs and high cards for later.** v6 bombs a third less
+  often. Where v5 bombs and v6 does not, v6 gains +22 ± 11 (it passes) and
+  +40 ± 25 (it plays something else); keeping the Phoenix where v5 spends it
+  +23 ± 12.
+- **It leads more singles and fewer fixed combinations** (triplets, pair
+  straights): leading a single where v5 leads a pair straight +18 ± 9, a
+  triplet +10 ± 9.
+- When both follow with a single, playing the lower one helps (+2.6 ± 2.4)
+  and the higher one costs a little (-2.8 ± 2.2): the net edge is in the
+  endgame and against short opponent hands, not in a simple rule.
+
 ## Next steps
 
-1. More best-response iterations against v4 (`rollout_loop.py
-   --opponent-nets`, ~+2-4 pp per 25-minute iteration so far), keeping the
-   data of earlier iterations, and the history A/B again at 3-5x the data.
+1. More iterations against v6 / a pool of earlier nets (gains per
+   iteration against a fixed opponent shrink to < 1 pp after three), and
+   the history A/B again at the current data size (740k decisions).
 2. Learned calls on exact counterfactual labels from the best policy
    (`call_labels.sh` + `call_train.py`); then the same for the schupf.
 3. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:

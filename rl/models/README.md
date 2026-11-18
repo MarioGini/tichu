@@ -1,6 +1,6 @@
 # Trained models
 
-The app's bots use `assets/bots/tichu_q_v5.safetensors` (loaded by
+The app's bots use `assets/bots/tichu_q_v6.safetensors` (loaded by
 `lib/agents/app_bots.dart`).
 
 ## tichu_q_v4.safetensors (removed)
@@ -38,7 +38,7 @@ simulates in 85 ms.
 Use with the heuristic's Tichu calls and schupf:
 
 ```bash
-build/bin/headless --nn-policy=assets/bots/tichu_q_v5.safetensors ...
+build/bin/headless --nn-policy=assets/bots/tichu_q_v6.safetensors ...
 ```
 
 In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.
@@ -69,7 +69,17 @@ heuristic schupf 55.0 % ± 0.8. Against an opponent's Grand Tichu it passes
 the Dog and the lowest cards to the caller and strength to the partner
 (`rl/schupf_vs_grand.py`).
 
-## tichu_q_v5.safetensors (shipped)
+## tichu_q_v6.safetensors (shipped)
+
+Three rollout policy-iteration steps from v5, trained on games against v5
+and self-play with the learned schupf, EMA weights and early stopping (same
+architecture, 318-256-128-64-1). 60.2 % ± 0.5 against v5 (3000 deals x 2,
+fresh deals, both with schupf v2) and 93.9 % ± 0.5 against the heuristic.
+See rl/README.md, "Results v6".
+
+## tichu_q_v5.safetensors (removed)
+
+Restore it with `git show 43052c2:assets/bots/tichu_q_v5.safetensors`.
 
 Two best-response steps against v4 plus one on games against
 v4 with the Grand Tichu rule (feature layout v5, history weights zero).

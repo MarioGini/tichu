@@ -14,7 +14,9 @@ extension _Rollouts on _HeadlessSimulator {
   /// bc-jsonl legal-action order: wish-filtered legal turns, then pass.
   /// `null` entries were not rolled out (action cap). Returns null when the
   /// decision is not worth labelling (forced move, finishing move available).
-  Future<List<double?>?> _rolloutValues({
+  /// `own` holds the actor's team's own round points for the same rollouts
+  /// (with `diff` they give both teams' points, for match-win targets).
+  Future<({List<double?> diff, List<double?> own})?> _rolloutValues({
     required final GameEngine engine,
     required final GameEngineState state,
     required final GameSnapshot snapshot,
@@ -53,6 +55,7 @@ extension _Rollouts on _HeadlessSimulator {
     final team =
         state.players.firstWhere((final p) => p.id == playerId).seat % 2;
     final values = List<double?>.filled(count, null);
+    final own = List<double?>.filled(count, null);
     for (final i in indices) {
       final fork = state.copy();
       final forkAgents = {
@@ -78,9 +81,14 @@ extension _Rollouts on _HeadlessSimulator {
         continue;
       }
       final diff = await _playOutRound(engine, fork, forkAgents);
-      if (diff != null) values[i] = (team == 0 ? diff : -diff).toDouble();
+      if (diff != null) {
+        values[i] = (team == 0 ? diff : -diff).toDouble();
+        final score = fork.scoreTracker.state;
+        own[i] = (team == 0 ? score.teamOneRound : score.teamTwoRound)
+            .toDouble();
+      }
     }
-    return values;
+    return (diff: values, own: own);
   }
 
   /// Play [fork] to the end of the round; returns team one's round points

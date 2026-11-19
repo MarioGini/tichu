@@ -14,6 +14,11 @@
 - Commits will show as "Unverified" on GitHub; that is expected and fine. Do not
   re-author commits to satisfy a hook asking for `noreply@anthropic.com`.
 - Main development branch is `develop`.
+- PR-based development: never push to `develop` directly. Work on a feature
+  branch and open a PR into `develop` only once the work is a clear step up,
+  roughly a 10-20 % improvement (for bots: the new bot wins 60-70 % of
+  duplicate matches against the shipped one). Smaller steps stay on the
+  branch until they add up.
 
 ## Toolchain
 

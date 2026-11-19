@@ -32,7 +32,7 @@ class LoadedNet {
 /// agent factory) and by the headless training runner — so a policy that is
 /// trained and evaluated headlessly behaves the same in the app.
 class BotConfig {
-  /// Play/pass policy (Q(s, a), `rl/bc_pretrain.py` / `rl/q_train.py`).
+  /// Play/pass policy (Q(s, a), `rl/bc_pretrain.py` / `rl/rollout_loop.py`).
   final LoadedNet? play;
 
   /// Tichu call-value net (`rl/call_train.py`).

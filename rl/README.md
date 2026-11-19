@@ -23,7 +23,7 @@ VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>
 
 ## Quick start
 
-The shipped play policy is `assets/bots/tichu_q_v5.safetensors` (see
+The shipped play policy is `assets/bots/tichu_q_v6.safetensors` (see
 `rl/models/README.md`). It is trained by **rollout policy iteration**
 (`rollout_loop.py`, see "Rollout policy iteration" below).
 
@@ -46,7 +46,7 @@ tail -f rl/outputs/rollout_loop/loop.log
 Measure any two bots against each other (duplicate deals, both seatings):
 
 ```bash
-rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v5.safetensors" \
+rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v6.safetensors" \
     --b="--opponent-policy=old_policy.safetensors" --deals=1000
 rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
@@ -79,12 +79,12 @@ hands — the same family as Dou Dizhu, Guandan and Big Two. What works there:
 - **DouZero** (Dou Dizhu, ICML 2021): Deep Monte Carlo — a Q(s, a) network
   with an explicit action encoding, trained on whole-game returns from
   massive ε-greedy self-play. Simple, and it beat every earlier Dou Dizhu AI.
-  `q_train.py` is one step of this.
+  (`q_train.py`, removed, was one step of this.)
 - **PerfectDou** (NeurIPS 2022): perfect-training / imperfect-execution — the
   critic sees all hands during training, the policy does not. That removes
   card luck from the learning signal; it beat DouZero with ~10× fewer
   samples. Here: the `oracle` field and oracle baselines (`oracle.py`) in
-  `call_train.py`, `schupf_train.py`, `q_train.py`.
+  `call_train.py`, `schupf_train.py`.
 - **GuanZero** (Guandan, a 2-team climbing game): DMC plus features for
   cooperation between partners.
 - **Tichu thesis (Wyss, Bern 2024)**: DQN / PPO for Tichu; behaviour cloning
@@ -164,10 +164,10 @@ Why the earlier loop stalled, measured with exact rollouts:
   and double wins), while the *expected* difference a policy can exploit is
   a few points. v3's whole edge over the heuristic (74.6 % of matches) is
   +1.5 points per decision; they agree on 82 % of moves.
-- `q_train.py` saw one return for one action per decision and explored 5 %
-  of moves at random, on 600 games per iteration: far too little signal to
-  rank the actions it rarely tried, so the policy stayed close to its
-  behaviour-cloning start.
+- The old DMC step (`q_train.py`, removed) saw one return for one action
+  per decision and explored 5 % of moves at random, on 600 games per
+  iteration: far too little signal to rank the actions it rarely tried, so
+  the policy stayed close to its behaviour-cloning start.
 - Promotion was decided on 100 deals (± 2.8 pp), which cannot see the
   2-5 pp steps that add up.
 
@@ -224,12 +224,7 @@ Python entry points:
    ```bash
    rl/.venv/bin/python rl/call_train.py --generate --episodes=1500 \
        --target-score=500 --call-epsilon=0.15 \
-       --nn-policy=rl/outputs/best_policy.safetensors --output-dir=rl/outputs
-   rl/.venv/bin/python rl/evaluate_policy.py \
-       --nn-policy=rl/outputs/best_policy.safetensors \
-       --tichu-net=rl/outputs/tichu_net.safetensors \
-       --grand-net=rl/outputs/grand_net.safetensors \
-       --output=rl/outputs/eval_calls.safetensors --episodes=200 --target-score=500
+       --nn-policy=assets/bots/tichu_q_v6.safetensors --output-dir=rl/outputs
    ```
 
 3. **`schupf_train.py`** — schupf value net Q(hand, pass) on
@@ -239,32 +234,19 @@ Python entry points:
    `NnSchupfStrategy` scores all 2184 assignments with an incremental first
    layer.
 
-4. **`train_loop.py`** — the joint loop for the whole bot. Each iteration
-   generates exploration data with the *current* bot (calls, schupf, plays),
-   retrains call nets, schupf net and play policy (Q step), and tries each
-   component group (play / calls / schupf) on top of the best bot, promoting
-   it only on a significant paired gain (duplicate, 100 deals, target 1000).
-   Because everything is retrained on the current bot's games, components
-   adapt to each other (e.g. passing to a partner who announced Tichu).
+4. **`rollout_loop.py`** / **`rollout_train.py`** — rollout policy
+   iteration for the play net (above); `win_prob.py` builds the match-win
+   table for `--objective=win`.
 
-   ```bash
-   rl/.venv/bin/python rl/train_loop.py --iterations=4 --shards=4
-   # best bot: rl/outputs/bot_best/*.safetensors
-   ```
-
-5. **`q_train.py`** — DouZero-style Monte-Carlo Q fine-tune of the play net
-   (oracle baseline); the play learner used by `train_loop.py`. Superseded
-   for the play net by `rollout_train.py` / `rollout_loop.py` (above).
-
-6. **`analyze_games.py`** — duplicate games vs the heuristic with
+5. **`analyze_games.py`** — duplicate games vs the heuristic with
    `--shadow-heuristic`: round stats per side (going out first, double wins,
    call rates and success) and where / how often the policy's moves differ
    from what the heuristic would have played.
 
-7. **`duel.py`** — duplicate duel between any two bot configurations
+6. **`duel.py`** — duplicate duel between any two bot configurations
    (nets and / or heuristic variants).
 
-8. **`call_labels.sh`** — background generation of exact counterfactual
+7. **`call_labels.sh`** — background generation of exact counterfactual
    call labels with the current best policy, for `call_train.py`.
 
 ### Heuristic lab
@@ -321,18 +303,17 @@ Without nets the heuristic decides (it never calls Grand Tichu).
 
 ### Evaluation
 
-`evaluate_policy.py` is duplicate by default: every deal sequence is played
-twice with the same deals (`--deal-seed`), once with the policy on team 0
-and once swapped. It reports the per-deal win rate with its standard error
-and stores per-deal results, so `train_loop.py` promotes a candidate only if
-its paired gain over the best bot exceeds `--promote-z` SEs.
+`duel.py` is duplicate: every deal sequence is played twice with the same
+deals (`--deal-seed`), once per seating, and the result is the per-deal
+average with its standard error. `rollout_loop.py` promotes a candidate only
+if it beats the best net by more than `--promote-z` SEs.
 
 ### Headless output formats
 
 Only two RL-relevant formats remain:
 
 - **`--format=summary`** — one JSONL line per finished match.
-  `evaluate_policy.py` consumes this. ~50 lines for a 50-match eval.
+  `duel.py` consumes this. ~50 lines for a 50-match eval.
 - **`--format=bc-jsonl`** — one JSONL line per play-phase decision with
   ≥2 legal actions: `episode`, `round`, `team`, `state_features` (267 floats),
   `legal_play_action_features` (n × 51 floats), `legal_play_chosen_index`,
@@ -386,7 +367,7 @@ yet (the round outcome is very noisy; they need more data).
 
 ## Results v3 (2026-11-16): Q-learning beats the heuristic
 
-Joint loop (`train_loop.py`) from a BC policy of the improved heuristic
+Joint loop (`train_loop.py`, since removed) from a BC policy of the improved heuristic
 (hand-strength Tichu calls, partner guard, plan-aware play, fixed scoring).
 All numbers: duplicate, matches to 1000, vs the latest heuristic.
 
@@ -554,12 +535,96 @@ information a player could have. The strength rule is already near the
 practical ceiling, so learned call models were dropped (a +0.4 model was
 briefly shipped and removed).
 
-## Next steps
+## Results v6 (2026-11-18): best response to v5, better trainer
+
+Three iterations of `rollout_loop.py` against v5 (outputs in
+`rl/outputs/v6/`, not in git). Per iteration ~245k labelled decisions:
+2400 matches against v5 (both seatings, only the learner's seats labelled)
+and 1000 self-play matches; training uses the data of all iterations.
+Duplicate duels, 2000 deals x 2 seatings, matches to 1000, both sides with
+the learned schupf v2:
+
+| Net | vs previous best | vs v5 |
+|-----|------------------|-------|
+| iteration 1, old trainer (8 epochs, last epoch kept) | | 53.9 % ± 0.6 |
+| iteration 1 data, same start, win-probability targets + EMA | | 54.9 % ± 0.6 |
+| iteration 1 data, same start, EMA + best of 4 epochs | | 56.2 % ± 0.6 |
+| iteration 2 (+243k decisions) | 53.9 % ± 0.6 | 59.6 % ± 0.7 |
+| **iteration 3 = v6** (+245k) | 51.7 % ± 0.6 | 60.3 % ± 0.6 |
+
+Fresh deals (seed 9001): v6 beats v5 **60.2 % ± 0.5** (3000 deals x 2,
+margin +137 per match) and the heuristic 93.9 % ± 0.5 (v5: 91.4 % ± 0.6).
+
+What changed in the setup:
+
+- **The learner now plays with the learned schupf.** Before, the loop trained
+  and gated the play net with the heuristic schupf, although the app and
+  every comparison use schupf v2: it learned for hands it never gets.
+- **Early stopping and EMA weights.** The rollout labels are noisy (± 58
+  points of clairvoyant regret per decision against ~1 point of learnable
+  gain): held-out gain peaked after 3-4 epochs and halved by epoch 8. The
+  trainer now runs 4 epochs, keeps the epoch with the best held-out gain and
+  exports an exponential moving average of the weights (`--ema=0.999`).
+  Same data, same start: +2.3 pp against v5.
+- **Match-win targets** (`--objective=win`, DouZero's win-probability
+  objective; `win_prob.py` gives P(win | totals) from 16k rounds of v5
+  self-play): the round result is mapped through the match-win probability
+  after the round. It lost to the point targets (54.9 % vs 56.2 %), so it is
+  off by default. The runner now writes each team's own rollout points
+  (`q_rollout_own`) so the mapping is exact.
+- Compact data cache: the state is stored once per decision (float16), ~7x
+  less memory than one full input row per action.
+
+Gains per iteration shrink (+3.4 pp, then +0.7 pp against v5); a fourth
+iteration was cut off by a container restart.
+
+### How v6 plays differently
+
+`rl/compare_policies.py` scores v5 and v6 on the same positions (66k v6
+decisions from v6-vs-v5 games, every legal move rolled out on the real deal,
+v6 continuing) and measures, where they disagree, how many round points v6's
+move gains over v5's. They disagree on 23 % of decisions; v6's move is
+worth +2.1 ± 1.0 points per disagreement (+0.5 per decision). That is a
+one-move swap; the full effect compounds over a round (+137 per match).
+
+Where the gain comes from (points per differing move):
+
+| Situation | gain |
+|-----------|------|
+| following an opponent's trick (13 % of all decisions) | +2.7 ± 1.4 |
+| endgame, 1-4 cards in hand | +5.9 ± 2.1 |
+| an opponent has one card left | +6.8 ± 2.4 |
+| partner called (Grand) Tichu | +5.2 ± 2.4 |
+| partner already out | +3.0 ± 1.0 |
+| following a pair / a triplet | +11.5 ± 4.5 / +53 ± 16 |
+| following the partner's trick | -2.4 ± 3.4 (no gain) |
+
+Style, on the same positions (share of decisions where the move is possible):
+
+| | v5 | v6 |
+|-|----|----|
+| bombs when it can | 15.5 % | 10.3 % |
+| plays the Dragon with 8+ cards | 10.7 % | 8.4 % |
+| plays the Phoenix with 8+ cards | 13.1 % | 11.5 % |
+| passes on an opponent's trick | 28.3 % | 30.3 % |
+| leads a single / triplet / pair straight | 53 / 4.4 / 6.6 % | 56 / 2.9 / 5.0 % |
+
+- **It keeps its bombs and high cards for later.** v6 bombs a third less
+  often. Where v5 bombs and v6 does not, v6 gains +22 ± 11 (it passes) and
+  +40 ± 25 (it plays something else); keeping the Phoenix where v5 spends it
+  +23 ± 12.
+- **It leads more singles and fewer fixed combinations** (triplets, pair
+  straights): leading a single where v5 leads a pair straight +18 ± 9, a
+  triplet +10 ± 9.
+- When both follow with a single, playing the lower one helps (+2.6 ± 2.4)
+  and the higher one costs a little (-2.8 ± 2.2): the net edge is in the
+  endgame and against short opponent hands, not in a simple rule.
+
 ## Next steps
 
-1. More best-response iterations against v4 (`rollout_loop.py
-   --opponent-nets`, ~+2-4 pp per 25-minute iteration so far), keeping the
-   data of earlier iterations, and the history A/B again at 3-5x the data.
+1. More iterations against v6 / a pool of earlier nets (gains per
+   iteration against a fixed opponent shrink to < 1 pp after three), and
+   the history A/B again at the current data size (740k decisions).
 2. Learned calls on exact counterfactual labels from the best policy
    (`call_labels.sh` + `call_train.py`); then the same for the schupf.
 3. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:

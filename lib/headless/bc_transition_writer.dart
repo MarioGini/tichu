@@ -211,6 +211,7 @@ class _BcTransitionWriter {
     required final bool explored,
     final GameAction? shadow,
     final List<double?>? rollouts,
+    final List<double?>? rolloutsOwn,
     final bool describe = false,
     final List<GameAction?>? variants,
   }) {
@@ -245,6 +246,10 @@ class _BcTransitionWriter {
       if (rollouts != null &&
           rollouts.length == legalPlayFeatures.features.length)
         'q_rollout': rollouts,
+      // The actor's team's own round points in the same rollouts.
+      if (rolloutsOwn != null &&
+          rolloutsOwn.length == legalPlayFeatures.features.length)
+        'q_rollout_own': rolloutsOwn,
       if (describe) 'desc': _describePosition(before, action.playerId),
       // --shadow-heuristics: index each variant would have chosen (-1 = n/a).
       if (variants != null)

@@ -1,7 +1,7 @@
 part of 'headless.dart';
 
 /// Emits one JSONL record per completed match. Used by `--format=summary`,
-/// which is what `evaluate_policy.py` consumes when it only needs win/loss
+/// which is what `rl/duel.py` consumes when it only needs win/loss
 /// totals (not the per-step transition stream). Skipping the per-transition
 /// JSON encode-and-write cost cuts headless eval wallclock by ~6×.
 class _SummaryWriter {

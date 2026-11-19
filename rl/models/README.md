@@ -1,6 +1,6 @@
 # Trained models
 
-The app's bots use `assets/bots/tichu_q_v5.safetensors` (loaded by
+The app's bots use `assets/bots/tichu_q_v6.safetensors` (loaded by
 `lib/agents/app_bots.dart`).
 
 ## tichu_q_v4.safetensors (removed)
@@ -38,7 +38,7 @@ simulates in 85 ms.
 Use with the heuristic's Tichu calls and schupf:
 
 ```bash
-build/bin/headless --nn-policy=assets/bots/tichu_q_v5.safetensors ...
+build/bin/headless --nn-policy=assets/bots/tichu_q_v6.safetensors ...
 ```
 
 In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.
@@ -48,22 +48,15 @@ In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.
 No longer in the repo (`git show 92aed27:assets/bots/tichu_q_v3.safetensors`).
 
 The previous policy (behaviour cloning of the heuristic plus Monte-Carlo Q
-steps, `rl/train_loop.py`). Kept as the fixed reference opponent for duels:
+steps, `rl/train_loop.py`, since removed). Kept as the fixed reference opponent for duels:
 74.6 % ± 0.9 vs the classic heuristic on the bench above (70.8 % ± 1.9 in
 the original 400-match measurement).
 
-## tichu_call_v1.safetensors (shipped)
+## tichu_call_v1.safetensors (removed)
 
-Tichu call model (input = state + received schupf cards, 435), trained by
-`rl/call_success_train.py` on 64,738 Tichu decisions of the shipped bot. It
-predicts P(go out first | call) from the hand after the schupf; ground truth
-comes from playing every decision out with the call (`call_first`). The
-threshold (p >= 0.52, tuned on exact call values) is baked into the output
-bias: call when the output is positive. Well calibrated (predicted 0.5-0.6
--> 56 % success, 0.7-0.8 -> 74 %). Held out: +4.38 points per decision vs
-+3.99 for the strength rule; duel against the previous bot 51.5 % ± 0.6
-(2000 deals x 2). The same model for Grand Tichu gave no gain (+1.87 vs
-+1.74), so Grand Tichu keeps the rule.
+A Tichu call model (P(go out first | call) from the hand after the schupf);
++0.4 points per decision over the strength rule, not worth a model (see
+rl/README.md, "Schupf and calls"). Calls use the heuristic rule.
 
 ## tichu_schupf_v2.safetensors (shipped)
 
@@ -76,7 +69,17 @@ heuristic schupf 55.0 % ± 0.8. Against an opponent's Grand Tichu it passes
 the Dog and the lowest cards to the caller and strength to the partner
 (`rl/schupf_vs_grand.py`).
 
-## tichu_q_v5.safetensors (shipped)
+## tichu_q_v6.safetensors (shipped)
+
+Three rollout policy-iteration steps from v5, trained on games against v5
+and self-play with the learned schupf, EMA weights and early stopping (same
+architecture, 318-256-128-64-1). 60.2 % ± 0.5 against v5 (3000 deals x 2,
+fresh deals, both with schupf v2) and 93.9 % ± 0.5 against the heuristic.
+See rl/README.md, "Results v6".
+
+## tichu_q_v5.safetensors (removed)
+
+Restore it with `git show 43052c2:assets/bots/tichu_q_v5.safetensors`.
 
 Two best-response steps against v4 plus one on games against
 v4 with the Grand Tichu rule (feature layout v5, history weights zero).

@@ -48,6 +48,7 @@ const int seatsFeatureCount = 27;
 const int selfFeatureCount = 15;
 const int handStructureFeatureCount = 10;
 const int historyFeatureCount = 66;
+const int turnFeatureCount = 1;
 const int actionFeatureCount = 51;
 
 const int handOffset = 0;
@@ -59,11 +60,18 @@ const int selfOffset = seatsOffset + seatsFeatureCount; // 176
 const int handStructureOffset = selfOffset + selfFeatureCount; // 191
 const int historyOffset =
     handStructureOffset + handStructureFeatureCount; // 201
-const int actionOffset = historyOffset + historyFeatureCount; // 267
+const int turnOffset = historyOffset + historyFeatureCount; // 267
+const int actionOffset = turnOffset + turnFeatureCount; // 268
 
 /// Length of the per-decision state prefix (all groups before `action`).
 const int stateFeatureCount = actionOffset;
-const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 318
+const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 319
+
+/// Layout before the `turn` group (schema v5, e.g. the v5-v7 play
+/// policies): they read the first [v5StateFeatureCount] state features and
+/// cannot tell an out-of-turn decision from a normal one.
+const int v5StateFeatureCount = turnOffset; // 267
+const int v5TotalFeatureCount = v5StateFeatureCount + actionFeatureCount; // 318
 
 /// Layout before the `history` group (schema v4, e.g. the v3 / v4 play
 /// policies): the state prefix stopped at [historyOffset]. Such nets still

@@ -741,10 +741,42 @@ The heuristic no longer gives a useful signal: v7 wins 95.4 % against it, a
 It stays only as a regression check; progress is measured against the league
 nets and with exact rollouts.
 
+### Out-of-turn bombs (2026-11-20)
+
+The decision loop now offers every player holding a bomb that beats the trick
+an out-of-turn bomb between any two plays/passes (`BombInterruptRequest`,
+`DeclineBombAction`; the app's AI runner and the headless runner both use
+it). Feature schema v6 adds one input, `off_turn` (1 = deciding out of
+turn), at the end of the state prefix; v5-layout nets (v5-v7, 318 inputs)
+still load and play unchanged in Dart and are widened with zero weights in
+Python.
+
+Measured with v7, exact rollouts of 25,447 interrupt decisions (bomb now vs
+wait, `--interrupt-rollout-rate=1`):
+
+- Bombing out of turn costs **-50 points** per decision on average and wins
+  in 27 % of cases. It is negative in every slice tried: who wins the trick
+  (opponent -30 to -43, partner -70), the winner's or any opponent's card
+  count, Tichu calls, an opponent already out, trick points, passes so far.
+- Why: every player gets a turn before a trick comes back to its winner, so
+  an interrupt only changes *when* the bot bombs; waiting keeps the bomb and
+  the in-turn option. The cases where early bombing helps depend on hidden
+  cards.
+- A rule (bomb against an opponent with <= 3 cards / a Tichu caller / a
+  double-win threat / 20+ points) loses: v7 with it vs v7 without
+  **47.0 % ± 0.4** (2000 deals x 2).
+- A net trained on the interrupt decisions (v7 start, held-out matches) does
+  not beat "never": -1.7 points per decision vs always waiting.
+
+So the bots decline by default (`interrupt_bomb` is off; switch it on with
+`--heuristic=latest,interrupt_bomb`), and interrupt rows are not labelled
+unless `--interrupt-rollout-rate` > 0. Humans can still bomb out of turn.
+Cost: ~5 % slower simulation.
+
 ## Next steps
 
-1. Out-of-turn bombs for bots (an offer to every player holding a bomb after
-   each play), then label them with rollouts like any other decision.
+1. ~~Out-of-turn bombs for bots~~ Done 2026-11-20: no gain, off by default
+   (see "Out-of-turn bombs").
 2. Less noisy labels for the early game: several rollouts per action with
    the hidden cards re-dealt consistently with the public history, or a
    perfect-information value net to truncate rollouts (item 6).

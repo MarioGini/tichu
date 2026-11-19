@@ -43,6 +43,11 @@ extension _StateEncoding on FeatureEncoder {
     _encodeSelf(f);
     _handShape.writeTo(f, handStructureOffset);
     _encodeHistory(f);
+    // Deciding while another player is to move: an interrupting bomb.
+    if (snapshot.phase == GamePhase.play &&
+        snapshot.currentPlayerId != playerId) {
+      f[turnOffset] = 1.0;
+    }
     return f;
   }
 

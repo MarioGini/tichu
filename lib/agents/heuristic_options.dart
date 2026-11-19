@@ -18,8 +18,15 @@ class HeuristicOptions {
     this.weights = const <String, double>{},
   });
 
-  /// The heuristic as written (nothing switched off).
-  static const latest = HeuristicOptions();
+  /// The heuristic as written; only the rules in [defaultOff] are off.
+  static const latest = HeuristicOptions(off: defaultOff);
+
+  /// Rules that exist but are off unless switched on (`rule`):
+  /// `interrupt_bomb` (bombing out of turn) loses about 50 points per bomb
+  /// on exact rollouts with the v7 play net, for every simple trigger
+  /// tried, and a net trained on 21k such decisions did not beat never
+  /// bombing (rl/README.md, "Out-of-turn bombs").
+  static const defaultOff = {'interrupt_bomb'};
 
   /// Rules that can be switched off with `-name`.
   static const rules = {
@@ -32,6 +39,7 @@ class HeuristicOptions {
     'guard',
     'grand_tichu',
     'delay_tichu',
+    'interrupt_bomb',
   };
 
   /// Whether [rule] is active.
@@ -41,7 +49,7 @@ class HeuristicOptions {
   /// `rule` to switch it back on, and `weight:value` to override a
   /// `TurnScorer` weight, e.g. `latest,-early_dog,lowLeadPreference:4`.
   factory HeuristicOptions.parse(final String spec) {
-    final off = <String>{};
+    final off = <String>{...defaultOff};
     final weights = <String, double>{};
     for (final raw in spec.split(',')) {
       final token = raw.trim();
@@ -67,5 +75,9 @@ class HeuristicOptions {
 
   @override
   String toString() =>
-      off.isEmpty && weights.isEmpty ? 'latest' : 'off=$off weights=$weights';
+      off.length == defaultOff.length &&
+          off.containsAll(defaultOff) &&
+          weights.isEmpty
+      ? 'latest'
+      : 'off=$off weights=$weights';
 }

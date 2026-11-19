@@ -4,6 +4,8 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn_rules_adapter.dart';
 
 /// A decision the engine is waiting for from one player.
 ///
@@ -44,6 +46,15 @@ class DragonGiveRequest extends DecisionRequest {
   const DragonGiveRequest(super.playerId, this.opponentIds);
 }
 
+/// The player holds a bomb that beats the trick on the table and may play it
+/// out of turn ("interrupt"), before the player to move acts. Answered with
+/// a bomb or a [DeclineBombAction] (asked again after the next play/pass).
+class BombInterruptRequest extends DecisionRequest {
+  /// The player's bombs that beat the current trick.
+  final List<TichuTurn> bombs;
+  const BombInterruptRequest(super.playerId, this.bombs);
+}
+
 /// It is the player's turn in the play phase (play, pass or call Tichu).
 class TurnRequest extends DecisionRequest {
   const TurnRequest(super.playerId);
@@ -59,11 +70,17 @@ abstract final class AgentDecisions {
   /// When [preSchupfDecided] is given, every player not in it (and without a
   /// call yet) is first asked a [PreSchupfTichuRequest] in the schupf phase;
   /// the driver adds the player to the set once asked.
+  ///
+  /// In the play phase every other player holding a bomb that beats the
+  /// trick is first offered a [BombInterruptRequest] (once per bomb window,
+  /// in seat order after the player to move), unless [bombInterrupts] is
+  /// false.
   static DecisionRequest? next(
     final GameEngine engine,
     final GameEngineState state, {
     final bool Function(GamePlayer player)? include,
     final Set<String>? preSchupfDecided,
+    final bool bombInterrupts = true,
   }) {
     bool accepts(final GamePlayer p) => include == null || include(p);
 
@@ -113,8 +130,66 @@ abstract final class AgentDecisions {
     }
 
     if (state.phase != GamePhase.play) return null;
+    if (bombInterrupts) {
+      final interrupt = nextBombInterrupt(state, include: include);
+      if (interrupt != null) return interrupt;
+    }
     final current = state.players[state.currentPlayerIndex];
     return accepts(current) ? TurnRequest(current.id) : null;
+  }
+
+  static final _rules = TurnRulesAdapter();
+
+  /// The bombs in [playerId]'s hand that beat the trick on the table.
+  static List<TichuTurn> beatingBombs(
+    final GameEngineState state,
+    final String playerId,
+  ) => beatingBombsIn(state.deck, state.hands[playerId] ?? const <Card>[]);
+
+  /// The bombs in [hand] that beat [deck]'s trick (the legal actions of an
+  /// out-of-turn decision, besides waiting).
+  static List<TichuTurn> beatingBombsIn(
+    final DeckState deck,
+    final List<Card> hand,
+  ) {
+    if (hand.length < 4) return const [];
+    return [
+      for (final bomb in _rules.bombsInHand(hand))
+        if (_rules
+                .tryApplyTurn(deck, bomb.cards, CardFace.none, hand: hand)
+                .turn !=
+            TichuTurn.InvalidTurn())
+          bomb,
+    ];
+  }
+
+  /// The next player (after the player to move, in seat order) who may bomb
+  /// out of turn and has not declined in the current bomb window.
+  static BombInterruptRequest? nextBombInterrupt(
+    final GameEngineState state, {
+    final bool Function(GamePlayer player)? include,
+  }) {
+    if (state.pendingDragonGiveBy != null) return null;
+    final type = state.deck.turn.type;
+    if (type == TurnType.empty ||
+        type == TurnType.none ||
+        type == TurnType.dog) {
+      return null;
+    }
+    final window = state.bombWindow;
+    final n = state.players.length;
+    for (var k = 1; k < n; k++) {
+      final player = state.players[(state.currentPlayerIndex + k) % n];
+      if (player.id == state.lastPlayedBy ||
+          state.finishedPlayers.contains(player.id) ||
+          state.bombDeclines[player.id] == window ||
+          (include != null && !include(player))) {
+        continue;
+      }
+      final bombs = beatingBombs(state, player.id);
+      if (bombs.isNotEmpty) return BombInterruptRequest(player.id, bombs);
+    }
+    return null;
   }
 
   /// Ask [agent] for its answer to [request] and return it as an action.
@@ -150,6 +225,11 @@ abstract final class AgentDecisions {
             preferredSeat: agent.selectDragonGive(snapshot),
           ),
         );
+      case BombInterruptRequest(:final playerId, :final bombs):
+        final cards = await agent.selectInterruptBomb(snapshot, bombs);
+        return cards == null
+            ? DeclineBombAction(playerId: playerId)
+            : PlayTurnAction(playerId: playerId, cards: cards);
       case TurnRequest():
         return agent.selectAction(snapshot);
     }

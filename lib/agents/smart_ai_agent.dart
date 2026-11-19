@@ -1,6 +1,7 @@
 import 'package:tichu/agents/dragon_give_strategy.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
+import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
@@ -217,6 +218,65 @@ class SmartAiAgent extends PlayerAgent {
       return _buildPlayAction(snapshot, selected, deck, hand);
     }
     return _heuristicTurn(snapshot, deck, hand, table, legalTurns);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Out-of-turn bombs
+  // ---------------------------------------------------------------------------
+
+  /// Off unless the `interrupt_bomb` rule is switched on (it measured
+  /// worse than never bombing out of turn). Then a play net that knows the
+  /// `turn` group decides itself (bombs vs wait), otherwise the heuristic
+  /// rule [interruptBombRule].
+  @override
+  Future<List<Card>?> selectInterruptBomb(
+    final GameSnapshot snapshot,
+    final List<TichuTurn> bombs,
+  ) async {
+    if (bombs.isEmpty || !options.on('interrupt_bomb')) return null;
+    final strategy = playSelectionStrategy;
+    if (strategy is NnPlaySelectionStrategy) {
+      final pick = strategy.selectInterruptBomb(snapshot, bombs);
+      if (!identical(pick, NnPlaySelectionStrategy.notSupported)) {
+        return pick?.cards;
+      }
+    }
+    return interruptBombRule(snapshot, playerId, bombs)?.cards;
+  }
+
+  /// Heuristic: bomb out of turn only to stop an opponent who is winning
+  /// the trick from taking the lead when that is dangerous: the opponent
+  /// (or its partner) is about to go out, called (Grand) Tichu, its team
+  /// already has the first player out (double win), or the trick is worth
+  /// 20+ points. Plays the lowest bomb.
+  static TichuTurn? interruptBombRule(
+    final GameSnapshot snapshot,
+    final String playerId,
+    final List<TichuTurn> bombs,
+  ) {
+    final winner = snapshot.lastPlayedBy;
+    if (winner == null) return null;
+    final table = TableRelationships(snapshot, playerId);
+    if (!table.isOpponent(winner)) return null;
+    final calls = snapshot.scoreState.tichuCalls;
+    final finish = snapshot.scoreState.finishOrder;
+    var danger = snapshot.trickPoints >= 20;
+    for (final opp in table.opponents) {
+      final cards = snapshot.hands[opp.id]?.length ?? 14;
+      if (cards > 0 && cards <= 3) danger = true;
+      if ((calls[opp.id] ?? TichuCall.none) != TichuCall.none &&
+          !finish.contains(opp.id)) {
+        danger = true;
+      }
+    }
+    if (finish.isNotEmpty && table.isOpponent(finish.first)) danger = true;
+    if (!danger) return null;
+    final sorted = [...bombs]
+      ..sort((final a, final b) {
+        final byLength = a.cards.length.compareTo(b.cards.length);
+        return byLength != 0 ? byLength : a.value.compareTo(b.value);
+      });
+    return sorted.first;
   }
 
   /// The action this agent would submit for playing [turn] (adds the wish

@@ -121,6 +121,37 @@ class AiTurnRunner {
       return;
     }
 
+    // Out-of-turn bombs: every bot holding a bomb that beats the trick may
+    // interrupt (once per play/pass). A bomb is shown like a normal bot turn
+    // and waits for confirmation.
+    while (true) {
+      final interrupt = AgentDecisions.nextBombInterrupt(
+        state.engineState,
+        include: (final p) =>
+            _isAutomated(p) && _automatedAgents.containsKey(p.id),
+      );
+      if (interrupt == null) break;
+      final action = await AgentDecisions.resolve(
+        interrupt,
+        _automatedAgents[interrupt.playerId]!,
+        buildSnapshot(),
+        state.engineState,
+      );
+      if (action is! PlayTurnAction) {
+        _engine.applyAction(state.engineState, action!);
+        continue;
+      }
+      state.pendingOpponentAction = action;
+      state.pendingOpponentPlayerId = interrupt.playerId;
+      state.pendingOpponentCards
+        ..clear()
+        ..addAll(action.cards);
+      state.pendingOpponentPass = false;
+      state.opponentAwaitingConfirmation = true;
+      emitSnapshot();
+      return;
+    }
+
     final currentPlayer =
         state.engineState.players[state.engineState.currentPlayerIndex];
     final agent = _automatedAgents[currentPlayer.id];

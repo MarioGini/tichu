@@ -39,7 +39,7 @@ from qnet import (
     load_qnetwork_from_safetensors,
     select_device,
 )
-from schema import ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT
+from schema import ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT, pad_state
 
 SCALE = 100.0
 HAND_OFFSET = 0
@@ -120,7 +120,7 @@ def _parse_jsonl(path: Path, max_decisions: int):
     ch = np.asarray(chosen, dtype=np.int64)
     ch = np.where(ch >= 0, starts[:-1] + ch, -1)
     return {
-        "s": np.stack(ss),
+        "s": pad_state(np.stack(ss)),
         "a": np.concatenate(aa),
         "q": np.concatenate(qs),
         "own": np.concatenate(owns),
@@ -136,15 +136,17 @@ def _read_npz(path: Path) -> dict:
     if "x" in d:  # old cache: one full input row per action
         starts = d["starts"]
         x = d["x"]
+        cut = x.shape[1] - (TOTAL_FEATURE_COUNT - ACTION_OFFSET)
         d = {
-            "s": x[starts[:-1], :ACTION_OFFSET].astype(np.float16),
-            "a": x[:, ACTION_OFFSET:].astype(np.float16),
+            "s": x[starts[:-1], :cut].astype(np.float16),
+            "a": x[:, cut:].astype(np.float16),
             "q": d["q"],
             "own": np.full(len(d["q"]), np.nan, dtype=np.float32),
             "starts": starts,
             "chosen": d["chosen"],
             "explore": d["explore"],
         }
+    d["s"] = pad_state(d["s"])
     if "game" not in d:
         d["game"] = np.arange(len(d["chosen"]), dtype=np.int64) // OLD_CACHE_GAME_BLOCK
     return d

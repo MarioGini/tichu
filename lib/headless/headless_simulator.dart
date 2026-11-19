@@ -61,6 +61,15 @@ class _HeadlessSimulator {
   /// only labelled play rows are written.
   final double rolloutRate;
   final int rolloutMaxActions;
+
+  /// Offer out-of-turn bombs (`--no-bomb-interrupts` turns them off, the
+  /// behaviour before 2026-11-20).
+  final bool bombInterrupts;
+
+  /// Share of the learner seats' out-of-turn bomb decisions that get
+  /// rollout labels when [rolloutRate] > 0 (`--interrupt-rollout-rate`,
+  /// default 0: the bots do not bomb out of turn, see `interrupt_bomb`).
+  final double interruptRolloutRate;
   final bool Function(int seat) isLearnerSeat;
 
   /// Add a human-readable description of the position to labelled rows.
@@ -114,6 +123,8 @@ class _HeadlessSimulator {
     this.counterfactualRate = 1,
     this.rolloutRate = 0,
     this.rolloutMaxActions = 12,
+    this.bombInterrupts = true,
+    this.interruptRolloutRate = 0,
     this.isLearnerSeat = _everySeat,
     this.describe = false,
     this.shadowVariants = const [],
@@ -250,19 +261,25 @@ class _HeadlessSimulator {
       }
 
       final explored = _lastActionExplored;
+      final offTurn = action.playerId != snapshot.currentPlayerId;
       final shadow =
-          shadowHeuristic && (action is PlayTurnAction || action is PassAction)
+          shadowHeuristic &&
+              !offTurn &&
+              (action is PlayTurnAction || action is PassAction)
           ? await _shadowHeuristicTurn(snapshot, action.playerId)
           : null;
       final before = snapshot;
       ({List<double?> diff, List<double?> own})? rollouts;
       if (rolloutRate > 0 &&
           bcWriter != null &&
-          (action is PlayTurnAction || action is PassAction) &&
+          (offTurn
+              ? action is DeclineBombAction || action is PlayTurnAction
+              : action is PlayTurnAction || action is PassAction) &&
           isLearnerSeat(
             state.players.firstWhere((final p) => p.id == action.playerId).seat,
           ) &&
-          random.nextDouble() < rolloutRate) {
+          random.nextDouble() <
+              (offTurn ? interruptRolloutRate : rolloutRate)) {
         rollouts = await _rolloutValues(
           engine: engine,
           state: state,
@@ -270,7 +287,7 @@ class _HeadlessSimulator {
           chosen: action,
         );
       }
-      final variants = rollouts != null && shadowVariants.isNotEmpty
+      final variants = rollouts != null && !offTurn && shadowVariants.isNotEmpty
           ? await _variantTurns(snapshot, action.playerId)
           : null;
       final appliedAction = _applyActionWithRecovery(

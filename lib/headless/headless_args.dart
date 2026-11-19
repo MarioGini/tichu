@@ -33,6 +33,8 @@ class _HeadlessConfig {
   final double counterfactualRate;
   final double rolloutRate;
   final int rolloutMaxActions;
+  final bool bombInterrupts;
+  final double interruptRolloutRate;
   final String labelSeats;
   final bool describe;
   final List<HeuristicOptions> shadowVariants;
@@ -74,6 +76,8 @@ class _HeadlessConfig {
     required this.counterfactualRate,
     required this.rolloutRate,
     required this.rolloutMaxActions,
+    required this.bombInterrupts,
+    required this.interruptRolloutRate,
     required this.labelSeats,
     required this.describe,
     required this.shadowVariants,
@@ -120,6 +124,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var counterfactualRate = 1.0;
   var rolloutRate = 0.0;
   var rolloutMaxActions = 12;
+  var bombInterrupts = true;
+  var interruptRolloutRate = 0.0;
   var labelSeats = 'policy';
   var describe = false;
   var shadowVariants = const <HeuristicOptions>[];
@@ -228,6 +234,15 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     if (arg.startsWith('--rollout-rate=')) {
       final p = double.tryParse(arg.split('=').last);
       if (p != null && p >= 0 && p <= 1) rolloutRate = p;
+      continue;
+    }
+    if (arg == '--no-bomb-interrupts') {
+      bombInterrupts = false;
+      continue;
+    }
+    if (arg.startsWith('--interrupt-rollout-rate=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) interruptRolloutRate = p;
       continue;
     }
     if (arg.startsWith('--rollout-max-actions=')) {
@@ -361,6 +376,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     counterfactualRate: counterfactualRate,
     rolloutRate: rolloutRate,
     rolloutMaxActions: rolloutMaxActions,
+    bombInterrupts: bombInterrupts,
+    interruptRolloutRate: interruptRolloutRate,
     labelSeats: labelSeats,
     describe: describe,
     shadowVariants: shadowVariants,
@@ -390,6 +407,7 @@ void _printUsage() {
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
+  stdout.writeln('       [--no-bomb-interrupts] [--interrupt-rollout-rate=p]');
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
   stdout.writeln('       [--shadow-heuristics=spec|spec|...] [--no-simd]');
   stdout.writeln('       [--schupf-rollout-rate=p] [--schupf-candidates=N]');

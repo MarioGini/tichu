@@ -113,6 +113,8 @@ Future<void> main(final List<String> args) async {
     counterfactualRate: config.counterfactualRate,
     rolloutRate: config.rolloutRate,
     rolloutMaxActions: config.rolloutMaxActions,
+    bombInterrupts: config.bombInterrupts,
+    interruptRolloutRate: config.interruptRolloutRate,
     // Which seats get rollout labels: by default the policy team when it
     // plays a different opponent (--mixed / --opponent-policy), else all.
     isLearnerSeat:

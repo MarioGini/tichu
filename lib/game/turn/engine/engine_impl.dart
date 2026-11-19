@@ -186,6 +186,11 @@ class GameEngineImpl implements GameEngine {
       return;
     }
 
+    if (action is DeclineBombAction) {
+      state.bombDeclines[action.playerId] = state.bombWindow;
+      return;
+    }
+
     if (state.pendingDragonGiveBy != null) {
       if (action is! GiveDragonAction ||
           action.playerId != state.pendingDragonGiveBy) {

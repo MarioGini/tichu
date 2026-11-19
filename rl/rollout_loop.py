@@ -128,6 +128,12 @@ def main() -> None:
         "gain is kept; the labels are noisy and later epochs overfit)",
     )
     p.add_argument("--rollout-rate", type=float, default=0.5)
+    p.add_argument(
+        "--gen-args",
+        default="",
+        help="extra headless arguments for every data run, e.g. "
+        "'--stakes-rollouts' (label probability by situation, see rl/README.md)",
+    )
     p.add_argument("--epsilon", type=float, default=0.02)
     p.add_argument("--target-score", type=int, default=1000)
     p.add_argument("--epochs", type=int, default=4)
@@ -184,6 +190,7 @@ def main() -> None:
             f"--epsilon={args.epsilon}",
             f"--nn-policy={best}",
             *own_schupf,
+            *shlex.split(args.gen_args),
         ]
         seed = args.seed + 10_000 * it
         per = max(1, args.mixed_episodes // (2 * max(1, len(opponents) + len(opponent_nets))))
@@ -239,6 +246,8 @@ def main() -> None:
                 f"--output={cand}",
                 f"--epochs={args.epochs}",
                 f"--lr={args.lr}",
+                # Rows without label_p (uniform runs) were labelled at this rate.
+                f"--default-label-p={args.rollout_rate}",
                 *shlex.split(args.train_args),
             ],
             cwd=RL.parent,

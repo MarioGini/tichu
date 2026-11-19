@@ -216,6 +216,53 @@ Trainer details since v7 (2026-11-19):
 - Two-sided comparison: `compare_policies.py --jsonl-b=...` also measures the
   gain on B's games with B continuing (A-continued rollouts flatter A).
 
+### Stakes-weighted rollout labels (`--stakes-rollouts`, 2026-11-20)
+
+Opt-in: spend the rollout labels on the decisions where learning still moves
+(see "Where v7 plays better" below) instead of a uniform `--rollout-rate`.
+Each on-turn play decision of a learner seat gets a stakes class from public
+information (`lib/headless/rollout_stakes.dart`, mirrored in Python by
+`rollout_train.stakes_from_features`; both agree on every row of a test run):
+
+| Class | When | Default p at `--rollout-rate=0.5` |
+|-------|------|-----------------------------------|
+| high | the race to go out: someone is out, another player has 1-3 cards, or own hand <= 5 | 0.70 |
+| mid | otherwise: a (Grand) Tichu caller still in, a lead, or a trick worth >= 20 | 0.35 |
+| low | the rest (quiet middle game) | 0.15 |
+
+- `headless --stakes-rollouts [--stakes-rates=high:p,mid:p,low:p]`: the
+  defaults are `rollout-rate x (1.4, 0.7, 0.3)` (capped at 1); a rate given
+  in `--stakes-rates` is absolute, classes left out keep the default.
+  Out-of-turn bombs keep `--interrupt-rollout-rate`. Labelled rows carry
+  `"stakes"` and `"label_p"`; the runner prints one `stakes_stats` JSON line
+  (decisions, labellable, labelled per class, reasons) to stderr.
+- `rollout_train.py --importance=inverse`: loss weight 1/label_p (normalised
+  to mean 1, times the recency weight), i.e. the uniform-sampling objective
+  again; `none` (default) trains on the shifted mix. Rows without label_p
+  count as `--default-label-p` (the loop passes its `--rollout-rate`).
+  `evaluate` also reports `gain_pts_high/mid/low` (classes from the features
+  for old data). The npz caches keep `label_p` and `stakes`; old caches load.
+- `rollout_loop.py --gen-args="--stakes-rollouts"` passes extra headless
+  arguments to every data run.
+
+A two-class split (high = any of the reasons above, low = the rest) does not
+work: 82 % of the labellable decisions would be high, because a (Grand)
+Tichu caller is still in for 41 % of them and leads are 25 %.
+
+Measured class shares (v7 + schupf v2, epsilon 0.02, labellable decisions =
+at least two actions and no finishing move):
+
+| Games | matches | labellable / match | high | mid | low | labels / match, uniform 0.5 | stakes defaults |
+|-------|---------|--------------------|------|-----|-----|-----------------------------|-----------------|
+| self-play (all seats) | 300 | 462 | 52.4 % | 29.5 % | 18.1 % | 230.9 | 229.6 |
+| vs v6 (policy seats) | 300 | 227 | 53.2 % | 28.5 % | 18.3 % | 113.3 | 113.2 |
+| vs heuristic (policy seats) | 200 | 179 | 59.5 % | 26.0 % | 14.5 % | 89.5 | 94.7 (+6 %) |
+
+So the defaults keep the label budget (and run time) of the uniform 0.5 and
+label high-stakes decisions 4.7x as often as quiet ones: of the labels,
+~74 % are high, 20 % mid, 6 % low (uniform: 52 / 30 / 18 %). Whether this
+beats the uniform rate is not measured yet.
+
 ### Training data in Supabase Storage
 
 Data caches are compressed npz (~115 bytes per decision, ~28 MB per

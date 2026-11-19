@@ -214,6 +214,8 @@ class _BcTransitionWriter {
     final List<double?>? rolloutsOwn,
     final bool describe = false,
     final List<GameAction?>? variants,
+    final RolloutStakes? stakes,
+    final double? labelP,
   }) {
     if (before.phase != GamePhase.play) return;
     final offTurn = before.currentPlayerId != action.playerId;
@@ -259,6 +261,10 @@ class _BcTransitionWriter {
       if (rolloutsOwn != null &&
           rolloutsOwn.length == legalPlayFeatures.features.length)
         'q_rollout_own': rolloutsOwn,
+      // --stakes-rollouts: the decision's stakes class and the probability
+      // it was labelled with (for importance weights in the trainer).
+      if (stakes != null) 'stakes': stakes.name,
+      'label_p': ?labelP,
       if (describe) 'desc': _describePosition(before, action.playerId),
       // --shadow-heuristics: index each variant would have chosen (-1 = n/a).
       if (variants != null)

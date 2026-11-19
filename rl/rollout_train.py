@@ -56,6 +56,11 @@ OLD_CACHE_GAME_BLOCK = 256
 # Average sum of both teams' round points (card points + bonuses), used for
 # rows from before the runner wrote q_rollout_own.
 MEAN_ROUND_SUM = 158.0
+# Stakes classes of ``headless --stakes-rollouts`` (lib/headless/rollout_stakes.dart),
+# stored as int8 codes; -1 = unknown (then derived from the state features).
+STAKES = ("high", "mid", "low")
+_TRICK = SPEC.group("trick")
+_SEATS = SPEC.group("seats")
 
 
 class RolloutData:
@@ -67,7 +72,7 @@ class RolloutData:
     row per action, so millions of decisions fit in memory.
     """
 
-    def __init__(self, s, a, q, own, starts, chosen, explore, game, weight):
+    def __init__(self, s, a, q, own, starts, chosen, explore, game, weight, label_p=None, stakes=None):
         self.s = s  # (D, ACTION_OFFSET) float16
         self.a = a  # (rows, ACTION_FEATURE_COUNT) float16
         self.q = q  # (rows,) training target (points / SCALE by default)
@@ -78,6 +83,12 @@ class RolloutData:
         self.explore = explore  # (D,) bool
         self.game = game  # (D,) long, match id (unique across files)
         self.weight = weight  # (D,) float32 loss weight (recency of the data)
+        d = int(starts.numel() - 1)
+        # (D,) float32 probability the decision was labelled with
+        # (--stakes-rollouts), NaN = unknown (uniform --rollout-rate data).
+        self.label_p = label_p if label_p is not None else torch.full((d,), float("nan"))
+        # (D,) int8 index into STAKES; rows without one get it from the features.
+        self.stakes = stakes if stakes is not None else torch.full((d,), -1, dtype=torch.int8)
         self.q_win = None  # (rows,) match-win probability after the round, if computed
 
     @property
@@ -90,6 +101,7 @@ class RolloutData:
 
 def _parse_jsonl(path: Path, max_decisions: int):
     ss, aa, qs, owns, lens, chosen, explore, games = [], [], [], [], [], [], [], []
+    label_p, stakes = [], []
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
             if '"q_rollout"' not in line:
@@ -112,6 +124,10 @@ def _parse_jsonl(path: Path, max_decisions: int):
             chosen.append(keep.index(c) if c in keep else -1)
             explore.append(bool(row.get("explore")))
             games.append(int(row.get("episode", 0)))
+            lp = row.get("label_p")
+            label_p.append(float(lp) if lp is not None else np.nan)
+            st = row.get("stakes")
+            stakes.append(STAKES.index(st) if st in STAKES else -1)
             lens.append(len(keep))
             if max_decisions and len(lens) >= max_decisions:
                 break
@@ -128,6 +144,8 @@ def _parse_jsonl(path: Path, max_decisions: int):
         "chosen": ch,
         "explore": np.asarray(explore, dtype=bool),
         "game": np.asarray(games, dtype=np.int64),
+        "label_p": np.asarray(label_p, dtype=np.float32),
+        "stakes": np.asarray(stakes, dtype=np.int8),
     }
 
 
@@ -149,7 +167,37 @@ def _read_npz(path: Path) -> dict:
     d["s"] = pad_state(d["s"])
     if "game" not in d:
         d["game"] = np.arange(len(d["chosen"]), dtype=np.int64) // OLD_CACHE_GAME_BLOCK
+    # Caches from before --stakes-rollouts: unknown label probability / class.
+    if "label_p" not in d:
+        d["label_p"] = np.full(len(d["chosen"]), np.nan, dtype=np.float32)
+    if "stakes" not in d:
+        d["stakes"] = np.full(len(d["chosen"]), -1, dtype=np.int8)
     return d
+
+
+def stakes_from_features(s: torch.Tensor) -> torch.Tensor:
+    """Stakes class (index into STAKES) from the state features.
+
+    The same rule as ``stakesReasons`` in lib/headless/rollout_stakes.dart,
+    so data without a ``stakes`` column (uniform --rollout-rate runs) can be
+    broken down the same way. high: someone out, another player with 1-3
+    cards, own hand <= 5; mid: a caller still in, a lead or a trick worth
+    >= 20 points; low: the rest.
+    """
+    s = s.float()
+    col = lambda g, name: s[:, g.index(name)]  # noqa: E731
+    out = col(_SELF, "finish_order_progress") > 0
+    close = torch.zeros(s.shape[0], dtype=torch.bool)
+    call = (col(_SELF, "own_tichu") > 0.5) | (col(_SELF, "own_grand_tichu") > 0.5)
+    for seat in ("left", "partner", "right"):
+        done = col(_SEATS, f"{seat}_finished") > 0.5
+        close |= (col(_SEATS, f"{seat}_few_cards") > 0.5) & ~done
+        call |= ((col(_SEATS, f"{seat}_tichu") > 0.5) | (col(_SEATS, f"{seat}_grand_tichu") > 0.5)) & ~done
+    endgame = torch.round(col(_SELF, "hand_size") * 14) <= 5
+    high = out | close | endgame
+    rich = torch.round(col(_TRICK, "trick_points") * 50) >= 20
+    mid = call | rich | (col(_TRICK, "trick_lead") > 0.5)
+    return torch.where(high, 0, torch.where(mid, 1, 2)).to(torch.int8)
 
 
 def file_iteration(path: Path) -> int | None:
@@ -181,7 +229,7 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
         w = 1.0 if it is None else recency ** (newest - it)
         weights.append(np.full(len(d["chosen"]), w, dtype=np.float32))
     cat = lambda k: torch.from_numpy(np.concatenate([d[k] for d in parts]))  # noqa: E731
-    return RolloutData(
+    data = RolloutData(
         cat("s"),
         cat("a"),
         cat("q"),
@@ -191,7 +239,25 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
         cat("explore"),
         torch.from_numpy(np.concatenate(games)),
         torch.from_numpy(np.concatenate(weights)),
+        label_p=cat("label_p"),
+        stakes=cat("stakes"),
     )
+    unknown = data.stakes < 0
+    if bool(unknown.any()):
+        data.stakes[unknown] = stakes_from_features(data.s[unknown])
+    return data
+
+
+def importance_weights(data: RolloutData, default_label_p: float) -> torch.Tensor:
+    """Per-decision weight 1 / label_p, normalised to mean 1.
+
+    Undoes the over-sampling of high-stakes decisions by --stakes-rollouts
+    (the loss is then an estimate of the uniform-sampling loss). Decisions
+    without label_p (uniform runs) count as labelled with ``default_label_p``.
+    """
+    p = torch.where(torch.isnan(data.label_p), torch.tensor(default_label_p), data.label_p)
+    w = 1.0 / p.clamp_min(1e-3)
+    return w / w.mean()
 
 
 def save_npz(data: RolloutData, path: Path) -> None:
@@ -210,6 +276,8 @@ def save_npz(data: RolloutData, path: Path) -> None:
         chosen=data.chosen.numpy(),
         explore=data.explore.numpy(),
         game=data.game.numpy().astype(np.int32),
+        label_p=data.label_p.numpy().astype(np.float32),
+        stakes=data.stakes.numpy().astype(np.int8),
     )
 
 
@@ -312,6 +380,13 @@ def evaluate(model: nn.Module, data: RolloutData, idx: torch.Tensor) -> dict[str
         m[f"gain_{name}"] = float(((greedy - beh)[has]).mean() * unit)
         m[f"vs_uniform_{name}"] = float((greedy - mean_q).mean() * unit)
         m[f"clairvoyant_{name}"] = float(((oracle - beh)[has]).mean() * unit)
+        if name == "pts":
+            # Held-out gain per stakes class: where does the new net improve?
+            cls = data.stakes[idx]
+            for c, label in enumerate(STAKES):
+                sel = has & (cls == c)
+                if bool(sel.any()):
+                    m[f"gain_pts_{label}"] = float(((greedy - beh)[sel]).mean() * unit)
     q = data.q[rows]
     m["mse"] = float(nn.functional.mse_loss(_centred(out, group, k), _centred(q, group, k)))
     m["var"] = float(_centred(q, group, k).var())
@@ -391,6 +466,15 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         save_npz(data, Path(args.save_cache))
     d = data.num_decisions
     print(f"rollout data: decisions={d} rows={data.a.shape[0]} ({time.time()-t0:.0f}s)", flush=True)
+    shares = torch.bincount(data.stakes.long(), minlength=len(STAKES)).float() / max(d, 1)
+    known = int((~torch.isnan(data.label_p)).sum())
+    print(
+        "  stakes: " + "  ".join(f"{k}={float(v):.3f}" for k, v in zip(STAKES, shares))
+        + f"  (label_p on {known} decisions)",
+        flush=True,
+    )
+    if args.importance == "inverse":
+        data.weight = data.weight * importance_weights(data, args.default_label_p)
     if args.objective != "points" or args.win_table_metrics:
         data.q_win = win_targets(data, Path(args.win_table))
     if args.objective == "win":
@@ -510,6 +594,19 @@ def main() -> None:
         type=float,
         default=1.0,
         help="loss weight factor per rollout_loop iteration of age (1 = all data equal)",
+    )
+    p.add_argument(
+        "--importance",
+        choices=["none", "inverse"],
+        default="none",
+        help="inverse: loss weight 1/label_p (normalised to mean 1, times the recency "
+        "weight), undoing the class sampling of --stakes-rollouts data",
+    )
+    p.add_argument(
+        "--default-label-p",
+        type=float,
+        default=0.5,
+        help="label probability assumed for rows without label_p (uniform --rollout-rate)",
     )
     p.add_argument("--seed", type=int, default=0)
     train(p.parse_args())

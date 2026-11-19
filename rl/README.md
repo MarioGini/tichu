@@ -839,6 +839,10 @@ Cost: ~5 % slower simulation.
 
 ## Next steps
 
+The review of 2026-11-20 (`rl/REVIEW.md`) measures the label noise, lists
+the flaws of this setup and orders the next ideas; it supersedes the list
+below where they differ.
+
 1. ~~Out-of-turn bombs for bots~~ Done 2026-11-20: no gain, off by default
    (see "Out-of-turn bombs").
 2. Less noisy labels for the early game: several rollouts per action with

@@ -1,0 +1,222 @@
+# RL setup review (2026-11-20)
+
+A review of the play-net pipeline after v7 stalled at 58.4 % against v6
+(rollout policy iteration, `rl/rollout_loop.py`). It combines a new label
+noise measurement, a code review and the literature review in
+`reports/Tichu AI next steps.md` (local, not in git). Status markers:
+**measured** (numbers from this repo), **verified** (read in the code),
+**suspected** (reasoned, not measured).
+
+## Summary
+
+1. **The labels re-measure the same luck many times.** With deterministic
+   bots every bit of label noise is hidden-card noise, and the errors of the
+   labels taken in one round are strongly correlated (+0.49, +0.46, +0.35
+   between successive labelled decisions of a team). We label ~11 decisions
+   per team and round; they carry far less independent information than 11
+   labels from 11 deals. Simulating a match without labels costs ~2 % of
+   labelling it, so spreading the same label budget over 5x more deals is
+   nearly free. **This is the first thing to fix** (A/B running).
+2. **More worlds per label and flat search are not the cheap win they
+   looked like.** v7's own move beats a move chosen from 5 rollout worlds,
+   and adding 8 re-dealt worlds on top of the net does not beat the net
+   (+0.3 ± 1.1 points per early decision at best).
+3. **The other components were trained against older play nets.** Schupf v2
+   is a best response to v5's play and the call thresholds were tuned with
+   v5; both are cheap to redo for v7 (schupf v1 -> v2 was worth 54 %).
+4. **The promotion gate cannot see the steps we now make** (1000 deals,
+   ± 0.9 pp, steps of ~1 pp), and the held-out training metric does not
+   predict duel results. Use a sequential test or bigger duels.
+5. **Blind spot: humans.** Every number is bot-versus-bot within one
+   lineage. The app now saves game records to Supabase; nothing reads them.
+
+## The label-noise measurement (measured)
+
+`headless --rollout-worlds=9 --worlds-min-cards=10`: for 5,636 decisions
+with 10+ cards in hand (v7 self-play, 240 matches, 8.5 legal actions on
+average) every legal action was rolled out on the real deal and on 8
+re-deals that keep the decider's hand, the played cards, all hand sizes and
+the decider's passed cards. Labels are centred over the actions.
+
+| Quantity | Value |
+|----------|-------|
+| SD of one world's label of an action, across worlds | **90.6** points |
+| SD across actions of the expected label (the signal, debiased) | 32.8 points |
+| corr(one re-deal, another re-deal) | 0.154 |
+| corr(real deal, one re-deal) | 0.127 |
+| corr(mean of 4 re-deals, mean of 4 others) | 0.380 |
+| corr(real deal, mean of 8 re-deals) | 0.257 |
+
+Value of the move chosen by each method, judged on 4 held-out re-deals
+(points above the average legal move; 62 = picking the best move with
+hindsight on those re-deals):
+
+| Chosen by | Value |
+|-----------|-------|
+| the real-deal rollout (today's training label) | +8.1 ± 0.7 |
+| 4 re-deals | +14.2 ± 0.7 |
+| real deal + 4 re-deals | +15.5 ± 0.7 |
+| **v7's own move** | **+20.4 ± 0.7** |
+
+Judged on the real deal (an exact sample of the hidden cards, unbiased),
+minus v7's move:
+
+| Chosen by | Gain vs v7 |
+|-----------|------------|
+| 1 re-deal | -13.6 ± 1.7 |
+| 4 re-deals | -8.5 ± 1.6 |
+| 8 re-deals | -3.4 ± 1.6 |
+| 4 x net Q + mean of 8 re-deals | +0.3 ± 1.1 |
+| net's top 2, then 8 re-deals | +0.4 ± 1.2 |
+
+Label errors (real-deal label minus the 8-re-deal mean, for v7's move) of
+labelled decisions of the same team in the same round, at rate 0.1:
+
+| Lag between labelled decisions | Correlation |
+|--------------------------------|-------------|
+| 1 | +0.49 |
+| 2 | +0.46 |
+| 3 | +0.35 |
+| random pairs | -0.01 |
+
+What follows from it:
+
+- **All label noise is about the hidden cards.** The bots are deterministic,
+  so given a deal the outcome is fixed; "chaotic continuation" is not a
+  separate noise source that a value-net control variate could remove
+  without also knowing the hidden cards.
+- **One label is worth little; the net's generalisation is worth a lot.**
+  A single world's label has reliability ~0.15. The net, trained on 2.5M
+  such labels, chooses better than 5 rollout worlds of the very position.
+  So K-world labels buy at K times the cost what K labels from K other
+  deals also buy, and those are unbiased (re-deals are slightly
+  miscalibrated: 0.127 vs 0.154, because the bots' play reveals cards that a
+  uniform re-deal ignores).
+- **Correlated errors within a round** mean the current budget (~231
+  labels per self-play match, ~11 per team and round at rate 0.5, 10.6
+  rounds per match) re-measures each deal's luck many times. If the measured
+  correlation held for all pairs in a round, 11 labels would be worth about
+  2-3 labels from different deals. This also explains why "more data beat
+  fresher data" and why stakes weighting (same deals, different positions)
+  did not help.
+- **Flat decision-time search with few uniform worlds does not beat v7 in
+  the early game.** It might with 32+ worlds or belief-weighted worlds, but
+  that is not cheap; the endgame (few unseen cards, short rollouts) is the
+  place to try search first (not yet measured).
+
+Reproduce: `headless --format=bc-jsonl --rollout-rate=0.1
+--rollout-max-actions=60 --rollout-worlds=9 --worlds-min-cards=10
+--epsilon=0 --nn-policy=rl/models/tichu_q_v7_candidate.safetensors
+--schupf-net=assets/bots/tichu_schupf_v2.safetensors ...` (240 matches,
+~10 minutes on 4 cores).
+
+## Flaws in the setup
+
+**F1. Labels concentrated on few deals** (measured, above). Fix: label a
+smaller share of decisions in many more matches (`--rollout-rate=0.1` and 5x
+`--mixed-episodes` / `--self-episodes`; label count unchanged, est. +15-20 %
+run time). A/B running against the uniform iteration 5.
+
+**F2. The policy iteration has reached its fixed point** (measured). Steps
+against the previous best on fresh deals: +4.2, +1.6, +0.6, +0.6 pp, then
++0.9 (rejected). One improvement step per iteration on noisy labels with a
+fixed function class converges to "greedy with respect to what the net can
+learn from these labels". Only less label noise per independent deal (F1),
+better inputs (F9) or better side decisions (F6) move the fixed point.
+
+**F3. The promotion gate is too coarse** (measured). 1000 deals x 2 has an
+SE of 0.9 pp against steps of 0.5-1 pp: real gains get rejected and lucky
+ones promoted (each gate duel was ~1 pp more optimistic than its fresh-deal
+confirmation, the winner's curse). Fix: a sequential probability ratio test
+(SPRT, as chess engines use to accept +1-2 Elo patches) on duplicate deals,
+or 3000-deal gates now that a candidate is a small step.
+
+**F4. The held-out training metric does not predict duels** (measured). The
+wide net had the higher held-out gain and lost the duel (48.5 %); stakes
+labels moved per-class gains and not the duel. Early stopping and epoch
+choice run on this metric. Fix: keep it for diagnostics, choose between
+methods only by duels.
+
+**F5. One state, many opponents** (verified). League data labels the same
+features with Q under v5, v6, older iterations and self-play continuations;
+the net cannot see which opponent produced a label and learns a best
+response to the mixture. Reasonable for unknown opponents, but the share of
+data against weaker, older nets (2/3 of the league games) pulls towards
+exploiting them. Test: one iteration with self-play only.
+
+**F6. Side decisions were optimised against older play** (verified). Schupf
+v2 was trained on v5's play; the call thresholds were calibrated with v5;
+v7 makes calls succeed more often (Grand Tichu 76 % vs 68 % for v6, Tichu
+68 % vs 65 %), so the best thresholds have moved. The Mah Jong wish is
+"highest of A-K-Q-J-10 not in my hand" (it can force the partner to play or
+break a bomb); the Dragon gift is "opponent without a call, else the one
+with more cards" (`lib/agents/wish_strategy.dart`,
+`dragon_give_strategy.dart`). Fix: retrain the schupf net on v7 games
+(`--schupf-rollout-rate`, `schupf_cf_train.py`), re-tune the call thresholds
+on exact counterfactual call labels (`call_labels.sh`, `call_analysis.py`),
+label wish and Dragon gift exactly (every option rolled out).
+
+**F7. Only bot opponents from one lineage** (blind spot). Humans call much
+more (an expert guide: Grand Tichu in ~17 % of hands), follow conventions
+and pass differently; the history features read passes as bots make them.
+Nothing measures the bot against people. Fix: read the app's game records
+(`public.tichu_game_records`, live since 2026-11-19), replay them headless
+and roll out the human moves against the bot's moves (like
+`compare_policies.py`); add league members with more aggressive call
+thresholds.
+
+**F8. Stale labels in the training mix** (verified, low impact). Older
+iterations' labels are values under older policies; recency 0.8 vs 1.0
+made no measurable difference (50.0 %).
+
+**F9. Missing inputs** (verified). The play net does not see which card it
+received from whom (the partner's pass tells whether the partner plans to
+call; opponents' passes are low cards and say what they kept), has no
+per-card ownership estimate (only per-rank unseen counts and a crude
+history), and no estimate of bomb threats beyond `unseen_bomb_possible`.
+Fix: received-card features (schema v7, zero-initialised weights as with
+`history` and `turn`), and an auxiliary head that predicts who holds each
+unseen card (labels are free in self-play).
+
+**F10. No state value** (verified). The net learns advantages only, so
+there is no value function for truncated rollouts or one-ply search. Given
+the measurement (outcomes are chaotic even with all hands known: call
+success AUC 0.797 -> 0.812 with perfect information), an all-hands value
+net would be inaccurate early in the round, where rollouts are expensive.
+Lower priority than F1.
+
+**F11. Cost structure** (measured). Per iteration (~50 min on 4 cores):
+data generation 82 % (~20 ms CPU per labelled decision: up to 12
+full-round playouts), duels ~14 %, training a few minutes. A profiling
+review of the headless hot path is under way (separate branch).
+
+**F12. Process** (verified). Method changes are judged on one training
+lineage (a 2026 Guandan study found duel gains that did not replicate);
+`pool/itNN` holds the net replaced at iteration NN, so "vs it01" in the logs
+is v6 (confusing); 2 % epsilon exploration in data games is unnecessary for
+all-action labels and only perturbs the states (minor).
+
+## Ideas, in order
+
+| # | Idea | Expected | Cost (4 cores) | Status |
+|---|------|----------|----------------|--------|
+| 1 | Same label budget over 5x more deals (`--rollout-rate=0.1`) | several x effective data | +15-20 % per iteration | A/B running |
+| 2 | Schupf v3 trained on v7 play | +1-3 pp (v1 -> v2: 54 %) | ~1 h | |
+| 3 | Re-tune Tichu / Grand Tichu thresholds for v7 | +0.5 pp | ~1 h | |
+| 4 | Ensemble of 3-5 nets trained with different seeds (average Q) | +0.5-2 pp, lower estimator variance | training x3-5, 0.4 ms per decision | |
+| 5 | SPRT or 3000-deal promotion gate | fewer wrong promotions | +10 min per iteration | |
+| 6 | Received-card features + card-ownership auxiliary head | unknown, likely small to medium | schema change + 2 iterations | |
+| 7 | Exact labels for wish and Dragon gift | < 1 pp each | ~1 day each | |
+| 8 | Endgame search (PIMC with short rollouts, few unseen cards) | unknown; v7 still gains +5 per differing endgame move | measure like the table above (needs a max-cards filter for `--rollout-worlds`) | |
+| 9 | Human-game review from the app's records | finds what bot-vs-bot cannot | replay tool | |
+| 10 | Belief-weighted worlds (softmax-Q likelihood of observed plays) for search or labels | needed if 8 or K-world labels are used | medium | |
+
+Parked, measured or argued above: stakes-weighted labels (no gain),
+out-of-turn bombs (-50 points per bomb), a wider net (48.5 %), match-win
+targets (lost), learned call nets (no gain), multi-world labels (more deals
+are cheaper and unbiased), flat early-game PIMC with <= 8 uniform worlds
+(+0.3 ± 1.1 at best).
+
+Suggested order towards 60 % against v6: 1 (running) -> 2 -> 3 -> 4, then
+the loop with the winning settings and an SPRT gate; the bot that counts is
+the play net plus its schupf net, so 2 and 3 count towards the bar.

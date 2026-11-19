@@ -69,6 +69,12 @@ heuristic schupf 55.0 % ± 0.8. Against an opponent's Grand Tichu it passes
 the Dog and the lowest cards to the caller and strength to the partner
 (`rl/schupf_vs_grand.py`).
 
+## tichu_q_v7_candidate.safetensors (candidate, not shipped)
+
+Four league iterations from v6 (see rl/README.md, "Results v7 candidate").
+58.4 % ± 0.5 against v6 (3000 fresh deals x 2), 95.4 % against the
+heuristic; below the 60 % bar for shipping. Same architecture as v6.
+
 ## tichu_q_v6.safetensors (shipped)
 
 Three rollout policy-iteration steps from v5, trained on games against v5

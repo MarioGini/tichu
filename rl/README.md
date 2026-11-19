@@ -661,11 +661,43 @@ Style, on the same positions (share of decisions where the move is possible):
   and the higher one costs a little (-2.8 ± 2.2): the net edge is in the
   endgame and against short opponent hands, not in a simple rule.
 
+## Results v7 candidate (2026-11-19): league, match split, confirmation duels
+
+Four iterations of `rollout_loop.py --league=2 --opponent-nets=v5
+--train-args="--ema=0.999 --recency=0.8"` from v6 (2400 league matches + 1000
+self-play matches per iteration, ~500k labelled decisions each, 2.0M in all;
+data in Supabase Storage, run `v7`). All four were promoted (gate duel and
+confirmation duel on fresh deals, 1000 deals x 2 each):
+
+| Iteration | vs previous best (gate / fresh) | vs v5 | vs v6 |
+|-----------|---------------------------------|-------|-------|
+| 1 | 52.9 / 54.2 % | 63.9 % | (= previous best) |
+| 2 | 52.7 / 51.6 % | 65.5 % | 54.8 % |
+| 3 | 52.3 / 50.6 % | 68.1 % | 57.6 % |
+| 4 | 53.3 / 50.6 % | 68.7 % | **58.4 % ± 0.5** (3000 fresh deals x 2, seed 9001) |
+
+Iteration 4 (`rl/models/tichu_q_v7_candidate.safetensors`, not shipped)
+beats the heuristic 95.4 % ± 0.3 (v6: 93.9 %). 58.4 % is just under the
+60 % bar for a PR, so it stays on the branch.
+
+A/Bs on the same data, same start (the iteration-4 starting net), duels
+against the iteration-4 net (2000 deals x 2):
+
+- **Recency 1.0 instead of 0.8**: 50.0 % ± 0.6. No measurable effect; 0.8 is
+  kept (harmless, and it matters more as the data of old policies grows).
+- **Wider net 512-256-128** (`--widen-hidden`, function-preserving): 48.5 %
+  ± 0.6, *worse*, although its held-out gain was higher (+0.44 vs +0.39
+  points per decision). With 4 epochs the extra units are undertrained; and
+  the held-out gain does not predict duel results at this resolution.
+- Each gate duel was ~1 pp more optimistic than its fresh-deal confirmation
+  (52.3-53.3 % vs 50.6-54.2 %): the confirmation duel is worth keeping.
+
 ## Next steps
 
-1. More iterations against v6 / a pool of earlier nets (gains per
-   iteration against a fixed opponent shrink to < 1 pp after three), and
-   the history A/B again at the current data size (740k decisions).
+1. Continue the v7 run (`--out-dir=rl/outputs/v7`, data restorable with
+   `training_data_store.py download --run=v7`): steps are now ~+1 pp per
+   iteration, two or three more should pass 60 % against v6. Then the
+   history A/B again at the current data size (2M decisions).
 2. Learned calls on exact counterfactual labels from the best policy
    (`call_labels.sh` + `call_train.py`); then the same for the schupf.
 3. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:

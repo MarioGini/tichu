@@ -263,6 +263,23 @@ label high-stakes decisions 4.7x as often as quiet ones: of the labels,
 ~74 % are high, 20 % mid, 6 % low (uniform: 52 / 30 / 18 %). Whether this
 beats the uniform rate is not measured yet.
 
+**Measured (2026-11-20): no gain.** A/B on the same iteration (v7 iteration 5:
+same seeds, same start net = iteration 4, same league, same label budget,
+~455k new labels), only the label allocation differs. Duplicate duels, 2000
+fresh deals x 2:
+
+| Candidate | vs iteration 4 |
+|-----------|----------------|
+| uniform labels (rate 0.5) | 50.9 % ± 0.6 |
+| stakes labels, `--importance=none` | 51.1 % ± 0.6 |
+| stakes labels, `--importance=inverse` | 50.4 % ± 0.6 |
+| stakes vs uniform, head to head | 50.5 % ± 0.6 |
+
+Held-out gain moved as expected (high +0.57 vs +0.48 points per decision,
+low -0.21 vs +0.23), but the duels do not move: the extra high-stakes labels
+are worth no more than the quiet ones they replace. The flag stays (off by
+default); the next lever is lower-noise labels, not their allocation.
+
 ### Training data in Supabase Storage
 
 Data caches are compressed npz (~115 bytes per decision, ~28 MB per

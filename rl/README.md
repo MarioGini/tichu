@@ -692,18 +692,72 @@ against the iteration-4 net (2000 deals x 2):
 - Each gate duel was ~1 pp more optimistic than its fresh-deal confirmation
   (52.3-53.3 % vs 50.6-54.2 %): the confirmation duel is worth keeping.
 
+### Where v7 plays better, and where it is still weak (2026-11-19)
+
+`compare_policies.py` both ways (1000 matches v7 vs v6 each, every legal move
+of 30 % of the decisions rolled out; 68k decisions per side). v7 and v6
+differ on 22 % of decisions; v7's move is worth **+1.8 ± 0.7** points per
+differing move (+2.1 with v7 continuing, +1.4 with v6 continuing).
+
+Per differing move, mean of both directions where both agree in sign:
+
+| Situation | v7 gain |
+|-----------|---------|
+| partner called (Grand) Tichu | +5.0 |
+| endgame, 1-4 cards in hand | +5.3 |
+| an opponent has one card left | +4.7 |
+| an opponent called (Grand) Tichu | +2.9 |
+| partner already out | +2.5 |
+| leading | +2.4 |
+| following singles in the middle game | +1.3 (not significant) |
+
+Moves: playing the lower of two singles (+2.8), playing a single instead of a
+pair (+19 with v7 continuing, -3 with v6), passing instead of spending a
+single on an opponent's trick (+3.9 / -0.5).
+
+What the *last* iteration still learned (v7 vs its starting net, same data):
+only the endgame, play around (Grand) Tichu calls and leads move (+1 to +3.5
+per differing move); the middle-game following decisions (63 % of all
+decisions) no longer improve (-1.5 ± 1.6). With one rollout per action the
+label noise (mean clairvoyant regret 56 points) swamps what is left there.
+
+Points at stake per situation (clairvoyant regret of v7's own moves, mostly
+card luck, so only a relative weight): decisions with 10-14 cards in hand are
+51 % of all decisions but carry 67 % of the regret, endgame decisions (1-4
+cards) only 6 %. The early, long-horizon decisions are where the most is at
+stake and where the current labels are too noisy to learn from.
+
+Not learned at all yet:
+
+- **Out-of-turn bombs.** The engine accepts them (`trick_resolution.dart`,
+  `isInterruptingBomb`), but `AgentDecisions.next` only ever asks the player
+  whose turn it is, so a bot can never bomb after it passed or before an
+  opponent goes out.
+- Dragon gift and wish choice are heuristic; schupf v2 was trained on v5's
+  play; calls are the strength rule (near its ceiling, see "Schupf and calls").
+
+The heuristic no longer gives a useful signal: v7 wins 95.4 % against it, a
+1 pp step is barely measurable there, and v7's data used no heuristic games.
+It stays only as a regression check; progress is measured against the league
+nets and with exact rollouts.
+
 ## Next steps
 
-1. Continue the v7 run (`--out-dir=rl/outputs/v7`, data restorable with
+1. Out-of-turn bombs for bots (an offer to every player holding a bomb after
+   each play), then label them with rollouts like any other decision.
+2. Less noisy labels for the early game: several rollouts per action with
+   the hidden cards re-dealt consistently with the public history, or a
+   perfect-information value net to truncate rollouts (item 6).
+3. Continue the v7 run (`--out-dir=rl/outputs/v7`, data restorable with
    `training_data_store.py download --run=v7`): steps are now ~+1 pp per
    iteration, two or three more should pass 60 % against v6. Then the
    history A/B again at the current data size (2M decisions).
-2. Learned calls on exact counterfactual labels from the best policy
+4. Learned calls on exact counterfactual labels from the best policy
    (`call_labels.sh` + `call_train.py`); then the same for the schupf.
-3. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:
+5. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:
    1,200 lines removed, the remaining heuristic beats the previous one
    50.9 % ± 0.3 (see `lib/agents/ai_strategy.md`).
-4. A truncated rollout with a perfect-information value net (PerfectDou's
+6. A truncated rollout with a perfect-information value net (PerfectDou's
    critic) would make labels several times cheaper once more data is needed.
 
 ## Output contract

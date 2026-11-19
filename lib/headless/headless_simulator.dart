@@ -62,6 +62,13 @@ class _HeadlessSimulator {
   final double rolloutRate;
   final int rolloutMaxActions;
 
+  /// Worlds per labelled decision (`--rollout-worlds=K`, default 1 = the
+  /// real deal only): K - 1 re-dealt worlds are rolled out too and written
+  /// as `q_rollout_worlds`, for decisions with at least [worldsMinCards]
+  /// cards in hand.
+  final int rolloutWorlds;
+  final int worldsMinCards;
+
   /// Offer out-of-turn bombs (`--no-bomb-interrupts` turns them off, the
   /// behaviour before 2026-11-20).
   final bool bombInterrupts;
@@ -138,6 +145,8 @@ class _HeadlessSimulator {
     this.rolloutRate = 0,
     this.rolloutMaxActions = 12,
     this.bombInterrupts = true,
+    this.rolloutWorlds = 1,
+    this.worldsMinCards = 0,
     this.interruptRolloutRate = 0,
     this.stakesRates,
     this.isLearnerSeat = _everySeat,
@@ -321,6 +330,7 @@ class _HeadlessSimulator {
       final before = snapshot;
       ({List<double?> diff, List<double?> own})? rollouts;
       RolloutStakes? stakes;
+      List<List<double?>>? worlds;
       double? labelP;
       if (_rolloutLabelling &&
           bcWriter != null &&
@@ -355,6 +365,17 @@ class _HeadlessSimulator {
             chosen: action,
           );
           if (stakesRates != null) labelP = p;
+          if (rollouts != null &&
+              rolloutWorlds > 1 &&
+              !offTurn &&
+              (snapshot.hands[action.playerId]?.length ?? 0) >=
+                  worldsMinCards) {
+            worlds = await _worldRollouts(
+              engine: engine,
+              state: state,
+              chosen: action,
+            );
+          }
           if (rollouts != null && counts != null) counts[2]++;
         }
       }
@@ -383,6 +404,7 @@ class _HeadlessSimulator {
           shadow: shadow,
           rollouts: rollouts?.diff,
           rolloutsOwn: rollouts?.own,
+          rolloutWorlds: worlds,
           describe: describe,
           variants: variants,
           stakes: rollouts != null ? stakes : null,

@@ -212,6 +212,7 @@ class _BcTransitionWriter {
     final GameAction? shadow,
     final List<double?>? rollouts,
     final List<double?>? rolloutsOwn,
+    final List<List<double?>>? rolloutWorlds,
     final bool describe = false,
     final List<GameAction?>? variants,
     final RolloutStakes? stakes,
@@ -261,6 +262,9 @@ class _BcTransitionWriter {
       if (rolloutsOwn != null &&
           rolloutsOwn.length == legalPlayFeatures.features.length)
         'q_rollout_own': rolloutsOwn,
+      // --rollout-worlds: the same actions rolled out in re-dealt worlds.
+      if (rolloutWorlds != null && rolloutWorlds.isNotEmpty)
+        'q_rollout_worlds': rolloutWorlds,
       // --stakes-rollouts: the decision's stakes class and the probability
       // it was labelled with (for importance weights in the trainer).
       if (stakes != null) 'stakes': stakes.name,

@@ -34,6 +34,8 @@ class _HeadlessConfig {
   final double rolloutRate;
   final int rolloutMaxActions;
   final bool bombInterrupts;
+  final int rolloutWorlds;
+  final int worldsMinCards;
   final double interruptRolloutRate;
   final bool stakesRollouts;
   final StakesRates? stakesRates;
@@ -79,6 +81,8 @@ class _HeadlessConfig {
     required this.rolloutRate,
     required this.rolloutMaxActions,
     required this.bombInterrupts,
+    required this.rolloutWorlds,
+    required this.worldsMinCards,
     required this.interruptRolloutRate,
     required this.stakesRollouts,
     required this.stakesRates,
@@ -129,6 +133,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var rolloutRate = 0.0;
   var rolloutMaxActions = 12;
   var bombInterrupts = true;
+  var rolloutWorlds = 1;
+  var worldsMinCards = 0;
   var interruptRolloutRate = 0.0;
   var stakesRollouts = false;
   String? stakesRatesSpec;
@@ -240,6 +246,16 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     if (arg.startsWith('--rollout-rate=')) {
       final p = double.tryParse(arg.split('=').last);
       if (p != null && p >= 0 && p <= 1) rolloutRate = p;
+      continue;
+    }
+    if (arg.startsWith('--rollout-worlds=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) rolloutWorlds = k;
+      continue;
+    }
+    if (arg.startsWith('--worlds-min-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) worldsMinCards = k;
       continue;
     }
     if (arg == '--no-bomb-interrupts') {
@@ -406,6 +422,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     rolloutRate: rolloutRate,
     rolloutMaxActions: rolloutMaxActions,
     bombInterrupts: bombInterrupts,
+    rolloutWorlds: rolloutWorlds,
+    worldsMinCards: worldsMinCards,
     interruptRolloutRate: interruptRolloutRate,
     stakesRollouts: stakesRollouts,
     stakesRates: stakesRates,
@@ -439,6 +457,7 @@ void _printUsage() {
   stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--no-bomb-interrupts] [--interrupt-rollout-rate=p]');
+  stdout.writeln('       [--rollout-worlds=K] [--worlds-min-cards=N]');
   stdout.writeln(
     '       [--stakes-rollouts] [--stakes-rates=high:p,mid:p,low:p]',
   );

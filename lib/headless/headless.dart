@@ -36,6 +36,7 @@ part 'headless_legality.dart';
 part 'headless_rollouts.dart';
 part 'headless_schupf_labels.dart';
 part 'headless_simulator.dart';
+part 'headless_worlds.dart';
 part 'summary_writer.dart';
 
 const _defaultTargetScore = 1000;
@@ -115,6 +116,8 @@ Future<void> main(final List<String> args) async {
     rolloutRate: config.rolloutRate,
     rolloutMaxActions: config.rolloutMaxActions,
     bombInterrupts: config.bombInterrupts,
+    rolloutWorlds: config.rolloutWorlds,
+    worldsMinCards: config.worldsMinCards,
     interruptRolloutRate: config.interruptRolloutRate,
     stakesRates: config.stakesRollouts
         ? config.stakesRates ?? StakesRates.forBase(config.rolloutRate)

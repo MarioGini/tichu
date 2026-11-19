@@ -194,6 +194,47 @@ The fix is to label **every** legal action exactly, and a lot of them:
 The exported net has the same inputs and layers as before and plugs into
 `NnPlaySelectionStrategy` unchanged.
 
+Trainer details since v7 (2026-11-19):
+
+- **Held-out split by match.** Decisions of one round share the deal and so
+  most of the label noise; a per-decision split leaked it into the held-out
+  set and early stopping kept overfitted epochs. `rollout_train.py` now holds
+  out whole matches (the `game` column of the cache; old caches fall back to
+  contiguous blocks of 256 decisions).
+- **Recency weights** (`--recency=r`): data of an earlier iteration is a
+  value under an older policy; a file `itNN_*` gets loss weight
+  `r ** (newest - NN)`. The loop passes `--recency=0.8`.
+- **League** (`rollout_loop.py --league=K`): every net replaced by a
+  promotion joins `pool/` and the K newest pool nets become extra fixed
+  opponents for data and measurements.
+- **Confirmation duel** (`--confirm-deals=N`, default 1000): a candidate that
+  passes the gate must also win a second duel on fresh deals, and the pooled
+  result must clear `--promote-z`.
+- **Wider nets from a warm start** (`rollout_train.py
+  --widen-hidden=512,256,128`): Net2Net-style growth of the hidden layers,
+  the wide net plays exactly like the narrow one before training.
+- Two-sided comparison: `compare_policies.py --jsonl-b=...` also measures the
+  gain on B's games with B continuing (A-continued rollouts flatter A).
+
+### Training data in Supabase Storage
+
+Data caches are compressed npz (~115 bytes per decision, ~28 MB per
+iteration of 245k decisions), so all iterations fit in the free 1 GB of
+Supabase Storage. Bucket `rl-training-data` (private) plus a manifest table
+`public.rl_training_files` (`supabase/migrations/20261119000000_rl_training_data.sql`):
+
+```bash
+export SUPABASE_SECRET_KEY=sb_secret_...       # Dashboard -> Settings -> API Keys
+rl/.venv/bin/python rl/training_data_store.py upload --run=v7 rl/outputs/v7/data/*.npz
+rl/.venv/bin/python rl/training_data_store.py list
+rl/.venv/bin/python rl/training_data_store.py download --run=v7 --dest=rl/outputs/v7/data
+rl/.venv/bin/python rl/rollout_loop.py ... --upload-run=v7   # upload while training
+```
+
+Only the secret key can read or write the bucket and the table (RLS on, no
+policies). In a cloud session, store the key as a network secret for the
+project host (header `apikey`) instead of the environment variable.
+
 ### Training pipelines
 
 Shared modules: `qnet.py` (the Q(s, a) MLP, batched BC loss, safetensors

@@ -5,6 +5,28 @@ List<TichuTurn> getPairStraights(
   final List<Card> input,
   final int desiredLength,
 ) {
+  if (desiredLength % 2 != 0) return <TichuTurn>[];
+  return pairStraightsOfLength(allPairStraightCandidates(input), desiredLength);
+}
+
+/// The pair straights of [desiredLength] among [candidates] (from
+/// [allPairStraightCandidates]), one per value.
+List<TichuTurn> pairStraightsOfLength(
+  final List<TichuTurn> candidates,
+  final int desiredLength,
+) {
+  // Remove duplicate elements which come from permutation logic when both
+  // standard and phoenix straights are possible.
+  final values = <double>{};
+  return [
+    for (final s in candidates)
+      if (s.cards.length == desiredLength && values.add(s.value)) s,
+  ];
+}
+
+/// Every pair straight in [input] of any length, before the per-length
+/// filter of [getPairStraights].
+List<TichuTurn> allPairStraightCandidates(final List<Card> input) {
   // Work on a copy: callers pass live hands.
   final cards = List<Card>.of(input);
   final pairStraights = <TichuTurn>[];
@@ -14,7 +36,7 @@ List<TichuTurn> getPairStraights(
         element.face == CardFace.dragon || element.face == CardFace.dog,
   );
 
-  if (cards.length < 4 || desiredLength % 2 != 0) return pairStraights;
+  if (cards.length < 4) return pairStraights;
 
   cards.sort(compareCards);
 
@@ -107,21 +129,12 @@ List<TichuTurn> getPairStraights(
     }
   }
 
-  // Add permutations and filter to desired length.
+  // Add permutations (every shorter pair straight inside a longer one).
   final allPairStraights = <TichuTurn>[];
   for (final pairStraight in pairStraights) {
     allPairStraights.addAll(getPairStraightPermutations(pairStraight.cards));
   }
-  allPairStraights.retainWhere(
-    (final element) => element.cards.length == desiredLength,
-  );
-
-  // Remove duplicate elements which come from permutation logic when both
-  // standard and phoenix straights are possible.
-  final values = <double>{};
-  return allPairStraights
-      .where((final element) => values.add(element.value))
-      .toList();
+  return allPairStraights;
 }
 
 TichuTurn addPhoenixPadding(

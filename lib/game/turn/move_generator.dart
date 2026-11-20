@@ -80,20 +80,27 @@ List<TichuTurn> _generateAnyTurns(final List<Card> hand) {
   return turns;
 }
 
+// Same as getStraights(hand, length) for length = 5, 6, ...; the
+// candidates do not depend on the length, so they are built once.
 List<TichuTurn> _generateAnyStraights(final List<Card> hand) {
   final turns = <TichuTurn>[];
   final maxLength = hand.length;
+  if (maxLength < 5) return turns;
+  final candidates = allStraightCandidates(hand);
   for (var length = 5; length <= maxLength; length += 1) {
-    turns.addAll(getStraights(List<Card>.from(hand), length));
+    turns.addAll(straightsOfLength(candidates, length));
   }
   return turns;
 }
 
+// Same as getPairStraights(hand, length) for length = 4, 6, ...
 List<TichuTurn> _generateAnyPairStraights(final List<Card> hand) {
   final turns = <TichuTurn>[];
   final maxLength = hand.length;
+  if (maxLength < 4) return turns;
+  final candidates = allPairStraightCandidates(hand);
   for (var length = 4; length <= maxLength; length += 2) {
-    turns.addAll(getPairStraights(List<Card>.from(hand), length));
+    turns.addAll(pairStraightsOfLength(candidates, length));
   }
   return turns;
 }

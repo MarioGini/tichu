@@ -162,6 +162,20 @@ class _BcTransitionWriter {
         'round': score.roundNumber,
         'team_one_round': score.teamOneRound,
         'team_two_round': score.teamTwoRound,
+        // Card points of the tricks each seat won (before the last player's
+        // tricks go to the first player), and the card points left in the
+        // last player's hand (they go to the opposing team).
+        'trick_points_by_seat': [
+          for (var seat = 0; seat < 4; seat++)
+            score.playerRoundPoints[after.players
+                    .firstWhere((final p) => p.seat == seat)
+                    .id] ??
+                0,
+        ],
+        if (score.finishOrder.isNotEmpty)
+          'last_hand_points': pointsForCards(
+            after.hands[score.finishOrder.last] ?? const <Card>[],
+          ),
         // Teams (0 = even seats) in finishing order, for analysis.
         'finish_teams': [
           for (final id in score.finishOrder) _teamForPlayer(after, id),

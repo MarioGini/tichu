@@ -110,6 +110,31 @@ Reproduce: `headless --format=bc-jsonl --rollout-rate=0.1
 --schupf-net=assets/bots/tichu_schupf_v2.safetensors ...` (240 matches,
 ~10 minutes on 4 cores).
 
+### Follow-up: more deals per label budget (measured 2026-11-20)
+
+Same iteration (v7 iteration 5: same seeds, start net, league, ~500k
+labels), `--rollout-rate=0.1` over 5x the matches. Duels, 2000 fresh deals x
+2:
+
+| Candidate | Result |
+|-----------|--------|
+| low rate, trained on all data, vs iteration 4 | 50.8 % ± 0.6 |
+| (uniform 50.9 %, stakes 51.1 % on the same test) | |
+| trained on the new iteration only: low rate vs uniform | 50.7 % ± 0.6 |
+| trained on the new iteration only: stakes vs uniform | 50.7 % ± 0.6 |
+| trained on the new iteration only: uniform vs iteration 4 | 49.6 % ± 0.6 |
+
+The first A/Bs changed only a quarter of the training signal (the other ~2M
+labels of iterations 1-4 are shared), so the clean comparison trains each
+arm on its own 500k labels. Spreading labels over more deals gives at most
++0.7 pp (1 SE, not significant), the same as stakes weighting; 500k labels
+from iteration 4's own play do not improve on iteration 4 at all. **The
+plateau is not about how the labels are spent.** One iteration's labels
+carry too little signal to move a policy that is already greedy with
+respect to what the net learned from 2M of them; the next gains must come
+from the other levers (side decisions, inputs, ensembles), not the label
+budget. Low-rate generation costs ~30 % more time per label (5x main games).
+
 ## Flaws in the setup
 
 **F1. Labels concentrated on few deals** (measured, above). Fix: label a
@@ -200,7 +225,7 @@ all-action labels and only perturbs the states (minor).
 
 | # | Idea | Expected | Cost (4 cores) | Status |
 |---|------|----------|----------------|--------|
-| 1 | Same label budget over 5x more deals (`--rollout-rate=0.1`) | several x effective data | +15-20 % per iteration | A/B running |
+| 1 | Same label budget over 5x more deals (`--rollout-rate=0.1`) | measured: +0.7 ± 0.6 pp | +30 % per label | done, not adopted |
 | 2 | Schupf v3 trained on v7 play | +1-3 pp (v1 -> v2: 54 %) | ~1 h | |
 | 3 | Re-tune Tichu / Grand Tichu thresholds for v7 | +0.5 pp | ~1 h | |
 | 4 | Ensemble of 3-5 nets trained with different seeds (average Q) | +0.5-2 pp, lower estimator variance | training x3-5, 0.4 ms per decision | |
@@ -217,6 +242,6 @@ targets (lost), learned call nets (no gain), multi-world labels (more deals
 are cheaper and unbiased), flat early-game PIMC with <= 8 uniform worlds
 (+0.3 ± 1.1 at best).
 
-Suggested order towards 60 % against v6: 1 (running) -> 2 -> 3 -> 4, then
+Suggested order towards 60 % against v6: 2 -> 3 -> 4, then
 the loop with the winning settings and an SPRT gate; the bot that counts is
 the play net plus its schupf net, so 2 and 3 count towards the bar.

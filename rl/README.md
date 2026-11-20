@@ -23,8 +23,9 @@ VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>
 
 ## Quick start
 
-The shipped play policy is `assets/bots/tichu_q_v6.safetensors` (see
-`rl/models/README.md`). It is trained by **rollout policy iteration**
+The shipped bot is play net `assets/bots/tichu_q_v7.safetensors` with schupf
+net `assets/bots/tichu_schupf_v3.safetensors` (see
+`rl/models/README.md`). The play net is trained by **rollout policy iteration**
 (`rollout_loop.py`, see "Rollout policy iteration" below).
 
 **Before any RL command, compile the Dart headless runner once.** Every
@@ -46,7 +47,7 @@ tail -f rl/outputs/rollout_loop/loop.log
 Measure any two bots against each other (duplicate deals, both seatings):
 
 ```bash
-rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v6.safetensors" \
+rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v7.safetensors" \
     --b="--opponent-policy=old_policy.safetensors" --deals=1000
 rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
@@ -339,7 +340,7 @@ Python entry points:
    ```bash
    rl/.venv/bin/python rl/call_train.py --generate --episodes=1500 \
        --target-score=500 --call-epsilon=0.15 \
-       --nn-policy=assets/bots/tichu_q_v6.safetensors --output-dir=rl/outputs
+       --nn-policy=assets/bots/tichu_q_v7.safetensors --output-dir=rl/outputs
    ```
 
 3. **`schupf_train.py`** — schupf value net Q(hand, pass) on
@@ -750,9 +751,12 @@ confirmation duel on fresh deals, 1000 deals x 2 each):
 | 3 | 52.3 / 50.6 % | 68.1 % | 57.6 % |
 | 4 | 53.3 / 50.6 % | 68.7 % | **58.4 % ± 0.5** (3000 fresh deals x 2, seed 9001) |
 
-Iteration 4 (`rl/models/tichu_q_v7_candidate.safetensors`, not shipped)
+Iteration 4 (`assets/bots/tichu_q_v7.safetensors`)
 beats the heuristic 95.4 % ± 0.3 (v6: 93.9 %). 58.4 % is just under the
-60 % bar for a PR, so it stays on the branch.
+60 % bar for a PR on its own. **Shipped 2026-11-20 together with schupf v3**
+(trained on 67k exact schupf decisions of v7 self-play): v7 + schupf v3 beats
+v6 + schupf v2 **62.3 % ± 0.6** (3000 fresh deals x 2, +167 per match); schupf
+v3 alone is worth 53.4 % ± 0.7.
 
 A/Bs on the same data, same start (the iteration-4 starting net), duels
 against the iteration-4 net (2000 deals x 2):

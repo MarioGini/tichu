@@ -106,8 +106,8 @@ What follows from it:
 
 Reproduce: `headless --format=bc-jsonl --rollout-rate=0.1
 --rollout-max-actions=60 --rollout-worlds=9 --worlds-min-cards=10
---epsilon=0 --nn-policy=rl/models/tichu_q_v7_candidate.safetensors
---schupf-net=assets/bots/tichu_schupf_v2.safetensors ...` (240 matches,
+--epsilon=0 --nn-policy=assets/bots/tichu_q_v7.safetensors
+--schupf-net=rl/outputs/bench/schupf_v2.safetensors ...` (240 matches,
 ~10 minutes on 4 cores).
 
 ### Follow-up: more deals per label budget (measured 2026-11-20)

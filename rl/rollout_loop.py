@@ -31,7 +31,7 @@ Everything is written to ``--out-dir`` and every step is skipped when its
 output already exists, so the loop can simply be restarted after a crash.
 
   rl/.venv/bin/python rl/rollout_loop.py --iterations=3 \
-      --init-policy=assets/bots/tichu_q_v6.safetensors
+      --init-policy=assets/bots/tichu_q_v7.safetensors
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ from duel import duel
 from headless_runner import run_headless_sharded
 
 RL = Path(__file__).resolve().parent
-SCHUPF = "assets/bots/tichu_schupf_v2.safetensors"
+SCHUPF = "assets/bots/tichu_schupf_v3.safetensors"
 
 
 # The file the latest generate() call wrote (None if it already existed).
@@ -96,7 +96,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Rollout policy iteration for the play net")
     p.add_argument("--iterations", type=int, default=3)
     p.add_argument("--out-dir", default=str(RL / "outputs" / "rollout_loop"))
-    p.add_argument("--init-policy", default="assets/bots/tichu_q_v6.safetensors")
+    p.add_argument("--init-policy", default="assets/bots/tichu_q_v7.safetensors")
     p.add_argument("--mixed-episodes", type=int, default=800, help="matches vs the heuristic per iteration")
     p.add_argument("--self-episodes", type=int, default=200, help="self-play matches per iteration")
     p.add_argument(

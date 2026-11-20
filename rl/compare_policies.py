@@ -31,7 +31,7 @@ import numpy as np
 import torch
 
 from qnet import load_qnetwork_from_safetensors
-from schema import ACTION_OFFSET, SPEC
+from schema import ACTION_OFFSET, SPEC, pad_state
 
 
 def _idx(group: str) -> dict[str, int]:
@@ -149,7 +149,8 @@ def collect(na, nb, paths: str):
                 r = json.loads(line)
                 if r.get("explore"):
                     continue
-                s = np.asarray(r["state_features"], dtype=np.float32)
+                # Rows of an older layout: zeros for the missing state groups.
+                s = pad_state(np.asarray(r["state_features"], dtype=np.float32)[None])[0]
                 acts = np.asarray(r["legal_play_action_features"], dtype=np.float32)
                 x = torch.from_numpy(np.concatenate([np.repeat(s[None], len(acts), 0), acts], 1))
                 with torch.no_grad():

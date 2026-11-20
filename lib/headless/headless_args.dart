@@ -379,6 +379,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       stderr.writeln('Invalid --stakes-rates: $stakesRatesSpec');
       exitCode = 64;
       showHelp = true;
+    } else if (!stakesRollouts) {
+      stderr.writeln(
+        'warning: --stakes-rates has no effect without --stakes-rollouts',
+      );
     }
   }
 

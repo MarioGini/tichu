@@ -182,10 +182,17 @@ class FeatureEncoder {
 
     var maxRank = 0.0;
     var minRank = double.infinity;
-    var playedSlots = 0; // bit mask over card slots (0..55)
+    // Bit masks over card slots 0..31 / 32..55: two masks because ints are
+    // 32-bit for bitwise operations on the web (dart2js).
+    var playedLo = 0;
+    var playedHi = 0;
     for (final card in play.cards) {
       final slot = cardSlot(card);
-      if (slot >= 0) playedSlots |= 1 << slot;
+      if (slot >= 32) {
+        playedHi |= 1 << (slot - 32);
+      } else if (slot >= 0) {
+        playedLo |= 1 << slot;
+      }
       final hist = _histIndex(card);
       if (hist >= 0) {
         out[offset + 23 + hist] += hist < 13 ? 0.25 : 1.0;
@@ -232,7 +239,11 @@ class FeatureEncoder {
 
     final remaining = <int>[
       for (final slot in _handSlots)
-        if (playedSlots & (1 << slot) == 0) slot,
+        if ((slot >= 32
+                ? playedHi & (1 << (slot - 32))
+                : playedLo & (1 << slot)) ==
+            0)
+          slot,
     ];
     out[offset + 20] = remaining.isEmpty ? 1.0 : 0.0;
 

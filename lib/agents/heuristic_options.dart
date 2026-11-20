@@ -14,12 +14,12 @@ class HeuristicOptions {
   final Map<String, double> weights;
 
   const HeuristicOptions({
-    this.off = const <String>{},
+    this.off = defaultOff,
     this.weights = const <String, double>{},
   });
 
   /// The heuristic as written; only the rules in [defaultOff] are off.
-  static const latest = HeuristicOptions(off: defaultOff);
+  static const latest = HeuristicOptions();
 
   /// Rules that exist but are off unless switched on (`rule`):
   /// `interrupt_bomb` (bombing out of turn) loses about 50 points per bomb

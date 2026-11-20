@@ -137,6 +137,11 @@ class AiTurnRunner {
         buildSnapshot(),
         state.engineState,
       );
+      // Another run may have queued an action while this one waited.
+      if (state.opponentAwaitingConfirmation ||
+          state.pendingOpponentAction != null) {
+        return;
+      }
       if (action is! PlayTurnAction) {
         _engine.applyAction(state.engineState, action!);
         continue;

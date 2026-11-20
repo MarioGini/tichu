@@ -1,6 +1,11 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/card_identifiers.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/pair_straight_utils.dart';
+import 'package:tichu/game/turn/utils/straight_utils.dart';
 
 import 'move_generator_fixtures.dart';
 
@@ -223,5 +228,38 @@ void main() {
       // No singles beat the ace, no bombs available.
       expect(turns, isEmpty);
     });
+  });
+
+  // Leads build the straight candidates once for all lengths; the result
+  // must be getStraights / getPairStraights for each length, in order.
+  test('lead straights equal the per-length searches', () {
+    final deck = cardIdentifiers.values.toList();
+    final rng = Random(4);
+    for (var i = 0; i < 3000; i++) {
+      final hand = (deck.toList()..shuffle(rng)).take(5 + rng.nextInt(10));
+      final h = hand.toList();
+      final turns = generateLegalTurns(emptyDeck(), h);
+      String key(final TichuTurn t) => '${t.value}:${t.cards.length}';
+      expect(
+        [
+          for (final t in turns)
+            if (t.type == TurnType.straight) key(t),
+        ],
+        [
+          for (var n = 5; n <= h.length; n++)
+            for (final t in getStraights(h, n)) key(t),
+        ],
+      );
+      expect(
+        [
+          for (final t in turns)
+            if (t.type == TurnType.pairStraight) key(t),
+        ],
+        [
+          for (var n = 4; n <= h.length; n += 2)
+            for (final t in getPairStraights(h, n)) key(t),
+        ],
+      );
+    }
   });
 }

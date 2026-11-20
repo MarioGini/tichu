@@ -17,6 +17,10 @@ GameSnapshot buildGameSnapshot(
   final bool opponentAwaitingConfirmation = false,
 }) {
   final currentPlayer = state.players[state.currentPlayerIndex];
+  final hasBombByPlayer = {
+    for (final player in state.players)
+      player.id: hasBombInHand(state.hands[player.id] ?? const <Card>[]),
+  };
   final snapshotHands = {
     for (final entry in state.hands.entries)
       entry.key: List<Card>.from(entry.value),
@@ -63,13 +67,11 @@ GameSnapshot buildGameSnapshot(
       for (final player in state.players)
         player.id: canPlayerCallTichu(state, player.id),
     },
-    hasBombByPlayer: {
-      for (final player in state.players)
-        player.id: hasBombInHand(state.hands[player.id] ?? const <Card>[]),
-    },
+    hasBombByPlayer: hasBombByPlayer,
     canBombByPlayer: {
       for (final player in state.players)
-        player.id: _canPlayerBombNow(state, player.id),
+        player.id:
+            hasBombByPlayer[player.id]! && _canPlayerBombNow(state, player.id),
     },
     grandTichuDecisions: Map<String, bool>.from(state.grandTichuDecisions),
     schupfCompletedPlayers: List<String>.from(state.schupfSelections.keys),
@@ -146,12 +148,10 @@ bool canPlayerCallTichu(final GameEngineState state, final String playerId) {
   return !state.playersWhoPlayedCardsThisRound.contains(playerId);
 }
 
+/// Whether a player who holds a bomb may play it now.
 bool _canPlayerBombNow(final GameEngineState state, final String playerId) {
   if (state.phase != GamePhase.play) return false;
   if (state.pendingDragonGiveBy == playerId) return false;
-
-  final hand = state.hands[playerId] ?? const <Card>[];
-  if (!hasBombInHand(hand)) return false;
 
   final currentPlayer = state.players[state.currentPlayerIndex].id;
   final deckType = state.deck.turn.type;

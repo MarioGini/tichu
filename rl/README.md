@@ -66,6 +66,16 @@ To regenerate a policy from scratch, start with behaviour cloning
   the net now shares the state prefix of the first layer across the legal
   actions and skips zero inputs (`Mlp.prefixScorer`); and the headless runner
   uses 4-wide float32 SIMD (`Mlp.simdPrefixScorer`, `--no-simd` to turn off).
+- Rollout labels got 2x cheaper on 2026-11-20 with byte-identical output
+  (19.2 -> 9.3 ms per labelled decision, 10 v7 self-play matches at
+  `--rollout-rate=0.5`, one process on a loaded machine): an exact bit-mask
+  bomb check before the full bomb search (the snapshot's UI-only bomb maps
+  were 18 % of the time), a register-blocked SIMD scorer without bounds
+  checks (same float32 operation order), typed feature buffers, and leads
+  that build straight candidates once. Where the time goes now: NN scoring
+  ~52 % (`score` + `setPrefix`), move generation ~11 %, feature encoding
+  ~17 %, snapshots ~6 %; fork copies, agent construction and JSON rows are
+  each under 2 %.
 - `headless_runner.py` shards an episode count across N processes (one per
   shard, distinct seed), then concatenates the JSONL output.
 - Training stays on **CPU**: the ~100k-param net is too small to benefit from

@@ -14,14 +14,24 @@ policy-improvement step:
      per-decision advantages, starting from the best net and using the data
      of *all* iterations so far (more data beat fresher data in every test).
   3. Gate. The candidate must beat the best net in a duplicate duel
-     (``duel.py``) by more than ``--promote-z`` standard errors; it is also
-     measured against the heuristic.
+     (``duel.py``) by more than ``--promote-z`` standard errors, and again
+     on fresh deals (``--confirm-deals``, the two duels pooled), so a lucky
+     duel does not promote; it is also measured against the heuristic and
+     every fixed net.
+
+League (``--league=K``): every promoted net joins a pool and the K newest
+earlier best nets are added to the fixed opponents, so the learner keeps
+training against several policies instead of overfitting the last one
+(v6 beat v5 60 % but its last iteration only 51.7 % in a row).
+
+``--upload-run=NAME`` stores every new data file in Supabase Storage
+(``training_data_store.py``); a failed upload only warns.
 
 Everything is written to ``--out-dir`` and every step is skipped when its
 output already exists, so the loop can simply be restarted after a crash.
 
   rl/.venv/bin/python rl/rollout_loop.py --iterations=3 \
-      --init-policy=assets/bots/tichu_q_v6.safetensors
+      --init-policy=assets/bots/tichu_q_v7.safetensors
 """
 
 from __future__ import annotations
@@ -39,11 +49,16 @@ from duel import duel
 from headless_runner import run_headless_sharded
 
 RL = Path(__file__).resolve().parent
-SCHUPF = "assets/bots/tichu_schupf_v2.safetensors"
+SCHUPF = "assets/bots/tichu_schupf_v3.safetensors"
+
+
+# The file the latest generate() call wrote (None if it already existed).
+last_generated: list[Path | None] = [None]
 
 
 def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str]) -> None:
     """One sharded rollout-labelled run, converted to an npz cache."""
+    last_generated[0] = None
     if out.exists():
         return
     jsonl = out.with_suffix(".jsonl")
@@ -62,14 +77,26 @@ def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str
     save_npz(data, tmp)
     tmp.rename(out)
     jsonl.unlink()
+    last_generated[0] = out
     print(f"   {out.name}: {data.num_decisions} decisions ({time.time() - t0:.0f}s)", flush=True)
+
+
+def upload(path: Path | None, run: str, policy: Path) -> None:
+    if path is None:  # generated in an earlier (interrupted) run
+        return
+    try:
+        from training_data_store import upload_file
+
+        upload_file(path, run=run, policy=policy)
+    except Exception as e:  # noqa: BLE001 - storage must never stop training
+        print(f"   upload of {path.name} failed: {e}", flush=True)
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Rollout policy iteration for the play net")
     p.add_argument("--iterations", type=int, default=3)
     p.add_argument("--out-dir", default=str(RL / "outputs" / "rollout_loop"))
-    p.add_argument("--init-policy", default="assets/bots/tichu_q_v6.safetensors")
+    p.add_argument("--init-policy", default="assets/bots/tichu_q_v7.safetensors")
     p.add_argument("--mixed-episodes", type=int, default=800, help="matches vs the heuristic per iteration")
     p.add_argument("--self-episodes", type=int, default=200, help="self-play matches per iteration")
     p.add_argument(
@@ -101,6 +128,12 @@ def main() -> None:
         "gain is kept; the labels are noisy and later epochs overfit)",
     )
     p.add_argument("--rollout-rate", type=float, default=0.5)
+    p.add_argument(
+        "--gen-args",
+        default="",
+        help="extra headless arguments for every data run, e.g. "
+        "'--stakes-rollouts' (label probability by situation, see rl/README.md)",
+    )
     p.add_argument("--epsilon", type=float, default=0.02)
     p.add_argument("--target-score", type=int, default=1000)
     p.add_argument("--epochs", type=int, default=4)
@@ -108,6 +141,19 @@ def main() -> None:
     p.add_argument("--window", type=int, default=0, help="train on the last N iterations (0 = all)")
     p.add_argument("--duel-deals", type=int, default=1000)
     p.add_argument("--promote-z", type=float, default=2.0)
+    p.add_argument(
+        "--confirm-deals",
+        type=int,
+        default=1000,
+        help="second duel on fresh deals before a promotion (0 = off); both duels pooled",
+    )
+    p.add_argument(
+        "--league",
+        type=int,
+        default=0,
+        help="also train and measure against the K newest earlier best nets (0 = off)",
+    )
+    p.add_argument("--upload-run", default="", help="upload new data files to Supabase under this run name")
     p.add_argument("--shards", type=int, default=4)
     p.add_argument("--seed", type=int, default=100_000)
     args = p.parse_args()
@@ -123,7 +169,9 @@ def main() -> None:
     history = json.loads(history_path.read_text()) if history_path.exists() else []
     start = 1 + max((h["iter"] for h in history), default=0)
     opponents = [o for o in args.opponents.split(";") if o]
-    opponent_nets = [o for o in args.opponent_nets.split(";") if o]
+    fixed_nets = [o for o in args.opponent_nets.split(";") if o]
+    pool_dir = out / "pool"
+    pool_dir.mkdir(exist_ok=True)
     own_schupf = [f"--schupf-net={args.schupf_net}"] if args.schupf_net else []
     opp_schupf = [f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else []
     # The candidate and the best net play the duel with the same schupf.
@@ -132,12 +180,17 @@ def main() -> None:
     for it in range(start, start + args.iterations):
         t0 = time.time()
         print(f"\n=== iteration {it} ===\n1) rollout data from {best}", flush=True)
+        pool = sorted(pool_dir.glob("it*.safetensors"))[-args.league:] if args.league > 0 else []
+        opponent_nets = fixed_nets + [str(x) for x in pool]
+        if pool:
+            print("   league: " + ", ".join(x.stem for x in pool), flush=True)
         common = [
             f"--target-score={args.target_score}",
             f"--rollout-rate={args.rollout_rate}",
             f"--epsilon={args.epsilon}",
             f"--nn-policy={best}",
             *own_schupf,
+            *shlex.split(args.gen_args),
         ]
         seed = args.seed + 10_000 * it
         per = max(1, args.mixed_episodes // (2 * max(1, len(opponents) + len(opponent_nets))))
@@ -152,6 +205,8 @@ def main() -> None:
                     + ["--mixed", f"--opponent-policy={net}", *opp_schupf]
                     + (["--swap-teams"] if swap else []),
                 )
+                if args.upload_run:
+                    upload(last_generated[0], args.upload_run, best)
         for i, spec in enumerate(opponents):
             for swap in (False, True):
                 generate(
@@ -163,6 +218,8 @@ def main() -> None:
                     + ["--mixed", f"--opponent-heuristic={spec}"]
                     + (["--swap-teams"] if swap else []),
                 )
+                if args.upload_run:
+                    upload(last_generated[0], args.upload_run, best)
         if args.self_episodes > 0:
             generate(
                 data_dir / f"it{it:02d}_self.npz",
@@ -171,6 +228,8 @@ def main() -> None:
                 shards=args.shards,
                 args=common,
             )
+            if args.upload_run:
+                upload(last_generated[0], args.upload_run, best)
 
         print("2) train", flush=True)
         files = sorted(data_dir.glob("*.npz"))
@@ -187,6 +246,8 @@ def main() -> None:
                 f"--output={cand}",
                 f"--epochs={args.epochs}",
                 f"--lr={args.lr}",
+                # Rows without label_p (uniform runs) were labelled at this rate.
+                f"--default-label-p={args.rollout_rate}",
                 *shlex.split(args.train_args),
             ],
             cwd=RL.parent,
@@ -210,12 +271,30 @@ def main() -> None:
             shards=args.shards,
         )
         promoted = vs_best["win_rate"] - 50 > args.promote_z * vs_best["win_rate_se"]
-        print(
-            f"   vs best: {vs_best['win_rate']:.1f}% ± {vs_best['win_rate_se']:.1f} "
-            f"-> {'PROMOTED' if promoted else 'rejected'}",
-            flush=True,
-        )
-        entry = {"iter": it, "vs_best": vs_best, "promoted": promoted, "data_files": len(files)}
+        print(f"   vs best: {vs_best['win_rate']:.1f}% ± {vs_best['win_rate_se']:.1f}", flush=True)
+        entry = {"iter": it, "vs_best": vs_best, "data_files": len(files)}
+        if promoted and args.confirm_deals > 0:
+            confirm = duel(
+                [f"--nn-policy={cand}", *own_schupf],
+                [f"--opponent-policy={best}", *best_schupf],
+                deals=args.confirm_deals,
+                seed=777_000 + 1000 * it,
+                shards=args.shards,
+            )
+            entry["vs_best_confirm"] = confirm
+            n1, n2 = args.duel_deals, args.confirm_deals
+            pooled = (vs_best["win_rate"] * n1 + confirm["win_rate"] * n2) / (n1 + n2)
+            pooled_se = (
+                (vs_best["win_rate_se"] * n1) ** 2 + (confirm["win_rate_se"] * n2) ** 2
+            ) ** 0.5 / (n1 + n2)
+            promoted = confirm["win_rate"] > 50 and pooled - 50 > args.promote_z * pooled_se
+            print(
+                f"   confirm (fresh deals): {confirm['win_rate']:.1f}% ± {confirm['win_rate_se']:.1f}, "
+                f"pooled {pooled:.1f}% ± {pooled_se:.1f}",
+                flush=True,
+            )
+        entry["promoted"] = promoted
+        print(f"   -> {'PROMOTED' if promoted else 'rejected'}", flush=True)
         for spec in opponents:
             r = duel(
                 [f"--nn-policy={cand}", *own_schupf],
@@ -245,6 +324,9 @@ def main() -> None:
                 flush=True,
             )
         if promoted:
+            if args.league > 0:
+                # The net being replaced joins the league pool.
+                shutil.copy2(best, pool_dir / f"it{it:02d}.safetensors")
             shutil.copy2(cand, best)
         entry["seconds"] = time.time() - t0
         history.append(entry)

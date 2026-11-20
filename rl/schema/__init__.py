@@ -78,3 +78,27 @@ ACTION_FEATURE_COUNT = ACTION_GROUP.size
 ACTION_OFFSET = ACTION_GROUP.offset
 STATE_FEATURE_COUNT = ACTION_OFFSET
 TOTAL_FEATURE_COUNT = SPEC.total
+
+# Older input layouts, by net input size -> length of their state prefix.
+# Each layout is the current one with later groups missing at the end of the
+# state prefix: v4 (252: before `history`), v5 (318: before `turn`).
+LEGACY_STATE_PREFIX = {
+    SPEC.group("history").offset + ACTION_FEATURE_COUNT: SPEC.group("history").offset,
+    SPEC.group("turn").offset + ACTION_FEATURE_COUNT: SPEC.group("turn").offset,
+}
+
+
+def pad_state(s, xp=None):
+    """Pad state-feature rows of an older layout (fewer columns) with zeros
+    for the missing trailing groups (e.g. ``off_turn`` = 0: data recorded
+    before out-of-turn bombs existed). Works for numpy arrays."""
+    import numpy as np
+
+    n = s.shape[1]
+    if n == STATE_FEATURE_COUNT:
+        return s
+    if n not in LEGACY_STATE_PREFIX.values():
+        raise ValueError(f"state rows have {n} features, expected {STATE_FEATURE_COUNT}")
+    out = np.zeros((s.shape[0], STATE_FEATURE_COUNT), dtype=s.dtype)
+    out[:, :n] = s
+    return out

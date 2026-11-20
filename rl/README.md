@@ -23,8 +23,9 @@ VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>
 
 ## Quick start
 
-The shipped play policy is `assets/bots/tichu_q_v6.safetensors` (see
-`rl/models/README.md`). It is trained by **rollout policy iteration**
+The shipped bot is play net `assets/bots/tichu_q_v7.safetensors` with schupf
+net `assets/bots/tichu_schupf_v3.safetensors` (see
+`rl/models/README.md`). The play net is trained by **rollout policy iteration**
 (`rollout_loop.py`, see "Rollout policy iteration" below).
 
 **Before any RL command, compile the Dart headless runner once.** Every
@@ -46,7 +47,7 @@ tail -f rl/outputs/rollout_loop/loop.log
 Measure any two bots against each other (duplicate deals, both seatings):
 
 ```bash
-rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v6.safetensors" \
+rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v7.safetensors" \
     --b="--opponent-policy=old_policy.safetensors" --deals=1000
 rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
@@ -66,6 +67,16 @@ To regenerate a policy from scratch, start with behaviour cloning
   the net now shares the state prefix of the first layer across the legal
   actions and skips zero inputs (`Mlp.prefixScorer`); and the headless runner
   uses 4-wide float32 SIMD (`Mlp.simdPrefixScorer`, `--no-simd` to turn off).
+- Rollout labels got 2x cheaper on 2026-11-20 with byte-identical output
+  (19.2 -> 9.3 ms per labelled decision, 10 v7 self-play matches at
+  `--rollout-rate=0.5`, one process on a loaded machine): an exact bit-mask
+  bomb check before the full bomb search (the snapshot's UI-only bomb maps
+  were 18 % of the time), a register-blocked SIMD scorer without bounds
+  checks (same float32 operation order), typed feature buffers, and leads
+  that build straight candidates once. Where the time goes now: NN scoring
+  ~52 % (`score` + `setPrefix`), move generation ~11 %, feature encoding
+  ~17 %, snapshots ~6 %; fork copies, agent construction and JSON rows are
+  each under 2 %.
 - `headless_runner.py` shards an episode count across N processes (one per
   shard, distinct seed), then concatenates the JSONL output.
 - Training stays on **CPU**: the ~100k-param net is too small to benefit from
@@ -194,6 +205,111 @@ The fix is to label **every** legal action exactly, and a lot of them:
 The exported net has the same inputs and layers as before and plugs into
 `NnPlaySelectionStrategy` unchanged.
 
+Trainer details since v7 (2026-11-19):
+
+- **Held-out split by match.** Decisions of one round share the deal and so
+  most of the label noise; a per-decision split leaked it into the held-out
+  set and early stopping kept overfitted epochs. `rollout_train.py` now holds
+  out whole matches (the `game` column of the cache; old caches fall back to
+  contiguous blocks of 256 decisions).
+- **Recency weights** (`--recency=r`): data of an earlier iteration is a
+  value under an older policy; a file `itNN_*` gets loss weight
+  `r ** (newest - NN)`. The loop passes `--recency=0.8`.
+- **League** (`rollout_loop.py --league=K`): every net replaced by a
+  promotion joins `pool/` and the K newest pool nets become extra fixed
+  opponents for data and measurements.
+- **Confirmation duel** (`--confirm-deals=N`, default 1000): a candidate that
+  passes the gate must also win a second duel on fresh deals, and the pooled
+  result must clear `--promote-z`.
+- **Wider nets from a warm start** (`rollout_train.py
+  --widen-hidden=512,256,128`): Net2Net-style growth of the hidden layers,
+  the wide net plays exactly like the narrow one before training.
+- Two-sided comparison: `compare_policies.py --jsonl-b=...` also measures the
+  gain on B's games with B continuing (A-continued rollouts flatter A).
+
+### Stakes-weighted rollout labels (`--stakes-rollouts`, 2026-11-20)
+
+Opt-in: spend the rollout labels on the decisions where learning still moves
+(see "Where v7 plays better" below) instead of a uniform `--rollout-rate`.
+Each on-turn play decision of a learner seat gets a stakes class from public
+information (`lib/headless/rollout_stakes.dart`, mirrored in Python by
+`rollout_train.stakes_from_features`; both agree on every row of a test run):
+
+| Class | When | Default p at `--rollout-rate=0.5` |
+|-------|------|-----------------------------------|
+| high | the race to go out: someone is out, another player has 1-3 cards, or own hand <= 5 | 0.70 |
+| mid | otherwise: a (Grand) Tichu caller still in, a lead, or a trick worth >= 20 | 0.35 |
+| low | the rest (quiet middle game) | 0.15 |
+
+- `headless --stakes-rollouts [--stakes-rates=high:p,mid:p,low:p]`: the
+  defaults are `rollout-rate x (1.4, 0.7, 0.3)` (capped at 1); a rate given
+  in `--stakes-rates` is absolute, classes left out keep the default.
+  Out-of-turn bombs keep `--interrupt-rollout-rate`. Labelled rows carry
+  `"stakes"` and `"label_p"`; the runner prints one `stakes_stats` JSON line
+  (decisions, labellable, labelled per class, reasons) to stderr.
+- `rollout_train.py --importance=inverse`: loss weight 1/label_p (normalised
+  to mean 1, times the recency weight), i.e. the uniform-sampling objective
+  again; `none` (default) trains on the shifted mix. Rows without label_p
+  count as `--default-label-p` (the loop passes its `--rollout-rate`).
+  `evaluate` also reports `gain_pts_high/mid/low` (classes from the features
+  for old data). The npz caches keep `label_p` and `stakes`; old caches load.
+- `rollout_loop.py --gen-args="--stakes-rollouts"` passes extra headless
+  arguments to every data run.
+
+A two-class split (high = any of the reasons above, low = the rest) does not
+work: 82 % of the labellable decisions would be high, because a (Grand)
+Tichu caller is still in for 41 % of them and leads are 25 %.
+
+Measured class shares (v7 + schupf v2, epsilon 0.02, labellable decisions =
+at least two actions and no finishing move):
+
+| Games | matches | labellable / match | high | mid | low | labels / match, uniform 0.5 | stakes defaults |
+|-------|---------|--------------------|------|-----|-----|-----------------------------|-----------------|
+| self-play (all seats) | 300 | 462 | 52.4 % | 29.5 % | 18.1 % | 230.9 | 229.6 |
+| vs v6 (policy seats) | 300 | 227 | 53.2 % | 28.5 % | 18.3 % | 113.3 | 113.2 |
+| vs heuristic (policy seats) | 200 | 179 | 59.5 % | 26.0 % | 14.5 % | 89.5 | 94.7 (+6 %) |
+
+So the defaults keep the label budget (and run time) of the uniform 0.5 and
+label high-stakes decisions 4.7x as often as quiet ones: of the labels,
+~74 % are high, 20 % mid, 6 % low (uniform: 52 / 30 / 18 %). Whether this
+beats the uniform rate is not measured yet.
+
+**Measured (2026-11-20): no gain.** A/B on the same iteration (v7 iteration 5:
+same seeds, same start net = iteration 4, same league, same label budget,
+~455k new labels), only the label allocation differs. Duplicate duels, 2000
+fresh deals x 2:
+
+| Candidate | vs iteration 4 |
+|-----------|----------------|
+| uniform labels (rate 0.5) | 50.9 % ± 0.6 |
+| stakes labels, `--importance=none` | 51.1 % ± 0.6 |
+| stakes labels, `--importance=inverse` | 50.4 % ± 0.6 |
+| stakes vs uniform, head to head | 50.5 % ± 0.6 |
+
+Held-out gain moved as expected (high +0.57 vs +0.48 points per decision,
+low -0.21 vs +0.23), but the duels do not move: the extra high-stakes labels
+are worth no more than the quiet ones they replace. The flag stays (off by
+default); the next lever is lower-noise labels, not their allocation.
+
+### Training data in Supabase Storage
+
+Data caches are compressed npz (~115 bytes per decision, ~28 MB per
+iteration of 245k decisions), so all iterations fit in the free 1 GB of
+Supabase Storage. Bucket `rl-training-data` (private) plus a manifest table
+`public.rl_training_files` (`supabase/migrations/20261119000000_rl_training_data.sql`):
+
+```bash
+export SUPABASE_SECRET_KEY=sb_secret_...       # Dashboard -> Settings -> API Keys
+rl/.venv/bin/python rl/training_data_store.py upload --run=v7 rl/outputs/v7/data/*.npz
+rl/.venv/bin/python rl/training_data_store.py list
+rl/.venv/bin/python rl/training_data_store.py download --run=v7 --dest=rl/outputs/v7/data
+rl/.venv/bin/python rl/rollout_loop.py ... --upload-run=v7   # upload while training
+```
+
+Only the secret key can read or write the bucket and the table (RLS on, no
+policies). In a cloud session, store the key as a network secret for the
+project host (header `apikey`) instead of the environment variable.
+
 ### Training pipelines
 
 Shared modules: `qnet.py` (the Q(s, a) MLP, batched BC loss, safetensors
@@ -224,7 +340,7 @@ Python entry points:
    ```bash
    rl/.venv/bin/python rl/call_train.py --generate --episodes=1500 \
        --target-score=500 --call-epsilon=0.15 \
-       --nn-policy=assets/bots/tichu_q_v6.safetensors --output-dir=rl/outputs
+       --nn-policy=assets/bots/tichu_q_v7.safetensors --output-dir=rl/outputs
    ```
 
 3. **`schupf_train.py`** — schupf value net Q(hand, pass) on
@@ -620,17 +736,142 @@ Style, on the same positions (share of decisions where the move is possible):
   and the higher one costs a little (-2.8 ± 2.2): the net edge is in the
   endgame and against short opponent hands, not in a simple rule.
 
+## Results v7 candidate (2026-11-19): league, match split, confirmation duels
+
+Four iterations of `rollout_loop.py --league=2 --opponent-nets=v5
+--train-args="--ema=0.999 --recency=0.8"` from v6 (2400 league matches + 1000
+self-play matches per iteration, ~500k labelled decisions each, 2.0M in all;
+data in Supabase Storage, run `v7`). All four were promoted (gate duel and
+confirmation duel on fresh deals, 1000 deals x 2 each):
+
+| Iteration | vs previous best (gate / fresh) | vs v5 | vs v6 |
+|-----------|---------------------------------|-------|-------|
+| 1 | 52.9 / 54.2 % | 63.9 % | (= previous best) |
+| 2 | 52.7 / 51.6 % | 65.5 % | 54.8 % |
+| 3 | 52.3 / 50.6 % | 68.1 % | 57.6 % |
+| 4 | 53.3 / 50.6 % | 68.7 % | **58.4 % ± 0.5** (3000 fresh deals x 2, seed 9001) |
+
+Iteration 4 (`assets/bots/tichu_q_v7.safetensors`)
+beats the heuristic 95.4 % ± 0.3 (v6: 93.9 %). 58.4 % is just under the
+60 % bar for a PR on its own. **Shipped 2026-11-20 together with schupf v3**
+(trained on 67k exact schupf decisions of v7 self-play): v7 + schupf v3 beats
+v6 + schupf v2 **62.3 % ± 0.6** (3000 fresh deals x 2, +167 per match); schupf
+v3 alone is worth 53.4 % ± 0.7.
+
+A/Bs on the same data, same start (the iteration-4 starting net), duels
+against the iteration-4 net (2000 deals x 2):
+
+- **Recency 1.0 instead of 0.8**: 50.0 % ± 0.6. No measurable effect; 0.8 is
+  kept (harmless, and it matters more as the data of old policies grows).
+- **Wider net 512-256-128** (`--widen-hidden`, function-preserving): 48.5 %
+  ± 0.6, *worse*, although its held-out gain was higher (+0.44 vs +0.39
+  points per decision). With 4 epochs the extra units are undertrained; and
+  the held-out gain does not predict duel results at this resolution.
+- Each gate duel was ~1 pp more optimistic than its fresh-deal confirmation
+  (52.3-53.3 % vs 50.6-54.2 %): the confirmation duel is worth keeping.
+
+### Where v7 plays better, and where it is still weak (2026-11-19)
+
+`compare_policies.py` both ways (1000 matches v7 vs v6 each, every legal move
+of 30 % of the decisions rolled out; 68k decisions per side). v7 and v6
+differ on 22 % of decisions; v7's move is worth **+1.8 ± 0.7** points per
+differing move (+2.1 with v7 continuing, +1.4 with v6 continuing).
+
+Per differing move, mean of both directions where both agree in sign:
+
+| Situation | v7 gain |
+|-----------|---------|
+| partner called (Grand) Tichu | +5.0 |
+| endgame, 1-4 cards in hand | +5.3 |
+| an opponent has one card left | +4.7 |
+| an opponent called (Grand) Tichu | +2.9 |
+| partner already out | +2.5 |
+| leading | +2.4 |
+| following singles in the middle game | +1.3 (not significant) |
+
+Moves: playing the lower of two singles (+2.8), playing a single instead of a
+pair (+19 with v7 continuing, -3 with v6), passing instead of spending a
+single on an opponent's trick (+3.9 / -0.5).
+
+What the *last* iteration still learned (v7 vs its starting net, same data):
+only the endgame, play around (Grand) Tichu calls and leads move (+1 to +3.5
+per differing move); the middle-game following decisions (63 % of all
+decisions) no longer improve (-1.5 ± 1.6). With one rollout per action the
+label noise (mean clairvoyant regret 56 points) swamps what is left there.
+
+Points at stake per situation (clairvoyant regret of v7's own moves, mostly
+card luck, so only a relative weight): decisions with 10-14 cards in hand are
+51 % of all decisions but carry 67 % of the regret, endgame decisions (1-4
+cards) only 6 %. The early, long-horizon decisions are where the most is at
+stake and where the current labels are too noisy to learn from.
+
+Not learned at all yet:
+
+- **Out-of-turn bombs.** The engine accepts them (`trick_resolution.dart`,
+  `isInterruptingBomb`), but `AgentDecisions.next` only ever asks the player
+  whose turn it is, so a bot can never bomb after it passed or before an
+  opponent goes out.
+- Dragon gift and wish choice are heuristic; schupf v2 was trained on v5's
+  play; calls are the strength rule (near its ceiling, see "Schupf and calls").
+
+The heuristic no longer gives a useful signal: v7 wins 95.4 % against it, a
+1 pp step is barely measurable there, and v7's data used no heuristic games.
+It stays only as a regression check; progress is measured against the league
+nets and with exact rollouts.
+
+### Out-of-turn bombs (2026-11-20)
+
+The decision loop now offers every player holding a bomb that beats the trick
+an out-of-turn bomb between any two plays/passes (`BombInterruptRequest`,
+`DeclineBombAction`; the app's AI runner and the headless runner both use
+it). Feature schema v6 adds one input, `off_turn` (1 = deciding out of
+turn), at the end of the state prefix; v5-layout nets (v5-v7, 318 inputs)
+still load and play unchanged in Dart and are widened with zero weights in
+Python.
+
+Measured with v7, exact rollouts of 25,447 interrupt decisions (bomb now vs
+wait, `--interrupt-rollout-rate=1`):
+
+- Bombing out of turn costs **-50 points** per decision on average and wins
+  in 27 % of cases. It is negative in every slice tried: who wins the trick
+  (opponent -30 to -43, partner -70), the winner's or any opponent's card
+  count, Tichu calls, an opponent already out, trick points, passes so far.
+- Why: every player gets a turn before a trick comes back to its winner, so
+  an interrupt only changes *when* the bot bombs; waiting keeps the bomb and
+  the in-turn option. The cases where early bombing helps depend on hidden
+  cards.
+- A rule (bomb against an opponent with <= 3 cards / a Tichu caller / a
+  double-win threat / 20+ points) loses: v7 with it vs v7 without
+  **47.0 % ± 0.4** (2000 deals x 2).
+- A net trained on the interrupt decisions (v7 start, held-out matches) does
+  not beat "never": -1.7 points per decision vs always waiting.
+
+So the bots decline by default (`interrupt_bomb` is off; switch it on with
+`--heuristic=latest,interrupt_bomb`), and interrupt rows are not labelled
+unless `--interrupt-rollout-rate` > 0. Humans can still bomb out of turn.
+Cost: ~5 % slower simulation.
+
 ## Next steps
 
-1. More iterations against v6 / a pool of earlier nets (gains per
-   iteration against a fixed opponent shrink to < 1 pp after three), and
-   the history A/B again at the current data size (740k decisions).
-2. Learned calls on exact counterfactual labels from the best policy
+The review of 2026-11-20 (`rl/REVIEW.md`) measures the label noise, lists
+the flaws of this setup and orders the next ideas; it supersedes the list
+below where they differ.
+
+1. ~~Out-of-turn bombs for bots~~ Done 2026-11-20: no gain, off by default
+   (see "Out-of-turn bombs").
+2. Less noisy labels for the early game: several rollouts per action with
+   the hidden cards re-dealt consistently with the public history, or a
+   perfect-information value net to truncate rollouts (item 6).
+3. Continue the v7 run (`--out-dir=rl/outputs/v7`, data restorable with
+   `training_data_store.py download --run=v7`): steps are now ~+1 pp per
+   iteration, two or three more should pass 60 % against v6. Then the
+   history A/B again at the current data size (2M decisions).
+4. Learned calls on exact counterfactual labels from the best policy
    (`call_labels.sh` + `call_train.py`); then the same for the schupf.
-3. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:
+5. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:
    1,200 lines removed, the remaining heuristic beats the previous one
    50.9 % ± 0.3 (see `lib/agents/ai_strategy.md`).
-4. A truncated rollout with a perfect-information value net (PerfectDou's
+6. A truncated rollout with a perfect-information value net (PerfectDou's
    critic) would make labels several times cheaper once more data is needed.
 
 ## Output contract

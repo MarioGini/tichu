@@ -1,6 +1,7 @@
 # Trained models
 
-The app's bots use `assets/bots/tichu_q_v6.safetensors` (loaded by
+The app's bots use `assets/bots/tichu_q_v7.safetensors` and
+`assets/bots/tichu_schupf_v3.safetensors` (loaded by
 `lib/agents/app_bots.dart`).
 
 ## tichu_q_v4.safetensors (removed)
@@ -38,7 +39,8 @@ simulates in 85 ms.
 Use with the heuristic's Tichu calls and schupf:
 
 ```bash
-build/bin/headless --nn-policy=assets/bots/tichu_q_v6.safetensors ...
+build/bin/headless --nn-policy=assets/bots/tichu_q_v7.safetensors \
+    --schupf-net=assets/bots/tichu_schupf_v3.safetensors ...
 ```
 
 In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.
@@ -58,6 +60,38 @@ A Tichu call model (P(go out first | call) from the hand after the schupf);
 +0.4 points per decision over the strength rule, not worth a model (see
 rl/README.md, "Schupf and calls"). Calls use the heuristic rule.
 
+## tichu_schupf_v2.safetensors (removed)
+
+Restore it with `git show 2485b2d:assets/bots/tichu_schupf_v2.safetensors`.
+
+
+Schupf value net (232 inputs, `NnSchupfStrategy`), trained by
+`rl/schupf_cf_train.py` on 51,600 exact schupf decisions of v5 self-play (16
+candidate passes per decision, each round played out); the second half of
+the data was generated with schupf v1 in place. v5 with it beats the previous
+bot (v5 + schupf v1) 54.0 % ± 0.7 (2000 deals x 2); v1 had beaten v5 with the
+heuristic schupf 55.0 % ± 0.8. Against an opponent's Grand Tichu it passes
+the Dog and the lowest cards to the caller and strength to the partner
+(`rl/schupf_vs_grand.py`).
+
+## tichu_q_v7.safetensors + tichu_schupf_v3.safetensors (shipped)
+
+Play net v7: four league iterations from v6 (rl/README.md, "Results v7
+candidate"); same architecture (318 inputs: the v5 layout, it reads the
+state prefix before the `turn` flag). Schupf v3: `schupf_cf_train.py` on
+67,156 exact schupf decisions of v7 self-play (16 candidate passes each, each
+round played out), held-out gain over schupf v2's own pass +2.7 points per
+round.
+
+Duplicate duels, fresh deals (seed 9001), matches to 1000:
+
+| Bot | Opponent | Result |
+|-----|----------|--------|
+| v7 + schupf v3 | v6 + schupf v2 (previous shipped bot) | **62.3 % ± 0.6**, +167 per match (3000 deals x 2) |
+| v7 + schupf v3 | v7 + schupf v2 | 53.4 % ± 0.7 (2000 deals x 2) |
+| v7 + schupf v2 | v6 + schupf v2 | 58.4 % ± 0.5 (3000 deals x 2) |
+| v7 + schupf v2 | heuristic | 95.4 % ± 0.3 (2000 deals x 2) |
+
 ## tichu_schupf_v2.safetensors (shipped)
 
 Schupf value net (232 inputs, `NnSchupfStrategy`), trained by
@@ -69,7 +103,16 @@ heuristic schupf 55.0 % ± 0.8. Against an opponent's Grand Tichu it passes
 the Dog and the lowest cards to the caller and strength to the partner
 (`rl/schupf_vs_grand.py`).
 
-## tichu_q_v6.safetensors (shipped)
+## tichu_q_v7_candidate.safetensors (candidate, not shipped)
+
+Four league iterations from v6 (see rl/README.md, "Results v7 candidate").
+58.4 % ± 0.5 against v6 (3000 fresh deals x 2), 95.4 % against the
+heuristic; below the 60 % bar for shipping. Same architecture as v6.
+
+## tichu_q_v6.safetensors (removed)
+
+Restore it with `git show 2485b2d:assets/bots/tichu_q_v6.safetensors`.
+
 
 Three rollout policy-iteration steps from v5, trained on games against v5
 and self-play with the learned schupf, EMA weights and early stopping (same

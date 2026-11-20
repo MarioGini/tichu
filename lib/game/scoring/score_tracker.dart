@@ -152,9 +152,9 @@ class LocalScoreTracker {
     );
   }
 
-  /// Sums card points per team for a normal (non-match) round.
-  /// Last finisher's tricks go to opposing team; last finisher's remaining
-  /// hand goes to first finisher's team.
+  /// Sums card points per team for a normal (non-match) round: the last
+  /// finisher's tricks go to the first finisher, the cards left in the last
+  /// finisher's hand go to the opposing team.
   (int, int) _computeNormalCardPoints(final Map<String, List<Card>> hands) {
     final first = _finishOrder.first;
     final last = _finishOrder.last;

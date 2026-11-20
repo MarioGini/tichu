@@ -24,12 +24,9 @@ extension _Rollouts on _HeadlessSimulator {
   }) async {
     final playerId = chosen.playerId;
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
-    final legalTurns = LegalPlayGuard.filterMoveGeneratorTurns(
-      deck: snapshot.deck,
-      hand: hand,
-      moveGeneratorTurns: generateLegalTurns(snapshot.deck, hand),
-    );
-    final canPass = LegalPlayGuard.canPass(deck: snapshot.deck, hand: hand);
+    // Out of turn (an interrupt): the beating bombs, "pass" = wait.
+    final offTurn = snapshot.currentPlayerId != playerId;
+    final (:legalTurns, :canPass) = _decisionActions(snapshot, playerId);
     final count = legalTurns.length + (canPass ? 1 : 0);
     if (count < 2) return null;
     // Going out is a hard rule of every bot, not a learned decision.
@@ -38,7 +35,9 @@ extension _Rollouts on _HeadlessSimulator {
     }
 
     final chosenKey = chosen is PlayTurnAction ? _slotKey(chosen.cards) : null;
-    var chosenIndex = chosen is PassAction ? count - 1 : -1;
+    var chosenIndex = chosen is PassAction || chosen is DeclineBombAction
+        ? count - 1
+        : -1;
     for (var i = 0; i < legalTurns.length && chosenIndex < 0; i++) {
       if (_slotKey(legalTurns[i].cards) == chosenKey) chosenIndex = i;
     }
@@ -63,7 +62,14 @@ extension _Rollouts on _HeadlessSimulator {
       };
       final GameAction action;
       if (i >= legalTurns.length) {
-        action = PassAction(playerId: playerId);
+        action = offTurn
+            ? DeclineBombAction(playerId: playerId)
+            : PassAction(playerId: playerId);
+      } else if (offTurn) {
+        action = PlayTurnAction(
+          playerId: playerId,
+          cards: List<Card>.from(legalTurns[i].cards),
+        );
       } else {
         final actor = forkAgents[playerId];
         action = actor is SmartAiAgent
@@ -101,7 +107,11 @@ extension _Rollouts on _HeadlessSimulator {
     for (var steps = 0; steps < 5000; steps++) {
       final score = fork.scoreTracker.state;
       if (score.roundComplete) return score.teamOneRound - score.teamTwoRound;
-      final request = AgentDecisions.next(engine, fork);
+      final request = AgentDecisions.next(
+        engine,
+        fork,
+        bombInterrupts: bombInterrupts,
+      );
       if (request == null) return null;
       final snap = engine.buildSnapshot(fork);
       GameAction? action;

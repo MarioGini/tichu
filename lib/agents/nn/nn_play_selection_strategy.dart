@@ -31,10 +31,18 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
       : network.prefixScorer(_stateLength);
 
   /// State prefix the net was trained on: nets from before the `history`
-  /// group (v3, v4) read only the first [legacyStateFeatureCount] features.
-  late final int _stateLength = network.inputSize == legacyTotalFeatureCount
-      ? legacyStateFeatureCount
-      : stateFeatureCount;
+  /// group (v3, v4) read only the first [legacyStateFeatureCount] features,
+  /// nets from before the `turn` group (v5-v7) the first
+  /// [v5StateFeatureCount].
+  late final int _stateLength = network.inputSize - actionFeatureCount;
+
+  /// Whether the net knows out-of-turn decisions (the `turn` group). Older
+  /// nets never saw one; [selectInterruptBomb] then returns [notSupported].
+  bool get knowsInterrupts => network.inputSize == totalFeatureCount;
+
+  /// Returned by [selectInterruptBomb] when the net predates the `turn`
+  /// group.
+  static final TichuTurn notSupported = TichuTurn(TurnType.none, const []);
 
   /// Use float32 SIMD inference (headless runs; see [Mlp.simdPrefixScorer]).
   final bool simd;
@@ -47,6 +55,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     this.simd = false,
   }) {
     if (network.inputSize != totalFeatureCount &&
+        network.inputSize != v5TotalFeatureCount &&
         network.inputSize != legacyTotalFeatureCount) {
       throw ArgumentError.value(
         network.inputSize,
@@ -110,6 +119,18 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     }
     if (legalTurns.length == 1 && !canPass) return legalTurns.first;
     return _argmax(snapshot, legalTurns, canPass: canPass);
+  }
+
+  /// Out of turn: the best of [bombs], or null when waiting (the pass
+  /// action) scores higher; [notSupported] for nets without the `turn`
+  /// group.
+  TichuTurn? selectInterruptBomb(
+    final GameSnapshot snapshot,
+    final List<TichuTurn> bombs,
+  ) {
+    if (!knowsInterrupts) return notSupported;
+    if (bombs.isEmpty) return null;
+    return _argmax(snapshot, bombs, canPass: true);
   }
 
   /// Highest-Q play among [plays], or `null` when [canPass] and the pass

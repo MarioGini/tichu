@@ -33,6 +33,12 @@ class _HeadlessConfig {
   final double counterfactualRate;
   final double rolloutRate;
   final int rolloutMaxActions;
+  final bool bombInterrupts;
+  final int rolloutWorlds;
+  final int worldsMinCards;
+  final double interruptRolloutRate;
+  final bool stakesRollouts;
+  final StakesRates? stakesRates;
   final String labelSeats;
   final bool describe;
   final List<HeuristicOptions> shadowVariants;
@@ -74,6 +80,12 @@ class _HeadlessConfig {
     required this.counterfactualRate,
     required this.rolloutRate,
     required this.rolloutMaxActions,
+    required this.bombInterrupts,
+    required this.rolloutWorlds,
+    required this.worldsMinCards,
+    required this.interruptRolloutRate,
+    required this.stakesRollouts,
+    required this.stakesRates,
     required this.labelSeats,
     required this.describe,
     required this.shadowVariants,
@@ -120,6 +132,12 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var counterfactualRate = 1.0;
   var rolloutRate = 0.0;
   var rolloutMaxActions = 12;
+  var bombInterrupts = true;
+  var rolloutWorlds = 1;
+  var worldsMinCards = 0;
+  var interruptRolloutRate = 0.0;
+  var stakesRollouts = false;
+  String? stakesRatesSpec;
   var labelSeats = 'policy';
   var describe = false;
   var shadowVariants = const <HeuristicOptions>[];
@@ -230,6 +248,33 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 0 && p <= 1) rolloutRate = p;
       continue;
     }
+    if (arg.startsWith('--rollout-worlds=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) rolloutWorlds = k;
+      continue;
+    }
+    if (arg.startsWith('--worlds-min-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) worldsMinCards = k;
+      continue;
+    }
+    if (arg == '--no-bomb-interrupts') {
+      bombInterrupts = false;
+      continue;
+    }
+    if (arg.startsWith('--interrupt-rollout-rate=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) interruptRolloutRate = p;
+      continue;
+    }
+    if (arg == '--stakes-rollouts') {
+      stakesRollouts = true;
+      continue;
+    }
+    if (arg.startsWith('--stakes-rates=')) {
+      stakesRatesSpec = arg.substring(arg.indexOf('=') + 1);
+      continue;
+    }
     if (arg.startsWith('--rollout-max-actions=')) {
       final p = int.tryParse(arg.split('=').last);
       if (p != null && p >= 2) rolloutMaxActions = p;
@@ -322,6 +367,25 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     showHelp = true;
   }
 
+  // Absolute per-class probabilities; classes not named keep the default
+  // derived from --rollout-rate (see StakesRates.forBase).
+  StakesRates? stakesRates;
+  if (stakesRatesSpec != null) {
+    stakesRates = StakesRates.parse(
+      stakesRatesSpec,
+      StakesRates.forBase(rolloutRate),
+    );
+    if (stakesRates == null) {
+      stderr.writeln('Invalid --stakes-rates: $stakesRatesSpec');
+      exitCode = 64;
+      showHelp = true;
+    } else if (!stakesRollouts) {
+      stderr.writeln(
+        'warning: --stakes-rates has no effect without --stakes-rollouts',
+      );
+    }
+  }
+
   if (!outputProvided &&
       (outputFormat == _HeadlessOutputFormat.bcJsonl ||
           outputFormat == _HeadlessOutputFormat.summary)) {
@@ -361,6 +425,12 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     counterfactualRate: counterfactualRate,
     rolloutRate: rolloutRate,
     rolloutMaxActions: rolloutMaxActions,
+    bombInterrupts: bombInterrupts,
+    rolloutWorlds: rolloutWorlds,
+    worldsMinCards: worldsMinCards,
+    interruptRolloutRate: interruptRolloutRate,
+    stakesRollouts: stakesRollouts,
+    stakesRates: stakesRates,
     labelSeats: labelSeats,
     describe: describe,
     shadowVariants: shadowVariants,
@@ -390,6 +460,11 @@ void _printUsage() {
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
+  stdout.writeln('       [--no-bomb-interrupts] [--interrupt-rollout-rate=p]');
+  stdout.writeln('       [--rollout-worlds=K] [--worlds-min-cards=N]');
+  stdout.writeln(
+    '       [--stakes-rollouts] [--stakes-rates=high:p,mid:p,low:p]',
+  );
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
   stdout.writeln('       [--shadow-heuristics=spec|spec|...] [--no-simd]');
   stdout.writeln('       [--schupf-rollout-rate=p] [--schupf-candidates=N]');

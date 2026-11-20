@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Convert a play policy from the v4 feature layout (252 inputs) to the v5
-layout (318: the 66 `history` features inserted before the action group).
+"""Convert a play policy of an older feature layout to the current one.
 
-The new input weights are zero, so the converted net plays exactly like the
-original one; training then learns to use the history.
+Older layouts are the current one with state groups missing at the end of
+the state prefix: v4 (252 inputs, before `history`) and v5 (318, before the
+`turn` flag of out-of-turn bombs). The new input weights are zero, so the
+converted net plays exactly like the original one; training then learns to
+use the new features. (`load_qnetwork_from_safetensors` does the same in
+memory, so training can also start from the old file directly.)
 
-  rl/.venv/bin/python rl/widen_net.py old_v4_layout.safetensors out.safetensors
+  rl/.venv/bin/python rl/widen_net.py old_layout.safetensors out.safetensors
 """
 
 from __future__ import annotations
@@ -18,9 +21,7 @@ import torch
 from safetensors import safe_open
 from safetensors.torch import load_file, save_file
 
-from schema import ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT
-
-LEGACY_STATE = SPEC.group("history").offset  # 201: state prefix of layout v4
+from schema import ACTION_OFFSET, LEGACY_STATE_PREFIX, TOTAL_FEATURE_COUNT
 
 
 def widen(src: Path, dst: Path) -> None:
@@ -30,13 +31,13 @@ def widen(src: Path, dst: Path) -> None:
     sizes = json.loads(meta["layer_sizes"])
     if sizes[0] == TOTAL_FEATURE_COUNT:
         raise SystemExit(f"{src} already has {TOTAL_FEATURE_COUNT} inputs")
-    action = sizes[0] - LEGACY_STATE
-    if action != TOTAL_FEATURE_COUNT - ACTION_OFFSET:
+    prefix = LEGACY_STATE_PREFIX.get(sizes[0])
+    if prefix is None:
         raise SystemExit(f"{src}: unexpected input size {sizes[0]}")
     w = tensors["layer.0.weight"]
     new = torch.zeros(w.shape[0], TOTAL_FEATURE_COUNT, dtype=w.dtype)
-    new[:, :LEGACY_STATE] = w[:, :LEGACY_STATE]
-    new[:, ACTION_OFFSET:] = w[:, LEGACY_STATE:]
+    new[:, :prefix] = w[:, :prefix]
+    new[:, ACTION_OFFSET:] = w[:, prefix:]
     tensors["layer.0.weight"] = new.contiguous()
     meta["layer_sizes"] = json.dumps([TOTAL_FEATURE_COUNT] + sizes[1:])
     meta["builder.widened_from"] = str(src)

@@ -52,6 +52,7 @@ extension _Exploration on _HeadlessSimulator {
           engine,
           fork,
           preSchupfDecided: preDecided,
+          bombInterrupts: bombInterrupts,
         );
         if (request == null) return null;
         if (request is PreSchupfTichuRequest) preDecided.add(request.playerId);

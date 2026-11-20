@@ -443,6 +443,12 @@ class MlpPrefixScorer implements PrefixScorer {
 /// [MlpPrefixScorer] on 4-wide float32 SIMD vectors (see
 /// [Mlp.simdPrefixScorer]). Padded outputs have zero weights and biases, so
 /// they stay zero and are skipped like any inactive ReLU unit.
+///
+/// Every layer first collects its non-zero inputs, then accumulates each
+/// block of output vectors in registers over them ([_accumulate]). Each
+/// output still receives `bias + w_i * x_i` in increasing input order, one
+/// float32 multiply and add at a time, so the result is bit for bit that of
+/// the straightforward "add one input column at a time" loop.
 class MlpSimdPrefixScorer implements PrefixScorer {
   final Mlp _net;
   final int prefixLength;
@@ -452,12 +458,19 @@ class MlpSimdPrefixScorer implements PrefixScorer {
   /// Scalar views of [_acts] (same memory) for the ReLU test.
   final List<Float32List> _scalar;
 
+  /// The non-zero inputs of the layer being computed: offset of their weight
+  /// row (in vectors) and their value, splatted.
+  final Int32List _rows;
+  final Float32x4List _xs;
+
   MlpSimdPrefixScorer._(this._net, this.prefixLength)
     : _base = Float32x4List(_net._vecLen(0)),
       _acts = [
         for (var l = 0; l < _net.numLayers; l++) Float32x4List(_net._vecLen(l)),
       ],
-      _scalar = [] {
+      _scalar = [],
+      _rows = Int32List(_net.layerSizes.reduce(max)),
+      _xs = Float32x4List(_net.layerSizes.reduce(max)) {
     for (final a in _acts) {
       _scalar.add(Float32List.view(a.buffer));
     }
@@ -467,67 +480,132 @@ class MlpSimdPrefixScorer implements PrefixScorer {
 
   @override
   void setPrefix(final List<double> prefix) {
-    final bias = _net._simdBiases[0];
-    final wt = _net._simdWeights[0];
-    final vecLen = bias.length;
-    final base = _base;
-    for (var v = 0; v < vecLen; v++) {
-      base[v] = bias[v];
-    }
-    for (var i = 0; i < prefixLength; i++) {
-      final x = prefix[i];
-      if (x == 0) continue;
-      final xv = Float32x4.splat(x);
-      final off = i * vecLen;
-      for (var v = 0; v < vecLen; v++) {
-        base[v] += wt[off + v] * xv;
+    final vecLen = _base.length;
+    final rows = _rows;
+    final xs = _xs;
+    var n = 0;
+    if (prefix is Float64List) {
+      // Typed reads (no boxed doubles); the same values as below.
+      for (var i = 0; i < prefixLength; i++) {
+        final x = prefix[i];
+        if (x == 0) continue;
+        rows[n] = i * vecLen;
+        xs[n] = Float32x4.splat(x);
+        n++;
+      }
+    } else {
+      for (var i = 0; i < prefixLength; i++) {
+        final x = prefix[i];
+        if (x == 0) continue;
+        rows[n] = i * vecLen;
+        xs[n] = Float32x4.splat(x);
+        n++;
       }
     }
+    _accumulate(_base, _net._simdBiases[0], _net._simdWeights[0], n);
   }
 
   @override
   double score(final List<double> suffix, [final int offset = 0]) {
     final net = _net;
-    var cur = _acts[0];
-    var vecLen = cur.length;
-    final base = _base;
-    for (var v = 0; v < vecLen; v++) {
-      cur[v] = base[v];
-    }
-    final wt0 = net._simdWeights[0];
+    final rows = _rows;
+    final xs = _xs;
+    final vecLen = _base.length;
     final n = suffixLength;
-    for (var i = 0; i < n; i++) {
-      final x = suffix[offset + i];
-      if (x == 0) continue;
-      final xv = Float32x4.splat(x);
-      final off = (prefixLength + i) * vecLen;
-      for (var v = 0; v < vecLen; v++) {
-        cur[v] += wt0[off + v] * xv;
+    var k = 0;
+    if (suffix is Float64List) {
+      for (var i = 0; i < n; i++) {
+        final x = suffix[offset + i];
+        if (x == 0) continue;
+        rows[k] = (prefixLength + i) * vecLen;
+        xs[k] = Float32x4.splat(x);
+        k++;
+      }
+    } else {
+      for (var i = 0; i < n; i++) {
+        final x = suffix[offset + i];
+        if (x == 0) continue;
+        rows[k] = (prefixLength + i) * vecLen;
+        xs[k] = Float32x4.splat(x);
+        k++;
       }
     }
+    _accumulate(_acts[0], _base, net._simdWeights[0], k);
     for (var l = 1; l < net.numLayers; l++) {
-      final bias = net._simdBiases[l];
-      final wt = net._simdWeights[l];
-      final next = _acts[l];
-      final nextLen = bias.length;
-      for (var v = 0; v < nextLen; v++) {
-        next[v] = bias[v];
-      }
-      final curScalar = _scalar[l - 1];
+      final nextLen = _acts[l].length;
+      final cur = _scalar[l - 1];
       final inLen = net.layerSizes[l];
+      k = 0;
       for (var i = 0; i < inLen; i++) {
-        final x = curScalar[i];
+        final x = cur[i];
         if (x <= 0) continue; // ReLU
-        final xv = Float32x4.splat(x);
-        final off = i * nextLen;
-        for (var v = 0; v < nextLen; v++) {
-          next[v] += wt[off + v] * xv;
-        }
+        rows[k] = i * nextLen;
+        xs[k] = Float32x4.splat(x);
+        k++;
       }
-      cur = next;
-      vecLen = nextLen;
+      _accumulate(_acts[l], net._simdBiases[l], net._simdWeights[l], k);
     }
     return _scalar[net.numLayers - 1][0];
+  }
+
+  /// `out[v] = init[v] + sum_k w[rows[k] + v] * xs[k]` for every output
+  /// vector v, adding the terms in order k = 0, 1, ...; blocks of output
+  /// vectors stay in registers while the [n] inputs are added.
+  @pragma('vm:unsafe:no-bounds-checks')
+  void _accumulate(
+    final Float32x4List out,
+    final Float32x4List init,
+    final Float32x4List w,
+    final int n,
+  ) {
+    final rows = _rows;
+    final xs = _xs;
+    final len = out.length;
+    // The loops below skip bounds checks; rows are increasing.
+    if (init.length < len ||
+        rows.length < n ||
+        xs.length < n ||
+        (n > 0 && rows[n - 1] + len > w.length)) {
+      throw RangeError('MlpSimdPrefixScorer: buffers too small');
+    }
+    var v = 0;
+    for (; v + 8 <= len; v += 8) {
+      var a0 = init[v];
+      var a1 = init[v + 1];
+      var a2 = init[v + 2];
+      var a3 = init[v + 3];
+      var a4 = init[v + 4];
+      var a5 = init[v + 5];
+      var a6 = init[v + 6];
+      var a7 = init[v + 7];
+      for (var k = 0; k < n; k++) {
+        final x = xs[k];
+        final o = rows[k] + v;
+        a0 += w[o] * x;
+        a1 += w[o + 1] * x;
+        a2 += w[o + 2] * x;
+        a3 += w[o + 3] * x;
+        a4 += w[o + 4] * x;
+        a5 += w[o + 5] * x;
+        a6 += w[o + 6] * x;
+        a7 += w[o + 7] * x;
+      }
+      out[v] = a0;
+      out[v + 1] = a1;
+      out[v + 2] = a2;
+      out[v + 3] = a3;
+      out[v + 4] = a4;
+      out[v + 5] = a5;
+      out[v + 6] = a6;
+      out[v + 7] = a7;
+    }
+    for (; v < len; v++) {
+      var a = init[v];
+      for (var k = 0; k < n; k++) {
+        a += w[rows[k] + v] * xs[k];
+      }
+      out[v] = a;
+    }
   }
 }
 

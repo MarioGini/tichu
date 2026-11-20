@@ -45,10 +45,6 @@ extension _Legality on _HeadlessSimulator {
     if (snapshot.phase != GamePhase.play) {
       throw StateError('Illegal play action outside play phase.');
     }
-    if (action.playerId != snapshot.currentPlayerId) {
-      throw StateError('Illegal play action by non-current player.');
-    }
-
     final hand = List<Card>.from(
       snapshot.hands[action.playerId] ?? const <Card>[],
     );
@@ -64,6 +60,18 @@ extension _Legality on _HeadlessSimulator {
     }
     if (turn.type == TurnType.none) {
       throw StateError('Illegal play action: invalid turn shape.');
+    }
+    // Out of turn only a bomb may be played (an interrupt), and only on a
+    // trick (the decision loop never offers one on an empty table or the
+    // Dog).
+    if (action.playerId != snapshot.currentPlayerId) {
+      final onTable = snapshot.deck.turn.type;
+      if (turn.type != TurnType.bomb ||
+          onTable == TurnType.empty ||
+          onTable == TurnType.none ||
+          onTable == TurnType.dog) {
+        throw StateError('Illegal play action by non-current player.');
+      }
     }
     if (mahJong(snapshot.deck, turn, hand)) {
       throw StateError('Illegal play action: wish must be fulfilled.');

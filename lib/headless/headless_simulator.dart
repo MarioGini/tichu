@@ -61,6 +61,36 @@ class _HeadlessSimulator {
   /// only labelled play rows are written.
   final double rolloutRate;
   final int rolloutMaxActions;
+
+  /// Worlds per labelled decision (`--rollout-worlds=K`, default 1 = the
+  /// real deal only): K - 1 re-dealt worlds are rolled out too and written
+  /// as `q_rollout_worlds`, for decisions with at least [worldsMinCards]
+  /// cards in hand.
+  final int rolloutWorlds;
+  final int worldsMinCards;
+
+  /// Offer out-of-turn bombs (`--no-bomb-interrupts` turns them off, the
+  /// behaviour before 2026-11-20).
+  final bool bombInterrupts;
+
+  /// Share of the learner seats' out-of-turn bomb decisions that get
+  /// rollout labels when [rolloutRate] > 0 (`--interrupt-rollout-rate`,
+  /// default 0: the bots do not bomb out of turn, see `interrupt_bomb`).
+  final double interruptRolloutRate;
+
+  /// `--stakes-rollouts`: per-class label probability of the learner seats'
+  /// on-turn play decisions (see [classifyStakes]) instead of the uniform
+  /// [rolloutRate]. Labelled rows carry `stakes` and `label_p`. Null = off.
+  final StakesRates? stakesRates;
+
+  /// Per stakes class: [decisions, labellable, labelled] (see
+  /// [_printStakesStats]); reasons are counted on labellable decisions.
+  final Map<RolloutStakes, List<int>> _stakesCounts = {
+    for (final s in RolloutStakes.values) s: [0, 0, 0],
+  };
+  final Map<StakesReason, int> _reasonCounts = {
+    for (final r in StakesReason.values) r: 0,
+  };
   final bool Function(int seat) isLearnerSeat;
 
   /// Add a human-readable description of the position to labelled rows.
@@ -114,6 +144,11 @@ class _HeadlessSimulator {
     this.counterfactualRate = 1,
     this.rolloutRate = 0,
     this.rolloutMaxActions = 12,
+    this.bombInterrupts = true,
+    this.rolloutWorlds = 1,
+    this.worldsMinCards = 0,
+    this.interruptRolloutRate = 0,
+    this.stakesRates,
     this.isLearnerSeat = _everySeat,
     this.describe = false,
     this.shadowVariants = const [],
@@ -170,6 +205,41 @@ class _HeadlessSimulator {
       // sink would buffer the whole run in memory.
       await output?.flush();
     }
+    if (stakesRates != null) _printStakesStats();
+  }
+
+  /// Rollout labelling is on (only labelled play rows are written).
+  bool get _rolloutLabelling => rolloutRate > 0 || stakesRates != null;
+
+  /// Whether [_rolloutValues] would label this decision (at least two
+  /// actions, no finishing move) — for the class shares only.
+  bool _labellable(final GameSnapshot snapshot, final String playerId) {
+    final (:legalTurns, :canPass) = _decisionActions(snapshot, playerId);
+    if (legalTurns.length + (canPass ? 1 : 0) < 2) return false;
+    final n = (snapshot.hands[playerId] ?? const <Card>[]).length;
+    return !legalTurns.any((final t) => t.cards.length == n);
+  }
+
+  /// One stderr line of class shares, e.g. for choosing `--stakes-rates`
+  /// so the expected labels per match match a uniform `--rollout-rate`.
+  void _printStakesStats() {
+    final stats = <String, Object?>{
+      'stakes_stats': true,
+      'episodes': episodes,
+      'rates': {
+        for (final s in RolloutStakes.values) s.name: stakesRates!.of(s),
+      },
+      for (final s in RolloutStakes.values)
+        s.name: {
+          'decisions': _stakesCounts[s]![0],
+          'labellable': _stakesCounts[s]![1],
+          'labelled': _stakesCounts[s]![2],
+        },
+      'reasons_labellable': {
+        for (final r in StakesReason.values) r.name: _reasonCounts[r],
+      },
+    };
+    stderr.writeln(jsonEncode(stats));
   }
 
   Future<void> _runEpisode(final int episodeNumber) async {
@@ -250,27 +320,66 @@ class _HeadlessSimulator {
       }
 
       final explored = _lastActionExplored;
+      final offTurn = action.playerId != snapshot.currentPlayerId;
       final shadow =
-          shadowHeuristic && (action is PlayTurnAction || action is PassAction)
+          shadowHeuristic &&
+              !offTurn &&
+              (action is PlayTurnAction || action is PassAction)
           ? await _shadowHeuristicTurn(snapshot, action.playerId)
           : null;
       final before = snapshot;
       ({List<double?> diff, List<double?> own})? rollouts;
-      if (rolloutRate > 0 &&
+      RolloutStakes? stakes;
+      List<List<double?>>? worlds;
+      double? labelP;
+      if (_rolloutLabelling &&
           bcWriter != null &&
-          (action is PlayTurnAction || action is PassAction) &&
+          (offTurn
+              ? action is DeclineBombAction || action is PlayTurnAction
+              : action is PlayTurnAction || action is PassAction) &&
           isLearnerSeat(
             state.players.firstWhere((final p) => p.id == action.playerId).seat,
-          ) &&
-          random.nextDouble() < rolloutRate) {
-        rollouts = await _rolloutValues(
-          engine: engine,
-          state: state,
-          snapshot: snapshot,
-          chosen: action,
-        );
+          )) {
+        var p = offTurn ? interruptRolloutRate : rolloutRate;
+        List<int>? counts;
+        if (stakesRates != null) {
+          final reasons = stakesReasons(snapshot, action.playerId);
+          stakes = stakesOf(reasons);
+          if (!offTurn) {
+            p = stakesRates!.of(stakes);
+            counts = _stakesCounts[stakes]!;
+            counts[0]++;
+            if (_labellable(snapshot, action.playerId)) {
+              counts[1]++;
+              for (final r in reasons) {
+                _reasonCounts[r] = _reasonCounts[r]! + 1;
+              }
+            }
+          }
+        }
+        if (random.nextDouble() < p) {
+          rollouts = await _rolloutValues(
+            engine: engine,
+            state: state,
+            snapshot: snapshot,
+            chosen: action,
+          );
+          if (stakesRates != null) labelP = p;
+          if (rollouts != null &&
+              rolloutWorlds > 1 &&
+              !offTurn &&
+              (snapshot.hands[action.playerId]?.length ?? 0) >=
+                  worldsMinCards) {
+            worlds = await _worldRollouts(
+              engine: engine,
+              state: state,
+              chosen: action,
+            );
+          }
+          if (rollouts != null && counts != null) counts[2]++;
+        }
       }
-      final variants = rollouts != null && shadowVariants.isNotEmpty
+      final variants = rollouts != null && !offTurn && shadowVariants.isNotEmpty
           ? await _variantTurns(snapshot, action.playerId)
           : null;
       final appliedAction = _applyActionWithRecovery(
@@ -287,7 +396,7 @@ class _HeadlessSimulator {
 
       snapshot = engine.buildSnapshot(state);
       csvWriter?.processSnapshot(snapshot);
-      if (!skipPlayRows && (rolloutRate <= 0 || rollouts != null)) {
+      if (!skipPlayRows && (!_rolloutLabelling || rollouts != null)) {
         bcWriter?.emitTransition(
           before: before,
           action: appliedAction,
@@ -295,8 +404,11 @@ class _HeadlessSimulator {
           shadow: shadow,
           rollouts: rollouts?.diff,
           rolloutsOwn: rollouts?.own,
+          rolloutWorlds: worlds,
           describe: describe,
           variants: variants,
+          stakes: rollouts != null ? stakes : null,
+          labelP: rollouts != null ? labelP : null,
         );
       }
 

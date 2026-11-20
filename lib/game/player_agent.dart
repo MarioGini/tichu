@@ -1,6 +1,7 @@
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
+import 'package:tichu/game/turn/tichu_data.dart';
 
 /// Contract for any player driver — AI or manual.
 ///
@@ -23,6 +24,13 @@ abstract class PlayerAgent {
   Future<SchupfAction> selectSchupfCards(final GameSnapshot snapshot);
 
   Future<GameAction> selectTurn(final GameSnapshot snapshot);
+
+  /// Out of turn: the cards of one of [bombs] (all beat the trick on the
+  /// table) to bomb now, or null to wait. Defaults to never.
+  Future<List<Card>?> selectInterruptBomb(
+    final GameSnapshot snapshot,
+    final List<TichuTurn> bombs,
+  ) async => null;
 
   /// Selects which opponent (seat index) receives the dragon trick.
   int selectDragonGive(final GameSnapshot snapshot);

@@ -18,6 +18,7 @@ extension _Decisions on _HeadlessSimulator {
       engine,
       state,
       preSchupfDecided: _preSchupfDecided,
+      bombInterrupts: bombInterrupts,
     );
     // Pre-schupf Tichu: every player decides before anyone passes.
     while (request is PreSchupfTichuRequest) {
@@ -46,6 +47,7 @@ extension _Decisions on _HeadlessSimulator {
         engine,
         state,
         preSchupfDecided: _preSchupfDecided,
+        bombInterrupts: bombInterrupts,
       );
     }
     if (request == null) {
@@ -113,6 +115,7 @@ extension _Decisions on _HeadlessSimulator {
         );
       case SchupfReceiptRequest() ||
           DragonGiveRequest() ||
+          BombInterruptRequest() ||
           PreSchupfTichuRequest():
         return AgentDecisions.resolve(request, agent, snapshot, state);
     }

@@ -17,6 +17,7 @@ import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/find_turn.dart';
@@ -24,6 +25,7 @@ import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/turn_handler.dart';
 import 'package:tichu/game/turn/wish_logic.dart';
+import 'package:tichu/headless/rollout_stakes.dart';
 
 part 'bc_action_encoding.dart';
 part 'bc_transition_writer.dart';
@@ -35,6 +37,7 @@ part 'headless_legality.dart';
 part 'headless_rollouts.dart';
 part 'headless_schupf_labels.dart';
 part 'headless_simulator.dart';
+part 'headless_worlds.dart';
 part 'summary_writer.dart';
 
 const _defaultTargetScore = 1000;
@@ -113,6 +116,13 @@ Future<void> main(final List<String> args) async {
     counterfactualRate: config.counterfactualRate,
     rolloutRate: config.rolloutRate,
     rolloutMaxActions: config.rolloutMaxActions,
+    bombInterrupts: config.bombInterrupts,
+    rolloutWorlds: config.rolloutWorlds,
+    worldsMinCards: config.worldsMinCards,
+    interruptRolloutRate: config.interruptRolloutRate,
+    stakesRates: config.stakesRollouts
+        ? config.stakesRates ?? StakesRates.forBase(config.rolloutRate)
+        : null,
     // Which seats get rollout labels: by default the policy team when it
     // plays a different opponent (--mixed / --opponent-policy), else all.
     isLearnerSeat:

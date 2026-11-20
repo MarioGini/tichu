@@ -16,7 +16,7 @@ greedy policy w.r.t. the rollout values = one policy-improvement step; the
 exported net plugs straight into ``NnPlaySelectionStrategy``.
 
   rl/.venv/bin/python rl/rollout_train.py --jsonl=a.jsonl,b.jsonl \
-      --init-from=assets/bots/tichu_q_v6.safetensors \
+      --init-from=assets/bots/tichu_q_v7.safetensors \
       --output=rl/outputs/rollout_policy.safetensors
 """
 
@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import time
 from pathlib import Path
 
@@ -38,7 +39,7 @@ from qnet import (
     load_qnetwork_from_safetensors,
     select_device,
 )
-from schema import ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT
+from schema import ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT, pad_state
 
 SCALE = 100.0
 HAND_OFFSET = 0
@@ -48,9 +49,18 @@ _SELF = SPEC.group("self")
 # own_to_target = (target - own total) / target, likewise for the opponents.
 OWN_TO_TARGET = _SELF.offset + 12
 OPP_TO_TARGET = _SELF.offset + 13
+# Old caches carry no match ids: their decisions are split into contiguous
+# blocks of this many decisions instead (about one match of labelled data), so
+# held-out decisions still come from other deals than the training ones.
+OLD_CACHE_GAME_BLOCK = 256
 # Average sum of both teams' round points (card points + bonuses), used for
 # rows from before the runner wrote q_rollout_own.
 MEAN_ROUND_SUM = 158.0
+# Stakes classes of ``headless --stakes-rollouts`` (lib/headless/rollout_stakes.dart),
+# stored as int8 codes; -1 = unknown (then derived from the state features).
+STAKES = ("high", "mid", "low")
+_TRICK = SPEC.group("trick")
+_SEATS = SPEC.group("seats")
 
 
 class RolloutData:
@@ -62,7 +72,7 @@ class RolloutData:
     row per action, so millions of decisions fit in memory.
     """
 
-    def __init__(self, s, a, q, own, starts, chosen, explore):
+    def __init__(self, s, a, q, own, starts, chosen, explore, game, weight, label_p=None, stakes=None):
         self.s = s  # (D, ACTION_OFFSET) float16
         self.a = a  # (rows, ACTION_FEATURE_COUNT) float16
         self.q = q  # (rows,) training target (points / SCALE by default)
@@ -71,6 +81,14 @@ class RolloutData:
         self.starts = starts  # (D + 1,) long
         self.chosen = chosen  # (D,) row index of the behaviour action, -1 = unlabelled
         self.explore = explore  # (D,) bool
+        self.game = game  # (D,) long, match id (unique across files)
+        self.weight = weight  # (D,) float32 loss weight (recency of the data)
+        d = int(starts.numel() - 1)
+        # (D,) float32 probability the decision was labelled with
+        # (--stakes-rollouts), NaN = unknown (uniform --rollout-rate data).
+        self.label_p = label_p if label_p is not None else torch.full((d,), float("nan"))
+        # (D,) int8 index into STAKES; rows without one get it from the features.
+        self.stakes = stakes if stakes is not None else torch.full((d,), -1, dtype=torch.int8)
         self.q_win = None  # (rows,) match-win probability after the round, if computed
 
     @property
@@ -82,7 +100,8 @@ class RolloutData:
 
 
 def _parse_jsonl(path: Path, max_decisions: int):
-    ss, aa, qs, owns, lens, chosen, explore = [], [], [], [], [], [], []
+    ss, aa, qs, owns, lens, chosen, explore, games = [], [], [], [], [], [], [], []
+    label_p, stakes = [], []
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
             if '"q_rollout"' not in line:
@@ -104,6 +123,11 @@ def _parse_jsonl(path: Path, max_decisions: int):
             c = int(row["legal_play_chosen_index"])
             chosen.append(keep.index(c) if c in keep else -1)
             explore.append(bool(row.get("explore")))
+            games.append(int(row.get("episode", 0)))
+            lp = row.get("label_p")
+            label_p.append(float(lp) if lp is not None else np.nan)
+            st = row.get("stakes")
+            stakes.append(STAKES.index(st) if st in STAKES else -1)
             lens.append(len(keep))
             if max_decisions and len(lens) >= max_decisions:
                 break
@@ -112,13 +136,16 @@ def _parse_jsonl(path: Path, max_decisions: int):
     ch = np.asarray(chosen, dtype=np.int64)
     ch = np.where(ch >= 0, starts[:-1] + ch, -1)
     return {
-        "s": np.stack(ss),
+        "s": pad_state(np.stack(ss)),
         "a": np.concatenate(aa),
         "q": np.concatenate(qs),
         "own": np.concatenate(owns),
         "starts": starts,
         "chosen": ch,
         "explore": np.asarray(explore, dtype=bool),
+        "game": np.asarray(games, dtype=np.int64),
+        "label_p": np.asarray(label_p, dtype=np.float32),
+        "stakes": np.asarray(stakes, dtype=np.int8),
     }
 
 
@@ -127,30 +154,82 @@ def _read_npz(path: Path) -> dict:
     if "x" in d:  # old cache: one full input row per action
         starts = d["starts"]
         x = d["x"]
+        cut = x.shape[1] - (TOTAL_FEATURE_COUNT - ACTION_OFFSET)
         d = {
-            "s": x[starts[:-1], :ACTION_OFFSET].astype(np.float16),
-            "a": x[:, ACTION_OFFSET:].astype(np.float16),
+            "s": x[starts[:-1], :cut].astype(np.float16),
+            "a": x[:, cut:].astype(np.float16),
             "q": d["q"],
             "own": np.full(len(d["q"]), np.nan, dtype=np.float32),
             "starts": starts,
             "chosen": d["chosen"],
             "explore": d["explore"],
         }
+    d["s"] = pad_state(d["s"])
+    if "game" not in d:
+        d["game"] = np.arange(len(d["chosen"]), dtype=np.int64) // OLD_CACHE_GAME_BLOCK
+    # Caches from before --stakes-rollouts: unknown label probability / class.
+    if "label_p" not in d:
+        d["label_p"] = np.full(len(d["chosen"]), np.nan, dtype=np.float32)
+    if "stakes" not in d:
+        d["stakes"] = np.full(len(d["chosen"]), -1, dtype=np.int8)
     return d
 
 
-def load(paths: list[Path], *, max_decisions: int = 0) -> RolloutData:
-    """Load rollout rows from bc-jsonl files (or ``.npz`` caches of them)."""
+def stakes_from_features(s: torch.Tensor) -> torch.Tensor:
+    """Stakes class (index into STAKES) from the state features.
+
+    The same rule as ``stakesReasons`` in lib/headless/rollout_stakes.dart,
+    so data without a ``stakes`` column (uniform --rollout-rate runs) can be
+    broken down the same way. high: someone out, another player with 1-3
+    cards, own hand <= 5; mid: a caller still in, a lead or a trick worth
+    >= 20 points; low: the rest.
+    """
+    s = s.float()
+    col = lambda g, name: s[:, g.index(name)]  # noqa: E731
+    out = col(_SELF, "finish_order_progress") > 0
+    close = torch.zeros(s.shape[0], dtype=torch.bool)
+    call = (col(_SELF, "own_tichu") > 0.5) | (col(_SELF, "own_grand_tichu") > 0.5)
+    for seat in ("left", "partner", "right"):
+        done = col(_SEATS, f"{seat}_finished") > 0.5
+        close |= (col(_SEATS, f"{seat}_few_cards") > 0.5) & ~done
+        call |= ((col(_SEATS, f"{seat}_tichu") > 0.5) | (col(_SEATS, f"{seat}_grand_tichu") > 0.5)) & ~done
+    endgame = torch.round(col(_SELF, "hand_size") * 14) <= 5
+    high = out | close | endgame
+    rich = torch.round(col(_TRICK, "trick_points") * 50) >= 20
+    mid = call | rich | (col(_TRICK, "trick_lead") > 0.5)
+    return torch.where(high, 0, torch.where(mid, 1, 2)).to(torch.int8)
+
+
+def file_iteration(path: Path) -> int | None:
+    """rollout_loop data files are named itNN_<kind>.npz."""
+    m = re.match(r"it(\d+)_", path.name)
+    return int(m.group(1)) if m else None
+
+
+def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> RolloutData:
+    """Load rollout rows from bc-jsonl files (or ``.npz`` caches of them).
+
+    ``recency`` < 1 down-weights older rollout_loop iterations: a file of
+    iteration k gets loss weight ``recency ** (newest - k)``. Their labels
+    are values under the policy of their own iteration, not the current one.
+    """
     parts = [
         _read_npz(p) if p.suffix == ".npz" else _parse_jsonl(p, max_decisions) for p in paths
     ]
-    starts, chosen, cursor = [np.zeros(1, dtype=np.int64)], [], 0
-    for d in parts:
+    its = [file_iteration(p) for p in paths]
+    newest = max((i for i in its if i is not None), default=0)
+    starts, chosen, games, weights, cursor, game_cursor = [np.zeros(1, dtype=np.int64)], [], [], [], 0, 0
+    for d, it in zip(parts, its):
         starts.append(d["starts"][1:] + cursor)
         chosen.append(np.where(d["chosen"] >= 0, d["chosen"] + cursor, -1))
         cursor += int(d["starts"][-1])
+        g = np.unique(d["game"], return_inverse=True)[1].astype(np.int64)
+        games.append(g + game_cursor)
+        game_cursor += int(g.max()) + 1 if g.size else 0
+        w = 1.0 if it is None else recency ** (newest - it)
+        weights.append(np.full(len(d["chosen"]), w, dtype=np.float32))
     cat = lambda k: torch.from_numpy(np.concatenate([d[k] for d in parts]))  # noqa: E731
-    return RolloutData(
+    data = RolloutData(
         cat("s"),
         cat("a"),
         cat("q"),
@@ -158,12 +237,36 @@ def load(paths: list[Path], *, max_decisions: int = 0) -> RolloutData:
         torch.from_numpy(np.concatenate(starts)),
         torch.from_numpy(np.concatenate(chosen)),
         cat("explore"),
+        torch.from_numpy(np.concatenate(games)),
+        torch.from_numpy(np.concatenate(weights)),
+        label_p=cat("label_p"),
+        stakes=cat("stakes"),
     )
+    unknown = data.stakes < 0
+    if bool(unknown.any()):
+        data.stakes[unknown] = stakes_from_features(data.s[unknown])
+    return data
+
+
+def importance_weights(data: RolloutData, default_label_p: float) -> torch.Tensor:
+    """Per-decision weight 1 / label_p, normalised to mean 1.
+
+    Undoes the over-sampling of high-stakes decisions by --stakes-rollouts
+    (the loss is then an estimate of the uniform-sampling loss). Decisions
+    without label_p (uniform runs) count as labelled with ``default_label_p``.
+    """
+    p = torch.where(torch.isnan(data.label_p), torch.tensor(default_label_p), data.label_p)
+    w = 1.0 / p.clamp_min(1e-3)
+    return w / w.mean()
 
 
 def save_npz(data: RolloutData, path: Path) -> None:
-    """Compact cache of parsed rollout rows (JSON parsing dominates load time)."""
-    np.savez(
+    """Compact cache of parsed rollout rows (JSON parsing dominates load time).
+
+    Compressed (the bitmaps are sparse): about 4x smaller, small enough to
+    keep every iteration in Supabase Storage (rl/training_data_store.py).
+    """
+    np.savez_compressed(
         path,
         s=data.s.numpy(),
         a=data.a.numpy(),
@@ -172,6 +275,9 @@ def save_npz(data: RolloutData, path: Path) -> None:
         starts=data.starts.numpy(),
         chosen=data.chosen.numpy(),
         explore=data.explore.numpy(),
+        game=data.game.numpy().astype(np.int32),
+        label_p=data.label_p.numpy().astype(np.float32),
+        stakes=data.stakes.numpy().astype(np.int8),
     )
 
 
@@ -235,9 +341,11 @@ def batch_loss(
         st = permute_suits(st)
     x = torch.cat([st[group], data.a[rows].float()], dim=1)
     out = model(x).squeeze(-1)
-    return nn.functional.huber_loss(
-        _centred(out, group, k), _centred(data.q[rows], group, k), delta=huber
+    per_row = nn.functional.huber_loss(
+        _centred(out, group, k), _centred(data.q[rows], group, k), delta=huber, reduction="none"
     )
+    w = data.weight[idx][group]
+    return (per_row * w).sum() / w.sum()
 
 
 @torch.no_grad()
@@ -272,10 +380,61 @@ def evaluate(model: nn.Module, data: RolloutData, idx: torch.Tensor) -> dict[str
         m[f"gain_{name}"] = float(((greedy - beh)[has]).mean() * unit)
         m[f"vs_uniform_{name}"] = float((greedy - mean_q).mean() * unit)
         m[f"clairvoyant_{name}"] = float(((oracle - beh)[has]).mean() * unit)
+        if name == "pts":
+            # Held-out gain per stakes class: where does the new net improve?
+            cls = data.stakes[idx]
+            for c, label in enumerate(STAKES):
+                sel = has & (cls == c)
+                if bool(sel.any()):
+                    m[f"gain_pts_{label}"] = float(((greedy - beh)[sel]).mean() * unit)
     q = data.q[rows]
     m["mse"] = float(nn.functional.mse_loss(_centred(out, group, k), _centred(q, group, k)))
     m["var"] = float(_centred(q, group, k).var())
     return m
+
+
+def widen_hidden(model: QNetwork, sizes: list[int], seed: int = 0) -> QNetwork:
+    """Function-preserving widening (Net2Net-style) of every hidden layer.
+
+    Old units keep their weights; new units get small random incoming weights
+    and zero outgoing weights, so the wider net plays exactly like the old one
+    and training can start from it instead of from scratch.
+    """
+    old = [m for m in model.net if isinstance(m, nn.Linear)]
+    if len(sizes) != len(old) - 1:
+        raise ValueError(f"--widen-hidden needs {len(old) - 1} sizes, got {sizes}")
+    gen = torch.Generator().manual_seed(seed)
+    wide = QNetwork(old[0].in_features, sizes)
+    new = [m for m in wide.net if isinstance(m, nn.Linear)]
+    with torch.no_grad():
+        for o, n in zip(old, new):
+            if n.out_features < o.out_features:
+                raise ValueError("--widen-hidden can only grow layers")
+            n.weight.zero_()
+            n.bias.zero_()
+            if n is not new[-1]:
+                extra = n.out_features - o.out_features
+                fan_in = n.in_features
+                n.weight[o.out_features :, :] = (
+                    torch.randn(extra, fan_in, generator=gen) * (0.5 / fan_in**0.5)
+                )
+            n.weight[: o.out_features, : o.in_features] = o.weight
+            n.bias[: o.out_features] = o.bias
+    return wide
+
+
+def split_by_match(data: RolloutData, val_fraction: float, seed: int):
+    """(held-out, train) decision indices, whole matches on either side."""
+    rng = np.random.default_rng(seed)
+    n_games = int(data.game.max()) + 1
+    val_games = torch.from_numpy(rng.random(n_games) < val_fraction)
+    is_val = val_games[data.game]
+    if not bool(is_val.any()):
+        is_val[0] = True
+    val = torch.nonzero(is_val).squeeze(1)
+    tr = torch.nonzero(~is_val).squeeze(1)
+    tr = tr[torch.from_numpy(rng.permutation(tr.numel()))]
+    return val, tr
 
 
 def _export(model: nn.Module, path: Path, decisions: int) -> None:
@@ -297,7 +456,7 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     device = select_device()
     torch.manual_seed(args.seed)
     t0 = time.time()
-    data = load([Path(p) for p in args.jsonl.split(",") if p])
+    data = load([Path(p) for p in args.jsonl.split(",") if p], recency=args.recency)
     if args.zero_history:
         # A/B control: same data and net, but the per-player history inputs
         # are always zero (what a net without them would see).
@@ -307,6 +466,15 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         save_npz(data, Path(args.save_cache))
     d = data.num_decisions
     print(f"rollout data: decisions={d} rows={data.a.shape[0]} ({time.time()-t0:.0f}s)", flush=True)
+    shares = torch.bincount(data.stakes.long(), minlength=len(STAKES)).float() / max(d, 1)
+    known = int((~torch.isnan(data.label_p)).sum())
+    print(
+        "  stakes: " + "  ".join(f"{k}={float(v):.3f}" for k, v in zip(STAKES, shares))
+        + f"  (label_p on {known} decisions)",
+        flush=True,
+    )
+    if args.importance == "inverse":
+        data.weight = data.weight * importance_weights(data, args.default_label_p)
     if args.objective != "points" or args.win_table_metrics:
         data.q_win = win_targets(data, Path(args.win_table))
     if args.objective == "win":
@@ -322,10 +490,15 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         model = QNetwork(TOTAL_FEATURE_COUNT, [int(h) for h in args.hidden.split(",")])
     else:
         model = load_qnetwork_from_safetensors(Path(args.init_from), device)
+        if args.widen_hidden:
+            model = widen_hidden(model, [int(h) for h in args.widen_hidden.split(",")], args.seed)
 
-    perm = torch.from_numpy(np.random.default_rng(args.seed).permutation(d))
-    n_val = max(1, int(d * args.val_fraction))
-    val, tr = perm[:n_val], perm[n_val:]
+    # Held-out decisions come from held-out *matches*: decisions of one
+    # round share the deal, i.e. most of the label noise, so a per-decision
+    # split leaks it and early stopping would keep overfitted epochs.
+    val, tr = split_by_match(data, args.val_fraction, args.seed)
+    print(f"  split: {tr.numel()} train / {val.numel()} held-out decisions "
+          f"({int(data.game.max()) + 1} matches)", flush=True)
     m0 = evaluate(model, data, val)
     print("  start: " + "  ".join(f"{k}={v:.3f}" for k, v in m0.items()), flush=True)
 
@@ -389,8 +562,13 @@ def main() -> None:
     p.add_argument("--jsonl", required=True, help="comma-separated rollout jsonl files")
     p.add_argument("--init-from", default="")
     p.add_argument("--hidden", default="", help="train a fresh net of this size instead of --init-from")
+    p.add_argument(
+        "--widen-hidden",
+        default="",
+        help="grow --init-from's hidden layers to these sizes (same play at the start)",
+    )
     p.add_argument("--output", required=True)
-    p.add_argument("--epochs", type=int, default=12)
+    p.add_argument("--epochs", type=int, default=4, help="held-out gain peaks after 3-4 epochs")
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--weight-decay", type=float, default=1e-4)
     p.add_argument("--batch-decisions", type=int, default=256)
@@ -411,6 +589,25 @@ def main() -> None:
     p.add_argument("--win-table", default=str(Path(__file__).resolve().parent / "win_table.npz"))
     p.add_argument("--win-table-metrics", action="store_true", help="also report win-% gains")
     p.add_argument("--ema", type=float, default=0.0, help="EMA decay of the exported weights (0 = off)")
+    p.add_argument(
+        "--recency",
+        type=float,
+        default=1.0,
+        help="loss weight factor per rollout_loop iteration of age (1 = all data equal)",
+    )
+    p.add_argument(
+        "--importance",
+        choices=["none", "inverse"],
+        default="none",
+        help="inverse: loss weight 1/label_p (normalised to mean 1, times the recency "
+        "weight), undoing the class sampling of --stakes-rollouts data",
+    )
+    p.add_argument(
+        "--default-label-p",
+        type=float,
+        default=0.5,
+        help="label probability assumed for rows without label_p (uniform --rollout-rate)",
+    )
     p.add_argument("--seed", type=int, default=0)
     train(p.parse_args())
 

@@ -17,19 +17,11 @@ extension _BcActionEncoding on _BcTransitionWriter {
     required final GameAction chosen,
     final GameAction? shadow,
   }) {
-    final hand = List<Card>.from(
-      snapshot.hands[chosen.playerId] ?? const <Card>[],
-    );
-    final legalTurns = LegalPlayGuard.filterMoveGeneratorTurns(
-      deck: snapshot.deck,
-      hand: hand,
-      moveGeneratorTurns: generateLegalTurns(snapshot.deck, hand),
-    );
+    final (:legalTurns, :canPass) = _decisionActions(snapshot, chosen.playerId);
     final encoder = FeatureEncoder(
       snapshot: snapshot,
       playerId: chosen.playerId,
     );
-    final canPass = LegalPlayGuard.canPass(deck: snapshot.deck, hand: hand);
 
     final features = <List<double>>[];
     final keys = <String>[];
@@ -56,7 +48,8 @@ extension _BcActionEncoding on _BcTransitionWriter {
         TichuTurn(TurnType.none, const <Card>[]),
         isPass: true,
       );
-      if (chosenIndex < 0 && chosen is PassAction) {
+      if (chosenIndex < 0 &&
+          (chosen is PassAction || chosen is DeclineBombAction)) {
         chosenIndex = features.length;
       }
       if (shadowIndex < 0 && shadow is PassAction) {
@@ -77,7 +70,9 @@ extension _BcActionEncoding on _BcTransitionWriter {
 
   /// Index of [action] among the legal-action [keys] (-1 when absent).
   int _indexOf(final List<String> keys, final GameAction? action) {
-    if (action is PassAction) return keys.indexOf('pass');
+    if (action is PassAction || action is DeclineBombAction) {
+      return keys.indexOf('pass');
+    }
     if (action is PlayTurnAction) return keys.indexOf(_cardKey(action.cards));
     return -1;
   }
@@ -181,4 +176,29 @@ extension _BcActionEncoding on _BcTransitionWriter {
     final slots = [for (final c in cards) cardSlot(c)]..sort();
     return slots.join(',');
   }
+}
+
+/// The legal actions of [playerId]'s play-phase decision, in the order the
+/// net scores them: on its turn the wish-filtered legal turns (+ pass when
+/// legal); out of turn the bombs that beat the trick (+ waiting, encoded as
+/// the pass action).
+({List<TichuTurn> legalTurns, bool canPass}) _decisionActions(
+  final GameSnapshot snapshot,
+  final String playerId,
+) {
+  final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
+  if (snapshot.currentPlayerId != playerId) {
+    return (
+      legalTurns: AgentDecisions.beatingBombsIn(snapshot.deck, hand),
+      canPass: true,
+    );
+  }
+  return (
+    legalTurns: LegalPlayGuard.filterMoveGeneratorTurns(
+      deck: snapshot.deck,
+      hand: hand,
+      moveGeneratorTurns: generateLegalTurns(snapshot.deck, hand),
+    ),
+    canPass: LegalPlayGuard.canPass(deck: snapshot.deck, hand: hand),
+  );
 }

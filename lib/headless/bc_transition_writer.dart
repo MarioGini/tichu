@@ -162,6 +162,20 @@ class _BcTransitionWriter {
         'round': score.roundNumber,
         'team_one_round': score.teamOneRound,
         'team_two_round': score.teamTwoRound,
+        // Card points of the tricks each seat won (before the last player's
+        // tricks go to the first player), and the card points left in the
+        // last player's hand (they go to the opposing team).
+        'trick_points_by_seat': [
+          for (var seat = 0; seat < 4; seat++)
+            score.playerRoundPoints[after.players
+                    .firstWhere((final p) => p.seat == seat)
+                    .id] ??
+                0,
+        ],
+        if (score.finishOrder.isNotEmpty)
+          'last_hand_points': pointsForCards(
+            after.hands[score.finishOrder.last] ?? const <Card>[],
+          ),
         // Teams (0 = even seats) in finishing order, for analysis.
         'finish_teams': [
           for (final id in score.finishOrder) _teamForPlayer(after, id),
@@ -212,12 +226,24 @@ class _BcTransitionWriter {
     final GameAction? shadow,
     final List<double?>? rollouts,
     final List<double?>? rolloutsOwn,
+    final List<List<double?>>? rolloutWorlds,
     final bool describe = false,
     final List<GameAction?>? variants,
+    final RolloutStakes? stakes,
+    final double? labelP,
   }) {
     if (before.phase != GamePhase.play) return;
-    if (before.currentPlayerId != action.playerId) return;
-    if (action is! PlayTurnAction && action is! PassAction) return;
+    final offTurn = before.currentPlayerId != action.playerId;
+    if (offTurn) {
+      // An out-of-turn decision: a bomb or waiting.
+      if (action is! DeclineBombAction &&
+          !(action is PlayTurnAction &&
+              getTurn(List<Card>.from(action.cards)).type == TurnType.bomb)) {
+        return;
+      }
+    } else if (action is! PlayTurnAction && action is! PassAction) {
+      return;
+    }
 
     final legalPlayFeatures = _legalPlayActionFeatures(
       snapshot: before,
@@ -250,6 +276,13 @@ class _BcTransitionWriter {
       if (rolloutsOwn != null &&
           rolloutsOwn.length == legalPlayFeatures.features.length)
         'q_rollout_own': rolloutsOwn,
+      // --rollout-worlds: the same actions rolled out in re-dealt worlds.
+      if (rolloutWorlds != null && rolloutWorlds.isNotEmpty)
+        'q_rollout_worlds': rolloutWorlds,
+      // --stakes-rollouts: the decision's stakes class and the probability
+      // it was labelled with (for importance weights in the trainer).
+      if (stakes != null) 'stakes': stakes.name,
+      'label_p': ?labelP,
       if (describe) 'desc': _describePosition(before, action.playerId),
       // --shadow-heuristics: index each variant would have chosen (-1 = n/a).
       if (variants != null)

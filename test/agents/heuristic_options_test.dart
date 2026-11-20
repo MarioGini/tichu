@@ -9,7 +9,12 @@ import 'smart_ai_test_helpers.dart';
 
 void main() {
   test('parses rule switches and scorer weights', () {
-    expect(HeuristicOptions.parse('latest').off, isEmpty);
+    expect(HeuristicOptions.parse('latest').off, HeuristicOptions.defaultOff);
+    expect(HeuristicOptions.parse('latest').on('interrupt_bomb'), isFalse);
+    expect(
+      HeuristicOptions.parse('interrupt_bomb').on('interrupt_bomb'),
+      isTrue,
+    );
     expect(HeuristicOptions.parse('latest').weights, isEmpty);
     final o = HeuristicOptions.parse(
       'latest,-early_dog,-cheap_combos,cheap_combos,lowLeadPreference:4',

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/hand_shape.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -48,6 +50,7 @@ const int seatsFeatureCount = 27;
 const int selfFeatureCount = 15;
 const int handStructureFeatureCount = 10;
 const int historyFeatureCount = 66;
+const int turnFeatureCount = 1;
 const int actionFeatureCount = 51;
 
 const int handOffset = 0;
@@ -59,11 +62,18 @@ const int selfOffset = seatsOffset + seatsFeatureCount; // 176
 const int handStructureOffset = selfOffset + selfFeatureCount; // 191
 const int historyOffset =
     handStructureOffset + handStructureFeatureCount; // 201
-const int actionOffset = historyOffset + historyFeatureCount; // 267
+const int turnOffset = historyOffset + historyFeatureCount; // 267
+const int actionOffset = turnOffset + turnFeatureCount; // 268
 
 /// Length of the per-decision state prefix (all groups before `action`).
 const int stateFeatureCount = actionOffset;
-const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 318
+const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 319
+
+/// Layout before the `turn` group (schema v5, e.g. the v5-v7 play
+/// policies): they read the first [v5StateFeatureCount] state features and
+/// cannot tell an out-of-turn decision from a normal one.
+const int v5StateFeatureCount = turnOffset; // 267
+const int v5TotalFeatureCount = v5StateFeatureCount + actionFeatureCount; // 318
 
 /// Layout before the `history` group (schema v4, e.g. the v3 / v4 play
 /// policies): the state prefix stopped at [historyOffset]. Such nets still
@@ -103,16 +113,16 @@ class FeatureEncoder {
 
   // ── State ────────────────────────────────────────────────────────────────
 
-  late final List<double> stateFeatures = _encodeState();
+  late final Float64List stateFeatures = _encodeState();
 
   // ── Action ───────────────────────────────────────────────────────────────
 
   /// Encode one action. [play] is ignored when [isPass] is true.
-  List<double> actionFeatures(
+  Float64List actionFeatures(
     final TichuTurn play, {
     final bool isPass = false,
   }) {
-    final f = List<double>.filled(actionFeatureCount, 0);
+    final f = Float64List(actionFeatureCount);
     writeActionFeatures(play, f, 0, isPass: isPass);
     return f;
   }
@@ -121,7 +131,7 @@ class FeatureEncoder {
   /// Lets hot paths reuse one buffer (state prefix + action suffix).
   void writeActionFeatures(
     final TichuTurn play,
-    final List<double> out,
+    final Float64List out,
     final int offset, {
     final bool isPass = false,
   }) {
@@ -172,10 +182,17 @@ class FeatureEncoder {
 
     var maxRank = 0.0;
     var minRank = double.infinity;
-    final playedSlots = <int>{};
+    // Bit masks over card slots 0..31 / 32..55: two masks because ints are
+    // 32-bit for bitwise operations on the web (dart2js).
+    var playedLo = 0;
+    var playedHi = 0;
     for (final card in play.cards) {
       final slot = cardSlot(card);
-      if (slot >= 0) playedSlots.add(slot);
+      if (slot >= 32) {
+        playedHi |= 1 << (slot - 32);
+      } else if (slot >= 0) {
+        playedLo |= 1 << slot;
+      }
       final hist = _histIndex(card);
       if (hist >= 0) {
         out[offset + 23 + hist] += hist < 13 ? 0.25 : 1.0;
@@ -222,7 +239,11 @@ class FeatureEncoder {
 
     final remaining = <int>[
       for (final slot in _handSlots)
-        if (!playedSlots.contains(slot)) slot,
+        if ((slot >= 32
+                ? playedHi & (1 << (slot - 32))
+                : playedLo & (1 << slot)) ==
+            0)
+          slot,
     ];
     out[offset + 20] = remaining.isEmpty ? 1.0 : 0.0;
 

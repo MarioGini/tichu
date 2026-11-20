@@ -1,6 +1,6 @@
 {
-    "version": 5,
-    "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/feature_encoder.dart) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes. All groups except 'action' form the per-decision state prefix. Card bitmaps use index = color*13 + (rank-2) for normal cards (colors black, green, red, blue; ranks 2..A), then 52 mahjong, 53 dog, 54 phoenix, 55 dragon. Rank histograms use r2..rA, mahjong, dog, phoenix, dragon. History (per other player, from the public round log): cards played this round as a rank histogram, the lowest single / pair passed on while an opponent of that player was winning the trick, and the number of such passes. Seats are relative to the acting player: left = next to play, partner, right = previous.",
+    "version": 6,
+    "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/feature_encoder.dart) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes. All groups except 'action' form the per-decision state prefix. Card bitmaps use index = color*13 + (rank-2) for normal cards (colors black, green, red, blue; ranks 2..A), then 52 mahjong, 53 dog, 54 phoenix, 55 dragon. Rank histograms use r2..rA, mahjong, dog, phoenix, dragon. History (per other player, from the public round log): cards played this round as a rank histogram, the lowest single / pair passed on while an opponent of that player was winning the trick, and the number of such passes. Turn (v6): off_turn = 1 when the player decides out of turn (an interrupting bomb), else 0; nets of the v5 layout (318 inputs) read the state prefix before it. Seats are relative to the acting player: left = next to play, partner, right = previous.",
     "groups": [
         {
             "name": "hand",
@@ -315,6 +315,13 @@
                 "hist_right_passed_pair",
                 "hist_right_passed_pair_min",
                 "hist_right_passes"
+            ]
+        },
+        {
+            "name": "turn",
+            "size": 1,
+            "features": [
+                "off_turn"
             ]
         },
         {

@@ -10,7 +10,13 @@ differ.
   build/bin/headless --format=bc-jsonl --rollout-rate=0.3 --mixed \\
       --nn-policy=A.safetensors --opponent-policy=B.safetensors ... --output=a.jsonl
   rl/.venv/bin/python rl/compare_policies.py --a=A.safetensors --b=B.safetensors \\
-      --jsonl=a.jsonl[,b.jsonl]
+      --jsonl=a.jsonl[,b.jsonl] [--jsonl-b=games_of_b.jsonl]
+
+The rollouts continue with A's policy, which flatters A a little: its moves
+are judged by the continuation they were trained for. ``--jsonl-b`` takes
+rollout data of B's games (B labelled and continuing, the same command with
+the two nets swapped) and reports the gain measured there as well; the
+truth lies between the two, and their mean is the fair estimate.
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ import numpy as np
 import torch
 
 from qnet import load_qnetwork_from_safetensors
-from schema import ACTION_OFFSET, SPEC
+from schema import ACTION_OFFSET, SPEC, pad_state
 
 
 def _idx(group: str) -> dict[str, int]:
@@ -106,17 +112,36 @@ def main() -> None:
     p.add_argument("--a", required=True)
     p.add_argument("--b", required=True)
     p.add_argument("--jsonl", required=True, help="comma-separated rollout bc-jsonl of A's games")
+    p.add_argument("--jsonl-b", default="", help="rollout bc-jsonl of B's games (B continues)")
     p.add_argument("--min-count", type=int, default=150)
     p.add_argument("--markdown", action="store_true")
     args = p.parse_args()
     dev = torch.device("cpu")
     na = load_qnetwork_from_safetensors(Path(args.a), dev).eval()
     nb = load_qnetwork_from_safetensors(Path(args.b), dev).eval()
+    stats, n_dec, n_sit = collect(na, nb, args.jsonl)
+    print(f"{n_dec} decisions of A; gain = points per round A's move wins over B's (exact rollouts, A continues)\n")
+    report(stats, n_dec, n_sit, args)
+    if args.jsonl_b:
+        stats_b, n_dec_b, n_sit_b = collect(na, nb, args.jsonl_b)
+        print(f"{n_dec_b} decisions of B; same gain (A's move minus B's), B continues\n")
+        report(stats_b, n_dec_b, n_sit_b, args)
+        ga, gb = stats[("situation", "all")], stats_b[("situation", "all")]
+        if ga and gb:
+            ma, mb = float(np.mean(ga)), float(np.mean(gb))
+            sa = float(np.std(ga, ddof=1) / math.sqrt(len(ga)))
+            sb = float(np.std(gb, ddof=1) / math.sqrt(len(gb)))
+            print(
+                f"gain per differing move: A continues {ma:+.2f} ± {sa:.2f}, "
+                f"B continues {mb:+.2f} ± {sb:.2f}, mean {(ma + mb) / 2:+.2f} ± {math.hypot(sa, sb) / 2:.2f}"
+            )
 
+
+def collect(na, nb, paths: str):
     stats: dict[tuple[str, str], list[float]] = defaultdict(list)
     n_dec = 0
     n_sit: dict[str, int] = defaultdict(int)
-    for path in args.jsonl.split(","):
+    for path in paths.split(","):
         with open(path, encoding="utf-8") as fh:
             for line in fh:
                 if '"q_rollout"' not in line:
@@ -124,7 +149,8 @@ def main() -> None:
                 r = json.loads(line)
                 if r.get("explore"):
                     continue
-                s = np.asarray(r["state_features"], dtype=np.float32)
+                # Rows of an older layout: zeros for the missing state groups.
+                s = pad_state(np.asarray(r["state_features"], dtype=np.float32)[None])[0]
                 acts = np.asarray(r["legal_play_action_features"], dtype=np.float32)
                 x = torch.from_numpy(np.concatenate([np.repeat(s[None], len(acts), 0), acts], 1))
                 with torch.no_grad():
@@ -145,8 +171,10 @@ def main() -> None:
                     stats[("situation", t)].append(gain)
                 for d in diff:
                     stats[("move", d)].append(gain)
+    return stats, n_dec, n_sit
 
-    print(f"{n_dec} decisions of A; gain = points per round A's move wins over B's (exact rollouts)\n")
+
+def report(stats, n_dec: int, n_sit, args) -> None:
     for kind in ("situation", "move"):
         rows = []
         for (k, name), g in stats.items():

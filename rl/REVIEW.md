@@ -135,6 +135,45 @@ respect to what the net learned from 2M of them; the next gains must come
 from the other levers (side decisions, inputs, ensembles), not the label
 budget. Low-rate generation costs ~30 % more time per label (5x main games).
 
+## Where the round points come from (measured, v7 self-play, 10,503 rounds)
+
+Calls (any of the 4 players; the bots call with the strength rule):
+
+| | Called | Success | Net per call |
+|-|--------|---------|--------------|
+| Tichu | 50.9 % of rounds (12.7 % of players) | 67.3 % | +35 |
+| Grand Tichu | 16.5 % of rounds (4.1 % of players) | 73.3 % | +93 |
+
+- Failed calls are almost always an opponent going out first (29 % of
+  Tichus, 25 % of Grand Tichus); the caller's own partner going out first
+  costs only 3.5 % / 2 %.
+- In 54 % of rounds the first player out had not called. These are mostly
+  hands that do not go out first often enough to call: just below the
+  threshold (strength -0.5 to -0.1) 36-40 % go out first uncalled, and a
+  call needs > 50 %. Called hands just above the threshold succeed 60 %,
+  similar uncalled ones 40 %: the call itself (the partner's support, the
+  schupf) is worth about 20 points of success rate. The threshold is near
+  break-even; a re-tune for v7 is worth little.
+
+The last player and the double win:
+
+- Double wins end 26 % of rounds (200 points, card points void).
+- In the other rounds the last player has won 23.8 card points of tricks
+  on average (>= 20 in 59 % of rounds). They go to the first player out,
+  which is the last player's partner in 52 % of these rounds. The cards
+  left in the last player's hand (5.7 on average) go to the opponents.
+  The last player's team loses 16.7 card points per round by the
+  transfer, and ends with 32.2 of the 100 (43.1 before it).
+- The first player's team scores 74.7 card points when the opponents
+  finish 2nd and last (A-B-A-B), but only 38.6 when its own second player
+  is last (A-B-B-A): avoiding last place is worth ~36 card points to a team
+  in every round without a double win.
+- Consequence for play: once a player will clearly finish last, every point
+  trick they still win goes to the first player out. The net can learn
+  this from its inputs (card counts, who went out first, points won per
+  seat) and the round-point labels; it is a useful check for the human-game
+  review and the endgame search (ideas 8 and 9).
+
 ## Flaws in the setup
 
 **F1. Labels concentrated on few deals** (measured, above). Fix: label a

@@ -3,8 +3,8 @@ part of 'feature_encoder.dart';
 /// State-feature groups (hand, played, unseen, trick, seats, self, hand
 /// structure); layout in `rl/schema/feature_spec.json`.
 extension _StateEncoding on FeatureEncoder {
-  List<double> _encodeState() {
-    final f = List<double>.filled(stateFeatureCount, 0);
+  Float64List _encodeState() {
+    final f = Float64List(stateFeatureCount);
 
     // hand / played bitmaps.
     for (final slot in _handSlots) {
@@ -56,7 +56,7 @@ extension _StateEncoding on FeatureEncoder {
   /// in `unseen`), the lowest single and the lowest pair they passed on
   /// while one of their opponents was winning the trick (flag + value), and
   /// how often they passed on an opponent's trick.
-  void _encodeHistory(final List<double> f) {
+  void _encodeHistory(final Float64List f) {
     final log = snapshot.roundLog;
     if (log.isEmpty) return;
     final teamOf = <String, int>{
@@ -100,7 +100,7 @@ extension _StateEncoding on FeatureEncoder {
     }
   }
 
-  void _encodeTrick(final List<double> f) {
+  void _encodeTrick(final Float64List f) {
     final deck = snapshot.deck;
     final turn = deck.turn;
     const o = trickOffset;
@@ -150,7 +150,7 @@ extension _StateEncoding on FeatureEncoder {
     }
   }
 
-  void _encodeSeats(final List<double> f) {
+  void _encodeSeats(final Float64List f) {
     final score = snapshot.scoreState;
     final finishOrder = score.finishOrder;
     for (var rel = 1; rel <= 3; rel++) {
@@ -185,7 +185,7 @@ extension _StateEncoding on FeatureEncoder {
     return held;
   }
 
-  void _encodeSelf(final List<double> f) {
+  void _encodeSelf(final Float64List f) {
     const o = selfOffset;
     final score = snapshot.scoreState;
     final myCall = score.tichuCalls[playerId] ?? TichuCall.none;

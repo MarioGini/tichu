@@ -39,10 +39,11 @@ class HandShape {
   /// Shape from card slots (see [cardSlot]).
   factory HandShape.fromSlots(final List<int> slots) {
     final counts = List<int>.filled(15, 0); // index = rank (1 = mahjong)
-    final colorRanks = List<List<bool>>.generate(
-      4,
-      (_) => List<bool>.filled(15, false),
-    );
+    // Per colour: bit mask of the ranks held.
+    var black = 0;
+    var green = 0;
+    var red = 0;
+    var blue = 0;
     var phoenix = false;
     var dragon = false;
     var dog = false;
@@ -50,7 +51,16 @@ class HandShape {
       if (slot < 52) {
         final rank = 2 + slot % 13;
         counts[rank]++;
-        colorRanks[slot ~/ 13][rank] = true;
+        switch (slot ~/ 13) {
+          case 0:
+            black |= 1 << rank;
+          case 1:
+            green |= 1 << rank;
+          case 2:
+            red |= 1 << rank;
+          default:
+            blue |= 1 << rank;
+        }
       } else if (slot == CardKnowledge.mahJongSlot) {
         counts[1]++;
       } else if (slot == CardKnowledge.dogSlot) {
@@ -100,14 +110,10 @@ class HandShape {
 
     // Straight-flush bombs: any colour with >= 5 consecutive ranks.
     var straightFlushes = 0;
-    for (final ranks in colorRanks) {
-      var run = 0;
-      var best = 0;
-      for (var r = 2; r <= 14; r++) {
-        run = ranks[r] ? run + 1 : 0;
-        if (run > best) best = run;
+    for (final m in [black, green, red, blue]) {
+      if (m & (m >> 1) & (m >> 2) & (m >> 3) & (m >> 4) != 0) {
+        straightFlushes++;
       }
-      if (best >= 5) straightFlushes++;
     }
 
     // Longest straight (mahjong = rank 1), phoenix may fill one gap.

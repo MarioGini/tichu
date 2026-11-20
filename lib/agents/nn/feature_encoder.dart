@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/hand_shape.dart';
 import 'package:tichu/game/game_snapshot.dart';
@@ -111,16 +113,16 @@ class FeatureEncoder {
 
   // ── State ────────────────────────────────────────────────────────────────
 
-  late final List<double> stateFeatures = _encodeState();
+  late final Float64List stateFeatures = _encodeState();
 
   // ── Action ───────────────────────────────────────────────────────────────
 
   /// Encode one action. [play] is ignored when [isPass] is true.
-  List<double> actionFeatures(
+  Float64List actionFeatures(
     final TichuTurn play, {
     final bool isPass = false,
   }) {
-    final f = List<double>.filled(actionFeatureCount, 0);
+    final f = Float64List(actionFeatureCount);
     writeActionFeatures(play, f, 0, isPass: isPass);
     return f;
   }
@@ -129,7 +131,7 @@ class FeatureEncoder {
   /// Lets hot paths reuse one buffer (state prefix + action suffix).
   void writeActionFeatures(
     final TichuTurn play,
-    final List<double> out,
+    final Float64List out,
     final int offset, {
     final bool isPass = false,
   }) {
@@ -180,10 +182,10 @@ class FeatureEncoder {
 
     var maxRank = 0.0;
     var minRank = double.infinity;
-    final playedSlots = <int>{};
+    var playedSlots = 0; // bit mask over card slots (0..55)
     for (final card in play.cards) {
       final slot = cardSlot(card);
-      if (slot >= 0) playedSlots.add(slot);
+      if (slot >= 0) playedSlots |= 1 << slot;
       final hist = _histIndex(card);
       if (hist >= 0) {
         out[offset + 23 + hist] += hist < 13 ? 0.25 : 1.0;
@@ -230,7 +232,7 @@ class FeatureEncoder {
 
     final remaining = <int>[
       for (final slot in _handSlots)
-        if (!playedSlots.contains(slot)) slot,
+        if (playedSlots & (1 << slot) == 0) slot,
     ];
     out[offset + 20] = remaining.isEmpty ? 1.0 : 0.0;
 

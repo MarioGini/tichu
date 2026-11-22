@@ -190,6 +190,16 @@ class SmartAiAgent extends PlayerAgent {
           .where((final turn) => turn.cards.length != hand.length)
           .toList();
       if (nonFinishing.isNotEmpty) legalTurns = nonFinishing;
+      // `guard_single`: when following, do not play down to one card
+      // either. Left with one card the bot often wins the lead and then
+      // has to play it, going out ahead of the caller.
+      if (canPass && options.on('guard_single')) {
+        final keepTwo = legalTurns
+            .where((final turn) => hand.length - turn.cards.length != 1)
+            .toList();
+        if (keepTwo.isEmpty) return PassAction(playerId: playerId);
+        legalTurns = keepTwo;
+      }
     }
 
     final finishingTurns = legalTurns

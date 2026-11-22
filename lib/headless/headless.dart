@@ -36,6 +36,7 @@ part 'headless_exploration.dart';
 part 'headless_legality.dart';
 part 'headless_rollouts.dart';
 part 'headless_schupf_labels.dart';
+part 'headless_side_labels.dart';
 part 'headless_simulator.dart';
 part 'headless_worlds.dart';
 part 'summary_writer.dart';
@@ -118,6 +119,7 @@ Future<void> main(final List<String> args) async {
     rolloutMaxActions: config.rolloutMaxActions,
     bombInterrupts: config.bombInterrupts,
     rolloutWorlds: config.rolloutWorlds,
+    sideRolloutRate: config.sideRolloutRate,
     worldsMinCards: config.worldsMinCards,
     interruptRolloutRate: config.interruptRolloutRate,
     stakesRates: config.stakesRollouts

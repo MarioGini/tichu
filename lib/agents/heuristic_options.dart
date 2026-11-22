@@ -26,7 +26,7 @@ class HeuristicOptions {
   /// on exact rollouts with the v7 play net, for every simple trigger
   /// tried, and a net trained on 21k such decisions did not beat never
   /// bombing (rl/README.md, "Out-of-turn bombs").
-  static const defaultOff = {'interrupt_bomb'};
+  static const defaultOff = {'interrupt_bomb', 'guard_single'};
 
   /// Rules that can be switched off with `-name`.
   static const rules = {
@@ -40,6 +40,7 @@ class HeuristicOptions {
     'grand_tichu',
     'delay_tichu',
     'interrupt_bomb',
+    'guard_single',
   };
 
   /// Whether [rule] is active.

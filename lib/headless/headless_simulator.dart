@@ -67,6 +67,10 @@ class _HeadlessSimulator {
   /// as `q_rollout_worlds`, for decisions with at least [worldsMinCards]
   /// cards in hand.
   final int rolloutWorlds;
+
+  /// Share of Dragon gifts and Mah Jong wishes labelled with every option
+  /// played out (`--side-rollout-rate`, default 0).
+  final double sideRolloutRate;
   final int worldsMinCards;
 
   /// Offer out-of-turn bombs (`--no-bomb-interrupts` turns them off, the
@@ -146,6 +150,7 @@ class _HeadlessSimulator {
     this.rolloutMaxActions = 12,
     this.bombInterrupts = true,
     this.rolloutWorlds = 1,
+    this.sideRolloutRate = 0,
     this.worldsMinCards = 0,
     this.interruptRolloutRate = 0,
     this.stakesRates,
@@ -379,6 +384,12 @@ class _HeadlessSimulator {
           if (rollouts != null && counts != null) counts[2]++;
         }
       }
+      await _labelSideDecision(
+        engine: engine,
+        state: state,
+        snapshot: snapshot,
+        action: action,
+      );
       final variants = rollouts != null && !offTurn && shadowVariants.isNotEmpty
           ? await _variantTurns(snapshot, action.playerId)
           : null;

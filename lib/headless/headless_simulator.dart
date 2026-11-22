@@ -73,6 +73,10 @@ class _HeadlessSimulator {
   final double sideRolloutRate;
   final int worldsMinCards;
 
+  /// Label only decisions with at most this many cards in hand
+  /// (`--label-max-cards`, default 14 = all; e.g. 5 for an endgame review).
+  final int labelMaxCards;
+
   /// Offer out-of-turn bombs (`--no-bomb-interrupts` turns them off, the
   /// behaviour before 2026-11-20).
   final bool bombInterrupts;
@@ -152,6 +156,7 @@ class _HeadlessSimulator {
     this.rolloutWorlds = 1,
     this.sideRolloutRate = 0,
     this.worldsMinCards = 0,
+    this.labelMaxCards = 14,
     this.interruptRolloutRate = 0,
     this.stakesRates,
     this.isLearnerSeat = _everySeat,
@@ -362,7 +367,8 @@ class _HeadlessSimulator {
             }
           }
         }
-        if (random.nextDouble() < p) {
+        if (random.nextDouble() < p &&
+            (snapshot.hands[action.playerId]?.length ?? 0) <= labelMaxCards) {
           rollouts = await _rolloutValues(
             engine: engine,
             state: state,

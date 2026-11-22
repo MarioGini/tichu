@@ -121,6 +121,7 @@ Future<void> main(final List<String> args) async {
     rolloutWorlds: config.rolloutWorlds,
     sideRolloutRate: config.sideRolloutRate,
     worldsMinCards: config.worldsMinCards,
+    labelMaxCards: config.labelMaxCards,
     interruptRolloutRate: config.interruptRolloutRate,
     stakesRates: config.stakesRollouts
         ? config.stakesRates ?? StakesRates.forBase(config.rolloutRate)

@@ -37,6 +37,7 @@ class _HeadlessConfig {
   final int rolloutWorlds;
   final double sideRolloutRate;
   final int worldsMinCards;
+  final int labelMaxCards;
   final double interruptRolloutRate;
   final bool stakesRollouts;
   final StakesRates? stakesRates;
@@ -85,6 +86,7 @@ class _HeadlessConfig {
     required this.rolloutWorlds,
     required this.sideRolloutRate,
     required this.worldsMinCards,
+    required this.labelMaxCards,
     required this.interruptRolloutRate,
     required this.stakesRollouts,
     required this.stakesRates,
@@ -138,6 +140,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var rolloutWorlds = 1;
   var sideRolloutRate = 0.0;
   var worldsMinCards = 0;
+  var labelMaxCards = 14;
   var interruptRolloutRate = 0.0;
   var stakesRollouts = false;
   String? stakesRatesSpec;
@@ -264,6 +267,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     if (arg.startsWith('--worlds-min-cards=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 0) worldsMinCards = k;
+      continue;
+    }
+    if (arg.startsWith('--label-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) labelMaxCards = k;
       continue;
     }
     if (arg == '--no-bomb-interrupts') {
@@ -437,6 +445,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     rolloutWorlds: rolloutWorlds,
     sideRolloutRate: sideRolloutRate,
     worldsMinCards: worldsMinCards,
+    labelMaxCards: labelMaxCards,
     interruptRolloutRate: interruptRolloutRate,
     stakesRollouts: stakesRollouts,
     stakesRates: stakesRates,
@@ -471,6 +480,7 @@ void _printUsage() {
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--no-bomb-interrupts] [--interrupt-rollout-rate=p]');
   stdout.writeln('       [--rollout-worlds=K] [--worlds-min-cards=N]');
+  stdout.writeln('       [--label-max-cards=N]  (label only small hands)');
   stdout.writeln('       [--side-rollout-rate=p]  (Dragon gift / wish labels)');
   stdout.writeln(
     '       [--stakes-rollouts] [--stakes-rates=high:p,mid:p,low:p]',

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
+import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -53,6 +54,12 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
 
   /// Use float32 SIMD inference (headless runs; see [Mlp.simdPrefixScorer]).
   final bool simd;
+
+  /// Style experiment: pass bonus / control-card penalty (see [StyleBias]).
+  final StyleBias style;
+
+  /// Points per unit of the net's output (its `target_std`).
+  final double outputScale;
   final Float64List _actionBuffer = Float64List(actionFeatureCount);
 
   NnPlaySelectionStrategy({
@@ -60,6 +67,8 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     required this.network,
     this.fallback = const DefaultPlaySelectionStrategy(),
     this.simd = false,
+    this.style = StyleBias.none,
+    this.outputScale = 100,
   }) : _layout =
            playNetLayout(network.inputSize) ??
            (throw ArgumentError.value(
@@ -153,10 +162,18 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
 
     TichuTurn? bestPlay;
     var bestValue = double.negativeInfinity;
+    final spendPenalty =
+        style.spendPenalty != 0 &&
+            (snapshot.hands[playerId]?.length ?? 0) >= style.spendMinHand
+        ? style.spendPenalty / outputScale
+        : 0.0;
 
     for (final play in plays) {
       encoder.writeActionFeatures(play, buffer, 0);
-      final qValue = scorer.score(buffer);
+      var qValue = scorer.score(buffer);
+      if (spendPenalty != 0) {
+        qValue -= spendPenalty * StyleBias.controls(play);
+      }
 
       if (qValue > bestValue) {
         bestValue = qValue;
@@ -176,7 +193,9 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
         0,
         isPass: true,
       );
-      if (scorer.score(buffer) > bestValue) return null;
+      if (scorer.score(buffer) + style.passBonus / outputScale > bestValue) {
+        return null;
+      }
     }
 
     return bestPlay ?? plays.first;

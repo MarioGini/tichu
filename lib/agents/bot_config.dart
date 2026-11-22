@@ -5,6 +5,7 @@ import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
+import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/player_agent.dart';
 
@@ -57,6 +58,9 @@ class BotConfig {
   /// compiled headless runner. The app keeps the float64 path.
   final bool simdInference;
 
+  /// Style experiment for the play net (headless `--style=`); none in the app.
+  final StyleBias style;
+
   const BotConfig({
     this.play,
     this.tichu,
@@ -65,6 +69,7 @@ class BotConfig {
     this.schupf,
     this.callMargin = 0,
     this.simdInference = false,
+    this.style = StyleBias.none,
     this.heuristicOptions = HeuristicOptions.latest,
   });
 
@@ -84,6 +89,8 @@ class BotConfig {
               playerId: playerId,
               network: play.network,
               simd: simdInference,
+              style: style,
+              outputScale: play.targetStd,
             )),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null

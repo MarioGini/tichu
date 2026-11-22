@@ -8,6 +8,7 @@ import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
+import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
@@ -69,6 +70,7 @@ Future<void> main(final List<String> args) async {
     schupf: await _loadNet(config.schupfNetPath),
     heuristicOptions: config.heuristic,
     simdInference: config.simd,
+    style: config.style,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig.build;
@@ -80,6 +82,7 @@ Future<void> main(final List<String> args) async {
     tichu: opponentTichu,
     heuristicOptions: config.opponentHeuristic,
     simdInference: config.simd,
+    style: config.opponentStyle,
   ).build;
 
   final PlayerAgent Function(String, int) agentFactory;

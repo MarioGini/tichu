@@ -26,6 +26,8 @@ class _HeadlessConfig {
   final String? preTichuNetPath;
   final HeuristicOptions heuristic;
   final HeuristicOptions opponentHeuristic;
+  final StyleBias style;
+  final StyleBias opponentStyle;
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
@@ -75,6 +77,8 @@ class _HeadlessConfig {
     required this.preTichuNetPath,
     required this.heuristic,
     required this.opponentHeuristic,
+    required this.style,
+    required this.opponentStyle,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
@@ -129,6 +133,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   String? preTichuNetPath;
   var heuristic = HeuristicOptions.latest;
   var opponentHeuristic = HeuristicOptions.latest;
+  var style = StyleBias.none;
+  var opponentStyle = StyleBias.none;
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
   var skipPlayRows = false;
@@ -350,6 +356,14 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
     }
+    if (arg.startsWith('--style=')) {
+      style = StyleBias.parse(arg.substring(arg.indexOf('=') + 1));
+      continue;
+    }
+    if (arg.startsWith('--opponent-style=')) {
+      opponentStyle = StyleBias.parse(arg.substring(arg.indexOf('=') + 1));
+      continue;
+    }
     if (arg.startsWith('--opponent-heuristic=')) {
       opponentHeuristic = HeuristicOptions.parse(
         arg.substring(arg.indexOf('=') + 1),
@@ -434,6 +448,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     preTichuNetPath: preTichuNetPath,
     heuristic: heuristic,
     opponentHeuristic: opponentHeuristic,
+    style: style,
+    opponentStyle: opponentStyle,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
@@ -475,6 +491,9 @@ void _printUsage() {
   stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
   stdout.writeln('       [--heuristic=latest|legacy|support,announce,strict]');
   stdout.writeln('       [--opponent-heuristic=...]  (A/B heuristic rules)');
+  stdout.writeln(
+    '       [--style=pass:P,spend:S,min-hand:N] [--opponent-style=...]',
+  );
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');

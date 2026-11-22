@@ -74,9 +74,9 @@ mixin _GameScreenView on _GameScreenStateBase, _GameScreenSeats {
     final flags = _tableFlags();
     final snapshot = flags.snapshot;
     final scoreState = flags.scoreState;
-    final partnerPlayer = _playerForRelativeSeat(snapshot, 2);
-    final leftPlayer = _playerForRelativeSeat(snapshot, -1);
-    final rightPlayer = _playerForRelativeSeat(snapshot, 1);
+    final partnerPlayer = _playerForRelativeSeat(snapshot, TableSeat.partner);
+    final leftPlayer = _playerForRelativeSeat(snapshot, TableSeat.left);
+    final rightPlayer = _playerForRelativeSeat(snapshot, TableSeat.right);
     final landscape = isLandscapeTable(MediaQuery.sizeOf(context));
     final showPending = flags.isPlayPhase;
 
@@ -94,7 +94,7 @@ mixin _GameScreenView on _GameScreenStateBase, _GameScreenSeats {
           child: GameBoard(
             expandHand:
                 snapshot?.phase == GamePhase.schupf || flags.pendingReceipts,
-            topBarLeading: _TopBarButton(
+            topBarLeading: TopBarButton(
               tooltip: 'Leave table',
               icon: Icons.arrow_back_rounded,
               onPressed: () => Navigator.of(context).maybePop(),
@@ -105,7 +105,7 @@ mixin _GameScreenView on _GameScreenStateBase, _GameScreenSeats {
                     scoreState: scoreState,
                     isTeamOne: (_resolveSelfSeat(snapshot) ?? 0).isEven,
                   ),
-            topBarTrailing: _TopBarButton(
+            topBarTrailing: TopBarButton(
               tooltip: 'Options',
               icon: Icons.settings,
               onPressed: _showOptionsDialog,

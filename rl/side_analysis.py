@@ -35,8 +35,8 @@ print(f"  options differ in {np.mean(spread > 0)*100:.0f} % of decisions, by {sp
 best = [max(r['values']) - r['values'][r['chosen']] for r in d]
 print(f"  rule's loss vs the better recipient (hindsight): {np.mean(best):.2f} points per decision")
 def pick(r, key):  # index of the option chosen by a rule; key(seat) -> score, higher = give
-    sc = [key(r, s) for s in r['options']]
-    return int(np.argmax(sc)) if sc[0] != sc[1] else r['chosen']
+    a, b = (key(r, s) for s in r['options'])
+    return 0 if a > b else 1 if b > a else r['chosen']
 cards = lambda r, s: r['cards_by_seat'][s]
 rules = {
     'more cards (likely last)': lambda r, s: cards(r, s),
@@ -50,7 +50,7 @@ rules = {
 for name, key in rules.items():
     gains = []
     for r in d:
-        i = pick(r, lambda rr, s: key(rr, s) if not isinstance(key(rr, s), tuple) else key(rr, s))
+        i = pick(r, key)
         gains.append(r['values'][i] - r['values'][r['chosen']])
     report(f"{name} vs the bots' rule", gains)
 # by situation: does someone already out matter?

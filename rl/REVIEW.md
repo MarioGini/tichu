@@ -174,6 +174,29 @@ The last player and the double win:
   seat) and the round-point labels; it is a useful check for the human-game
   review and the endgame search (ideas 8 and 9).
 
+## Side decisions and the partner guard (measured 2026-11-22)
+
+Exact labels (`headless --side-rollout-rate=1`, `rl/side_analysis.py`), v7 +
+schupf v3 self-play, 3000 matches:
+
+- **Dragon gift** (30,244 decisions): the two recipients differ in 39 % of
+  gifts, by 86 points when they do (14 points per gift with hindsight). The
+  rule (opponent without a call, else the one with more cards = likely
+  last) is as good as any simple alternative: "more cards" +0.1 ± 0.1,
+  "fewer points won" -1.3, "left opponent" -3.9, "fewer cards" -4.9. A
+  small net on the decider's state (held-out matches) +0.9 ± 0.6 at best,
+  falling with more training: no reliable gain.
+- **Mah Jong wish** (30,635): the rule (wish the rank passed to the left
+  opponent, else the highest unheld A-10) beats every fixed wish by 3.6
+  (wish 3) to 12 points (no wish); a learned net is -0.5 to -3.5. The
+  hindsight spread (139 points) is hidden-card luck.
+- **Partner guard `guard_single`** (do not play down to one card while the
+  partner's Tichu is live): changes the move in 54 positions per 800
+  matches, always to a pass, which costs -18 ± 20 points on exact
+  rollouts; duel 49.8 % ± 0.1 (-2 ± 1 per match). Passing hands the trick and
+  the lead to the opponents, a bigger threat to the Tichu than the forced
+  single-card lead it avoids (1 % of calls). Removed.
+
 ## Flaws in the setup
 
 **F1. Labels concentrated on few deals** (measured, above). Fix: label a
@@ -270,7 +293,7 @@ all-action labels and only perturbs the states (minor).
 | 4 | Ensemble of 3-5 nets trained with different seeds (average Q) | +0.5-2 pp, lower estimator variance | training x3-5, 0.4 ms per decision | |
 | 5 | SPRT or 3000-deal promotion gate | fewer wrong promotions | +10 min per iteration | |
 | 6 | Received-card features + card-ownership auxiliary head | unknown, likely small to medium | schema change + 2 iterations | |
-| 7 | Exact labels for wish and Dragon gift | < 1 pp each | ~1 day each | |
+| 7 | Exact labels for wish and Dragon gift | measured: rules already at the learnable level | done | |
 | 8 | Endgame search (PIMC with short rollouts, few unseen cards) | unknown; v7 still gains +5 per differing endgame move | measure like the table above (needs a max-cards filter for `--rollout-worlds`) | |
 | 9 | Human-game review from the app's records | finds what bot-vs-bot cannot | replay tool | |
 | 10 | Belief-weighted worlds (softmax-Q likelihood of observed plays) for search or labels | needed if 8 or K-world labels are used | medium | |

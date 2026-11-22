@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
@@ -57,6 +58,10 @@ class BotConfig {
   /// compiled headless runner. The app keeps the float64 path.
   final bool simdInference;
 
+  /// Decision-time endgame search (needs a play net and a driver that runs
+  /// [EndgameSearcher]); null = off.
+  final EndgameSearch? endgameSearch;
+
   const BotConfig({
     this.play,
     this.tichu,
@@ -66,7 +71,21 @@ class BotConfig {
     this.callMargin = 0,
     this.simdInference = false,
     this.heuristicOptions = HeuristicOptions.latest,
+    this.endgameSearch,
   });
+
+  /// This config with [search] as its endgame search (null = off).
+  BotConfig withEndgameSearch(final EndgameSearch? search) => BotConfig(
+    play: play,
+    tichu: tichu,
+    grandTichu: grandTichu,
+    preSchupfTichu: preSchupfTichu,
+    schupf: schupf,
+    callMargin: callMargin,
+    simdInference: simdInference,
+    heuristicOptions: heuristicOptions,
+    endgameSearch: search,
+  );
 
   /// The pure heuristic bot.
   static const heuristic = BotConfig();
@@ -78,6 +97,8 @@ class BotConfig {
     return SmartAiAgent(
       playerId,
       options: heuristicOptions,
+      // The search needs the play net's moves to improve on.
+      endgameSearch: play == null ? null : endgameSearch,
       playSelectionStrategy: (play == null
           ? null
           : NnPlaySelectionStrategy(

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -30,6 +31,13 @@ class AiTurnRunner {
 
   // ignore: avoid_setters_without_getters, engine is write-only; set once by LocalMatchRuntime.
   set engine(final GameEngine value) => _engine = value;
+
+  /// Endgame search of bots configured with one (see `AppBots`). Rollouts
+  /// use fresh bots from the factory for every seat (humans included).
+  late final EndgameSearcher _endgameSearcher = EndgameSearcher(
+    rolloutAgent: (final playerId, final _) => _agentFactory(playerId),
+    yieldBetweenRollouts: true,
+  );
 
   final Map<String, PlayerAgent> _automatedAgents = {};
   final Set<String> _automatedTurnsInFlight = {};
@@ -168,12 +176,34 @@ class AiTurnRunner {
     _automatedTurnsInFlight.add(inFlightKey);
     try {
       final snapshot = buildSnapshot();
-      final action = await AgentDecisions.resolve(
+      var action = await AgentDecisions.resolve(
         TurnRequest(currentPlayer.id),
         agent,
         snapshot,
         state.engineState,
       );
+      if (action != null) {
+        final logLength = state.engineState.roundLog.length;
+        action = await _endgameSearcher.refine(
+          engine: _engine,
+          state: state.engineState,
+          agent: agent,
+          chosen: action,
+        );
+        // The search yields to the event loop: drop the move if the game
+        // moved on meanwhile (e.g. a human bomb); that action re-runs the
+        // bots.
+        if (state.engineState.roundLog.length != logLength ||
+            state
+                    .engineState
+                    .players[state.engineState.currentPlayerIndex]
+                    .id !=
+                currentPlayer.id ||
+            state.opponentAwaitingConfirmation ||
+            state.pendingOpponentAction != null) {
+          return;
+        }
+      }
       state.pendingOpponentAction = action;
       state.pendingOpponentPlayerId = currentPlayer.id;
       state.pendingOpponentCards

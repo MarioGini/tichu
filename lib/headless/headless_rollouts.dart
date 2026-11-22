@@ -103,35 +103,7 @@ extension _Rollouts on _HeadlessSimulator {
     final GameEngine engine,
     final GameEngineState fork,
     final Map<String, PlayerAgent> forkAgents,
-  ) async {
-    for (var steps = 0; steps < 5000; steps++) {
-      final score = fork.scoreTracker.state;
-      if (score.roundComplete) return score.teamOneRound - score.teamTwoRound;
-      final request = AgentDecisions.next(
-        engine,
-        fork,
-        bombInterrupts: bombInterrupts,
-      );
-      if (request == null) return null;
-      final snap = engine.buildSnapshot(fork);
-      GameAction? action;
-      try {
-        action = await AgentDecisions.resolve(
-          request,
-          forkAgents[request.playerId]!,
-          snap,
-          fork,
-        );
-        // Agents signal "no legal action" with StateError.
-        // ignore: avoid_catching_errors
-      } on StateError {
-        return null;
-      }
-      if (action == null) continue;
-      engine.applyAction(fork, action);
-    }
-    return null;
-  }
+  ) => playOutRound(engine, fork, forkAgents, bombInterrupts: bombInterrupts);
 
   String _slotKey(final List<Card> cards) {
     final slots = [for (final c in cards) cardSlot(c)]..sort();

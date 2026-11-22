@@ -48,6 +48,9 @@ class _HeadlessSimulator {
   /// estimate (`--pimc-worlds`, see [_counterfactualCall]).
   final int pimcWorlds;
 
+  /// Runs the endgame search of agents that have one (null = no agent has).
+  final EndgameSearcher? endgameSearcher;
+
   /// Branch details of the last [_counterfactualCall] (see there).
   Map<String, Object?>? _lastCallDetails;
 
@@ -165,6 +168,7 @@ class _HeadlessSimulator {
     this.schupfRolloutRate = 0,
     this.schupfCandidates = 16,
     this.pimcWorlds = 0,
+    this.endgameSearcher,
   });
 
   static bool _everySeat(final int _) => true;
@@ -216,6 +220,21 @@ class _HeadlessSimulator {
       await output?.flush();
     }
     if (stakesRates != null) _printStakesStats();
+    final searcher = endgameSearcher;
+    if (searcher != null) {
+      final ms = searcher.stopwatch.elapsedMicroseconds / 1000;
+      stderr.writeln(
+        jsonEncode({
+          'endgame_search_stats': true,
+          'episodes': episodes,
+          'searches': searcher.searches,
+          'switches': searcher.switches,
+          'rollouts': searcher.rollouts,
+          'search_ms': ms.round(),
+          'ms_per_search': searcher.searches == 0 ? 0 : ms / searcher.searches,
+        }),
+      );
+    }
   }
 
   /// Rollout labelling is on (only labelled play rows are written).

@@ -49,6 +49,10 @@ class _HeadlessConfig {
   final int schupfCandidates;
   final int pimcWorlds;
 
+  /// Endgame search for the policy / opponent team (null = off).
+  final EndgameSearch? endgameSearch;
+  final EndgameSearch? opponentEndgameSearch;
+
   const _HeadlessConfig({
     required this.seed,
     required this.targetScore,
@@ -97,6 +101,8 @@ class _HeadlessConfig {
     required this.schupfRolloutRate,
     required this.schupfCandidates,
     required this.pimcWorlds,
+    this.endgameSearch,
+    this.opponentEndgameSearch,
   });
 }
 
@@ -151,6 +157,13 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var schupfRolloutRate = 0.0;
   var schupfCandidates = 16;
   var pimcWorlds = 0;
+  var endgameSearch = false;
+  var opponentEndgameSearch = false;
+  const defaults = EndgameSearch();
+  var endgameWorlds = defaults.worlds;
+  var endgameMaxCards = defaults.maxCards;
+  var endgameMargin = defaults.margin;
+  var endgameMaxActions = defaults.maxActions;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -326,6 +339,34 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 2) schupfCandidates = p;
       continue;
     }
+    if (arg == '--endgame-search') {
+      endgameSearch = true;
+      continue;
+    }
+    if (arg == '--opponent-endgame-search') {
+      opponentEndgameSearch = true;
+      continue;
+    }
+    if (arg.startsWith('--endgame-worlds=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) endgameWorlds = k;
+      continue;
+    }
+    if (arg.startsWith('--endgame-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) endgameMaxCards = k;
+      continue;
+    }
+    if (arg.startsWith('--endgame-margin=')) {
+      final m = double.tryParse(arg.split('=').last);
+      if (m != null && m >= 0) endgameMargin = m;
+      continue;
+    }
+    if (arg.startsWith('--endgame-max-actions=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 2) endgameMaxActions = k;
+      continue;
+    }
     if (arg == '--no-simd') {
       simd = false;
       continue;
@@ -408,7 +449,15 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     outputPath = 'game.jsonl';
   }
 
+  final search = EndgameSearch(
+    worlds: endgameWorlds,
+    maxCards: endgameMaxCards,
+    margin: endgameMargin,
+    maxActions: endgameMaxActions,
+  );
   return _HeadlessConfig(
+    endgameSearch: endgameSearch ? search : null,
+    opponentEndgameSearch: opponentEndgameSearch ? search : null,
     seed: seed,
     targetScore: targetScore,
     rounds: rounds,
@@ -488,5 +537,8 @@ void _printUsage() {
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
   stdout.writeln('       [--shadow-heuristics=spec|spec|...] [--no-simd]');
   stdout.writeln('       [--schupf-rollout-rate=p] [--schupf-candidates=N]');
+  stdout.writeln('       [--endgame-search] [--opponent-endgame-search]');
+  stdout.writeln('       [--endgame-worlds=8] [--endgame-max-cards=5]');
+  stdout.writeln('       [--endgame-margin=10] [--endgame-max-actions=7]');
   stdout.writeln('       [--epsilon=0.1]');
 }

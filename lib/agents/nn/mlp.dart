@@ -288,12 +288,12 @@ class Mlp {
   ///
   /// Returns `(mlp, targetMean, targetStd)`.
   static (Mlp, double, double) fromSafetensorsBytes(final Uint8List bytes) {
-    // Read header length (LE uint64).
-    final headerLen = ByteData.sublistView(
-      bytes,
-      0,
-      8,
-    ).getUint64(0, Endian.little);
+    // Read header length (LE uint64) as two uint32 halves: dart2js (the web
+    // build) has no 64-bit accessors.
+    final lengthBytes = ByteData.sublistView(bytes, 0, 8);
+    final headerLen =
+        lengthBytes.getUint32(0, Endian.little) +
+        lengthBytes.getUint32(4, Endian.little) * 0x100000000;
     final headerJson = utf8.decode(bytes.sublist(8, 8 + headerLen));
     final header = jsonDecode(headerJson) as Map<String, dynamic>;
     final dataOffset = 8 + headerLen;

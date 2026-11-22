@@ -39,28 +39,15 @@ from qnet import (
     load_qnetwork_from_safetensors,
     select_device,
 )
-from schema import LEGACY_ACTION_FEATURE_COUNT, SPEC, TOTAL_FEATURE_COUNT, pad_action, pad_state
+from schema import LEGACY_ACTION_FEATURE_COUNT, TOTAL_FEATURE_COUNT, pad_action, pad_state
 
 SCALE = 100.0
 HAND_OFFSET = 0
 PLAYED_OFFSET = 56
-_SELF = SPEC.group("self")
-# Round-start match totals, from the state features (target 1000):
-# own_to_target = (target - own total) / target, likewise for the opponents.
-OWN_TO_TARGET = _SELF.offset + 12
-OPP_TO_TARGET = _SELF.offset + 13
 # Old caches carry no match ids: their decisions are split into contiguous
 # blocks of this many decisions instead (about one match of labelled data), so
 # held-out decisions still come from other deals than the training ones.
 OLD_CACHE_GAME_BLOCK = 256
-# Average sum of both teams' round points (card points + bonuses), used for
-# rows from before the runner wrote q_rollout_own.
-MEAN_ROUND_SUM = 158.0
-# Stakes classes of ``headless --stakes-rollouts`` (lib/headless/rollout_stakes.dart),
-# stored as int8 codes; -1 = unknown (then derived from the state features).
-STAKES = ("high", "mid", "low")
-_TRICK = SPEC.group("trick")
-_SEATS = SPEC.group("seats")
 
 
 class RolloutData:
@@ -72,24 +59,15 @@ class RolloutData:
     row per action, so millions of decisions fit in memory.
     """
 
-    def __init__(self, s, a, q, own, starts, chosen, explore, game, weight, label_p=None, stakes=None):
+    def __init__(self, s, a, q, starts, chosen, explore, game, weight):
         self.s = s  # (D, ACTION_OFFSET) float16
         self.a = a  # (rows, ACTION_FEATURE_COUNT) float16
-        self.q = q  # (rows,) training target (points / SCALE by default)
-        self.q_pts = q.clone()  # (rows,) round point difference / SCALE
-        self.own = own  # (rows,) own team's round points, NaN = unknown
+        self.q = q  # (rows,) round point difference / SCALE
         self.starts = starts  # (D + 1,) long
         self.chosen = chosen  # (D,) row index of the behaviour action, -1 = unlabelled
         self.explore = explore  # (D,) bool
         self.game = game  # (D,) long, match id (unique across files)
         self.weight = weight  # (D,) float32 loss weight (recency of the data)
-        d = int(starts.numel() - 1)
-        # (D,) float32 probability the decision was labelled with
-        # (--stakes-rollouts), NaN = unknown (uniform --rollout-rate data).
-        self.label_p = label_p if label_p is not None else torch.full((d,), float("nan"))
-        # (D,) int8 index into STAKES; rows without one get it from the features.
-        self.stakes = stakes if stakes is not None else torch.full((d,), -1, dtype=torch.int8)
-        self.q_win = None  # (rows,) match-win probability after the round, if computed
 
     @property
     def num_decisions(self) -> int:
@@ -100,8 +78,7 @@ class RolloutData:
 
 
 def _parse_jsonl(path: Path, max_decisions: int):
-    ss, aa, qs, owns, lens, chosen, explore, games = [], [], [], [], [], [], [], []
-    label_p, stakes = [], []
+    ss, aa, qs, lens, chosen, explore, games = [], [], [], [], [], [], []
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
             if '"q_rollout"' not in line:
@@ -111,24 +88,14 @@ def _parse_jsonl(path: Path, max_decisions: int):
             keep = [i for i, v in enumerate(q) if v is not None]
             if len(keep) < 2:
                 continue
-            own = row.get("q_rollout_own")
             ss.append(np.asarray(row["state_features"], dtype=np.float16))
             # Rows of an older layout (51 action features): padded below.
             aa.append(pad_action(np.asarray(row["legal_play_action_features"], dtype=np.float16)[keep]))
             qs.append(np.asarray([q[i] for i in keep], dtype=np.float32) / SCALE)
-            owns.append(
-                np.asarray([own[i] for i in keep], dtype=np.float32)
-                if own is not None
-                else np.full(len(keep), np.nan, dtype=np.float32)
-            )
             c = int(row["legal_play_chosen_index"])
             chosen.append(keep.index(c) if c in keep else -1)
             explore.append(bool(row.get("explore")))
             games.append(int(row.get("episode", 0)))
-            lp = row.get("label_p")
-            label_p.append(float(lp) if lp is not None else np.nan)
-            st = row.get("stakes")
-            stakes.append(STAKES.index(st) if st in STAKES else -1)
             lens.append(len(keep))
             if max_decisions and len(lens) >= max_decisions:
                 break
@@ -140,17 +107,16 @@ def _parse_jsonl(path: Path, max_decisions: int):
         "s": pad_state(np.stack(ss)),
         "a": np.concatenate(aa),
         "q": np.concatenate(qs),
-        "own": np.concatenate(owns),
         "starts": starts,
         "chosen": ch,
         "explore": np.asarray(explore, dtype=bool),
         "game": np.asarray(games, dtype=np.int64),
-        "label_p": np.asarray(label_p, dtype=np.float32),
-        "stakes": np.asarray(stakes, dtype=np.int8),
     }
 
 
 def _read_npz(path: Path) -> dict:
+    """An npz cache; columns of removed experiments (``own``, ``label_p``,
+    ``stakes``) are ignored."""
     d = dict(np.load(path))
     if "x" in d:  # old cache: one full input row per action (layout <= v6)
         starts = d["starts"]
@@ -160,7 +126,6 @@ def _read_npz(path: Path) -> dict:
             "s": x[starts[:-1], :cut].astype(np.float16),
             "a": x[:, cut:].astype(np.float16),
             "q": d["q"],
-            "own": np.full(len(d["q"]), np.nan, dtype=np.float32),
             "starts": starts,
             "chosen": d["chosen"],
             "explore": d["explore"],
@@ -169,37 +134,7 @@ def _read_npz(path: Path) -> dict:
     d["a"] = pad_action(d["a"])
     if "game" not in d:
         d["game"] = np.arange(len(d["chosen"]), dtype=np.int64) // OLD_CACHE_GAME_BLOCK
-    # Caches from before --stakes-rollouts: unknown label probability / class.
-    if "label_p" not in d:
-        d["label_p"] = np.full(len(d["chosen"]), np.nan, dtype=np.float32)
-    if "stakes" not in d:
-        d["stakes"] = np.full(len(d["chosen"]), -1, dtype=np.int8)
     return d
-
-
-def stakes_from_features(s: torch.Tensor) -> torch.Tensor:
-    """Stakes class (index into STAKES) from the state features.
-
-    The same rule as ``stakesReasons`` in lib/headless/rollout_stakes.dart,
-    so data without a ``stakes`` column (uniform --rollout-rate runs) can be
-    broken down the same way. high: someone out, another player with 1-3
-    cards, own hand <= 5; mid: a caller still in, a lead or a trick worth
-    >= 20 points; low: the rest.
-    """
-    s = s.float()
-    col = lambda g, name: s[:, g.index(name)]  # noqa: E731
-    out = col(_SELF, "finish_order_progress") > 0
-    close = torch.zeros(s.shape[0], dtype=torch.bool)
-    call = (col(_SELF, "own_tichu") > 0.5) | (col(_SELF, "own_grand_tichu") > 0.5)
-    for seat in ("left", "partner", "right"):
-        done = col(_SEATS, f"{seat}_finished") > 0.5
-        close |= (col(_SEATS, f"{seat}_few_cards") > 0.5) & ~done
-        call |= ((col(_SEATS, f"{seat}_tichu") > 0.5) | (col(_SEATS, f"{seat}_grand_tichu") > 0.5)) & ~done
-    endgame = torch.round(col(_SELF, "hand_size") * 14) <= 5
-    high = out | close | endgame
-    rich = torch.round(col(_TRICK, "trick_points") * 50) >= 20
-    mid = call | rich | (col(_TRICK, "trick_lead") > 0.5)
-    return torch.where(high, 0, torch.where(mid, 1, 2)).to(torch.int8)
 
 
 def file_iteration(path: Path) -> int | None:
@@ -231,35 +166,16 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
         w = 1.0 if it is None else recency ** (newest - it)
         weights.append(np.full(len(d["chosen"]), w, dtype=np.float32))
     cat = lambda k: torch.from_numpy(np.concatenate([d[k] for d in parts]))  # noqa: E731
-    data = RolloutData(
+    return RolloutData(
         cat("s"),
         cat("a"),
         cat("q"),
-        cat("own"),
         torch.from_numpy(np.concatenate(starts)),
         torch.from_numpy(np.concatenate(chosen)),
         cat("explore"),
         torch.from_numpy(np.concatenate(games)),
         torch.from_numpy(np.concatenate(weights)),
-        label_p=cat("label_p"),
-        stakes=cat("stakes"),
     )
-    unknown = data.stakes < 0
-    if bool(unknown.any()):
-        data.stakes[unknown] = stakes_from_features(data.s[unknown])
-    return data
-
-
-def importance_weights(data: RolloutData, default_label_p: float) -> torch.Tensor:
-    """Per-decision weight 1 / label_p, normalised to mean 1.
-
-    Undoes the over-sampling of high-stakes decisions by --stakes-rollouts
-    (the loss is then an estimate of the uniform-sampling loss). Decisions
-    without label_p (uniform runs) count as labelled with ``default_label_p``.
-    """
-    p = torch.where(torch.isnan(data.label_p), torch.tensor(default_label_p), data.label_p)
-    w = 1.0 / p.clamp_min(1e-3)
-    return w / w.mean()
 
 
 def save_npz(data: RolloutData, path: Path) -> None:
@@ -272,38 +188,12 @@ def save_npz(data: RolloutData, path: Path) -> None:
         path,
         s=data.s.numpy(),
         a=data.a.numpy(),
-        q=data.q_pts.numpy(),
-        own=data.own.numpy(),
+        q=data.q.numpy(),
         starts=data.starts.numpy(),
         chosen=data.chosen.numpy(),
         explore=data.explore.numpy(),
         game=data.game.numpy().astype(np.int32),
-        label_p=data.label_p.numpy().astype(np.float32),
-        stakes=data.stakes.numpy().astype(np.int8),
     )
-
-
-def win_targets(data: RolloutData, table_path: Path) -> torch.Tensor:
-    """Match-win probability after the round, per labelled action.
-
-    Round-start totals come from the state features, the round result from
-    the rollout (own points and the difference; the own points are
-    approximated from the difference for old rows without them).
-    """
-    from win_prob import WinTable
-
-    table = WinTable.load(table_path)
-    dec = torch.repeat_interleave(
-        torch.arange(data.num_decisions), data.starts[1:] - data.starts[:-1]
-    ).numpy()
-    s = data.s.numpy()
-    a_tot = table.target * (1.0 - s[dec, OWN_TO_TARGET].astype(np.float64))
-    b_tot = table.target * (1.0 - s[dec, OPP_TO_TARGET].astype(np.float64))
-    diff = data.q_pts.numpy().astype(np.float64) * SCALE
-    own = data.own.numpy().astype(np.float64)
-    own = np.where(np.isnan(own), (MEAN_ROUND_SUM + diff) / 2, own)
-    w = table.after_round(a_tot, b_tot, own, own - diff)
-    return torch.from_numpy(w.astype(np.float32))
 
 
 def permute_suits(s: torch.Tensor) -> torch.Tensor:
@@ -333,14 +223,10 @@ def batch_loss(
     data: RolloutData,
     idx: torch.Tensor,
     huber: float,
-    *,
-    augment: bool = True,
 ):
     rows, group, _ = gather_batch_indices(idx, data.starts)
     k = int(idx.numel())
-    st = data.s[idx].float()
-    if augment:
-        st = permute_suits(st)
+    st = permute_suits(data.s[idx].float())
     x = torch.cat([st[group], data.a[rows].float()], dim=1)
     out = model(x).squeeze(-1)
     per_row = nn.functional.huber_loss(
@@ -352,8 +238,7 @@ def batch_loss(
 
 @torch.no_grad()
 def evaluate(model: nn.Module, data: RolloutData, idx: torch.Tensor) -> dict[str, float]:
-    """Value of the greedy policy on held-out decisions: round points, and
-    match-win percentage points when win targets are loaded."""
+    """Value of the greedy policy on held-out decisions, in round points."""
     rows, group, offset = gather_batch_indices(idx, data.starts)
     out = torch.cat(
         [
@@ -370,26 +255,14 @@ def evaluate(model: nn.Module, data: RolloutData, idx: torch.Tensor) -> dict[str
     has = (chosen >= 0) & ~data.explore[idx]
     agree = is_best[(offset + chosen - data.starts[idx]).clamp(0, rows.numel() - 1)]
     m = {"agree": float(agree[has].float().mean())}
-    targets = [("pts", data.q_pts, SCALE)]
-    if data.q_win is not None:
-        targets.append(("win", data.q_win, 100.0))
-    for name, qall, unit in targets:
-        q = qall[rows]
-        greedy = torch.zeros(k).scatter_add_(0, group, q * is_best) / den
-        mean_q = torch.zeros(k).scatter_add_(0, group, q) / n
-        oracle = torch.full((k,), float("-inf")).scatter_reduce(0, group, q, reduce="amax")
-        beh = qall[chosen.clamp_min(0)]
-        m[f"gain_{name}"] = float(((greedy - beh)[has]).mean() * unit)
-        m[f"vs_uniform_{name}"] = float((greedy - mean_q).mean() * unit)
-        m[f"clairvoyant_{name}"] = float(((oracle - beh)[has]).mean() * unit)
-        if name == "pts":
-            # Held-out gain per stakes class: where does the new net improve?
-            cls = data.stakes[idx]
-            for c, label in enumerate(STAKES):
-                sel = has & (cls == c)
-                if bool(sel.any()):
-                    m[f"gain_pts_{label}"] = float(((greedy - beh)[sel]).mean() * unit)
     q = data.q[rows]
+    greedy = torch.zeros(k).scatter_add_(0, group, q * is_best) / den
+    mean_q = torch.zeros(k).scatter_add_(0, group, q) / n
+    oracle = torch.full((k,), float("-inf")).scatter_reduce(0, group, q, reduce="amax")
+    beh = data.q[chosen.clamp_min(0)]
+    m["gain_pts"] = float(((greedy - beh)[has]).mean() * SCALE)
+    m["vs_uniform_pts"] = float((greedy - mean_q).mean() * SCALE)
+    m["clairvoyant_pts"] = float(((oracle - beh)[has]).mean() * SCALE)
     m["mse"] = float(nn.functional.mse_loss(_centred(out, group, k), _centred(q, group, k)))
     m["var"] = float(_centred(q, group, k).var())
     return m
@@ -459,35 +332,10 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     torch.manual_seed(args.seed)
     t0 = time.time()
     data = load([Path(p) for p in args.jsonl.split(",") if p], recency=args.recency)
-    if args.zero_history:
-        # A/B control: same data and net, but the per-player history inputs
-        # are always zero (what a net without them would see).
-        hist = SPEC.group("history")
-        data.s[:, hist.offset : hist.offset + hist.size] = 0.0
     if args.save_cache:
         save_npz(data, Path(args.save_cache))
     d = data.num_decisions
     print(f"rollout data: decisions={d} rows={data.a.shape[0]} ({time.time()-t0:.0f}s)", flush=True)
-    shares = torch.bincount(data.stakes.long(), minlength=len(STAKES)).float() / max(d, 1)
-    known = int((~torch.isnan(data.label_p)).sum())
-    print(
-        "  stakes: " + "  ".join(f"{k}={float(v):.3f}" for k, v in zip(STAKES, shares))
-        + f"  (label_p on {known} decisions)",
-        flush=True,
-    )
-    if args.importance == "inverse":
-        data.weight = data.weight * importance_weights(data, args.default_label_p)
-    if args.objective != "points" or args.win_table_metrics:
-        data.q_win = win_targets(data, Path(args.win_table))
-    if args.objective == "win":
-        # Same spread as the point targets, so the Huber delta and learning
-        # rate keep their meaning.
-        rows, group, _ = gather_batch_indices(torch.arange(d), data.starts)
-        sp = _centred(data.q_pts, group, d).std()
-        sw = _centred(data.q_win, group, d).std()
-        data.q = data.q_win * (sp / sw)
-        print(f"  win targets: 1 win-% = {float(sp / sw) * SCALE / 100:.2f} points", flush=True)
-
     if args.hidden:
         model = QNetwork(TOTAL_FEATURE_COUNT, [int(h) for h in args.hidden.split(",")])
     else:
@@ -505,9 +353,6 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     print("  start: " + "  ".join(f"{k}={v:.3f}" for k, v in m0.items()), flush=True)
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    # L2-SP: pull towards the starting weights, so a noisy step cannot wipe
-    # out what the previous policy already knows.
-    anchor = [p_.detach().clone() for p_ in model.parameters()] if args.l2sp > 0 else None
     steps_per_epoch = (tr.numel() + args.batch_decisions - 1) // args.batch_decisions
     sched = torch.optim.lr_scheduler.OneCycleLR(
         opt, max_lr=args.lr, total_steps=args.epochs * steps_per_epoch, pct_start=0.1
@@ -516,17 +361,12 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         model, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(args.ema)
     ) if args.ema > 0 else None
     best_state, best_gain, metrics = None, float("-inf"), m0
-    key = "vs_uniform_win" if args.objective == "win" else "vs_uniform_pts"
     for epoch in range(args.epochs):
         model.train()
         order = tr[torch.randperm(tr.numel())]
         for i in range(steps_per_epoch):
             idx = order[i * args.batch_decisions : (i + 1) * args.batch_decisions]
-            loss = batch_loss(model, data, idx, args.huber, augment=not args.no_augment)
-            if anchor is not None:
-                loss = loss + args.l2sp * sum(
-                    ((p_ - a_) ** 2).sum() for p_, a_ in zip(model.parameters(), anchor)
-                )
+            loss = batch_loss(model, data, idx, args.huber)
             opt.zero_grad(set_to_none=True)
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 5.0)
@@ -543,13 +383,11 @@ def train(args: argparse.Namespace) -> dict[str, float]:
             + f"  [{time.time()-t0:.0f}s]",
             flush=True,
         )
-        if args.save_epochs:
-            _export(final, Path(f"{args.output}.ep{epoch+1}"), d)
-        if m[key] > best_gain:
-            best_gain, metrics = m[key], m
+        if m["vs_uniform_pts"] > best_gain:
+            best_gain, metrics = m["vs_uniform_pts"], m
             best_state = {k: v.clone() for k, v in final.state_dict().items()}
     model = final
-    if best_state is not None and not args.keep_last:
+    if best_state is not None:
         model.load_state_dict(best_state)
     else:
         metrics = m
@@ -571,44 +409,18 @@ def main() -> None:
     )
     p.add_argument("--output", required=True)
     p.add_argument("--epochs", type=int, default=4, help="held-out gain peaks after 3-4 epochs")
-    p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--weight-decay", type=float, default=1e-4)
     p.add_argument("--batch-decisions", type=int, default=256)
     p.add_argument("--huber", type=float, default=2.0)
     p.add_argument("--val-fraction", type=float, default=0.1)
-    p.add_argument("--keep-last", action="store_true")
-    p.add_argument("--l2sp", type=float, default=0.0, help="L2 pull towards the initial weights")
-    p.add_argument("--no-augment", action="store_true", help="disable suit-permutation augmentation")
-    p.add_argument("--save-epochs", action="store_true", help="also export OUTPUT.epN after every epoch")
     p.add_argument("--save-cache", default="", help="write the parsed rows to this .npz")
-    p.add_argument("--zero-history", action="store_true", help="A/B control: zero the history inputs")
-    p.add_argument(
-        "--objective",
-        choices=["points", "win"],
-        default="points",
-        help="regress on round points or on the match-win probability after the round",
-    )
-    p.add_argument("--win-table", default=str(Path(__file__).resolve().parent / "win_table.npz"))
-    p.add_argument("--win-table-metrics", action="store_true", help="also report win-% gains")
-    p.add_argument("--ema", type=float, default=0.0, help="EMA decay of the exported weights (0 = off)")
+    p.add_argument("--ema", type=float, default=0.999, help="EMA decay of the exported weights (0 = off)")
     p.add_argument(
         "--recency",
         type=float,
-        default=1.0,
+        default=0.8,
         help="loss weight factor per rollout_loop iteration of age (1 = all data equal)",
-    )
-    p.add_argument(
-        "--importance",
-        choices=["none", "inverse"],
-        default="none",
-        help="inverse: loss weight 1/label_p (normalised to mean 1, times the recency "
-        "weight), undoing the class sampling of --stakes-rollouts data",
-    )
-    p.add_argument(
-        "--default-label-p",
-        type=float,
-        default=0.5,
-        help="label probability assumed for rows without label_p (uniform --rollout-rate)",
     )
     p.add_argument("--seed", type=int, default=0)
     train(p.parse_args())

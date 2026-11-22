@@ -79,19 +79,40 @@ ACTION_OFFSET = ACTION_GROUP.offset
 STATE_FEATURE_COUNT = ACTION_OFFSET
 TOTAL_FEATURE_COUNT = SPEC.total
 
+# Action features of the layouts up to v6; v7 appends the claim analysis of
+# the hand after the action, so they are a prefix of the current action part.
+LEGACY_ACTION_FEATURE_COUNT = 51
+
 # Older input layouts, by net input size -> length of their state prefix.
 # Each layout is the current one with later groups missing at the end of the
-# state prefix: v4 (252: before `history`), v5 (318: before `turn`).
+# state prefix, and only the first LEGACY_ACTION_FEATURE_COUNT action
+# features: v4 (252: before `history`), v5 (318: before `turn`), v6 (319:
+# before `claim` / `received`).
 LEGACY_STATE_PREFIX = {
-    SPEC.group("history").offset + ACTION_FEATURE_COUNT: SPEC.group("history").offset,
-    SPEC.group("turn").offset + ACTION_FEATURE_COUNT: SPEC.group("turn").offset,
+    SPEC.group(g).offset + LEGACY_ACTION_FEATURE_COUNT: SPEC.group(g).offset
+    for g in ("history", "turn", "claim")
 }
+
+
+def widen_first_layer(w, input_size: int):
+    """First-layer weights ``w`` (out, input_size) of an older layout as
+    weights of the current layout: zero columns for every new input (state
+    groups and action features), so the net computes exactly what it did.
+    Works for torch tensors."""
+    import torch
+
+    prefix = LEGACY_STATE_PREFIX[input_size]
+    new = torch.zeros(w.shape[0], TOTAL_FEATURE_COUNT, dtype=w.dtype)
+    new[:, :prefix] = w[:, :prefix]
+    new[:, ACTION_OFFSET : ACTION_OFFSET + LEGACY_ACTION_FEATURE_COUNT] = w[:, prefix:]
+    return new
 
 
 def pad_state(s, xp=None):
     """Pad state-feature rows of an older layout (fewer columns) with zeros
     for the missing trailing groups (e.g. ``off_turn`` = 0: data recorded
-    before out-of-turn bombs existed). Works for numpy arrays."""
+    before out-of-turn bombs existed; the v7 claim / received groups).
+    Works for numpy arrays."""
     import numpy as np
 
     n = s.shape[1]
@@ -101,4 +122,19 @@ def pad_state(s, xp=None):
         raise ValueError(f"state rows have {n} features, expected {STATE_FEATURE_COUNT}")
     out = np.zeros((s.shape[0], STATE_FEATURE_COUNT), dtype=s.dtype)
     out[:, :n] = s
+    return out
+
+
+def pad_action(a):
+    """Pad action-feature rows of an older layout (51 columns, up to v6) with
+    zeros for the v7 after-action claim features. Works for numpy arrays."""
+    import numpy as np
+
+    n = a.shape[1]
+    if n == ACTION_FEATURE_COUNT:
+        return a
+    if n != LEGACY_ACTION_FEATURE_COUNT:
+        raise ValueError(f"action rows have {n} features, expected {ACTION_FEATURE_COUNT}")
+    out = np.zeros((a.shape[0], ACTION_FEATURE_COUNT), dtype=a.dtype)
+    out[:, :n] = a
     return out

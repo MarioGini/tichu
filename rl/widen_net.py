@@ -2,8 +2,10 @@
 """Convert a play policy of an older feature layout to the current one.
 
 Older layouts are the current one with state groups missing at the end of
-the state prefix: v4 (252 inputs, before `history`) and v5 (318, before the
-`turn` flag of out-of-turn bombs). The new input weights are zero, so the
+the state prefix and only the first 51 action features: v4 (252 inputs,
+before `history`), v5 (318, before the `turn` flag of out-of-turn bombs) and
+v6 (319, before the v7 `claim` / `received` groups and the after-action
+claim features). The new input weights are zero, so the
 converted net plays exactly like the original one; training then learns to
 use the new features. (`load_qnetwork_from_safetensors` does the same in
 memory, so training can also start from the old file directly.)
@@ -17,11 +19,10 @@ import json
 import sys
 from pathlib import Path
 
-import torch
 from safetensors import safe_open
 from safetensors.torch import load_file, save_file
 
-from schema import ACTION_OFFSET, LEGACY_STATE_PREFIX, TOTAL_FEATURE_COUNT
+from schema import LEGACY_STATE_PREFIX, TOTAL_FEATURE_COUNT, widen_first_layer
 
 
 def widen(src: Path, dst: Path) -> None:
@@ -31,14 +32,9 @@ def widen(src: Path, dst: Path) -> None:
     sizes = json.loads(meta["layer_sizes"])
     if sizes[0] == TOTAL_FEATURE_COUNT:
         raise SystemExit(f"{src} already has {TOTAL_FEATURE_COUNT} inputs")
-    prefix = LEGACY_STATE_PREFIX.get(sizes[0])
-    if prefix is None:
+    if sizes[0] not in LEGACY_STATE_PREFIX:
         raise SystemExit(f"{src}: unexpected input size {sizes[0]}")
-    w = tensors["layer.0.weight"]
-    new = torch.zeros(w.shape[0], TOTAL_FEATURE_COUNT, dtype=w.dtype)
-    new[:, :prefix] = w[:, :prefix]
-    new[:, ACTION_OFFSET:] = w[:, prefix:]
-    tensors["layer.0.weight"] = new.contiguous()
+    tensors["layer.0.weight"] = widen_first_layer(tensors["layer.0.weight"], sizes[0]).contiguous()
     meta["layer_sizes"] = json.dumps([TOTAL_FEATURE_COUNT] + sizes[1:])
     meta["builder.widened_from"] = str(src)
     save_file(tensors, str(dst), metadata=meta)

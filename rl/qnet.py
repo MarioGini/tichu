@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 
 from bc_data import FlatBcData
-from schema import ACTION_OFFSET, LEGACY_STATE_PREFIX, TOTAL_FEATURE_COUNT
+from schema import LEGACY_STATE_PREFIX, TOTAL_FEATURE_COUNT, widen_first_layer
 
 
 class QNetwork(nn.Module):
@@ -55,10 +55,11 @@ def load_qnetwork_from_safetensors(path: Path, device: torch.device) -> QNetwork
     layer_sizes = json.loads(meta.get("layer_sizes", "[]"))
     if len(layer_sizes) < 2:
         raise ValueError(f"{path}: invalid layer_sizes={layer_sizes}")
-    legacy_prefix = LEGACY_STATE_PREFIX.get(layer_sizes[0])
-    if legacy_prefix is not None:
-        # Older layout: insert zero weights for the missing state groups, so
-        # the net computes exactly what it did (and can be trained further).
+    legacy_size = layer_sizes[0] if layer_sizes[0] in LEGACY_STATE_PREFIX else None
+    if legacy_size is not None:
+        # Older layout: insert zero weights for the missing state groups and
+        # action features, so the net computes exactly what it did (and can
+        # be trained further).
         layer_sizes = [TOTAL_FEATURE_COUNT] + list(layer_sizes[1:])
     if layer_sizes[0] != TOTAL_FEATURE_COUNT:
         raise ValueError(
@@ -71,12 +72,8 @@ def load_qnetwork_from_safetensors(path: Path, device: torch.device) -> QNetwork
     model = QNetwork(TOTAL_FEATURE_COUNT, hidden)
 
     incoming = st_load(str(path))
-    if legacy_prefix is not None:
-        w = incoming["layer.0.weight"]
-        new = torch.zeros(w.shape[0], TOTAL_FEATURE_COUNT, dtype=w.dtype)
-        new[:, :legacy_prefix] = w[:, :legacy_prefix]
-        new[:, ACTION_OFFSET:] = w[:, legacy_prefix:]
-        incoming["layer.0.weight"] = new
+    if legacy_size is not None:
+        incoming["layer.0.weight"] = widen_first_layer(incoming["layer.0.weight"], legacy_size)
     # Map model.net's Linear modules in order to safetensors layer.{i}.* keys.
     linear_layers = [m for m in model.net if isinstance(m, nn.Linear)]
     for i, linear in enumerate(linear_layers):

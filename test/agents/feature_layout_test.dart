@@ -24,8 +24,8 @@ void main() {
       groups = (spec['groups'] as List).cast<Map<String, dynamic>>();
     });
 
-    test('schema version is current (v6)', () {
-      expect(spec['version'], 6);
+    test('schema version is current (v7)', () {
+      expect(spec['version'], 7);
     });
 
     test('group sizes match listed feature names', () {
@@ -56,6 +56,8 @@ void main() {
         ('hand_structure', handStructureOffset, handStructureFeatureCount),
         ('history', historyOffset, historyFeatureCount),
         ('turn', turnOffset, turnFeatureCount),
+        ('claim', claimOffset, claimFeatureCount),
+        ('received', receivedOffset, receivedRankFeatureCount),
         ('action', actionOffset, actionFeatureCount),
       ];
       expect(
@@ -71,6 +73,32 @@ void main() {
       }
       expect(stateFeatureCount, actionOffset);
       expect(totalFeatureCount, offset);
+    });
+
+    test('older layouts are prefixes of the current one', () {
+      final names = {
+        for (final g in groups)
+          g['name'] as String: (g['features'] as List).cast<String>(),
+      };
+      final action = names['action']!;
+      // v7 appends the after-action claim features to the old 51.
+      expect(
+        action.sublist(0, legacyActionFeatureCount).last,
+        'after_low_singles',
+      );
+      expect(action.sublist(actionClaimOffset), [
+        'after_claim_min_beatable',
+        'after_claim_unbeatable',
+        'after_claimable',
+      ]);
+      expect(playNetLayout(totalFeatureCount), (
+        state: stateFeatureCount,
+        action: actionFeatureCount,
+      ));
+      expect(playNetLayout(319), (state: 268, action: 51));
+      expect(playNetLayout(318), (state: 267, action: 51));
+      expect(playNetLayout(252), (state: 201, action: 51));
+      expect(playNetLayout(320), isNull);
     });
   });
 }

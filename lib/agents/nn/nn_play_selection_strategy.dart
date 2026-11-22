@@ -27,18 +27,25 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// the first layer once, each action only adds its own features. This is
   /// the hot path of headless self-play and of the bots in the app.
   late final PrefixScorer _scorer = simd
-      ? network.simdPrefixScorer(_stateLength)
-      : network.prefixScorer(_stateLength);
+      ? network.simdPrefixScorer(_layout.state)
+      : network.prefixScorer(_layout.state);
 
-  /// State prefix the net was trained on: nets from before the `history`
-  /// group (v3, v4) read only the first [legacyStateFeatureCount] features,
-  /// nets from before the `turn` group (v5-v7) the first
-  /// [v5StateFeatureCount].
-  late final int _stateLength = network.inputSize - actionFeatureCount;
+  /// Input layout the net was trained on: how many state features (a
+  /// prefix of the current state part) and action features (a prefix of the
+  /// current action part) it reads. Nets from before the `history` group
+  /// (v3, v4) read the first [legacyStateFeatureCount] state features, nets
+  /// from before the `turn` group (v5-v7 policies) the first
+  /// [v5StateFeatureCount], schema-v6 nets the first [v6StateFeatureCount];
+  /// all of them the first [legacyActionFeatureCount] action features.
+  final ({int state, int action}) _layout;
 
   /// Whether the net knows out-of-turn decisions (the `turn` group). Older
   /// nets never saw one; [selectInterruptBomb] then returns [notSupported].
-  bool get knowsInterrupts => network.inputSize == totalFeatureCount;
+  bool get knowsInterrupts => _layout.state > turnOffset;
+
+  /// Whether the net reads the claim features (schema v7); otherwise the
+  /// encoder skips them.
+  bool get _readsClaims => _layout.state > claimOffset;
 
   /// Returned by [selectInterruptBomb] when the net predates the `turn`
   /// group.
@@ -53,19 +60,15 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     required this.network,
     this.fallback = const DefaultPlaySelectionStrategy(),
     this.simd = false,
-  }) {
-    if (network.inputSize != totalFeatureCount &&
-        network.inputSize != v5TotalFeatureCount &&
-        network.inputSize != legacyTotalFeatureCount) {
-      throw ArgumentError.value(
-        network.inputSize,
-        'network.inputSize',
-        'Policy was trained for a different feature schema; expected '
-            '$totalFeatureCount inputs (rl/schema/feature_spec.json). '
-            'Retrain the policy.',
-      );
-    }
-  }
+  }) : _layout =
+           playNetLayout(network.inputSize) ??
+           (throw ArgumentError.value(
+             network.inputSize,
+             'network.inputSize',
+             'Policy was trained for a different feature schema; expected '
+                 '$totalFeatureCount inputs (rl/schema/feature_spec.json). '
+                 'Retrain the policy.',
+           ));
 
   @override
   TichuTurn selectPlay(
@@ -140,7 +143,11 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     final List<TichuTurn> plays, {
     required final bool canPass,
   }) {
-    final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
+    final encoder = FeatureEncoder(
+      snapshot: snapshot,
+      playerId: playerId,
+      claims: _readsClaims,
+    );
     final scorer = _scorer..setPrefix(encoder.stateFeatures);
     final buffer = _actionBuffer;
 

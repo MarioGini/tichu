@@ -73,19 +73,6 @@ class _HeadlessSimulator {
   final double sideRolloutRate;
   final int worldsMinCards;
 
-  /// `--stakes-rollouts`: per-class label probability of the learner seats'
-  /// on-turn play decisions (see [classifyStakes]) instead of the uniform
-  /// [rolloutRate]. Labelled rows carry `stakes` and `label_p`. Null = off.
-  final StakesRates? stakesRates;
-
-  /// Per stakes class: [decisions, labellable, labelled] (see
-  /// [_printStakesStats]); reasons are counted on labellable decisions.
-  final Map<RolloutStakes, List<int>> _stakesCounts = {
-    for (final s in RolloutStakes.values) s: [0, 0, 0],
-  };
-  final Map<StakesReason, int> _reasonCounts = {
-    for (final r in StakesReason.values) r: 0,
-  };
   final bool Function(int seat) isLearnerSeat;
 
   /// Add a human-readable description of the position to labelled rows.
@@ -142,7 +129,6 @@ class _HeadlessSimulator {
     this.rolloutWorlds = 1,
     this.sideRolloutRate = 0,
     this.worldsMinCards = 0,
-    this.stakesRates,
     this.isLearnerSeat = _everySeat,
     this.describe = false,
     this.shadowVariants = const [],
@@ -199,42 +185,10 @@ class _HeadlessSimulator {
       // sink would buffer the whole run in memory.
       await output?.flush();
     }
-    if (stakesRates != null) _printStakesStats();
   }
 
   /// Rollout labelling is on (only labelled play rows are written).
-  bool get _rolloutLabelling => rolloutRate > 0 || stakesRates != null;
-
-  /// Whether [_rolloutValues] would label this decision (at least two
-  /// actions, no finishing move) — for the class shares only.
-  bool _labellable(final GameSnapshot snapshot, final String playerId) {
-    final (:legalTurns, :canPass) = _decisionActions(snapshot, playerId);
-    if (legalTurns.length + (canPass ? 1 : 0) < 2) return false;
-    final n = (snapshot.hands[playerId] ?? const <Card>[]).length;
-    return !legalTurns.any((final t) => t.cards.length == n);
-  }
-
-  /// One stderr line of class shares, e.g. for choosing `--stakes-rates`
-  /// so the expected labels per match match a uniform `--rollout-rate`.
-  void _printStakesStats() {
-    final stats = <String, Object?>{
-      'stakes_stats': true,
-      'episodes': episodes,
-      'rates': {
-        for (final s in RolloutStakes.values) s.name: stakesRates!.of(s),
-      },
-      for (final s in RolloutStakes.values)
-        s.name: {
-          'decisions': _stakesCounts[s]![0],
-          'labellable': _stakesCounts[s]![1],
-          'labelled': _stakesCounts[s]![2],
-        },
-      'reasons_labellable': {
-        for (final r in StakesReason.values) r.name: _reasonCounts[r],
-      },
-    };
-    stderr.writeln(jsonEncode(stats));
-  }
+  bool get _rolloutLabelling => rolloutRate > 0;
 
   Future<void> _runEpisode(final int episodeNumber) async {
     final players = _buildAutomatedPlayers();
@@ -320,38 +274,20 @@ class _HeadlessSimulator {
           : null;
       final before = snapshot;
       ({List<double?> diff, List<double?> own})? rollouts;
-      RolloutStakes? stakes;
       List<List<double?>>? worlds;
-      double? labelP;
       if (_rolloutLabelling &&
           bcWriter != null &&
           (action is PlayTurnAction || action is PassAction) &&
           isLearnerSeat(
             state.players.firstWhere((final p) => p.id == action.playerId).seat,
           )) {
-        var p = rolloutRate;
-        List<int>? counts;
-        if (stakesRates != null) {
-          final reasons = stakesReasons(snapshot, action.playerId);
-          stakes = stakesOf(reasons);
-          p = stakesRates!.of(stakes);
-          counts = _stakesCounts[stakes]!;
-          counts[0]++;
-          if (_labellable(snapshot, action.playerId)) {
-            counts[1]++;
-            for (final r in reasons) {
-              _reasonCounts[r] = _reasonCounts[r]! + 1;
-            }
-          }
-        }
-        if (random.nextDouble() < p) {
+        if (random.nextDouble() < rolloutRate) {
           rollouts = await _rolloutValues(
             engine: engine,
             state: state,
             snapshot: snapshot,
             chosen: action,
           );
-          if (stakesRates != null) labelP = p;
           if (rollouts != null &&
               rolloutWorlds > 1 &&
               (snapshot.hands[action.playerId]?.length ?? 0) >=
@@ -362,7 +298,6 @@ class _HeadlessSimulator {
               chosen: action,
             );
           }
-          if (rollouts != null && counts != null) counts[2]++;
         }
       }
       await _labelSideDecision(
@@ -399,8 +334,6 @@ class _HeadlessSimulator {
           rolloutWorlds: worlds,
           describe: describe,
           variants: variants,
-          stakes: rollouts != null ? stakes : null,
-          labelP: rollouts != null ? labelP : null,
         );
       }
 

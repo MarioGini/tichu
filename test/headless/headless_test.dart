@@ -209,46 +209,7 @@ void main() {
     },
   );
 
-  test('stakes rollouts label rows with their class and probability', () async {
-    final tempDir = await Directory.systemTemp.createTemp(
-      'tichu_headless_stakes_',
-    );
-    final outputFile = File('${tempDir.path}/rollouts.jsonl');
-
-    try {
-      await headless.main([
-        '--seed=7',
-        '--target-score=50',
-        '--episodes=1',
-        '--format=bc-jsonl',
-        '--rollout-rate=0.5',
-        '--stakes-rollouts',
-        '--stakes-rates=high:1.0,mid:0.5,low:0.25',
-        '--output=${outputFile.path}',
-      ]);
-
-      final rows = [
-        for (final l in await outputFile.readAsLines())
-          jsonDecode(l) as Map<String, dynamic>,
-      ];
-      final labelled = rows.where((final r) => r.containsKey('q_rollout'));
-      expect(labelled, isNotEmpty);
-      const rates = {'high': 1.0, 'mid': 0.5, 'low': 0.25};
-      for (final r in labelled) {
-        expect(rates.keys, contains(r['stakes']));
-        expect(r['label_p'], rates[r['stakes']]);
-      }
-      // Only labelled play rows are written.
-      expect(
-        rows.where((final r) => r.containsKey('legal_play_action_features')),
-        hasLength(labelled.length),
-      );
-    } finally {
-      await tempDir.delete(recursive: true);
-    }
-  });
-
-  test('uniform rollouts carry no stakes columns', () async {
+  test('rollout labelling writes only labelled play rows', () async {
     final tempDir = await Directory.systemTemp.createTemp(
       'tichu_headless_uniform_',
     );
@@ -266,12 +227,13 @@ void main() {
       final rows = [
         for (final l in await outputFile.readAsLines())
           jsonDecode(l) as Map<String, dynamic>,
-      ].where((final r) => r.containsKey('q_rollout'));
-      expect(rows, isNotEmpty);
-      for (final r in rows) {
-        expect(r.containsKey('label_p'), isFalse);
-        expect(r.containsKey('stakes'), isFalse);
-      }
+      ];
+      final labelled = rows.where((final r) => r.containsKey('q_rollout'));
+      expect(labelled, isNotEmpty);
+      expect(
+        rows.where((final r) => r.containsKey('legal_play_action_features')),
+        hasLength(labelled.length),
+      );
     } finally {
       await tempDir.delete(recursive: true);
     }

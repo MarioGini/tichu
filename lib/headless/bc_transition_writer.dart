@@ -289,8 +289,6 @@ class _BcTransitionWriter {
     final List<List<double?>>? rolloutWorlds,
     final bool describe = false,
     final List<GameAction?>? variants,
-    final RolloutStakes? stakes,
-    final double? labelP,
   }) {
     if (before.phase != GamePhase.play) return;
     if (before.currentPlayerId != action.playerId) return;
@@ -330,10 +328,6 @@ class _BcTransitionWriter {
       // --rollout-worlds: the same actions rolled out in re-dealt worlds.
       if (rolloutWorlds != null && rolloutWorlds.isNotEmpty)
         'q_rollout_worlds': rolloutWorlds,
-      // --stakes-rollouts: the decision's stakes class and the probability
-      // it was labelled with (for importance weights in the trainer).
-      if (stakes != null) 'stakes': stakes.name,
-      'label_p': ?labelP,
       if (describe) 'desc': _describePosition(before, action.playerId),
       // --shadow-heuristics: index each variant would have chosen (-1 = n/a).
       if (variants != null)

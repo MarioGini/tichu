@@ -25,7 +25,6 @@ import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/turn_handler.dart';
 import 'package:tichu/game/turn/wish_logic.dart';
-import 'package:tichu/headless/rollout_stakes.dart';
 
 part 'bc_action_encoding.dart';
 part 'bc_transition_writer.dart';
@@ -120,9 +119,6 @@ Future<void> main(final List<String> args) async {
     rolloutWorlds: config.rolloutWorlds,
     sideRolloutRate: config.sideRolloutRate,
     worldsMinCards: config.worldsMinCards,
-    stakesRates: config.stakesRollouts
-        ? config.stakesRates ?? StakesRates.forBase(config.rolloutRate)
-        : null,
     // Which seats get rollout labels: by default the policy team when it
     // plays a different opponent (--mixed / --opponent-policy), else all.
     isLearnerSeat:

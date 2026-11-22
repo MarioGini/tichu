@@ -1,6 +1,6 @@
 {
-    "version": 6,
-    "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/feature_encoder.dart) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes. All groups except 'action' form the per-decision state prefix. Card bitmaps use index = color*13 + (rank-2) for normal cards (colors black, green, red, blue; ranks 2..A), then 52 mahjong, 53 dog, 54 phoenix, 55 dragon. Rank histograms use r2..rA, mahjong, dog, phoenix, dragon. History (per other player, from the public round log): cards played this round as a rank histogram, the lowest single / pair passed on while an opponent of that player was winning the trick, and the number of such passes. Turn (v6): off_turn = 1 when the player decides out of turn (an interrupting bomb), else 0; nets of the v5 layout (318 inputs) read the state prefix before it. Seats are relative to the acting player: left = next to play, partner, right = previous.",
+    "version": 7,
+    "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/feature_encoder.dart) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes. All groups except 'action' form the per-decision state prefix. Card bitmaps use index = color*13 + (rank-2) for normal cards (colors black, green, red, blue; ranks 2..A), then 52 mahjong, 53 dog, 54 phoenix, 55 dragon. Rank histograms use r2..rA, mahjong, dog, phoenix, dragon. History (per other player, from the public round log): cards played this round as a rank histogram, the lowest single / pair passed on while an opponent of that player was winning the trick, and the number of such passes. Turn (v6): off_turn = 1 when the player decides out of turn (an interrupting bomb), else 0; nets of the v5 layout (318 inputs) read the state prefix before it. Claim (v7): safe-finish analysis of the hand: the minimum number of beatable combinations over all partitions of the hand into legal combinations (capped at 4, /4), the number of unbeatable combinations in such a best partition (capped at 7, /7), and claimable = at most one beatable combination (lib/agents/claim_analysis.dart; beatable as in the action feature 'unbeatable', bombs and the Dragon unbeatable, the Dog beatable); zero outside the play phase. Received (v7): the card received in this round's schupf from left / partner / right, one-hot over the 17 rank classes; zero before the exchange. The action group appends the same claim analysis for the hand after the action (after_claim_*). Layouts up to v6 (v4 252, v5 318, v6 319 inputs) read a prefix of the state part and the first 51 action features. Seats are relative to the acting player: left = next to play, partner, right = previous.",
     "groups": [
         {
             "name": "hand",
@@ -325,8 +325,74 @@
             ]
         },
         {
-            "name": "action",
+            "name": "claim",
+            "size": 3,
+            "features": [
+                "claim_min_beatable",
+                "claim_unbeatable",
+                "claimable"
+            ]
+        },
+        {
+            "name": "received",
             "size": 51,
+            "features": [
+                "recv_left_2",
+                "recv_left_3",
+                "recv_left_4",
+                "recv_left_5",
+                "recv_left_6",
+                "recv_left_7",
+                "recv_left_8",
+                "recv_left_9",
+                "recv_left_10",
+                "recv_left_j",
+                "recv_left_q",
+                "recv_left_k",
+                "recv_left_a",
+                "recv_left_mahjong",
+                "recv_left_dog",
+                "recv_left_phoenix",
+                "recv_left_dragon",
+                "recv_partner_2",
+                "recv_partner_3",
+                "recv_partner_4",
+                "recv_partner_5",
+                "recv_partner_6",
+                "recv_partner_7",
+                "recv_partner_8",
+                "recv_partner_9",
+                "recv_partner_10",
+                "recv_partner_j",
+                "recv_partner_q",
+                "recv_partner_k",
+                "recv_partner_a",
+                "recv_partner_mahjong",
+                "recv_partner_dog",
+                "recv_partner_phoenix",
+                "recv_partner_dragon",
+                "recv_right_2",
+                "recv_right_3",
+                "recv_right_4",
+                "recv_right_5",
+                "recv_right_6",
+                "recv_right_7",
+                "recv_right_8",
+                "recv_right_9",
+                "recv_right_10",
+                "recv_right_j",
+                "recv_right_q",
+                "recv_right_k",
+                "recv_right_a",
+                "recv_right_mahjong",
+                "recv_right_dog",
+                "recv_right_phoenix",
+                "recv_right_dragon"
+            ]
+        },
+        {
+            "name": "action",
+            "size": 54,
             "features": [
                 "type_pass",
                 "type_single",
@@ -378,7 +444,10 @@
                 "after_has_straight",
                 "after_est_plays_to_finish",
                 "after_controls",
-                "after_low_singles"
+                "after_low_singles",
+                "after_claim_min_beatable",
+                "after_claim_unbeatable",
+                "after_claimable"
             ]
         }
     ]

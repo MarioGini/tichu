@@ -39,7 +39,7 @@ from qnet import (
     load_qnetwork_from_safetensors,
     select_device,
 )
-from schema import ACTION_OFFSET, SPEC, TOTAL_FEATURE_COUNT, pad_state
+from schema import LEGACY_ACTION_FEATURE_COUNT, SPEC, TOTAL_FEATURE_COUNT, pad_action, pad_state
 
 SCALE = 100.0
 HAND_OFFSET = 0
@@ -113,7 +113,8 @@ def _parse_jsonl(path: Path, max_decisions: int):
                 continue
             own = row.get("q_rollout_own")
             ss.append(np.asarray(row["state_features"], dtype=np.float16))
-            aa.append(np.asarray(row["legal_play_action_features"], dtype=np.float16)[keep])
+            # Rows of an older layout (51 action features): padded below.
+            aa.append(pad_action(np.asarray(row["legal_play_action_features"], dtype=np.float16)[keep]))
             qs.append(np.asarray([q[i] for i in keep], dtype=np.float32) / SCALE)
             owns.append(
                 np.asarray([own[i] for i in keep], dtype=np.float32)
@@ -151,10 +152,10 @@ def _parse_jsonl(path: Path, max_decisions: int):
 
 def _read_npz(path: Path) -> dict:
     d = dict(np.load(path))
-    if "x" in d:  # old cache: one full input row per action
+    if "x" in d:  # old cache: one full input row per action (layout <= v6)
         starts = d["starts"]
         x = d["x"]
-        cut = x.shape[1] - (TOTAL_FEATURE_COUNT - ACTION_OFFSET)
+        cut = x.shape[1] - LEGACY_ACTION_FEATURE_COUNT
         d = {
             "s": x[starts[:-1], :cut].astype(np.float16),
             "a": x[:, cut:].astype(np.float16),
@@ -165,6 +166,7 @@ def _read_npz(path: Path) -> dict:
             "explore": d["explore"],
         }
     d["s"] = pad_state(d["s"])
+    d["a"] = pad_action(d["a"])
     if "game" not in d:
         d["game"] = np.arange(len(d["chosen"]), dtype=np.int64) // OLD_CACHE_GAME_BLOCK
     # Caches from before --stakes-rollouts: unknown label probability / class.

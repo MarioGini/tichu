@@ -1,4 +1,5 @@
 import 'package:tichu/agents/nn/feature_encoder.dart';
+import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/round_log.dart';
@@ -19,6 +20,7 @@ GameSnapshot fxSnapshot({
   final Map<String, TichuCall> calls = const {},
   final Map<String, List<SchupfReceipt>> receipts = const {},
   final List<RoundLogEntry> roundLog = const [],
+  final Map<String, SchupfAction> schupfSelections = const {},
 }) {
   final base = aiSnapshot(
     myHand: mine,
@@ -51,6 +53,7 @@ GameSnapshot fxSnapshot({
     grandTichuDecisions: const {},
     schupfCompletedPlayers: const [],
     schupfReceipts: base.schupfReceipts,
+    schupfSelections: schupfSelections,
     roundLog: roundLog,
   );
 }
@@ -63,5 +66,7 @@ int slot(final String group, final int i) => switch (group) {
   'seats' => seatsOffset + i,
   'self' => selfOffset + i,
   'history' => historyOffset + i,
+  'claim' => claimOffset + i,
+  'received' => receivedOffset + i,
   _ => throw ArgumentError(group),
 };

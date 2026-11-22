@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
+import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
@@ -338,5 +339,127 @@ void main() {
     // Right (block 2): its partner's trick is no evidence.
     expect(f[slot('history', 44 + 17)], 0.0);
     expect(f[slot('history', 44 + 21)], 0.0);
+  });
+
+  test('received: schupf card per sender as a rank one-hot', () {
+    SchupfAction pass(
+      final String id,
+      final Card toLeft,
+      final Card toPartner,
+      final Card toRight,
+    ) => SchupfAction(
+      playerId: id,
+      toLeft: toLeft,
+      toPartner: toPartner,
+      toRight: toRight,
+    );
+    final snap = fxSnapshot(
+      mine: [c(CardFace.two), c(CardFace.ace, CardColor.red)],
+      others: {
+        aiTestLeftId: [c(CardFace.three)],
+        aiTestPartnerId: [c(CardFace.four)],
+        aiTestRightId: [c(CardFace.five)],
+      },
+      schupfSelections: {
+        // Left (seat 1) passes to me (seat 0) as its right.
+        aiTestLeftId: pass(
+          aiTestLeftId,
+          c(CardFace.nine),
+          c(CardFace.ten),
+          c(CardFace.two),
+        ),
+        aiTestPartnerId: pass(
+          aiTestPartnerId,
+          c(CardFace.king),
+          c(CardFace.ace, CardColor.red),
+          c(CardFace.queen),
+        ),
+        // Right (seat 3) passes to me as its left.
+        aiTestRightId: pass(
+          aiTestRightId,
+          c(CardFace.dragon, CardColor.special),
+          c(CardFace.six),
+          c(CardFace.seven),
+        ),
+        aiTestSelfId: pass(
+          aiTestSelfId,
+          c(CardFace.eight),
+          c(CardFace.jack),
+          c(CardFace.three),
+        ),
+      },
+    );
+    final f = encodeStateFeatures(snapshot: snap, playerId: aiTestSelfId);
+    final got = [
+      for (var i = 0; i < receivedRankFeatureCount; i++)
+        if (f[slot('received', i)] != 0) (i, f[slot('received', i)]),
+    ];
+    expect(got, [(0, 1.0), (17 + 12, 1.0), (34 + 16, 1.0)]);
+
+    // No exchange known: nothing is encoded.
+    final none = fxSnapshot(mine: [c(CardFace.two)], others: const {});
+    final g = encodeStateFeatures(snapshot: none, playerId: aiTestSelfId);
+    for (var i = 0; i < receivedRankFeatureCount; i++) {
+      expect(g[slot('received', i)], 0.0);
+    }
+  });
+
+  test('claim: state and after-action features', () {
+    // Pair of kings + a five; no ace / Phoenix unseen except one ace.
+    final kings = [c(CardFace.king), c(CardFace.king, CardColor.red)];
+    final five = c(CardFace.five);
+    final snap = fxSnapshot(
+      mine: [...kings, five],
+      others: {
+        aiTestLeftId: [c(CardFace.ace)],
+        aiTestPartnerId: [c(CardFace.nine)],
+        aiTestRightId: [c(CardFace.nine, CardColor.red)],
+      },
+    );
+    final enc = FeatureEncoder(snapshot: snap, playerId: aiTestSelfId);
+    final f = enc.stateFeatures;
+    // KK unbeatable, 5 beatable: claimable.
+    expect(f[slot('claim', 0)], 0.25);
+    expect(f[slot('claim', 1)], 1 / 7);
+    expect(f[slot('claim', 2)], 1.0);
+
+    const o = actionClaimOffset;
+    // Playing the five leaves KK: no beatable combination left.
+    final afterFive = enc.actionFeatures(TichuTurn(TurnType.single, [five]));
+    expect(afterFive.sublist(o, o + 3), [0.0, 1 / 7, 1.0]);
+    // Breaking the kings leaves K + 5: two beatable singles.
+    final afterKing = enc.actionFeatures(
+      TichuTurn(TurnType.single, [kings.first]),
+    );
+    expect(afterKing.sublist(o, o + 3), [0.5, 0.0, 0.0]);
+    // Pass: the hand as it is.
+    final pass = enc.actionFeatures(
+      TichuTurn(TurnType.none, const []),
+      isPass: true,
+    );
+    expect(pass.sublist(o, o + 3), [0.25, 1 / 7, 1.0]);
+
+    // Nets of older layouts: the claim features stay zero.
+    final legacy = FeatureEncoder(
+      snapshot: snap,
+      playerId: aiTestSelfId,
+      claims: false,
+    );
+    expect(legacy.stateFeatures[slot('claim', 2)], 0.0);
+    expect(
+      legacy.actionFeatures(TichuTurn(TurnType.single, [five])).sublist(o),
+      [0.0, 0.0, 0.0],
+    );
+    // Everything else is identical.
+    expect(
+      legacy.stateFeatures.sublist(0, claimOffset),
+      f.sublist(0, claimOffset),
+    );
+    expect(
+      legacy
+          .actionFeatures(TichuTurn(TurnType.single, [five]))
+          .sublist(0, legacyActionFeatureCount),
+      afterFive.sublist(0, legacyActionFeatureCount),
+    );
   });
 }

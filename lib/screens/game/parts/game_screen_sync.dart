@@ -201,16 +201,11 @@ mixin _GameScreenSync on _GameScreenStateBase {
     final PlayerSnapshot? snapshot,
     final int seatOffset,
   ) {
-    if (snapshot == null || snapshot.players.isEmpty) return null;
-    final selfSeat = _resolveSelfSeat(snapshot);
-    if (selfSeat == null) return null;
-    final playerCount = snapshot.players.length;
-    final targetSeat = (selfSeat + seatOffset + playerCount) % playerCount;
-    for (final player in snapshot.players) {
-      if (player.seat == targetSeat) {
-        return player;
-      }
-    }
-    return null;
+    if (snapshot == null) return null;
+    return playerAtRelativeSeat(
+      snapshot.players,
+      _resolveSelfSeat(snapshot),
+      seatOffset,
+    );
   }
 }

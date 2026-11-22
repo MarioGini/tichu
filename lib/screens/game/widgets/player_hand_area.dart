@@ -40,6 +40,7 @@ class PlayerHandArea extends StatelessWidget {
     required this.winningTeam,
     required this.onMatchContinue,
     required this.isSelfManual,
+    this.playerName = 'You',
   });
 
   // Hand display
@@ -54,6 +55,10 @@ class PlayerHandArea extends StatelessWidget {
   final bool humanTichu;
   final bool humanGrandTichu;
   final bool isSelfManual;
+
+  /// Name in the header ("You" in a normal game, the followed bot when
+  /// watching AI play).
+  final String playerName;
 
   // Schupf panel
   final bool isSchupfActive;
@@ -85,7 +90,7 @@ class PlayerHandArea extends StatelessWidget {
         const Icon(Icons.person, color: Colors.white70, size: 18),
         const SizedBox(width: 4),
         Text(
-          'You',
+          playerName,
           style: Theme.of(
             context,
           ).textTheme.labelMedium?.copyWith(color: Colors.white),

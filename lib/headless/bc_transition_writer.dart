@@ -293,17 +293,8 @@ class _BcTransitionWriter {
     final double? labelP,
   }) {
     if (before.phase != GamePhase.play) return;
-    final offTurn = before.currentPlayerId != action.playerId;
-    if (offTurn) {
-      // An out-of-turn decision: a bomb or waiting.
-      if (action is! DeclineBombAction &&
-          !(action is PlayTurnAction &&
-              getTurn(List<Card>.from(action.cards)).type == TurnType.bomb)) {
-        return;
-      }
-    } else if (action is! PlayTurnAction && action is! PassAction) {
-      return;
-    }
+    if (before.currentPlayerId != action.playerId) return;
+    if (action is! PlayTurnAction && action is! PassAction) return;
 
     final legalPlayFeatures = _legalPlayActionFeatures(
       snapshot: before,

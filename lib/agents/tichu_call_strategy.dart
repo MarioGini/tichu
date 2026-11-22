@@ -26,10 +26,7 @@ abstract class TichuCallStrategy {
 /// reaches a threshold. Both thresholds are calibrated on exact
 /// counterfactual call values.
 class DefaultTichuCallStrategy implements TichuCallStrategy {
-  const DefaultTichuCallStrategy({this.grandTichu = true});
-
-  /// Whether Grand Tichu is ever called (A/B switch `grand_tichu`).
-  final bool grandTichu;
+  const DefaultTichuCallStrategy();
 
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
@@ -42,7 +39,6 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
     final GameSnapshot snapshot,
     final String playerId,
   ) async =>
-      grandTichu &&
       grandStrength(snapshot.hands[playerId] ?? const <Card>[]) >=
           grandThreshold;
 

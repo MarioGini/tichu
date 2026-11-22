@@ -18,7 +18,6 @@ extension _Decisions on _HeadlessSimulator {
       engine,
       state,
       preSchupfDecided: _preSchupfDecided,
-      bombInterrupts: bombInterrupts,
     );
     // Pre-schupf Tichu: every player decides before anyone passes.
     while (request is PreSchupfTichuRequest) {
@@ -47,7 +46,6 @@ extension _Decisions on _HeadlessSimulator {
         engine,
         state,
         preSchupfDecided: _preSchupfDecided,
-        bombInterrupts: bombInterrupts,
       );
     }
     if (request == null) {
@@ -115,7 +113,6 @@ extension _Decisions on _HeadlessSimulator {
         );
       case SchupfReceiptRequest() ||
           DragonGiveRequest() ||
-          BombInterruptRequest() ||
           PreSchupfTichuRequest():
         return AgentDecisions.resolve(request, agent, snapshot, state);
     }
@@ -143,10 +140,10 @@ extension _Decisions on _HeadlessSimulator {
           (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
               TichuCall.none &&
           !_tichuDecided.contains(tichuKey);
-      // With `delay_tichu` the bot decides when it plays its first card; a
-      // pass keeps the option (see SmartAiAgent.selectAction).
+      // The bot decides when it plays its first card; a pass keeps the
+      // option (see SmartAiAgent.selectAction).
       GameAction? turn;
-      if (canCall && agent is SmartAiAgent && agent.options.on('delay_tichu')) {
+      if (canCall && agent is SmartAiAgent) {
         turn = await agent.selectTurn(snapshot);
         if (turn is PassAction) return turn;
       }

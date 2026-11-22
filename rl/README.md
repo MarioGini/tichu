@@ -49,7 +49,7 @@ Measure any two bots against each other (duplicate deals, both seatings):
 ```bash
 rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v7.safetensors" \
     --b="--opponent-policy=old_policy.safetensors" --deals=1000
-rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
+rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,lowLeadPreference:4" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
 ```
 
@@ -415,11 +415,10 @@ The same rollout labels score heuristic rules exactly:
 - `headless --shadow-heuristics=specA|specB|...` logs, for every labelled
   decision, what each heuristic variant would have played. One dataset then
   gives the exact one-step value (points per decision) of all variants.
-- `--heuristic=` specs: `latest` (the heuristic as written), `-name` to
-  switch a rule off (`partner_pass`, `mahjong_lead`, `partner_finish_lead`,
-  `early_dog`, `singleton_response`, `cheap_combos`, `guard`) and
+- `--heuristic=` specs: `latest` (the heuristic as written) and
   `weight:value` to override a `TurnScorer` weight, e.g.
-  `latest,-early_dog,lowLeadPreference:4`.
+  `latest,lowLeadPreference:4`. The heuristic's rules are unconditional
+  (the rule switches were removed on 2026-11-22).
 - `--describe` adds a readable position (hands, trick, legal actions) to
   labelled rows; `--label-seats=policy|opponent|all` chooses whose decisions
   are labelled.
@@ -681,7 +680,7 @@ points per decision:
 | decision-time simulation: both branches played on 16 guessed deals of the unseen cards (`--pimc-worlds`, `pimc_calls.py`) | -1.9 ± 0.8 (best variant +0.7 ± 0.3, rule and simulation agreeing) |
 | knowing the outcome | +44 |
 
-Deciding at the last moment (`delay_tichu`: the call is made in the turn the
+Deciding at the last moment (the call is made in the turn the
 bot plays its first card; 75 % of these decisions see at least one card
 played, 22 % see 11 or more) does not change this: the success model there is
 +0.39 ± 0.26 over the rule (AUC 0.802, 48.6k decisions), and with the rule the
@@ -864,12 +863,12 @@ nets and with exact rollouts.
 
 ### Out-of-turn bombs (2026-11-20)
 
-The decision loop now offers every player holding a bomb that beats the trick
-an out-of-turn bomb between any two plays/passes (`BombInterruptRequest`,
-`DeclineBombAction`; the app's AI runner and the headless runner both use
-it). Feature schema v6 adds one input, `off_turn` (1 = deciding out of
-turn), at the end of the state prefix; v5-layout nets (v5-v7, 318 inputs)
-still load and play unchanged in Dart and are widened with zero weights in
+The decision loop offered every player holding a bomb that beats the trick
+an out-of-turn bomb between any two plays/passes (removed for bots on
+2026-11-22, see below). Feature schema v6 added one input, `off_turn`
+(1 = deciding out of turn), at the end of the state prefix; it stays in the
+layout and is always 0 for bots. v5-layout nets (v5-v7, 318 inputs) still
+load and play unchanged in Dart and are widened with zero weights in
 Python.
 
 Measured with v7, exact rollouts of 25,447 interrupt decisions (bomb now vs
@@ -889,10 +888,11 @@ wait, `--interrupt-rollout-rate=1`):
 - A net trained on the interrupt decisions (v7 start, held-out matches) does
   not beat "never": -1.7 points per decision vs always waiting.
 
-So the bots decline by default (`interrupt_bomb` is off; switch it on with
-`--heuristic=latest,interrupt_bomb`), and interrupt rows are not labelled
-unless `--interrupt-rollout-rate` > 0. Humans can still bomb out of turn.
-Cost: ~5 % slower simulation.
+So the bot side was deleted on 2026-11-22 (the rule, the net's interrupt
+decision, the decline action, `--no-bomb-interrupts` and
+`--interrupt-rollout-rate`): bots are never asked to bomb out of turn.
+Humans in the app still can (the engine accepts an out-of-turn bomb on a
+trick).
 
 ## Next steps
 
@@ -900,7 +900,7 @@ The review of 2026-11-20 (`rl/REVIEW.md`) measures the label noise, lists
 the flaws of this setup and orders the next ideas; it supersedes the list
 below where they differ.
 
-1. ~~Out-of-turn bombs for bots~~ Done 2026-11-20: no gain, off by default
+1. ~~Out-of-turn bombs for bots~~ Done 2026-11-20: no gain, removed
    (see "Out-of-turn bombs").
 2. Less noisy labels for the early game: several rollouts per action with
    the hidden cards re-dealt consistently with the public history, or a

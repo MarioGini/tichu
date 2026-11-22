@@ -44,7 +44,9 @@ extension _StateEncoding on FeatureEncoder {
     _encodeSelf(f);
     _handShape.writeTo(f, handStructureOffset);
     _encodeHistory(f);
-    // Deciding while another player is to move: an interrupting bomb.
+    // Deciding while another player is to move (an interrupting bomb).
+    // Bots never decide out of turn any more, so this stays 0; the input
+    // is kept for the feature layout.
     if (snapshot.phase == GamePhase.play &&
         snapshot.currentPlayerId != playerId) {
       f[turnOffset] = 1.0;

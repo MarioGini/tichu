@@ -8,26 +8,18 @@ import 'package:tichu/game/turn/tichu_data.dart';
 import 'smart_ai_test_helpers.dart';
 
 void main() {
-  test('parses rule switches and scorer weights', () {
-    expect(HeuristicOptions.parse('latest').off, HeuristicOptions.defaultOff);
-    expect(HeuristicOptions.parse('latest').on('interrupt_bomb'), isFalse);
-    expect(
-      HeuristicOptions.parse('interrupt_bomb').on('interrupt_bomb'),
-      isTrue,
-    );
+  test('parses scorer weights', () {
     expect(HeuristicOptions.parse('latest').weights, isEmpty);
-    final o = HeuristicOptions.parse(
-      'latest,-early_dog,-cheap_combos,cheap_combos,lowLeadPreference:4',
-    );
-    expect(o.on('early_dog'), isFalse);
-    expect(o.on('partner_pass'), isTrue);
-    expect(o.on('cheap_combos'), isTrue);
+    expect(HeuristicOptions.parse('').weights, isEmpty);
+    final o = HeuristicOptions.parse('latest,lowLeadPreference:4');
     expect(o.weights, {'lowLeadPreference': 4.0});
     expect(const PolicyWeights().withOverrides(o.weights).lowLeadPreference, 4);
+    expect(o.toString(), contains('lowLeadPreference'));
+    expect(HeuristicOptions.latest.toString(), 'latest');
   });
 
-  test('rejects unknown rules and weights', () {
-    expect(() => HeuristicOptions.parse('-bogus'), throwsArgumentError);
+  test('rejects rule names and bad weights', () {
+    expect(() => HeuristicOptions.parse('-early_dog'), throwsArgumentError);
     expect(() => HeuristicOptions.parse('classic'), throwsArgumentError);
     expect(() => HeuristicOptions.parse('latest,x:abc'), throwsArgumentError);
     expect(
@@ -83,7 +75,7 @@ void main() {
     });
 
     test('leads the full house with the low pair', () async {
-      // Without the rule the scorer leads 4-4-4-J-J and keeps the nines.
+      // The scorer alone would lead 4-4-4-J-J and keep the nines.
       final leadHand = [
         c(CardFace.three, CardColor.red),
         c(CardFace.four, CardColor.red),
@@ -105,13 +97,6 @@ void main() {
           ..sort((final a, final b) => a.index.compareTo(b.index));
       }
 
-      expect(await lead(HeuristicOptions.parse('-cheap_combos')), [
-        CardFace.four,
-        CardFace.four,
-        CardFace.four,
-        CardFace.jack,
-        CardFace.jack,
-      ]);
       expect(await lead(HeuristicOptions.latest), [
         CardFace.four,
         CardFace.four,

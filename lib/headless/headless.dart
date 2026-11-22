@@ -117,11 +117,9 @@ Future<void> main(final List<String> args) async {
     counterfactualRate: config.counterfactualRate,
     rolloutRate: config.rolloutRate,
     rolloutMaxActions: config.rolloutMaxActions,
-    bombInterrupts: config.bombInterrupts,
     rolloutWorlds: config.rolloutWorlds,
     sideRolloutRate: config.sideRolloutRate,
     worldsMinCards: config.worldsMinCards,
-    interruptRolloutRate: config.interruptRolloutRate,
     stakesRates: config.stakesRollouts
         ? config.stakesRates ?? StakesRates.forBase(config.rolloutRate)
         : null,

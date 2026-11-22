@@ -73,15 +73,6 @@ class _HeadlessSimulator {
   final double sideRolloutRate;
   final int worldsMinCards;
 
-  /// Offer out-of-turn bombs (`--no-bomb-interrupts` turns them off, the
-  /// behaviour before 2026-11-20).
-  final bool bombInterrupts;
-
-  /// Share of the learner seats' out-of-turn bomb decisions that get
-  /// rollout labels when [rolloutRate] > 0 (`--interrupt-rollout-rate`,
-  /// default 0: the bots do not bomb out of turn, see `interrupt_bomb`).
-  final double interruptRolloutRate;
-
   /// `--stakes-rollouts`: per-class label probability of the learner seats'
   /// on-turn play decisions (see [classifyStakes]) instead of the uniform
   /// [rolloutRate]. Labelled rows carry `stakes` and `label_p`. Null = off.
@@ -148,11 +139,9 @@ class _HeadlessSimulator {
     this.counterfactualRate = 1,
     this.rolloutRate = 0,
     this.rolloutMaxActions = 12,
-    this.bombInterrupts = true,
     this.rolloutWorlds = 1,
     this.sideRolloutRate = 0,
     this.worldsMinCards = 0,
-    this.interruptRolloutRate = 0,
     this.stakesRates,
     this.isLearnerSeat = _everySeat,
     this.describe = false,
@@ -325,11 +314,8 @@ class _HeadlessSimulator {
       }
 
       final explored = _lastActionExplored;
-      final offTurn = action.playerId != snapshot.currentPlayerId;
       final shadow =
-          shadowHeuristic &&
-              !offTurn &&
-              (action is PlayTurnAction || action is PassAction)
+          shadowHeuristic && (action is PlayTurnAction || action is PassAction)
           ? await _shadowHeuristicTurn(snapshot, action.playerId)
           : null;
       final before = snapshot;
@@ -339,26 +325,22 @@ class _HeadlessSimulator {
       double? labelP;
       if (_rolloutLabelling &&
           bcWriter != null &&
-          (offTurn
-              ? action is DeclineBombAction || action is PlayTurnAction
-              : action is PlayTurnAction || action is PassAction) &&
+          (action is PlayTurnAction || action is PassAction) &&
           isLearnerSeat(
             state.players.firstWhere((final p) => p.id == action.playerId).seat,
           )) {
-        var p = offTurn ? interruptRolloutRate : rolloutRate;
+        var p = rolloutRate;
         List<int>? counts;
         if (stakesRates != null) {
           final reasons = stakesReasons(snapshot, action.playerId);
           stakes = stakesOf(reasons);
-          if (!offTurn) {
-            p = stakesRates!.of(stakes);
-            counts = _stakesCounts[stakes]!;
-            counts[0]++;
-            if (_labellable(snapshot, action.playerId)) {
-              counts[1]++;
-              for (final r in reasons) {
-                _reasonCounts[r] = _reasonCounts[r]! + 1;
-              }
+          p = stakesRates!.of(stakes);
+          counts = _stakesCounts[stakes]!;
+          counts[0]++;
+          if (_labellable(snapshot, action.playerId)) {
+            counts[1]++;
+            for (final r in reasons) {
+              _reasonCounts[r] = _reasonCounts[r]! + 1;
             }
           }
         }
@@ -372,7 +354,6 @@ class _HeadlessSimulator {
           if (stakesRates != null) labelP = p;
           if (rollouts != null &&
               rolloutWorlds > 1 &&
-              !offTurn &&
               (snapshot.hands[action.playerId]?.length ?? 0) >=
                   worldsMinCards) {
             worlds = await _worldRollouts(
@@ -390,7 +371,7 @@ class _HeadlessSimulator {
         snapshot: snapshot,
         action: action,
       );
-      final variants = rollouts != null && !offTurn && shadowVariants.isNotEmpty
+      final variants = rollouts != null && shadowVariants.isNotEmpty
           ? await _variantTurns(snapshot, action.playerId)
           : null;
       final appliedAction = _applyActionWithRecovery(

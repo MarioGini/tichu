@@ -36,10 +36,6 @@ class GameActionDto {
       inputWish: action.inputWish.name,
     ),
     PassAction() => GameActionDto(kind: 'pass', playerId: action.playerId),
-    DeclineBombAction() => GameActionDto(
-      kind: 'declineBomb',
-      playerId: action.playerId,
-    ),
     GiveDragonAction() => GameActionDto(
       kind: 'giveDragon',
       playerId: action.playerId,
@@ -110,7 +106,6 @@ class GameActionDto {
       inputWish: enumByName(CardFace.values, inputWish ?? CardFace.none.name),
     ),
     'pass' => PassAction(playerId: playerId),
-    'declineBomb' => DeclineBombAction(playerId: playerId),
     'giveDragon' => GiveDragonAction(
       playerId: playerId,
       targetPlayerId: targetPlayerId!,

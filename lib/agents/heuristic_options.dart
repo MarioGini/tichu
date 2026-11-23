@@ -1,84 +1,39 @@
-/// Switches for A/B-testing the heuristic in the headless runner
-/// (`--heuristic=`, `--opponent-heuristic=`, `--shadow-heuristics=`): rules
-/// can be switched off by name and `TurnScorer` weights overridden. The app
-/// uses [latest], the heuristic as written.
+/// `TurnScorer` weight overrides for A/B tests of the heuristic in the
+/// headless runner (`--heuristic=`, `--opponent-heuristic=`,
+/// `--shadow-heuristics=`). The app uses [latest], the heuristic as written.
 ///
-/// Rules that measured worthless or harmful were deleted from the code
-/// (2026-11-17, see `lib/agents/ai_strategy.md`); to compare against the
-/// heuristic before that, build the headless runner from commit 92aed27.
+/// The heuristic's rules are unconditional. Rules that measured worthless or
+/// harmful were deleted from the code (2026-11-17, see
+/// `lib/agents/ai_strategy.md`); to compare against the heuristic before
+/// that, build the headless runner from commit 92aed27.
 class HeuristicOptions {
-  /// Rules switched off by name; see [rules].
-  final Set<String> off;
-
   /// `PolicyWeights` overrides by field name.
   final Map<String, double> weights;
 
-  const HeuristicOptions({
-    this.off = defaultOff,
-    this.weights = const <String, double>{},
-  });
+  const HeuristicOptions({this.weights = const <String, double>{}});
 
-  /// The heuristic as written; only the rules in [defaultOff] are off.
+  /// The heuristic as written.
   static const latest = HeuristicOptions();
 
-  /// Rules that exist but are off unless switched on (`rule`):
-  /// `interrupt_bomb` (bombing out of turn) loses about 50 points per bomb
-  /// on exact rollouts with the v7 play net, for every simple trigger
-  /// tried, and a net trained on 21k such decisions did not beat never
-  /// bombing (rl/README.md, "Out-of-turn bombs").
-  static const defaultOff = {'interrupt_bomb', 'guard_single'};
-
-  /// Rules that can be switched off with `-name`.
-  static const rules = {
-    'partner_pass',
-    'mahjong_lead',
-    'partner_finish_lead',
-    'early_dog',
-    'singleton_response',
-    'cheap_combos',
-    'guard',
-    'grand_tichu',
-    'delay_tichu',
-    'interrupt_bomb',
-    'guard_single',
-  };
-
-  /// Whether [rule] is active.
-  bool on(final String rule) => !off.contains(rule);
-
-  /// Parses a comma list: `latest` (optional), `-rule` to switch a rule off,
-  /// `rule` to switch it back on, and `weight:value` to override a
-  /// `TurnScorer` weight, e.g. `latest,-early_dog,lowLeadPreference:4`.
+  /// Parses a comma list: `latest` (optional) and `weight:value` to override
+  /// a `TurnScorer` weight, e.g. `latest,lowLeadPreference:4`.
   factory HeuristicOptions.parse(final String spec) {
-    final off = <String>{...defaultOff};
     final weights = <String, double>{};
     for (final raw in spec.split(',')) {
       final token = raw.trim();
       if (token.isEmpty || token == 'latest') continue;
       final colon = token.indexOf(':');
-      if (colon > 0) {
-        final value = double.tryParse(token.substring(colon + 1));
-        if (value == null) {
-          throw ArgumentError('Invalid heuristic weight: $token');
-        }
-        weights[token.substring(0, colon)] = value;
-        continue;
+      final value = colon > 0
+          ? double.tryParse(token.substring(colon + 1))
+          : null;
+      if (value == null) {
+        throw ArgumentError('Invalid heuristic spec: $token');
       }
-      final negative = token.startsWith('-');
-      final name = negative ? token.substring(1) : token;
-      if (!rules.contains(name)) {
-        throw ArgumentError('Unknown heuristic rule: $name');
-      }
-      negative ? off.add(name) : off.remove(name);
+      weights[token.substring(0, colon)] = value;
     }
-    return HeuristicOptions(off: off, weights: weights);
+    return HeuristicOptions(weights: weights);
   }
 
   @override
-  String toString() =>
-      off.length == defaultOff.length &&
-          off.containsAll(defaultOff) &&
-          weights.isEmpty
-      ? 'latest'
-      : 'off=$off weights=$weights';
+  String toString() => weights.isEmpty ? 'latest' : 'weights=$weights';
 }

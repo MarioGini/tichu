@@ -32,7 +32,7 @@ part 'feature_encoder_state.dart';
 /// | self           |  15  | own calls, round + match score context         |
 /// | hand_structure |  10  | combinatorial shape of my hand                 |
 /// | history        |  66  | per other player: cards played, passes         |
-/// | turn           |   1  | deciding out of turn (interrupting bomb)       |
+/// | turn           |   1  | out of turn (always 0: bots never interrupt)   |
 /// | claim          |   3  | safe-finish analysis of my hand (v7)           |
 /// | received       |  51  | schupf card received per sender, by rank (v7)  |
 ///

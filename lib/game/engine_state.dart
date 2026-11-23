@@ -28,14 +28,6 @@ class GameEngineState {
   /// Every play and pass of the current round, in order (public record).
   final List<RoundLogEntry> roundLog = [];
 
-  /// Players who declined an out-of-turn bomb, with the [bombWindow] they
-  /// declined in. A window lasts until the next play or pass.
-  final Map<String, String> bombDeclines = {};
-
-  /// Identifies the moment between two plays/passes in which players may
-  /// bomb out of turn.
-  String get bombWindow =>
-      '${scoreTracker.state.roundNumber}:${roundLog.length}';
   GamePhase phase;
   final Map<String, bool> grandTichuDecisions = {};
   final Map<String, SchupfAction> schupfSelections = {};
@@ -90,7 +82,6 @@ class GameEngineState {
     c.finishedPlayers.addAll(finishedPlayers);
     c.playersWhoPlayedCardsThisRound.addAll(playersWhoPlayedCardsThisRound);
     c.roundLog.addAll(roundLog);
-    c.bombDeclines.addAll(bombDeclines);
     c.grandTichuDecisions.addAll(grandTichuDecisions);
     c.schupfSelections.addAll(schupfSelections);
     c.completedSchupfSelections.addAll(completedSchupfSelections);

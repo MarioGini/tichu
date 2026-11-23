@@ -289,21 +289,10 @@ class _BcTransitionWriter {
     final List<List<double?>>? rolloutWorlds,
     final bool describe = false,
     final List<GameAction?>? variants,
-    final RolloutStakes? stakes,
-    final double? labelP,
   }) {
     if (before.phase != GamePhase.play) return;
-    final offTurn = before.currentPlayerId != action.playerId;
-    if (offTurn) {
-      // An out-of-turn decision: a bomb or waiting.
-      if (action is! DeclineBombAction &&
-          !(action is PlayTurnAction &&
-              getTurn(List<Card>.from(action.cards)).type == TurnType.bomb)) {
-        return;
-      }
-    } else if (action is! PlayTurnAction && action is! PassAction) {
-      return;
-    }
+    if (before.currentPlayerId != action.playerId) return;
+    if (action is! PlayTurnAction && action is! PassAction) return;
 
     final legalPlayFeatures = _legalPlayActionFeatures(
       snapshot: before,
@@ -339,10 +328,6 @@ class _BcTransitionWriter {
       // --rollout-worlds: the same actions rolled out in re-dealt worlds.
       if (rolloutWorlds != null && rolloutWorlds.isNotEmpty)
         'q_rollout_worlds': rolloutWorlds,
-      // --stakes-rollouts: the decision's stakes class and the probability
-      // it was labelled with (for importance weights in the trainer).
-      if (stakes != null) 'stakes': stakes.name,
-      'label_p': ?labelP,
       if (describe) 'desc': _describePosition(before, action.playerId),
       // --shadow-heuristics: index each variant would have chosen (-1 = n/a).
       if (variants != null)

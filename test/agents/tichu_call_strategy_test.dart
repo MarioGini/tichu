@@ -50,21 +50,6 @@ void main() {
       ]),
       closeTo(5, 1e-9),
     );
-    expect(
-      await const DefaultTichuCallStrategy(
-        grandTichu: false,
-      ).shouldCallGrandTichu(
-        aiSnapshot(
-          myHand: [
-            card(CardFace.dragon, CardColor.special),
-            card(CardFace.phoenix, CardColor.special),
-            ...fillers,
-          ],
-        ),
-        aiTestSelfId,
-      ),
-      isFalse,
-    );
   });
 
   test('tichu follows paper index threshold (It >= 7)', () async {

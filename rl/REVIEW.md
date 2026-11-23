@@ -390,6 +390,60 @@ the schupf net, (4) re-measure the pre-schupf call value and re-tune the
 thresholds on the new play, repeated. The rule's late timing (it waits
 until its first card, passing keeps the option) stays.
 
+## One-on-one endgames: is the play perfect? (measured 2026-11-23)
+
+**Perfect play.** Unless the first two players out are partners (a double
+win ends the round, 13 %), every round ends with one player of each team
+left. The other player's hand is then exactly the cards the decider cannot
+see, so the rest of the round is a two-player zero-sum game with perfect
+information, worth the remaining round points (Tichu results are fixed by
+then; at stake are the point tricks and who is last: the last player's
+hand goes to the opponents, their tricks to the first player out). The
+position's value is its minimax value; a move is perfect when it keeps it
+(several moves can be). The loss of a move is exact whatever the opponent
+does. `lib/agents/endgame_solver.dart` computes it (memoised minimax over
+every legal play, pass and Dragon gift, scored by the engine).
+
+Not every winning-looking move is perfect: going out is worse than passing
+when the trick on the table is worth less than nothing (the Phoenix, -25)
+— passing leaves it to the opponent, whose tricks then go to his partner.
+
+**Review** (`lib/headless/review_one_on_one.dart`, `rl/review_1v1.py`; v8 +
+schupf v4 self-play, every one-on-one decision with <= 10 cards in the two
+hands):
+
+| | v8 net | v8 + endgame search (app) |
+|---|---|---|
+| decisions | 7,727 | 2,367 |
+| the move matters (actions differ) | 47.9 % | 45.1 % |
+| perfect, where it matters | 90.0 % | 95.3 % |
+| loss per decision / per error | 1.66 / 34.6 | 0.47 / 22.4 |
+| perfect: follow / lead / Dragon gift | 84.0 / 95.3 / 94.4 % | 91.8 / 99.4 / 88.0 % |
+
+Errors of the net (371): played when passing was best 53 % (42 % of the
+loss), led the wrong single 17 %, beat too low 11 % (e.g. 3 3 4 Q Q K vs
+5 7 7 A on a 2: the King takes the lead and the rest follows, +180; the
+net played the 4, -30), passed when it should play 8 %, led a single
+instead of a pair 3 % (66 each), Dragon to the wrong opponent 2 %.
+
+Why it is not perfect: the information is complete (the `unseen` counts
+are the opponent's hand by rank), the computation is not. The net is an
+approximate Q trained on rollouts in which the net itself plays the rest
+(its own fixed point, not minimax), and one-on-one tempo (who must lead
+into whom, how many leads each side needs, whom to give a negative trick)
+is exact combinatorics an MLP only approximates; the errors grow with the
+cards left (94 % perfect at 3 cards, 88 % at 9-10). The search fixes most
+lead errors but keeps "played, should pass" errors (its rollouts are net
+play, and it only deviates by a margin of 10 when all 8 worlds agree) and
+does not decide the Dragon gift at all (the rule does: 12 % wrong in
+one-on-one).
+
+**Fix:** the solver plays one-on-one endgames with <= 10 cards exactly
+(EndgameSearch.solveOneOnOne, memo kept for the round, budget 20,000
+positions, <1 % give-ups), including the Dragon gift. Against plain v8 it
+wins 50.8 % ± 0.3 and **+11.5 ± 2.5 points per match** (2 x 300 deals x 2,
+no other search), +16 % run time. On in the app (budget 10,000).
+
 ## Plan for v9 (2026-11-23)
 
 What moved the bot from v7 to v8 (all duplicate duels): the new inputs

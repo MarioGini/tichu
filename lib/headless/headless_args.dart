@@ -178,6 +178,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var opponentEndgameSolve = false;
   var solveBudget = 20000;
   var solveMaxCards = 10;
+  var pimcSolve = false;
+  var pimcMaxCards = 12;
   const defaults = EndgameSearch();
   var endgameWorlds = defaults.worlds;
   var endgameMaxCards = defaults.maxCards;
@@ -363,6 +365,15 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       opponentEndgameSolve = true;
       continue;
     }
+    if (arg == '--pimc-solve') {
+      pimcSolve = true;
+      continue;
+    }
+    if (arg.startsWith('--pimc-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 3) pimcMaxCards = k;
+      continue;
+    }
     if (arg.startsWith('--solve-max-cards=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 2) solveMaxCards = k;
@@ -496,6 +507,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     solveOneOnOne: solve,
     solveBudget: solveBudget,
     solveMaxCards: solveMaxCards,
+    pimcSolve: pimcSolve && solve,
+    pimcMaxCards: pimcMaxCards,
   );
   return _HeadlessConfig(
     endgameSearch: endgameSearch ? search(solve: endgameSolve) : null,

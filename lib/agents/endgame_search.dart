@@ -34,6 +34,13 @@ class EndgameSearch {
   /// Solve only when the two hands hold at most this many cards together.
   final int solveMaxCards;
 
+  /// With three players left: solve every re-dealt world exactly instead
+  /// of rolling it out with the nets (perfect-information Monte Carlo),
+  /// when all hands together hold at most [pimcMaxCards] cards; a world
+  /// whose tree exceeds [solveBudget] is rolled out as before.
+  final bool pimcSolve;
+  final int pimcMaxCards;
+
   const EndgameSearch({
     this.worlds = 8,
     this.maxCards = 5,
@@ -42,6 +49,8 @@ class EndgameSearch {
     this.solveOneOnOne = false,
     this.solveBudget = 20000,
     this.solveMaxCards = 10,
+    this.pimcSolve = false,
+    this.pimcMaxCards = 12,
   });
 
   @override
@@ -220,6 +229,10 @@ class EndgameSearcher {
   int solveSwitches = 0;
   int solveGiveUps = 0;
   final Map<int, OneOnOneSolver> _solvers = {};
+
+  /// Worlds solved exactly by the three-player search, and give-ups.
+  int pimcWorlds = 0;
+  int pimcGiveUps = 0;
   final Stopwatch stopwatch = Stopwatch();
 
   EndgameSearcher({
@@ -314,9 +327,33 @@ class EndgameSearcher {
       final team = current.seat % 2;
       final random = Random(searchSeed(state, playerId));
       final values = <List<double?>>[];
+      final totalCards = state.hands.values.fold<int>(
+        0,
+        (final n, final h) => n + h.length,
+      );
+      final pimc =
+          config.pimcSolve &&
+          totalCards <= config.pimcMaxCards &&
+          state.hands.values.where((final h) => h.isNotEmpty).length >= 3;
       for (var w = 0; w < config.worlds; w++) {
         final world = redealWorld(state, playerId, random);
         final row = List<double?>.filled(count, null);
+        if (pimc) {
+          final exact = await OneOnOneSolver(
+            engine: engine,
+            agentFor: rolloutAgent,
+            nodeBudget: config.solveBudget,
+          ).values(world, playerId, [for (final i in indices) actions[i]!]);
+          if (exact.every((final v) => v != null)) {
+            pimcWorlds++;
+            for (var k = 0; k < indices.length; k++) {
+              row[indices[k]] = exact[k]!.toDouble();
+            }
+            values.add(row);
+            continue;
+          }
+          pimcGiveUps++;
+        }
         for (final i in indices) {
           final fork = world.copy();
           final agents = {

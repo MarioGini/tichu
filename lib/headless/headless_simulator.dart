@@ -221,6 +221,8 @@ class _HeadlessSimulator {
           'solves': searcher.solves,
           'solve_switches': searcher.solveSwitches,
           'solve_give_ups': searcher.solveGiveUps,
+          'pimc_worlds': searcher.pimcWorlds,
+          'pimc_give_ups': searcher.pimcGiveUps,
           'search_ms': ms.round(),
           'ms_per_search': searcher.searches == 0 ? 0 : ms / searcher.searches,
         }),

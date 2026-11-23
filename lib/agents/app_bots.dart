@@ -16,9 +16,11 @@ abstract final class AppBots {
   static const schupfAsset = 'assets/bots/tichu_schupf_v3.safetensors';
 
   /// Decision-time endgame search for the app bots (rl/README.md, "Endgame
-  /// search"). Flip to switch it off.
+  /// search"). Flip to switch it off. With <= 8 cards in hand v7 + search
+  /// beats v7 57.2 % (<= 5 cards: 54.5 %), at ~30 ms per searched decision
+  /// in the native headless runner (more on phones and the web).
   static const useEndgameSearch = true;
-  static const endgameSearch = EndgameSearch();
+  static const endgameSearch = EndgameSearch(maxCards: 8);
 
   static BotConfig current = BotConfig.heuristic;
 

@@ -16,7 +16,7 @@ It then tests simple endgame rules ("lead the highest single against an
 opponent with one card", ...) against the policy's own choices, and prints
 random endgame positions with large regret for reading.
 
-  rl/.venv/bin/python rl/review_games.py --nn-policy=assets/bots/tichu_q_v7.safetensors
+  rl/.venv/bin/python rl/review_games.py --nn-policy=assets/bots/tichu_q_v8.safetensors
   rl/.venv/bin/python rl/review_games.py --jsonl=games.jsonl --examples=30
 """
 
@@ -221,7 +221,7 @@ def endgame_rules(rows) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Review a play policy's games with exact rollouts")
-    p.add_argument("--nn-policy", default="assets/bots/tichu_q_v7.safetensors")
+    p.add_argument("--nn-policy", default="assets/bots/tichu_q_v8.safetensors")
     p.add_argument("--jsonl", default="", help="existing --rollout-rate/--describe file (skips generation)")
     p.add_argument("--episodes", type=int, default=240)
     p.add_argument("--rollout-rate", type=float, default=0.25)

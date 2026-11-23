@@ -1,8 +1,23 @@
 # Trained models
 
-The app's bots use `assets/bots/tichu_q_v7.safetensors` and
-`assets/bots/tichu_schupf_v3.safetensors` (loaded by
+The app's bots use `assets/bots/tichu_q_v8.safetensors` and
+`assets/bots/tichu_schupf_v4.safetensors` with endgame search (loaded by
 `lib/agents/app_bots.dart`).
+
+## tichu_q_v8.safetensors + tichu_schupf_v4.safetensors (shipped)
+
+Play net v8: iteration 5 of the v8 league run on feature schema v7 (376
+inputs, 376-256-128-64-1; see rl/README.md, "Results v8"). Schupf v4:
+`schupf_cf_train.py` on 62,540 exact schupf decisions of v8 self-play.
+
+Duplicate duels, fresh deals, matches to 1000, against the previous shipped
+bot (v7 + schupf v3):
+
+| Bot | Search | Result |
+|-----|--------|--------|
+| v8 + schupf v4 | endgame search on both sides (as in the app) | **61.3 % ± 1.0**, +164 per match (1000 deals x 2) |
+| v8 + schupf v4 | none | 63.6 % ± 0.9 |
+| v8 | none, vs v6 | 66.9 % ± 0.9 |
 
 ## tichu_q_v4.safetensors (removed)
 
@@ -39,8 +54,8 @@ simulates in 85 ms.
 Use with the heuristic's Tichu calls and schupf:
 
 ```bash
-build/bin/headless --nn-policy=assets/bots/tichu_q_v7.safetensors \
-    --schupf-net=assets/bots/tichu_schupf_v3.safetensors ...
+build/bin/headless --nn-policy=assets/bots/tichu_q_v8.safetensors \
+    --schupf-net=assets/bots/tichu_schupf_v4.safetensors ...
 ```
 
 In Dart: `BotConfig(play: LoadedNet.fromBytes(bytes))`.
@@ -74,7 +89,10 @@ heuristic schupf 55.0 % ± 0.8. Against an opponent's Grand Tichu it passes
 the Dog and the lowest cards to the caller and strength to the partner
 (`rl/schupf_vs_grand.py`).
 
-## tichu_q_v7.safetensors + tichu_schupf_v3.safetensors (shipped)
+## tichu_q_v7.safetensors + tichu_schupf_v3.safetensors (removed)
+
+Restore them with `git show 79230a6:assets/bots/tichu_q_v7.safetensors` and
+`git show 79230a6:assets/bots/tichu_schupf_v3.safetensors`.
 
 Play net v7: four league iterations from v6 (rl/README.md, "Results v7
 candidate"); same architecture (318 inputs: the v5 layout, it reads the
@@ -92,7 +110,7 @@ Duplicate duels, fresh deals (seed 9001), matches to 1000:
 | v7 + schupf v2 | v6 + schupf v2 | 58.4 % ± 0.5 (3000 deals x 2) |
 | v7 + schupf v2 | heuristic | 95.4 % ± 0.3 (2000 deals x 2) |
 
-## tichu_schupf_v2.safetensors (shipped)
+## tichu_schupf_v2.safetensors (removed, see above)
 
 Schupf value net (232 inputs, `NnSchupfStrategy`), trained by
 `rl/schupf_cf_train.py` on 51,600 exact schupf decisions of v5 self-play (16

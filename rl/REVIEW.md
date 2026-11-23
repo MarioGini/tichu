@@ -224,10 +224,65 @@ weak cards. Two tests, against v7 itself (no human data yet):
    global "pass more". The pure best-response exploiter against frozen v7
    (`rl/outputs/v7b`, no self-play, labels with v7's own replies) gained
    nothing in its first iteration (49.2 % gate, 51.4 % ± 0.9 vs v7 on fresh
-   deals); further iterations running.
+   deals). Its second iteration was promoted (55.0 % ± 0.6 vs v7), but it
+   plays exactly as strong as v8 (league training with the new schema v7
+   inputs): v8 vs v7b 50.6 % ± 0.9, v8 vs v6 63.3 %, v7b vs v6 62.8 %. The
+   gain is the new inputs (both nets have them), not an exploit of v7's
+   style; no exploitable weakness was found.
 
 Note: until the web net-loading fix (PR 30) the website's bots were the
 heuristic, not v7, which is a likely source of the aggressive look there.
+
+## Plan for v9 (2026-11-23)
+
+What moved the bot from v7 to v8 (all duplicate duels): the new inputs
+(safe-finish and received schupf cards, +5 pp over v7 after two
+iterations), retraining the schupf net on the new play net (+3.4 pp for v3,
++4.2 pp for v4), and decision-time endgame search (+7 pp at <= 8 cards).
+What did not: label budget tricks (stakes, more deals, multi-world labels),
+style tilts, the v7 exploiter, out-of-turn bombs, the partner guard,
+learned Dragon / wish / call models, a wider net with 4 epochs.
+
+In order of expected value:
+
+1. **Teach the net what the search finds (expert iteration).** The endgame
+   search improves the net's move in ~9 % of endgame decisions (+1.2 points
+   each). Two uses: (a) train on the search's choices for endgame states
+   (cheap: the search already runs at <= 8 cards in the duels), so the net
+   plays the endgame better without search; (b) rollout continuations are
+   played by the plain net, so a stronger plain endgame makes every earlier
+   label more accurate too. Measure: v9 without search vs v8 without search.
+2. **Extend the search earlier with belief-weighted worlds.** Uniform
+   re-deals lose at 10+ cards (-3.4 points per decision vs v7) because they
+   ignore what the play revealed. Weight each world by how likely the
+   other bots' observed moves are under the net (softmax of Q), and add an
+   auxiliary output that predicts who holds each unseen card (labels are
+   free in self-play). Then retest the "all worlds agree" rule at <= 10-12
+   cards.
+3. **Gate on a panel, not one opponent.** v8 iterations 5 and 6 lost their
+   gate against iteration 4 (49.8 %, 51.4 %) but beat v7 59.3 % and v6
+   67.4 %, better than iteration 4. Promote on the average result against
+   {current best, previous shipped, v6, exploiter}, with a sequential test
+   (SPRT) instead of fixed 1000-deal duels.
+4. **Retrain the side nets after every promotion, automatically.** Each
+   schupf retrain on the new play net was worth 3-4 pp. Add a loop step:
+   after a promotion, label ~60k schupf decisions with the new net and
+   retrain; re-tune the Tichu / Grand Tichu thresholds on exact
+   counterfactual call labels (calls succeed more with stronger play).
+5. **Style-diverse league and style tracking.** Add patient variants
+   (`--style`), a bomb-holder and the heuristic as league opponents; report
+   per version the pass rate and when control cards are spent, to catch
+   drift towards a bot-only style.
+6. **Human games.** Once the Pages build has the Supabase secrets, every
+   game is saved: replay them with exact rollouts (human vs bot moves),
+   and clone a human-like opponent for the league.
+7. **Capacity, once the labels are better.** Retry a wider net
+   (e.g. 512-256-128) with 8-12 epochs on the full v8 data; it lost only
+   with 4 epochs.
+
+Process: background jobs stop at 2 hours, so long duels (especially with
+search) run in chunks of <= 600 deals; and cap torch threads
+(`TICHU_TORCH_THREADS`) when two loops share the 4 cores.
 
 ## Flaws in the setup
 

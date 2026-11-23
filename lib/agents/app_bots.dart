@@ -9,11 +9,11 @@ abstract final class AppBots {
   /// Trained play policy (rl/models/README.md): v7. With [schupfAsset] it
   /// beats the previous bot (v6 + schupf v2) 62 % and the heuristic 95 %.
   /// Calls stay heuristic.
-  static const playPolicyAsset = 'assets/bots/tichu_q_v7.safetensors';
+  static const playPolicyAsset = 'assets/bots/tichu_q_v8.safetensors';
 
   /// Learned schupf v3 (rl/schupf_cf_train.py), trained on v7's games:
   /// v7 with it beats v7 with schupf v2 53 %.
-  static const schupfAsset = 'assets/bots/tichu_schupf_v3.safetensors';
+  static const schupfAsset = 'assets/bots/tichu_schupf_v4.safetensors';
 
   /// Decision-time endgame search for the app bots (rl/README.md, "Endgame
   /// search"). Flip to switch it off. With <= 8 cards in hand v7 + search

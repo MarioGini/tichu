@@ -327,6 +327,18 @@ In order of expected value:
    plays the endgame better without search; (b) rollout continuations are
    played by the plain net, so a stronger plain endgame makes every earlier
    label more accurate too. Measure: v9 without search vs v8 without search.
+
+   **Pilot (2026-11-23): no gain.** 50k endgame decisions (<= 8 cards) of
+   v8 self-play labelled with the mean over 8 worlds (what the search
+   computes; `rollout_train.py` now averages `q_rollout_worlds`), counted
+   twice, added to the v8 data; four epochs from v8. Against v8 without
+   search, 1000 deals x 2, same deals: distilled 51.5 % ± 0.9, control
+   (same training without the endgame labels) 51.1 % ± 0.8. Per move on
+   5,757 exact-labelled positions: +0.3 ± 0.6 overall, +0.9 ± 1.3 at <= 4
+   cards. The plain net's endgame is not where it loses, or 50k labels
+   against ~600k single-world endgame labels are too few to move it; the
+   search keeps its value at decision time. Leads (see "How the play
+   evolved") are the larger target.
 2. **Extend the search earlier with belief-weighted worlds.** Uniform
    re-deals lose at 10+ cards (-3.4 points per decision vs v7) because they
    ignore what the play revealed. Weight each world by how likely the

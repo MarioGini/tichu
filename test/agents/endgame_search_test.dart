@@ -250,10 +250,7 @@ void main() {
           fail('no rollout expected');
         },
       );
-      final state = engine.createGame(
-        gameId: 'start',
-        players: _players,
-      );
+      final state = engine.createGame(gameId: 'start', players: _players);
       engine.startGame(state);
       final agent = _searchingBot('p1');
       const chosen = PassAction(playerId: 'p1');

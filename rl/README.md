@@ -36,7 +36,7 @@ this you pay a 2.5 s VM cold-start per invocation.
 dart compile exe lib/headless/headless.dart -o build/bin/headless
 ```
 
-Continue training the current policy (restart-safe, ~30 min per iteration on
+Continue training the current policy (restart-safe, ~50 min per iteration on
 4 cores; everything goes to `rl/outputs/rollout_loop/`):
 
 ```bash
@@ -49,7 +49,7 @@ Measure any two bots against each other (duplicate deals, both seatings):
 ```bash
 rl/.venv/bin/python rl/duel.py --a="--nn-policy=assets/bots/tichu_q_v7.safetensors" \
     --b="--opponent-policy=old_policy.safetensors" --deals=1000
-rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,-early_dog" \
+rl/.venv/bin/python rl/duel.py --a="--heuristic=latest,lowLeadPreference:4" \
     --b="--opponent-heuristic=latest" --deals=5000     # heuristic A/B
 ```
 
@@ -239,8 +239,9 @@ The fix is to label **every** legal action exactly, and a lot of them:
    never enters the loss), suit-permutation augmentation, warm start from
    the previous net. Greedy play on the result is one exact
    policy-improvement step.
-3. `rollout_loop.py`: iterate. Data comes from games against the heuristic
-   variants in `--opponents` (both seatings) and from self-play; the data of
+3. `rollout_loop.py`: iterate. Data comes from games against fixed nets
+   (`--opponent-nets`), the league and, optionally, heuristic variants
+   (`--opponents`, none by default), both seatings, and from self-play; the data of
    earlier iterations is kept (training on all 318k decisions beat training
    on the newest 121k by 4 pp). A candidate is promoted when it beats the
    best net in a duplicate duel by more than 2 standard errors.
@@ -257,9 +258,9 @@ Trainer details since v7 (2026-11-19):
   contiguous blocks of 256 decisions).
 - **Recency weights** (`--recency=r`): data of an earlier iteration is a
   value under an older policy; a file `itNN_*` gets loss weight
-  `r ** (newest - NN)`. The loop passes `--recency=0.8`.
-- **League** (`rollout_loop.py --league=K`): every net replaced by a
-  promotion joins `pool/` and the K newest pool nets become extra fixed
+  `r ** (newest - NN)`. Default 0.8.
+- **League** (`rollout_loop.py --league=K`, default 2): every net replaced
+  by a promotion joins `pool/` and the K newest pool nets become extra fixed
   opponents for data and measurements.
 - **Confirmation duel** (`--confirm-deals=N`, default 1000): a candidate that
   passes the gate must also win a second duel on fresh deals, and the pooled
@@ -270,69 +271,30 @@ Trainer details since v7 (2026-11-19):
 - Two-sided comparison: `compare_policies.py --jsonl-b=...` also measures the
   gain on B's games with B continuing (A-continued rollouts flatter A).
 
-### Stakes-weighted rollout labels (`--stakes-rollouts`, 2026-11-20)
+### Stakes-weighted rollout labels (2026-11-20, removed)
 
-Opt-in: spend the rollout labels on the decisions where learning still moves
-(see "Where v7 plays better" below) instead of a uniform `--rollout-rate`.
-Each on-turn play decision of a learner seat gets a stakes class from public
-information (`lib/headless/rollout_stakes.dart`, mirrored in Python by
-`rollout_train.stakes_from_features`; both agree on every row of a test run):
-
-| Class | When | Default p at `--rollout-rate=0.5` |
-|-------|------|-----------------------------------|
-| high | the race to go out: someone is out, another player has 1-3 cards, or own hand <= 5 | 0.70 |
-| mid | otherwise: a (Grand) Tichu caller still in, a lead, or a trick worth >= 20 | 0.35 |
-| low | the rest (quiet middle game) | 0.15 |
-
-- `headless --stakes-rollouts [--stakes-rates=high:p,mid:p,low:p]`: the
-  defaults are `rollout-rate x (1.4, 0.7, 0.3)` (capped at 1); a rate given
-  in `--stakes-rates` is absolute, classes left out keep the default.
-  Out-of-turn bombs keep `--interrupt-rollout-rate`. Labelled rows carry
-  `"stakes"` and `"label_p"`; the runner prints one `stakes_stats` JSON line
-  (decisions, labellable, labelled per class, reasons) to stderr.
-- `rollout_train.py --importance=inverse`: loss weight 1/label_p (normalised
-  to mean 1, times the recency weight), i.e. the uniform-sampling objective
-  again; `none` (default) trains on the shifted mix. Rows without label_p
-  count as `--default-label-p` (the loop passes its `--rollout-rate`).
-  `evaluate` also reports `gain_pts_high/mid/low` (classes from the features
-  for old data). The npz caches keep `label_p` and `stakes`; old caches load.
-- `rollout_loop.py --gen-args="--stakes-rollouts"` passes extra headless
-  arguments to every data run.
-
-A two-class split (high = any of the reasons above, low = the rest) does not
-work: 82 % of the labellable decisions would be high, because a (Grand)
-Tichu caller is still in for 41 % of them and leads are 25 %.
-
-Measured class shares (v7 + schupf v2, epsilon 0.02, labellable decisions =
-at least two actions and no finishing move):
-
-| Games | matches | labellable / match | high | mid | low | labels / match, uniform 0.5 | stakes defaults |
-|-------|---------|--------------------|------|-----|-----|-----------------------------|-----------------|
-| self-play (all seats) | 300 | 462 | 52.4 % | 29.5 % | 18.1 % | 230.9 | 229.6 |
-| vs v6 (policy seats) | 300 | 227 | 53.2 % | 28.5 % | 18.3 % | 113.3 | 113.2 |
-| vs heuristic (policy seats) | 200 | 179 | 59.5 % | 26.0 % | 14.5 % | 89.5 | 94.7 (+6 %) |
-
-So the defaults keep the label budget (and run time) of the uniform 0.5 and
-label high-stakes decisions 4.7x as often as quiet ones: of the labels,
-~74 % are high, 20 % mid, 6 % low (uniform: 52 / 30 / 18 %). Whether this
-beats the uniform rate is not measured yet.
-
-**Measured (2026-11-20): no gain.** A/B on the same iteration (v7 iteration 5:
-same seeds, same start net = iteration 4, same league, same label budget,
-~455k new labels), only the label allocation differs. Duplicate duels, 2000
-fresh deals x 2:
+Tried: label probability by a stakes class from public information (high:
+the race to go out, someone out, a player with 1-3 cards or own hand <= 5;
+mid: a caller still in, a lead or a trick worth >= 20; low: the rest), at
+the same label budget as a uniform `--rollout-rate=0.5` (~74 / 20 / 6 % of
+the labels instead of 52 / 30 / 18 %), optionally with 1/p importance
+weights in the trainer. A/B on the same iteration (v7 iteration 5, same
+seeds, start net, league and label budget), duplicate duels, 2000 fresh
+deals x 2:
 
 | Candidate | vs iteration 4 |
 |-----------|----------------|
 | uniform labels (rate 0.5) | 50.9 % ± 0.6 |
-| stakes labels, `--importance=none` | 51.1 % ± 0.6 |
-| stakes labels, `--importance=inverse` | 50.4 % ± 0.6 |
+| stakes labels, no importance weights | 51.1 % ± 0.6 |
+| stakes labels, importance weights 1/p | 50.4 % ± 0.6 |
 | stakes vs uniform, head to head | 50.5 % ± 0.6 |
 
 Held-out gain moved as expected (high +0.57 vs +0.48 points per decision,
-low -0.21 vs +0.23), but the duels do not move: the extra high-stakes labels
-are worth no more than the quiet ones they replace. The flag stays (off by
-default); the next lever is lower-noise labels, not their allocation.
+low -0.21 vs +0.23), but the duels did not: the extra high-stakes labels are
+worth no more than the quiet ones they replace. The code (`--stakes-rollouts`,
+`--stakes-rates`, `rollout_train.py --importance`, the `stakes` / `label_p`
+columns) was deleted on 2026-11-22; npz caches that still carry those
+columns load and ignore them.
 
 ### Training data in Supabase Storage
 
@@ -394,8 +356,7 @@ Python entry points:
    layer.
 
 4. **`rollout_loop.py`** / **`rollout_train.py`** — rollout policy
-   iteration for the play net (above); `win_prob.py` builds the match-win
-   table for `--objective=win`.
+   iteration for the play net (above).
 
 5. **`analyze_games.py`** — duplicate games vs the heuristic with
    `--shadow-heuristic`: round stats per side (going out first, double wins,
@@ -415,11 +376,10 @@ The same rollout labels score heuristic rules exactly:
 - `headless --shadow-heuristics=specA|specB|...` logs, for every labelled
   decision, what each heuristic variant would have played. One dataset then
   gives the exact one-step value (points per decision) of all variants.
-- `--heuristic=` specs: `latest` (the heuristic as written), `-name` to
-  switch a rule off (`partner_pass`, `mahjong_lead`, `partner_finish_lead`,
-  `early_dog`, `singleton_response`, `cheap_combos`, `guard`) and
+- `--heuristic=` specs: `latest` (the heuristic as written) and
   `weight:value` to override a `TurnScorer` weight, e.g.
-  `latest,-early_dog,lowLeadPreference:4`.
+  `latest,lowLeadPreference:4`. The heuristic's rules are unconditional
+  (the rule switches were removed on 2026-11-22).
 - `--describe` adds a readable position (hands, trick, legal actions) to
   labelled rows; `--label-seats=policy|opponent|all` chooses whose decisions
   are labelled.
@@ -681,7 +641,7 @@ points per decision:
 | decision-time simulation: both branches played on 16 guessed deals of the unseen cards (`--pimc-worlds`, `pimc_calls.py`) | -1.9 ± 0.8 (best variant +0.7 ± 0.3, rule and simulation agreeing) |
 | knowing the outcome | +44 |
 
-Deciding at the last moment (`delay_tichu`: the call is made in the turn the
+Deciding at the last moment (the call is made in the turn the
 bot plays its first card; 75 % of these decisions see at least one card
 played, 22 % see 11 or more) does not change this: the success model there is
 +0.39 ± 0.26 over the rule (AUC 0.802, 48.6k decisions), and with the rule the
@@ -723,14 +683,15 @@ What changed in the setup:
   points of clairvoyant regret per decision against ~1 point of learnable
   gain): held-out gain peaked after 3-4 epochs and halved by epoch 8. The
   trainer now runs 4 epochs, keeps the epoch with the best held-out gain and
-  exports an exponential moving average of the weights (`--ema=0.999`).
+  exports an exponential moving average of the weights (`--ema`, default
+  0.999).
   Same data, same start: +2.3 pp against v5.
-- **Match-win targets** (`--objective=win`, DouZero's win-probability
-  objective; `win_prob.py` gives P(win | totals) from 16k rounds of v5
-  self-play): the round result is mapped through the match-win probability
-  after the round. It lost to the point targets (54.9 % vs 56.2 %), so it is
-  off by default. The runner now writes each team's own rollout points
-  (`q_rollout_own`) so the mapping is exact.
+- **Match-win targets** (DouZero's win-probability objective, P(win |
+  totals) from 16k rounds of v5 self-play): the round result is mapped
+  through the match-win probability after the round. It lost to the point
+  targets (54.9 % vs 56.2 %); the code (`--objective`, `win_prob.py`) was
+  deleted on 2026-11-22. The runner still writes each team's own rollout
+  points (`q_rollout_own`); the trainer ignores them.
 - Compact data cache: the state is stored once per decision (float16), ~7x
   less memory than one full input row per action.
 
@@ -864,12 +825,12 @@ nets and with exact rollouts.
 
 ### Out-of-turn bombs (2026-11-20)
 
-The decision loop now offers every player holding a bomb that beats the trick
-an out-of-turn bomb between any two plays/passes (`BombInterruptRequest`,
-`DeclineBombAction`; the app's AI runner and the headless runner both use
-it). Feature schema v6 adds one input, `off_turn` (1 = deciding out of
-turn), at the end of the state prefix; v5-layout nets (v5-v7, 318 inputs)
-still load and play unchanged in Dart and are widened with zero weights in
+The decision loop offered every player holding a bomb that beats the trick
+an out-of-turn bomb between any two plays/passes (removed for bots on
+2026-11-22, see below). Feature schema v6 added one input, `off_turn`
+(1 = deciding out of turn), at the end of the state prefix; it stays in the
+layout and is always 0 for bots. v5-layout nets (v5-v7, 318 inputs) still
+load and play unchanged in Dart and are widened with zero weights in
 Python.
 
 Measured with v7, exact rollouts of 25,447 interrupt decisions (bomb now vs
@@ -889,10 +850,11 @@ wait, `--interrupt-rollout-rate=1`):
 - A net trained on the interrupt decisions (v7 start, held-out matches) does
   not beat "never": -1.7 points per decision vs always waiting.
 
-So the bots decline by default (`interrupt_bomb` is off; switch it on with
-`--heuristic=latest,interrupt_bomb`), and interrupt rows are not labelled
-unless `--interrupt-rollout-rate` > 0. Humans can still bomb out of turn.
-Cost: ~5 % slower simulation.
+So the bot side was deleted on 2026-11-22 (the rule, the net's interrupt
+decision, the decline action, `--no-bomb-interrupts` and
+`--interrupt-rollout-rate`): bots are never asked to bomb out of turn.
+Humans in the app still can (the engine accepts an out-of-turn bomb on a
+trick).
 
 ### Endgame search (2026-11-22)
 
@@ -979,7 +941,7 @@ The review of 2026-11-20 (`rl/REVIEW.md`) measures the label noise, lists
 the flaws of this setup and orders the next ideas; it supersedes the list
 below where they differ.
 
-1. ~~Out-of-turn bombs for bots~~ Done 2026-11-20: no gain, off by default
+1. ~~Out-of-turn bombs for bots~~ Done 2026-11-20: no gain, removed
    (see "Out-of-turn bombs").
 2. Less noisy labels for the early game: several rollouts per action with
    the hidden cards re-dealt consistently with the public history, or a

@@ -142,8 +142,9 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart),
   (plan-lead, plan-pass, plan-singles, lead-sure, feed-partner, opponent-1
   lead, no-Dog, conserve-controls, support, announce) and the legacy Tichu
   index.
-- Rules can be switched off by name and weights overridden for experiments:
-  `--heuristic=latest,-early_dog,lowLeadPreference:4`
+- The rules are unconditional (the A/B rule switches were removed on
+  2026-11-22); `TurnScorer` weights can be overridden for experiments:
+  `--heuristic=latest,lowLeadPreference:4`
   ([heuristic_options.dart](heuristic_options.dart)).
 
 ---

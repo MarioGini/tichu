@@ -2,7 +2,6 @@ import 'package:tichu/agents/dragon_give_strategy.dart';
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
-import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/agents/play_tactics_policy.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
@@ -31,7 +30,7 @@ class SmartAiAgent extends PlayerAgent {
 
   final TichuCallStrategy tichuCallStrategy;
 
-  /// Switchable heuristic rules (A/B testing); the app uses the latest.
+  /// `TurnScorer` weight overrides (A/B testing); the app uses the latest.
   final HeuristicOptions options;
   final SchupfStrategy schupfStrategy;
   late final PlaySelectionStrategy playSelectionStrategy;
@@ -56,8 +55,7 @@ class SmartAiAgent extends PlayerAgent {
     final WishStrategy? wishStrategy,
     final DragonGiveStrategy? dragonGiveStrategy,
   }) : tichuCallStrategy =
-           tichuCallStrategy ??
-           DefaultTichuCallStrategy(grandTichu: options.on('grand_tichu')),
+           tichuCallStrategy ?? const DefaultTichuCallStrategy(),
        schupfStrategy = schupfStrategy ?? const DefaultSchupfStrategy(),
        playTacticsPolicy = playTacticsPolicy ?? const PlayTacticsPolicy(),
        wishStrategy = wishStrategy ?? const DefaultWishStrategy(),
@@ -94,13 +92,12 @@ class SmartAiAgent extends PlayerAgent {
     return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
   }
 
-  /// Tichu may be called until the player's first card. With `delay_tichu`
-  /// the decision waits for the turn in which the bot plays its first card
-  /// (while it passes it keeps the option and sees more of the round).
+  /// Tichu may be called until the player's first card. The decision waits
+  /// for the turn in which the bot plays its first card (while it passes it
+  /// keeps the option and sees more of the round).
   @override
   Future<GameAction> selectAction(final GameSnapshot snapshot) async {
     if (!canStillCallTichu(snapshot)) return selectTurn(snapshot);
-    if (!options.on('delay_tichu')) return super.selectAction(snapshot);
     final turn = await selectTurn(snapshot);
     if (turn is PassAction) return turn;
     if (await shouldCallTichu(snapshot)) {
@@ -233,18 +230,6 @@ class SmartAiAgent extends PlayerAgent {
           .where((final turn) => turn.cards.length != hand.length)
           .toList();
       if (nonFinishing.isNotEmpty) legalTurns = nonFinishing;
-      // `guard_single`: when following, do not play down to one card
-      // either. Left with one card the bot often wins the lead and then
-      // has to play it, going out ahead of the caller.
-      if (canPass && options.on('guard_single')) {
-        final keepTwo = legalTurns
-            .where((final turn) => hand.length - turn.cards.length != 1)
-            .toList();
-        if (keepTwo.isEmpty) {
-          return (turns: const [], canPass: true, forced: pass);
-        }
-        legalTurns = keepTwo;
-      }
     }
     return (turns: legalTurns, canPass: canPass, forced: null);
   }
@@ -267,65 +252,6 @@ class SmartAiAgent extends PlayerAgent {
       return null;
     }
     return (turns: turnOptions.turns, canPass: turnOptions.canPass);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Out-of-turn bombs
-  // ---------------------------------------------------------------------------
-
-  /// Off unless the `interrupt_bomb` rule is switched on (it measured
-  /// worse than never bombing out of turn). Then a play net that knows the
-  /// `turn` group decides itself (bombs vs wait), otherwise the heuristic
-  /// rule [interruptBombRule].
-  @override
-  Future<List<Card>?> selectInterruptBomb(
-    final GameSnapshot snapshot,
-    final List<TichuTurn> bombs,
-  ) async {
-    if (bombs.isEmpty || !options.on('interrupt_bomb')) return null;
-    final strategy = playSelectionStrategy;
-    if (strategy is NnPlaySelectionStrategy) {
-      final pick = strategy.selectInterruptBomb(snapshot, bombs);
-      if (!identical(pick, NnPlaySelectionStrategy.notSupported)) {
-        return pick?.cards;
-      }
-    }
-    return interruptBombRule(snapshot, playerId, bombs)?.cards;
-  }
-
-  /// Heuristic: bomb out of turn only to stop an opponent who is winning
-  /// the trick from taking the lead when that is dangerous: the opponent
-  /// (or its partner) is about to go out, called (Grand) Tichu, its team
-  /// already has the first player out (double win), or the trick is worth
-  /// 20+ points. Plays the lowest bomb.
-  static TichuTurn? interruptBombRule(
-    final GameSnapshot snapshot,
-    final String playerId,
-    final List<TichuTurn> bombs,
-  ) {
-    final winner = snapshot.lastPlayedBy;
-    if (winner == null) return null;
-    final table = TableRelationships(snapshot, playerId);
-    if (!table.isOpponent(winner)) return null;
-    final calls = snapshot.scoreState.tichuCalls;
-    final finish = snapshot.scoreState.finishOrder;
-    var danger = snapshot.trickPoints >= 20;
-    for (final opp in table.opponents) {
-      final cards = snapshot.hands[opp.id]?.length ?? 14;
-      if (cards > 0 && cards <= 3) danger = true;
-      if ((calls[opp.id] ?? TichuCall.none) != TichuCall.none &&
-          !finish.contains(opp.id)) {
-        danger = true;
-      }
-    }
-    if (finish.isNotEmpty && table.isOpponent(finish.first)) danger = true;
-    if (!danger) return null;
-    final sorted = [...bombs]
-      ..sort((final a, final b) {
-        final byLength = a.cards.length.compareTo(b.cards.length);
-        return byLength != 0 ? byLength : a.value.compareTo(b.value);
-      });
-    return sorted.first;
   }
 
   /// The action this agent would submit for playing [turn] (adds the wish

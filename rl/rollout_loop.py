@@ -4,9 +4,10 @@
 Each iteration improves the current best play policy by one exact
 policy-improvement step:
 
-  1. Data. The best bot plays (a) against the heuristic variants in
-     ``--opponents`` and the fixed nets in ``--opponent-nets`` (both
-     seatings) and (b) against itself. For a sampled
+  1. Data. The best bot plays (a) against the fixed nets in
+     ``--opponent-nets``, the league and the heuristic variants in
+     ``--opponents`` (none by default; both seatings) and (b) against
+     itself. For a sampled
      share of its play decisions the round is forked once per legal action
      and played out (``headless --rollout-rate``), which gives the exact
      round result of every legal action on that deal.
@@ -30,8 +31,9 @@ training against several policies instead of overfitting the last one
 Everything is written to ``--out-dir`` and every step is skipped when its
 output already exists, so the loop can simply be restarted after a crash.
 
-  rl/.venv/bin/python rl/rollout_loop.py --iterations=3 \
-      --init-policy=assets/bots/tichu_q_v7.safetensors
+  rl/.venv/bin/python rl/rollout_loop.py --out-dir=rl/outputs/v8 --iterations=3 \
+      --init-policy=assets/bots/tichu_q_v7.safetensors \
+      --opponent-nets=rl/outputs/bench/v6.safetensors --upload-run=v8
 """
 
 from __future__ import annotations
@@ -97,12 +99,18 @@ def main() -> None:
     p.add_argument("--iterations", type=int, default=3)
     p.add_argument("--out-dir", default=str(RL / "outputs" / "rollout_loop"))
     p.add_argument("--init-policy", default="assets/bots/tichu_q_v7.safetensors")
-    p.add_argument("--mixed-episodes", type=int, default=800, help="matches vs the heuristic per iteration")
-    p.add_argument("--self-episodes", type=int, default=200, help="self-play matches per iteration")
+    p.add_argument(
+        "--mixed-episodes",
+        type=int,
+        default=2400,
+        help="matches vs the heuristic opponents, the fixed nets and the league per iteration",
+    )
+    p.add_argument("--self-episodes", type=int, default=1000, help="self-play matches per iteration")
     p.add_argument(
         "--opponents",
-        default="latest",
-        help="heuristic specs for the mixed games, separated by ';' (matches are split evenly)",
+        default="",
+        help="heuristic specs for the mixed games, separated by ';' (matches are split evenly; "
+        "'' = none, 'latest' = the heuristic as written)",
     )
     p.add_argument(
         "--opponent-nets",
@@ -123,16 +131,15 @@ def main() -> None:
     )
     p.add_argument(
         "--train-args",
-        default="--ema=0.999",
-        help="extra rollout_train.py arguments (the epoch with the best held-out "
-        "gain is kept; the labels are noisy and later epochs overfit)",
+        default="",
+        help="extra rollout_train.py arguments (its defaults: EMA 0.999, recency 0.8; "
+        "the epoch with the best held-out gain is kept)",
     )
     p.add_argument("--rollout-rate", type=float, default=0.5)
     p.add_argument(
         "--gen-args",
         default="",
-        help="extra headless arguments for every data run, e.g. "
-        "'--stakes-rollouts' (label probability by situation, see rl/README.md)",
+        help="extra headless arguments for every data run, e.g. '--rollout-max-actions=16'",
     )
     p.add_argument("--epsilon", type=float, default=0.02)
     p.add_argument("--target-score", type=int, default=1000)
@@ -150,7 +157,7 @@ def main() -> None:
     p.add_argument(
         "--league",
         type=int,
-        default=0,
+        default=2,
         help="also train and measure against the K newest earlier best nets (0 = off)",
     )
     p.add_argument("--upload-run", default="", help="upload new data files to Supabase under this run name")
@@ -246,8 +253,6 @@ def main() -> None:
                 f"--output={cand}",
                 f"--epochs={args.epochs}",
                 f"--lr={args.lr}",
-                # Rows without label_p (uniform runs) were labelled at this rate.
-                f"--default-label-p={args.rollout_rate}",
                 *shlex.split(args.train_args),
             ],
             cwd=RL.parent,

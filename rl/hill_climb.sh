@@ -17,14 +17,12 @@ fi
 mkdir -p rl/outputs/rollout_loop
 # Shard files of a run that was killed (e.g. by a VM restart).
 rm -rf /tmp/tichu_shards_* /tmp/tichu_duel_*
-# About 30 minutes per iteration on 3 cores: ~70k labelled decisions against
-# the heuristics and ~100k from self-play (a quarter of the decisions of
-# each game are labelled, so the data covers many different deals).
+# The loop's defaults are the settings of the v7/v8 runs (league of 2, 2400
+# league matches + 1000 self-play matches per iteration, rollout rate 0.5);
+# about 50 minutes per iteration on 4 cores. Extra loop arguments, e.g. a
+# fixed opponent net: LOOP_ARGS="--opponent-nets=rl/outputs/bench/v6.safetensors".
+# shellcheck disable=SC2086
 setsid nohup rl/.venv/bin/python rl/rollout_loop.py \
-  --iterations="${ITERATIONS:-30}" \
-  --opponents="${OPPONENTS:-latest}" \
-  --mixed-episodes="${MIXED:-1200}" --self-episodes="${SELF:-900}" \
-  --rollout-rate="${RATE:-0.25}" \
-  --window="${WINDOW:-5}" --duel-deals="${DEALS:-1500}" --shards="${SHARDS:-3}" \
+  --iterations="${ITERATIONS:-30}" --shards="${SHARDS:-4}" ${LOOP_ARGS:-} \
   >> rl/outputs/rollout_loop/loop.log 2>&1 &
 echo "hill climb started (log: rl/outputs/rollout_loop/loop.log)"

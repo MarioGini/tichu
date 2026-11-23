@@ -34,7 +34,6 @@ void main() {
             network: wide,
             simd: simd,
           );
-          expect(a.knowsInterrupts, size == 319);
           for (var k = 0; k < 20; k++) {
             final h = [
               for (var r = 0; r < 6; r++)

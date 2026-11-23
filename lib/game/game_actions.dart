@@ -21,13 +21,6 @@ class PassAction extends GameAction {
   const PassAction({required super.playerId});
 }
 
-/// A player who could bomb out of turn declines to, for the current bomb
-/// window (see `GameEngineState.bombWindow`). Only bots send it: it tells the
-/// decision loop not to ask them again until the next play or pass.
-class DeclineBombAction extends GameAction {
-  const DeclineBombAction({required super.playerId});
-}
-
 class GiveDragonAction extends GameAction {
   final String targetPlayerId;
 

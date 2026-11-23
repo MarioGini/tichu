@@ -41,7 +41,6 @@ extension _HeuristicHelpers on SmartAiAgent {
     final GameSnapshot snapshot,
     final TableRelationships table,
   ) {
-    if (!options.on('guard')) return false;
     final partnerId = table.partnerId;
     if (partnerId == null) return false;
     final partnerCall =

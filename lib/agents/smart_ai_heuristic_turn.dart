@@ -29,9 +29,7 @@ extension _HeuristicTurn on SmartAiAgent {
       hand: hand,
       table: table,
     );
-    if (options.on('partner_pass') &&
-        partnerPass != null &&
-        LegalPlayGuard.canPass(deck: deck, hand: hand)) {
+    if (partnerPass != null && LegalPlayGuard.canPass(deck: deck, hand: hand)) {
       return partnerPass;
     }
 
@@ -43,7 +41,7 @@ extension _HeuristicTurn on SmartAiAgent {
       selectPlay: (final options) =>
           playSelectionStrategy.selectPlay(snapshot, options, deck, hand),
     );
-    if (options.on('mahjong_lead') && mahjongLead != null) {
+    if (mahjongLead != null) {
       return _buildPlayAction(
         snapshot,
         mahjongLead,
@@ -59,7 +57,7 @@ extension _HeuristicTurn on SmartAiAgent {
       isLeading: isLeading,
       table: table,
     );
-    if (options.on('partner_finish_lead') && partnerLead != null) {
+    if (partnerLead != null) {
       return _buildPlayAction(snapshot, partnerLead, deck, hand);
     }
 
@@ -67,7 +65,7 @@ extension _HeuristicTurn on SmartAiAgent {
       legalTurns: legalTurns,
       isLeading: isLeading,
     );
-    if (options.on('early_dog') && earlyDog != null) {
+    if (earlyDog != null) {
       return _buildPlayAction(snapshot, earlyDog, deck, hand);
     }
 
@@ -114,7 +112,7 @@ extension _HeuristicTurn on SmartAiAgent {
           deck: deck,
           table: table,
         );
-    if (options.on('singleton_response') && !opponentThreatWinning) {
+    if (!opponentThreatWinning) {
       final singletonResponse = playTacticsPolicy.selectSingletonResponse(
         legalTurns: validPlays,
         deck: deck,
@@ -134,9 +132,7 @@ extension _HeuristicTurn on SmartAiAgent {
     );
     return _buildPlayAction(
       snapshot,
-      options.on('cheap_combos')
-          ? _cheapestEquivalent(selected, validPlays)
-          : selected,
+      _cheapestEquivalent(selected, validPlays),
       deck,
       hand,
     );

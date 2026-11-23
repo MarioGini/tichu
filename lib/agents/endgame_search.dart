@@ -146,17 +146,12 @@ GameEngineState redealWorld(
 Future<int?> playOutRound(
   final GameEngine engine,
   final GameEngineState fork,
-  final Map<String, PlayerAgent> agents, {
-  final bool bombInterrupts = true,
-}) async {
+  final Map<String, PlayerAgent> agents,
+) async {
   for (var steps = 0; steps < 5000; steps++) {
     final score = fork.scoreTracker.state;
     if (score.roundComplete) return score.teamOneRound - score.teamTwoRound;
-    final request = AgentDecisions.next(
-      engine,
-      fork,
-      bombInterrupts: bombInterrupts,
-    );
+    final request = AgentDecisions.next(engine, fork);
     if (request == null) return null;
     final snap = engine.buildSnapshot(fork);
     GameAction? action;
@@ -196,7 +191,6 @@ Future<int?> playOutRound(
 class EndgameSearcher {
   /// Fresh agents for the rollouts, by player id and seat.
   final PlayerAgent Function(String playerId, int seat) rolloutAgent;
-  final bool bombInterrupts;
 
   /// Yield to the event loop between rollouts (keeps the app's UI
   /// responsive while a bot thinks).
@@ -210,7 +204,6 @@ class EndgameSearcher {
 
   EndgameSearcher({
     required this.rolloutAgent,
-    this.bombInterrupts = true,
     this.yieldBetweenRollouts = false,
   });
 
@@ -291,12 +284,7 @@ class EndgameSearcher {
             continue;
           }
           rollouts++;
-          final diff = await playOutRound(
-            engine,
-            fork,
-            agents,
-            bombInterrupts: bombInterrupts,
-          );
+          final diff = await playOutRound(engine, fork, agents);
           if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();
           if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
         }

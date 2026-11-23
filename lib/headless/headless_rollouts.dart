@@ -24,8 +24,6 @@ extension _Rollouts on _HeadlessSimulator {
   }) async {
     final playerId = chosen.playerId;
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
-    // Out of turn (an interrupt): the beating bombs, "pass" = wait.
-    final offTurn = snapshot.currentPlayerId != playerId;
     final (:legalTurns, :canPass) = _decisionActions(snapshot, playerId);
     final count = legalTurns.length + (canPass ? 1 : 0);
     if (count < 2) return null;
@@ -35,9 +33,7 @@ extension _Rollouts on _HeadlessSimulator {
     }
 
     final chosenKey = chosen is PlayTurnAction ? _slotKey(chosen.cards) : null;
-    var chosenIndex = chosen is PassAction || chosen is DeclineBombAction
-        ? count - 1
-        : -1;
+    var chosenIndex = chosen is PassAction ? count - 1 : -1;
     for (var i = 0; i < legalTurns.length && chosenIndex < 0; i++) {
       if (_slotKey(legalTurns[i].cards) == chosenKey) chosenIndex = i;
     }
@@ -62,14 +58,7 @@ extension _Rollouts on _HeadlessSimulator {
       };
       final GameAction action;
       if (i >= legalTurns.length) {
-        action = offTurn
-            ? DeclineBombAction(playerId: playerId)
-            : PassAction(playerId: playerId);
-      } else if (offTurn) {
-        action = PlayTurnAction(
-          playerId: playerId,
-          cards: List<Card>.from(legalTurns[i].cards),
-        );
+        action = PassAction(playerId: playerId);
       } else {
         final actor = forkAgents[playerId];
         action = actor is SmartAiAgent
@@ -103,7 +92,7 @@ extension _Rollouts on _HeadlessSimulator {
     final GameEngine engine,
     final GameEngineState fork,
     final Map<String, PlayerAgent> forkAgents,
-  ) => playOutRound(engine, fork, forkAgents, bombInterrupts: bombInterrupts);
+  ) => playOutRound(engine, fork, forkAgents);
 
   String _slotKey(final List<Card> cards) {
     final slots = [for (final c in cards) cardSlot(c)]..sort();

@@ -894,6 +894,85 @@ So the bots decline by default (`interrupt_bomb` is off; switch it on with
 unless `--interrupt-rollout-rate` > 0. Humans can still bomb out of turn.
 Cost: ~5 % slower simulation.
 
+### Endgame search (2026-11-22)
+
+**Measured first** (`headless --rollout-worlds=9 --worlds-min-cards=0
+--label-max-cards=5`, `rl/endgame_review.py`): on 27,012 endgame play
+decisions of the shipped bot (decider holds <= 5 cards) every legal move was
+played out on the real deal and on 8 re-deals of the unseen cards. Rule:
+deviate from the bot's move only if another legal move is no worse in all 8
+re-dealt worlds and better on average by more than a margin. Judged on the
+real deal (an exact sample of the hidden cards) this is worth **+1.17 ±
+0.20** points per endgame decision with margin 0-10 (changes 9-12 % of the
+decisions), +1.07 ± 0.15 with margin 40 (3.6 %). With 4 worlds, or without
+the unanimity condition, it loses.
+
+**Implementation** (`lib/agents/endgame_search.dart`):
+
+- `BotConfig.endgameSearch: EndgameSearch(worlds: 8, maxCards: 5, margin:
+  10, maxActions: 7)` (null = off; only bots with a play net get it). The
+  search needs a game state to fork, which agents do not have (they see a
+  `GameSnapshot`), so the **drivers** run it: `EndgameSearcher.refine` is
+  called after the bot chose its turn, by the headless `_selectAction`
+  (not after an ε-explored move) and by the app's `AiTurnRunner`.
+- It applies to on-turn play decisions with <= `maxCards` cards, >= 2
+  actions and no finishing move (`SmartAiAgent.searchableActions`: the same
+  set `selectTurn` chooses from, after the partner-Tichu guard; going out
+  stays a hard rule). Above `maxActions` actions it rolls out the bot's
+  move, pass and the plays with the highest Q (rare with <= 5 cards).
+- Worlds: `redealWorld` keeps the decider's hand, the played cards, every
+  hand size and the decider's own passed cards still held by the receiver,
+  and deals the other unseen cards uniformly. Every action is applied in
+  each world and the round is played to the end by fresh bots (the same
+  configs as at the table, without exploration), via the shared
+  `playOutRound`. Rollouts call the agents directly, never the searcher, so
+  the search cannot recurse.
+- Rule: `pickEndgameAction` (unanimity + margin, highest mean advantage).
+  The real deal is never used, only the 8 re-deals.
+- Deterministic: the worlds' `Random` is seeded from what the decider knows
+  (own hand, the round log, hand sizes, round and score; 30-bit arithmetic,
+  so dart2js gives the same seed), and the unseen cards are sorted before
+  shuffling, so the worlds do not depend on where the hidden cards really
+  are. Same state, same move.
+- Headless: `--endgame-search` (policy team), `--opponent-endgame-search`,
+  `--endgame-worlds=8`, `--endgame-max-cards=5`, `--endgame-margin=10`,
+  `--endgame-max-actions=7`. A stderr line `endgame_search_stats` gives
+  searches, switches, rollouts and ms per search.
+- App: `AppBots.useEndgameSearch` (on, <= 8 cards). The app runner yields to the event
+  loop between rollouts and drops the move if the game moved on meanwhile.
+
+**Duel** (duplicate, `rl/duel.py --deals=2000 --seed=9001 --shards=2`), A =
+v7 + schupf v3 + endgame search, B = v7 + schupf v3:
+
+| A | Result |
+|---|--------|
+| search, <= 5 cards, 8 worlds, margin 10 | **54.5 % ± 0.5**, margin **+59 ± 4** per match (2000 deals x 2) |
+| search, **<= 8 cards**, 8 worlds, margin 10 | **57.2 % ± 0.8**, margin **+89 ± 7** per match (1000 deals x 2) |
+
+The rule was measured on <= 5 cards, but it also pays with 6-8 cards in hand
+(twice as many searched decisions, +30 points per match more). The app uses
+<= 8 cards (`AppBots.endgameSearch`); `EndgameSearch()` defaults to 5.
+Not tried yet: more worlds, other margins, <= 10 cards, belief-weighted
+worlds.
+
+**Cost** (headless, one process, simd, 4 cores shared with a training
+job at load ~9): **22.5 ms per searched decision** (27.6 rollouts of ~0.8 ms:
+~3.5 actions x 8 worlds), ~45 searched decisions per match for the searching
+team, 8.4 % of them changed. A match with one team searching takes 1.29 s
+instead of 0.29 s (4.4x). With <= 8 cards: 31 ms per search, ~90 searches
+per match, 2.8 s extra per match (3.1 s instead of 0.27 s) (8.4 % -> 9.3 % changed). The app uses float64 inference (~3.4x slower than
+simd in the same test, ~75 ms per search here) and the web build (dart2js,
+node) is ~1.7x slower than the native float64 build (242 vs 145 ms per
+search in a run with all four seats searching at load ~12): expect ~0.1-0.4 s
+per searched decision on a phone, ~20 times per bot and match (the UI stays
+responsive: the runner yields between rollouts); with <= 8 cards ~1.5x
+that, twice as often. Duels and data generation with search are 4-8x slower, so training runs keep it off (labels are rollouts of the plain
+bots); it is a playing-strength add-on for the app and evaluations.
+
+Side fix: `Mlp.fromSafetensorsBytes` read the header length with
+`getUint64`, which dart2js does not support, so the web build could not load
+the nets and fell back to the heuristic bots; it now reads two uint32s.
+
 ## Next steps
 
 The review of 2026-11-20 (`rl/REVIEW.md`) measures the label noise, lists
@@ -916,6 +995,9 @@ below where they differ.
    50.9 % ± 0.3 (see `lib/agents/ai_strategy.md`).
 6. A truncated rollout with a perfect-information value net (PerfectDou's
    critic) would make labels several times cheaper once more data is needed.
+7. ~~Endgame search~~ Done 2026-11-22: 54.5 % (<= 5 cards) / 57.2 %
+   (<= 8 cards) against the same bot without it; on in the app (see
+   "Endgame search"). Next: tune worlds / margin / max cards.
 
 ## Output contract
 

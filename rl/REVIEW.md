@@ -294,7 +294,7 @@ all-action labels and only perturbs the states (minor).
 | 5 | SPRT or 3000-deal promotion gate | fewer wrong promotions | +10 min per iteration | |
 | 6 | Received-card features + card-ownership auxiliary head | unknown, likely small to medium | schema change + 2 iterations | |
 | 7 | Exact labels for wish and Dragon gift | measured: rules already at the learnable level | done | |
-| 8 | Endgame search (PIMC with short rollouts, few unseen cards) | unknown; v7 still gains +5 per differing endgame move | measure like the table above (needs a max-cards filter for `--rollout-worlds`) | |
+| 8 | Endgame search (PIMC with short rollouts, few unseen cards) | measured: +1.17 ± 0.20 points per endgame decision (8 re-deals, unanimity + margin); duel **54.5 % ± 0.5**, +59 ± 4 per match; with <= 8 cards **57.2 % ± 0.8**, +89 ± 7 | 22.5 ms (<= 8 cards: 31 ms) per searched decision, matches 4-11x slower | **done, on in the app with <= 8 cards** (`AppBots.endgameSearch`; rl/README.md "Endgame search") |
 | 9 | Human-game review from the app's records | finds what bot-vs-bot cannot | replay tool | |
 | 10 | Belief-weighted worlds (softmax-Q likelihood of observed plays) for search or labels | needed if 8 or K-world labels are used | medium | |
 
@@ -302,7 +302,8 @@ Parked, measured or argued above: stakes-weighted labels (no gain),
 out-of-turn bombs (-50 points per bomb), a wider net (48.5 %), match-win
 targets (lost), learned call nets (no gain), multi-world labels (more deals
 are cheaper and unbiased), flat early-game PIMC with <= 8 uniform worlds
-(+0.3 ± 1.1 at best).
+(+0.3 ± 1.1 at best). Endgame search with <= 5 cards does win (idea 8:
+54.5 % in a duel, 57.2 % with <= 8 cards) and is on in the app.
 
 Suggested order towards 60 % against v6: 2 -> 3 -> 4, then
 the loop with the winning settings and an SPRT gate; the bot that counts is

@@ -1,4 +1,5 @@
 import 'package:tichu/agents/dragon_give_strategy.dart';
+import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
@@ -37,12 +38,17 @@ class SmartAiAgent extends PlayerAgent {
   final PlayTacticsPolicy playTacticsPolicy;
   final WishStrategy wishStrategy;
   final DragonGiveStrategy dragonGiveStrategy;
+
+  /// Decision-time endgame search (run by the driver, which can fork the
+  /// game: see `EndgameSearcher`); null = play the policy's move as is.
+  final EndgameSearch? endgameSearch;
   CardFace? _lastSchupfedNextFace;
   int _lastSchupfRoundNumber = 0;
 
   SmartAiAgent(
     this.playerId, {
     this.options = HeuristicOptions.latest,
+    this.endgameSearch,
     final TichuCallStrategy? tichuCallStrategy,
     final SchupfStrategy? schupfStrategy,
     final PlaySelectionStrategy? playSelectionStrategy,
@@ -140,10 +146,50 @@ class SmartAiAgent extends PlayerAgent {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? []);
     final deck = snapshot.deck;
     final table = TableRelationships(snapshot, playerId);
+    final turnOptions = _turnOptions(snapshot, hand, table);
+    if (turnOptions.forced case final forced?) return forced;
+    final legalTurns = turnOptions.turns;
 
-    if (hand.isEmpty) {
-      return PassAction(playerId: playerId);
+    final finishingTurns = legalTurns
+        .where((final turn) => turn.cards.length == hand.length)
+        .toList();
+    if (finishingTurns.isNotEmpty) {
+      final selected = playSelectionStrategy.selectPlay(
+        snapshot,
+        finishingTurns,
+        deck,
+        hand,
+      );
+      return _buildPlayAction(snapshot, selected, deck, hand);
     }
+
+    if (playSelectionStrategy case final FullTurnPolicy fullTurn) {
+      final selected = fullTurn.selectTurnOrPass(
+        snapshot,
+        legalTurns,
+        deck,
+        hand,
+        canPass: turnOptions.canPass,
+      );
+      if (selected == null) return PassAction(playerId: playerId);
+      return _buildPlayAction(snapshot, selected, deck, hand);
+    }
+    return _heuristicTurn(snapshot, deck, hand, table, legalTurns);
+  }
+
+  /// The turns [selectTurn] chooses among: the wish-filtered legal turns
+  /// after the partner-Tichu guard, and whether passing is legal. `forced`
+  /// is set when there is nothing to choose (empty hand, nothing beats the
+  /// trick, or the guard passes).
+  ({List<TichuTurn> turns, bool canPass, GameAction? forced}) _turnOptions(
+    final GameSnapshot snapshot,
+    final List<Card> hand,
+    final TableRelationships table,
+  ) {
+    final deck = snapshot.deck;
+    final pass = PassAction(playerId: playerId);
+    if (hand.isEmpty) return (turns: const [], canPass: true, forced: pass);
+    final canPass = LegalPlayGuard.canPass(deck: deck, hand: hand);
 
     final generatedTurns = generateLegalTurns(deck, List<Card>.from(hand));
     // generatedTurns are already type-normalised, drawn from `hand`, and
@@ -161,9 +207,7 @@ class SmartAiAgent extends PlayerAgent {
       // the brute-force search below never found a play it missed in 80k
       // such positions — and that search walks every subset of the hand,
       // which used to cost ~90 % of a bot's thinking time.)
-      if (LegalPlayGuard.canPass(deck: deck, hand: hand)) {
-        return PassAction(playerId: playerId);
-      }
+      if (canPass) return (turns: const [], canPass: true, forced: pass);
       // Passing is illegal, so a legal play must exist: search exhaustively.
       final recovered = LegalPlayGuard.firstLegalTurnBruteForce(
         deck: deck,
@@ -181,10 +225,9 @@ class SmartAiAgent extends PlayerAgent {
     // heuristic's failed Tichus were the caller's own partner finishing
     // first). When leading, play anything but the last cards.
     if (_holdBackForPartnerTichu(snapshot, table)) {
-      final canPass = LegalPlayGuard.canPass(deck: deck, hand: hand);
       if (canPass &&
           legalTurns.every((final turn) => turn.cards.length == hand.length)) {
-        return PassAction(playerId: playerId);
+        return (turns: const [], canPass: true, forced: pass);
       }
       final nonFinishing = legalTurns
           .where((final turn) => turn.cards.length != hand.length)
@@ -197,37 +240,33 @@ class SmartAiAgent extends PlayerAgent {
         final keepTwo = legalTurns
             .where((final turn) => hand.length - turn.cards.length != 1)
             .toList();
-        if (keepTwo.isEmpty) return PassAction(playerId: playerId);
+        if (keepTwo.isEmpty) {
+          return (turns: const [], canPass: true, forced: pass);
+        }
         legalTurns = keepTwo;
       }
     }
+    return (turns: legalTurns, canPass: canPass, forced: null);
+  }
 
-    final finishingTurns = legalTurns
-        .where((final turn) => turn.cards.length == hand.length)
-        .toList();
-    if (finishingTurns.isNotEmpty) {
-      final selected = playSelectionStrategy.selectPlay(
-        snapshot,
-        finishingTurns,
-        deck,
-        hand,
-      );
-      return _buildPlayAction(snapshot, selected, deck, hand);
+  /// The actions an endgame search may choose among for this on-turn
+  /// decision (the same set [selectTurn] chooses from), or null when there
+  /// is nothing to search: a forced move, or a finishing move (going out is
+  /// a hard rule).
+  ({List<TichuTurn> turns, bool canPass})? searchableActions(
+    final GameSnapshot snapshot,
+  ) {
+    final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
+    final turnOptions = _turnOptions(
+      snapshot,
+      hand,
+      TableRelationships(snapshot, playerId),
+    );
+    if (turnOptions.forced != null) return null;
+    if (turnOptions.turns.any((final t) => t.cards.length == hand.length)) {
+      return null;
     }
-
-    if (playSelectionStrategy case final FullTurnPolicy fullTurn) {
-      final canPass = LegalPlayGuard.canPass(deck: deck, hand: hand);
-      final selected = fullTurn.selectTurnOrPass(
-        snapshot,
-        legalTurns,
-        deck,
-        hand,
-        canPass: canPass,
-      );
-      if (selected == null) return PassAction(playerId: playerId);
-      return _buildPlayAction(snapshot, selected, deck, hand);
-    }
-    return _heuristicTurn(snapshot, deck, hand, table, legalTurns);
+    return (turns: turnOptions.turns, canPass: turnOptions.canPass);
   }
 
   // ---------------------------------------------------------------------------

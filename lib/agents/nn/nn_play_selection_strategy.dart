@@ -145,6 +145,25 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     return _argmax(snapshot, bombs, canPass: true);
   }
 
+  /// Q(s, a) of each of [plays] (same order), for ranking candidates.
+  List<double> qValues(
+    final GameSnapshot snapshot,
+    final List<TichuTurn> plays,
+  ) {
+    final encoder = FeatureEncoder(
+      snapshot: snapshot,
+      playerId: playerId,
+      claims: _readsClaims,
+    );
+    final scorer = _scorer..setPrefix(encoder.stateFeatures);
+    final values = <double>[];
+    for (final play in plays) {
+      encoder.writeActionFeatures(play, _actionBuffer, 0);
+      values.add(scorer.score(_actionBuffer));
+    }
+    return values;
+  }
+
   /// Highest-Q play among [plays], or `null` when [canPass] and the pass
   /// action scores strictly highest.
   TichuTurn? _argmax(

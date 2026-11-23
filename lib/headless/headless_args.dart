@@ -26,6 +26,8 @@ class _HeadlessConfig {
   final String? preTichuNetPath;
   final HeuristicOptions heuristic;
   final HeuristicOptions opponentHeuristic;
+  final StyleBias style;
+  final StyleBias opponentStyle;
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
@@ -35,7 +37,9 @@ class _HeadlessConfig {
   final int rolloutMaxActions;
   final bool bombInterrupts;
   final int rolloutWorlds;
+  final double sideRolloutRate;
   final int worldsMinCards;
+  final int labelMaxCards;
   final double interruptRolloutRate;
   final bool stakesRollouts;
   final StakesRates? stakesRates;
@@ -46,6 +50,10 @@ class _HeadlessConfig {
   final double schupfRolloutRate;
   final int schupfCandidates;
   final int pimcWorlds;
+
+  /// Endgame search for the policy / opponent team (null = off).
+  final EndgameSearch? endgameSearch;
+  final EndgameSearch? opponentEndgameSearch;
 
   const _HeadlessConfig({
     required this.seed,
@@ -73,6 +81,8 @@ class _HeadlessConfig {
     required this.preTichuNetPath,
     required this.heuristic,
     required this.opponentHeuristic,
+    required this.style,
+    required this.opponentStyle,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
@@ -82,7 +92,9 @@ class _HeadlessConfig {
     required this.rolloutMaxActions,
     required this.bombInterrupts,
     required this.rolloutWorlds,
+    required this.sideRolloutRate,
     required this.worldsMinCards,
+    required this.labelMaxCards,
     required this.interruptRolloutRate,
     required this.stakesRollouts,
     required this.stakesRates,
@@ -93,6 +105,8 @@ class _HeadlessConfig {
     required this.schupfRolloutRate,
     required this.schupfCandidates,
     required this.pimcWorlds,
+    this.endgameSearch,
+    this.opponentEndgameSearch,
   });
 }
 
@@ -125,6 +139,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   String? preTichuNetPath;
   var heuristic = HeuristicOptions.latest;
   var opponentHeuristic = HeuristicOptions.latest;
+  var style = StyleBias.none;
+  var opponentStyle = StyleBias.none;
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
   var skipPlayRows = false;
@@ -134,7 +150,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var rolloutMaxActions = 12;
   var bombInterrupts = true;
   var rolloutWorlds = 1;
+  var sideRolloutRate = 0.0;
   var worldsMinCards = 0;
+  var labelMaxCards = 14;
   var interruptRolloutRate = 0.0;
   var stakesRollouts = false;
   String? stakesRatesSpec;
@@ -145,6 +163,13 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var schupfRolloutRate = 0.0;
   var schupfCandidates = 16;
   var pimcWorlds = 0;
+  var endgameSearch = false;
+  var opponentEndgameSearch = false;
+  const defaults = EndgameSearch();
+  var endgameWorlds = defaults.worlds;
+  var endgameMaxCards = defaults.maxCards;
+  var endgameMargin = defaults.margin;
+  var endgameMaxActions = defaults.maxActions;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -248,6 +273,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 0 && p <= 1) rolloutRate = p;
       continue;
     }
+    if (arg.startsWith('--side-rollout-rate=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) sideRolloutRate = p;
+      continue;
+    }
     if (arg.startsWith('--rollout-worlds=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 1) rolloutWorlds = k;
@@ -256,6 +286,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     if (arg.startsWith('--worlds-min-cards=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 0) worldsMinCards = k;
+      continue;
+    }
+    if (arg.startsWith('--label-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) labelMaxCards = k;
       continue;
     }
     if (arg == '--no-bomb-interrupts') {
@@ -310,6 +345,34 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 2) schupfCandidates = p;
       continue;
     }
+    if (arg == '--endgame-search') {
+      endgameSearch = true;
+      continue;
+    }
+    if (arg == '--opponent-endgame-search') {
+      opponentEndgameSearch = true;
+      continue;
+    }
+    if (arg.startsWith('--endgame-worlds=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) endgameWorlds = k;
+      continue;
+    }
+    if (arg.startsWith('--endgame-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) endgameMaxCards = k;
+      continue;
+    }
+    if (arg.startsWith('--endgame-margin=')) {
+      final m = double.tryParse(arg.split('=').last);
+      if (m != null && m >= 0) endgameMargin = m;
+      continue;
+    }
+    if (arg.startsWith('--endgame-max-actions=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 2) endgameMaxActions = k;
+      continue;
+    }
     if (arg == '--no-simd') {
       simd = false;
       continue;
@@ -332,6 +395,14 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     }
     if (arg.startsWith('--heuristic=')) {
       heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
+      continue;
+    }
+    if (arg.startsWith('--style=')) {
+      style = StyleBias.parse(arg.substring(arg.indexOf('=') + 1));
+      continue;
+    }
+    if (arg.startsWith('--opponent-style=')) {
+      opponentStyle = StyleBias.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
     }
     if (arg.startsWith('--opponent-heuristic=')) {
@@ -392,7 +463,15 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     outputPath = 'game.jsonl';
   }
 
+  final search = EndgameSearch(
+    worlds: endgameWorlds,
+    maxCards: endgameMaxCards,
+    margin: endgameMargin,
+    maxActions: endgameMaxActions,
+  );
   return _HeadlessConfig(
+    endgameSearch: endgameSearch ? search : null,
+    opponentEndgameSearch: opponentEndgameSearch ? search : null,
     seed: seed,
     targetScore: targetScore,
     rounds: rounds,
@@ -418,6 +497,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     preTichuNetPath: preTichuNetPath,
     heuristic: heuristic,
     opponentHeuristic: opponentHeuristic,
+    style: style,
+    opponentStyle: opponentStyle,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
@@ -427,7 +508,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     rolloutMaxActions: rolloutMaxActions,
     bombInterrupts: bombInterrupts,
     rolloutWorlds: rolloutWorlds,
+    sideRolloutRate: sideRolloutRate,
     worldsMinCards: worldsMinCards,
+    labelMaxCards: labelMaxCards,
     interruptRolloutRate: interruptRolloutRate,
     stakesRollouts: stakesRollouts,
     stakesRates: stakesRates,
@@ -457,16 +540,24 @@ void _printUsage() {
   stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
   stdout.writeln('       [--heuristic=latest|legacy|support,announce,strict]');
   stdout.writeln('       [--opponent-heuristic=...]  (A/B heuristic rules)');
+  stdout.writeln(
+    '       [--style=pass:P,spend:S,min-hand:N] [--opponent-style=...]',
+  );
   stdout.writeln('       [--shadow-heuristic] [--skip-play-rows]');
   stdout.writeln('       [--counterfactual-calls] [--counterfactual-rate=p]');
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--no-bomb-interrupts] [--interrupt-rollout-rate=p]');
   stdout.writeln('       [--rollout-worlds=K] [--worlds-min-cards=N]');
+  stdout.writeln('       [--label-max-cards=N]  (label only small hands)');
+  stdout.writeln('       [--side-rollout-rate=p]  (Dragon gift / wish labels)');
   stdout.writeln(
     '       [--stakes-rollouts] [--stakes-rates=high:p,mid:p,low:p]',
   );
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
   stdout.writeln('       [--shadow-heuristics=spec|spec|...] [--no-simd]');
   stdout.writeln('       [--schupf-rollout-rate=p] [--schupf-candidates=N]');
+  stdout.writeln('       [--endgame-search] [--opponent-endgame-search]');
+  stdout.writeln('       [--endgame-worlds=8] [--endgame-max-cards=5]');
+  stdout.writeln('       [--endgame-margin=10] [--endgame-max-actions=7]');
   stdout.writeln('       [--epsilon=0.1]');
 }

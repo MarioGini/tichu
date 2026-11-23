@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
+import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -27,18 +28,25 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// the first layer once, each action only adds its own features. This is
   /// the hot path of headless self-play and of the bots in the app.
   late final PrefixScorer _scorer = simd
-      ? network.simdPrefixScorer(_stateLength)
-      : network.prefixScorer(_stateLength);
+      ? network.simdPrefixScorer(_layout.state)
+      : network.prefixScorer(_layout.state);
 
-  /// State prefix the net was trained on: nets from before the `history`
-  /// group (v3, v4) read only the first [legacyStateFeatureCount] features,
-  /// nets from before the `turn` group (v5-v7) the first
-  /// [v5StateFeatureCount].
-  late final int _stateLength = network.inputSize - actionFeatureCount;
+  /// Input layout the net was trained on: how many state features (a
+  /// prefix of the current state part) and action features (a prefix of the
+  /// current action part) it reads. Nets from before the `history` group
+  /// (v3, v4) read the first [legacyStateFeatureCount] state features, nets
+  /// from before the `turn` group (v5-v7 policies) the first
+  /// [v5StateFeatureCount], schema-v6 nets the first [v6StateFeatureCount];
+  /// all of them the first [legacyActionFeatureCount] action features.
+  final ({int state, int action}) _layout;
 
   /// Whether the net knows out-of-turn decisions (the `turn` group). Older
   /// nets never saw one; [selectInterruptBomb] then returns [notSupported].
-  bool get knowsInterrupts => network.inputSize == totalFeatureCount;
+  bool get knowsInterrupts => _layout.state > turnOffset;
+
+  /// Whether the net reads the claim features (schema v7); otherwise the
+  /// encoder skips them.
+  bool get _readsClaims => _layout.state > claimOffset;
 
   /// Returned by [selectInterruptBomb] when the net predates the `turn`
   /// group.
@@ -46,6 +54,12 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
 
   /// Use float32 SIMD inference (headless runs; see [Mlp.simdPrefixScorer]).
   final bool simd;
+
+  /// Style experiment: pass bonus / control-card penalty (see [StyleBias]).
+  final StyleBias style;
+
+  /// Points per unit of the net's output (its `target_std`).
+  final double outputScale;
   final Float64List _actionBuffer = Float64List(actionFeatureCount);
 
   NnPlaySelectionStrategy({
@@ -53,19 +67,17 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     required this.network,
     this.fallback = const DefaultPlaySelectionStrategy(),
     this.simd = false,
-  }) {
-    if (network.inputSize != totalFeatureCount &&
-        network.inputSize != v5TotalFeatureCount &&
-        network.inputSize != legacyTotalFeatureCount) {
-      throw ArgumentError.value(
-        network.inputSize,
-        'network.inputSize',
-        'Policy was trained for a different feature schema; expected '
-            '$totalFeatureCount inputs (rl/schema/feature_spec.json). '
-            'Retrain the policy.',
-      );
-    }
-  }
+    this.style = StyleBias.none,
+    this.outputScale = 100,
+  }) : _layout =
+           playNetLayout(network.inputSize) ??
+           (throw ArgumentError.value(
+             network.inputSize,
+             'network.inputSize',
+             'Policy was trained for a different feature schema; expected '
+                 '$totalFeatureCount inputs (rl/schema/feature_spec.json). '
+                 'Retrain the policy.',
+           ));
 
   @override
   TichuTurn selectPlay(
@@ -133,6 +145,25 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     return _argmax(snapshot, bombs, canPass: true);
   }
 
+  /// Q(s, a) of each of [plays] (same order), for ranking candidates.
+  List<double> qValues(
+    final GameSnapshot snapshot,
+    final List<TichuTurn> plays,
+  ) {
+    final encoder = FeatureEncoder(
+      snapshot: snapshot,
+      playerId: playerId,
+      claims: _readsClaims,
+    );
+    final scorer = _scorer..setPrefix(encoder.stateFeatures);
+    final values = <double>[];
+    for (final play in plays) {
+      encoder.writeActionFeatures(play, _actionBuffer, 0);
+      values.add(scorer.score(_actionBuffer));
+    }
+    return values;
+  }
+
   /// Highest-Q play among [plays], or `null` when [canPass] and the pass
   /// action scores strictly highest.
   TichuTurn? _argmax(
@@ -140,16 +171,28 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     final List<TichuTurn> plays, {
     required final bool canPass,
   }) {
-    final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
+    final encoder = FeatureEncoder(
+      snapshot: snapshot,
+      playerId: playerId,
+      claims: _readsClaims,
+    );
     final scorer = _scorer..setPrefix(encoder.stateFeatures);
     final buffer = _actionBuffer;
 
     TichuTurn? bestPlay;
     var bestValue = double.negativeInfinity;
+    final spendPenalty =
+        style.spendPenalty != 0 &&
+            (snapshot.hands[playerId]?.length ?? 0) >= style.spendMinHand
+        ? style.spendPenalty / outputScale
+        : 0.0;
 
     for (final play in plays) {
       encoder.writeActionFeatures(play, buffer, 0);
-      final qValue = scorer.score(buffer);
+      var qValue = scorer.score(buffer);
+      if (spendPenalty != 0) {
+        qValue -= spendPenalty * StyleBias.controls(play);
+      }
 
       if (qValue > bestValue) {
         bestValue = qValue;
@@ -169,7 +212,9 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
         0,
         isPass: true,
       );
-      if (scorer.score(buffer) > bestValue) return null;
+      if (scorer.score(buffer) + style.passBonus / outputScale > bestValue) {
+        return null;
+      }
     }
 
     return bestPlay ?? plays.first;

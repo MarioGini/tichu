@@ -3,11 +3,13 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:tichu/agents/bot_config.dart';
+import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
+import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
@@ -36,6 +38,7 @@ part 'headless_exploration.dart';
 part 'headless_legality.dart';
 part 'headless_rollouts.dart';
 part 'headless_schupf_labels.dart';
+part 'headless_side_labels.dart';
 part 'headless_simulator.dart';
 part 'headless_worlds.dart';
 part 'summary_writer.dart';
@@ -68,21 +71,34 @@ Future<void> main(final List<String> args) async {
     schupf: await _loadNet(config.schupfNetPath),
     heuristicOptions: config.heuristic,
     simdInference: config.simd,
+    style: config.style,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
-  final policyFactory = policyConfig.build;
+  final policyFactory = policyConfig
+      .withEndgameSearch(config.endgameSearch)
+      .build;
   final opponentSchupf = await _loadNet(config.opponentSchupfNetPath);
   final opponentTichu = await _loadNet(config.opponentTichuNetPath);
-  final opponentFactory = BotConfig(
+  final opponentConfig = BotConfig(
     play: opponentPolicy,
     schupf: opponentSchupf,
     tichu: opponentTichu,
     heuristicOptions: config.opponentHeuristic,
     simdInference: config.simd,
-  ).build;
+    style: config.opponentStyle,
+  );
+  final opponentFactory = opponentConfig
+      .withEndgameSearch(config.opponentEndgameSearch)
+      .build;
 
   final PlayerAgent Function(String, int) agentFactory;
+  // The bots that play the endgame-search rollouts: the same bots, plain.
+  final PlayerAgent Function(String, int) plainFactory;
   if (opponentPolicy != null || opponentSchupf != null || config.mixed) {
+    plainFactory = (final playerId, final seat) =>
+        seat.isEven != config.swapTeams
+        ? policyConfig.build(playerId)
+        : opponentConfig.build(playerId);
     // Self-play / mixed mode: team0 (even seats) plays the loaded policy,
     // team1 (odd seats) plays the frozen opponent policy (or the heuristic).
     // --swap-teams flips this so duplicate evaluation can replay the same
@@ -93,6 +109,7 @@ Future<void> main(final List<String> args) async {
         : opponentFactory(playerId);
   } else {
     agentFactory = (final playerId, final _) => policyFactory(playerId);
+    plainFactory = (final playerId, final _) => policyConfig.build(playerId);
   }
 
   final simulator = _HeadlessSimulator(
@@ -118,7 +135,9 @@ Future<void> main(final List<String> args) async {
     rolloutMaxActions: config.rolloutMaxActions,
     bombInterrupts: config.bombInterrupts,
     rolloutWorlds: config.rolloutWorlds,
+    sideRolloutRate: config.sideRolloutRate,
     worldsMinCards: config.worldsMinCards,
+    labelMaxCards: config.labelMaxCards,
     interruptRolloutRate: config.interruptRolloutRate,
     stakesRates: config.stakesRollouts
         ? config.stakesRates ?? StakesRates.forBase(config.rolloutRate)
@@ -137,6 +156,13 @@ Future<void> main(final List<String> args) async {
     schupfRolloutRate: config.schupfRolloutRate,
     schupfCandidates: config.schupfCandidates,
     pimcWorlds: config.pimcWorlds,
+    endgameSearcher:
+        config.endgameSearch != null || config.opponentEndgameSearch != null
+        ? EndgameSearcher(
+            rolloutAgent: plainFactory,
+            bombInterrupts: config.bombInterrupts,
+          )
+        : null,
   );
 
   try {

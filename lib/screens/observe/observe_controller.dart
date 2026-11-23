@@ -68,6 +68,15 @@ class ObserveController extends ChangeNotifier {
   bool _autoPlay = false;
   Duration autoPlayInterval = const Duration(milliseconds: 1500);
   Timer? _autoTimer;
+  int _followedSeat = 0;
+
+  /// Auto-play speeds the viewer can pick: label and step interval.
+  static const List<(String, Duration)> speeds = [
+    ('0.5×', Duration(milliseconds: 3000)),
+    ('1×', Duration(milliseconds: 1500)),
+    ('2×', Duration(milliseconds: 750)),
+    ('4×', Duration(milliseconds: 375)),
+  ];
 
   String? get gameId => _gameId;
   GameSnapshot? get snapshot => _snapshot;
@@ -76,6 +85,18 @@ class ObserveController extends ChangeNotifier {
   Object? get error => _error;
   bool get busy => _busy;
   bool get autoPlay => _autoPlay;
+
+  /// Seat whose hand is shown face up at the bottom of the table.
+  int get followedSeat => _followedSeat;
+
+  /// Label of the current auto-play speed (see [speeds]).
+  String get speedLabel {
+    for (final (label, interval) in speeds) {
+      if (interval == autoPlayInterval) return label;
+    }
+    final ms = autoPlayInterval.inMilliseconds;
+    return ms <= 0 ? 'max' : '${(1500 / ms).toStringAsFixed(1)}×';
+  }
 
   String? get recordLocation =>
       _gameId == null ? null : store?.describeLocation(_gameId!);
@@ -136,6 +157,21 @@ class ObserveController extends ChangeNotifier {
   /// Steps automatically every [autoPlayInterval] (stops at round end).
   void setAutoPlay(final bool value) {
     _autoPlay = value;
+    _scheduleAuto();
+    _notify();
+  }
+
+  /// Shows [seat]'s hand at the bottom; the table rotates around it.
+  void follow(final int seat) {
+    if (seat == _followedSeat || seat < 0 || seat > 3) return;
+    _followedSeat = seat;
+    _notify();
+  }
+
+  /// Switches to the next auto-play speed (wraps around).
+  void cycleSpeed() {
+    final index = speeds.indexWhere((final s) => s.$2 == autoPlayInterval);
+    autoPlayInterval = speeds[(index + 1) % speeds.length].$2;
     _scheduleAuto();
     _notify();
   }

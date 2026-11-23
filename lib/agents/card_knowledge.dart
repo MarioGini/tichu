@@ -88,6 +88,11 @@ class CardKnowledge {
     };
   }
 
+  /// Unseen copies per rank, index = [faceRank] (1 = Mah Jong, 2..14);
+  /// all zero when not tracking. A view of the internal counts: do not
+  /// modify.
+  List<int> get unseenRankCounts => _unseenRank;
+
   bool get phoenixUnseen => unseenCount(CardFace.phoenix) == 1;
   bool get dragonUnseen => unseenCount(CardFace.dragon) == 1;
   bool get dogUnseen => unseenCount(CardFace.dog) == 1;

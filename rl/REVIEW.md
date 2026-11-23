@@ -174,6 +174,61 @@ The last player and the double win:
   seat) and the round-point labels; it is a useful check for the human-game
   review and the endgame search (ideas 8 and 9).
 
+## Side decisions and the partner guard (measured 2026-11-22)
+
+Exact labels (`headless --side-rollout-rate=1`, `rl/side_analysis.py`), v7 +
+schupf v3 self-play, 3000 matches:
+
+- **Dragon gift** (30,244 decisions): the two recipients differ in 39 % of
+  gifts, by 86 points when they do (14 points per gift with hindsight). The
+  rule (opponent without a call, else the one with more cards = likely
+  last) is as good as any simple alternative: "more cards" +0.1 ± 0.1,
+  "fewer points won" -1.3, "left opponent" -3.9, "fewer cards" -4.9. A
+  small net on the decider's state (held-out matches) +0.9 ± 0.6 at best,
+  falling with more training: no reliable gain.
+- **Mah Jong wish** (30,635): the rule (wish the rank passed to the left
+  opponent, else the highest unheld A-10) beats every fixed wish by 3.6
+  (wish 3) to 12 points (no wish); a learned net is -0.5 to -3.5. The
+  hindsight spread (139 points) is hidden-card luck.
+- **Partner guard `guard_single`** (do not play down to one card while the
+  partner's Tichu is live): changes the move in 54 positions per 800
+  matches, always to a pass, which costs -18 ± 20 points on exact
+  rollouts; duel 49.8 % ± 0.1 (-2 ± 1 per match). Passing hands the trick and
+  the lead to the opponents, a bigger threat to the Tichu than the forced
+  single-card lead it avoids (1 % of calls). Removed.
+
+## Is v7 too aggressive? (measured 2026-11-23)
+
+Seen in Watch AI: the bots spend their strong cards early and are left with
+weak cards. Two tests, against v7 itself (no human data yet):
+
+1. **Exact rollouts** (800 matches of v7 self-play): when the bot played on a
+   trick although it could pass (58 % of such decisions), passing instead
+   was worse in every situation tried: -19.9 ± 0.5 points overall, -15 with
+   10-14 cards, -33 with 1-4 cards, -24.5 when the play spent an Ace, -35
+   for the Dragon, -12 on the partner's trick.
+2. **Style biases** (`headless --style=`), v7 + schupf v3 with a uniform
+   tilt against plain v7 + schupf v3, 1000 deals x 2:
+
+   | Tilt | Result |
+   |------|--------|
+   | +10 points for passing | 29.8 % |
+   | +25 for passing | 1.2 % |
+   | -15 per control card spent (hand >= 8) | 41.1 % |
+   | -30 per control card spent | 27.9 % |
+   | both (+15 pass, -15 spend) | 6.7 % |
+   | -10 for passing (more aggressive) | 44.9 % |
+
+   v7 sits at the optimum of this axis; patience loses about 4x faster than
+   more aggression. If its style is exploitable, it is situational, not a
+   global "pass more". The pure best-response exploiter against frozen v7
+   (`rl/outputs/v7b`, no self-play, labels with v7's own replies) gained
+   nothing in its first iteration (49.2 % gate, 51.4 % ± 0.9 vs v7 on fresh
+   deals); further iterations running.
+
+Note: until the web net-loading fix (PR 30) the website's bots were the
+heuristic, not v7, which is a likely source of the aggressive look there.
+
 ## Flaws in the setup
 
 **F1. Labels concentrated on few deals** (measured, above). Fix: label a
@@ -270,8 +325,8 @@ all-action labels and only perturbs the states (minor).
 | 4 | Ensemble of 3-5 nets trained with different seeds (average Q) | +0.5-2 pp, lower estimator variance | training x3-5, 0.4 ms per decision | |
 | 5 | SPRT or 3000-deal promotion gate | fewer wrong promotions | +10 min per iteration | |
 | 6 | Received-card features + card-ownership auxiliary head | unknown, likely small to medium | schema change + 2 iterations | |
-| 7 | Exact labels for wish and Dragon gift | < 1 pp each | ~1 day each | |
-| 8 | Endgame search (PIMC with short rollouts, few unseen cards) | unknown; v7 still gains +5 per differing endgame move | measure like the table above (needs a max-cards filter for `--rollout-worlds`) | |
+| 7 | Exact labels for wish and Dragon gift | measured: rules already at the learnable level | done | |
+| 8 | Endgame search (PIMC with short rollouts, few unseen cards) | measured: +1.17 ± 0.20 points per endgame decision (8 re-deals, unanimity + margin); duel **54.5 % ± 0.5**, +59 ± 4 per match; with <= 8 cards **57.2 % ± 0.8**, +89 ± 7 | 22.5 ms (<= 8 cards: 31 ms) per searched decision, matches 4-11x slower | **done, on in the app with <= 8 cards** (`AppBots.endgameSearch`; rl/README.md "Endgame search") |
 | 9 | Human-game review from the app's records | finds what bot-vs-bot cannot | replay tool | |
 | 10 | Belief-weighted worlds (softmax-Q likelihood of observed plays) for search or labels | needed if 8 or K-world labels are used | medium | |
 
@@ -279,7 +334,8 @@ Parked, measured or argued above: stakes-weighted labels (no gain),
 out-of-turn bombs (-50 points per bomb), a wider net (48.5 %), match-win
 targets (lost), learned call nets (no gain), multi-world labels (more deals
 are cheaper and unbiased), flat early-game PIMC with <= 8 uniform worlds
-(+0.3 ± 1.1 at best).
+(+0.3 ± 1.1 at best). Endgame search with <= 5 cards does win (idea 8:
+54.5 % in a duel, 57.2 % with <= 8 cards) and is on in the app.
 
 Suggested order towards 60 % against v6: 2 -> 3 -> 4, then
 the loop with the winning settings and an SPRT gate; the bot that counts is

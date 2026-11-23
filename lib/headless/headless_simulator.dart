@@ -48,6 +48,9 @@ class _HeadlessSimulator {
   /// estimate (`--pimc-worlds`, see [_counterfactualCall]).
   final int pimcWorlds;
 
+  /// Runs the endgame search of agents that have one (null = no agent has).
+  final EndgameSearcher? endgameSearcher;
+
   /// Branch details of the last [_counterfactualCall] (see there).
   Map<String, Object?>? _lastCallDetails;
 
@@ -67,7 +70,15 @@ class _HeadlessSimulator {
   /// as `q_rollout_worlds`, for decisions with at least [worldsMinCards]
   /// cards in hand.
   final int rolloutWorlds;
+
+  /// Share of Dragon gifts and Mah Jong wishes labelled with every option
+  /// played out (`--side-rollout-rate`, default 0).
+  final double sideRolloutRate;
   final int worldsMinCards;
+
+  /// Label only decisions with at most this many cards in hand
+  /// (`--label-max-cards`, default 14 = all; e.g. 5 for an endgame review).
+  final int labelMaxCards;
 
   /// Offer out-of-turn bombs (`--no-bomb-interrupts` turns them off, the
   /// behaviour before 2026-11-20).
@@ -146,7 +157,9 @@ class _HeadlessSimulator {
     this.rolloutMaxActions = 12,
     this.bombInterrupts = true,
     this.rolloutWorlds = 1,
+    this.sideRolloutRate = 0,
     this.worldsMinCards = 0,
+    this.labelMaxCards = 14,
     this.interruptRolloutRate = 0,
     this.stakesRates,
     this.isLearnerSeat = _everySeat,
@@ -155,6 +168,7 @@ class _HeadlessSimulator {
     this.schupfRolloutRate = 0,
     this.schupfCandidates = 16,
     this.pimcWorlds = 0,
+    this.endgameSearcher,
   });
 
   static bool _everySeat(final int _) => true;
@@ -206,6 +220,21 @@ class _HeadlessSimulator {
       await output?.flush();
     }
     if (stakesRates != null) _printStakesStats();
+    final searcher = endgameSearcher;
+    if (searcher != null) {
+      final ms = searcher.stopwatch.elapsedMicroseconds / 1000;
+      stderr.writeln(
+        jsonEncode({
+          'endgame_search_stats': true,
+          'episodes': episodes,
+          'searches': searcher.searches,
+          'switches': searcher.switches,
+          'rollouts': searcher.rollouts,
+          'search_ms': ms.round(),
+          'ms_per_search': searcher.searches == 0 ? 0 : ms / searcher.searches,
+        }),
+      );
+    }
   }
 
   /// Rollout labelling is on (only labelled play rows are written).
@@ -357,7 +386,8 @@ class _HeadlessSimulator {
             }
           }
         }
-        if (random.nextDouble() < p) {
+        if (random.nextDouble() < p &&
+            (snapshot.hands[action.playerId]?.length ?? 0) <= labelMaxCards) {
           rollouts = await _rolloutValues(
             engine: engine,
             state: state,
@@ -379,6 +409,12 @@ class _HeadlessSimulator {
           if (rollouts != null && counts != null) counts[2]++;
         }
       }
+      await _labelSideDecision(
+        engine: engine,
+        state: state,
+        snapshot: snapshot,
+        action: action,
+      );
       final variants = rollouts != null && !offTurn && shadowVariants.isNotEmpty
           ? await _variantTurns(snapshot, action.playerId)
           : null;

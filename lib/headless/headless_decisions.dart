@@ -106,12 +106,22 @@ extension _Decisions on _HeadlessSimulator {
         }
         return selection;
       case TurnRequest(:final playerId):
-        return _selectTurn(
+        final turn = await _selectTurn(
           engine: engine,
           state: state,
           snapshot: snapshot,
           playerId: playerId,
           agent: agent,
+        );
+        final searcher = endgameSearcher;
+        if (turn == null || searcher == null || _lastActionExplored) {
+          return turn;
+        }
+        return searcher.refine(
+          engine: engine,
+          state: state,
+          agent: agent,
+          chosen: turn,
         );
       case SchupfReceiptRequest() ||
           DragonGiveRequest() ||

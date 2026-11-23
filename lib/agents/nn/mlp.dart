@@ -71,6 +71,25 @@ class Mlp {
   int get inputSize => layerSizes.first;
   int get numLayers => _weights.length;
 
+  /// The same net for a wider input: input `i` moves to column
+  /// `column(i)`, the other [inputSize] columns get zero weights, so the
+  /// output is unchanged (the Dart side of `rl/widen_net.py`).
+  Mlp widenInputs(final int inputSize, final int Function(int) column) {
+    final oldIn = layerSizes.first;
+    final out = layerSizes[1];
+    final w = Float64List(out * inputSize);
+    for (var j = 0; j < out; j++) {
+      for (var i = 0; i < oldIn; i++) {
+        w[j * inputSize + column(i)] = _weights[0][j * oldIn + i];
+      }
+    }
+    return Mlp._(
+      weights: [w, ..._weights.skip(1)],
+      biases: _biases,
+      layerSizes: [inputSize, ...layerSizes.skip(1)],
+    );
+  }
+
   // ── Inference ───────────────────────────────────────────────────────────
 
   /// Forward pass into pre-allocated [_buffers].  Returns the output buffer.
@@ -269,12 +288,12 @@ class Mlp {
   ///
   /// Returns `(mlp, targetMean, targetStd)`.
   static (Mlp, double, double) fromSafetensorsBytes(final Uint8List bytes) {
-    // Read header length (LE uint64).
-    final headerLen = ByteData.sublistView(
-      bytes,
-      0,
-      8,
-    ).getUint64(0, Endian.little);
+    // Read header length (LE uint64) as two uint32 halves: dart2js (the web
+    // build) has no 64-bit accessors.
+    final lengthBytes = ByteData.sublistView(bytes, 0, 8);
+    final headerLen =
+        lengthBytes.getUint32(0, Endian.little) +
+        lengthBytes.getUint32(4, Endian.little) * 0x100000000;
     final headerJson = utf8.decode(bytes.sublist(8, 8 + headerLen));
     final header = jsonDecode(headerJson) as Map<String, dynamic>;
     final dataOffset = 8 + headerLen;

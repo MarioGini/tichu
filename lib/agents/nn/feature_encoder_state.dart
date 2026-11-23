@@ -1,7 +1,8 @@
 part of 'feature_encoder.dart';
 
 /// State-feature groups (hand, played, unseen, trick, seats, self, hand
-/// structure); layout in `rl/schema/feature_spec.json`.
+/// structure, history, turn, claim, received); layout in
+/// `rl/schema/feature_spec.json`.
 extension _StateEncoding on FeatureEncoder {
   Float64List _encodeState() {
     final f = Float64List(stateFeatureCount);
@@ -48,7 +49,34 @@ extension _StateEncoding on FeatureEncoder {
         snapshot.currentPlayerId != playerId) {
       f[turnOffset] = 1.0;
     }
+    if (claims && _k.isTracking) {
+      ClaimResult.writeScore(_handClaim, f, claimOffset);
+    }
+    _encodeReceived(f);
     return f;
+  }
+
+  /// The card I received in this round's schupf from the left opponent, the
+  /// partner and the right opponent, one-hot over the 17 rank classes each
+  /// (as in `unseen`). Only in the play phase: before the exchange is done
+  /// the snapshot's selections are other players' pending choices.
+  void _encodeReceived(final Float64List f) {
+    if (snapshot.phase != GamePhase.play) return;
+    final selections = snapshot.schupfSelections;
+    for (var rel = 1; rel <= 3; rel++) {
+      final sender = _playerAtSeat((_mySeat + rel) % 4);
+      if (sender == null) continue;
+      final pass = selections[sender.id];
+      if (pass == null) continue;
+      // My left neighbour passes to me as its right, my right as its left.
+      final card = switch (rel) {
+        1 => pass.toRight,
+        2 => pass.toPartner,
+        _ => pass.toLeft,
+      };
+      final h = _histIndex(card);
+      if (h >= 0) f[receivedOffset + (rel - 1) * 17 + h] = 1.0;
+    }
   }
 
   /// Per other player (left, partner, right; 22 features each), from the

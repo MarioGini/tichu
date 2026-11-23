@@ -150,6 +150,66 @@ class _BcTransitionWriter {
     );
   }
 
+  /// One row per labelled Dragon gift or Mah Jong wish
+  /// (`--side-rollout-rate`, see `_labelSideDecision`).
+  void emitSideDecision({
+    required final String kind,
+    required final GameSnapshot snapshot,
+    required final String playerId,
+    required final List<Object> options,
+    required final List<double?> values,
+    required final int chosen,
+    required final int trickPoints,
+  }) {
+    final score = snapshot.scoreState;
+    output.writeln(
+      jsonEncode(<String, Object?>{
+        'episode': episode,
+        'round': score.roundNumber,
+        'team': _teamForPlayer(snapshot, playerId),
+        'side': kind,
+        'seat': snapshot.players.firstWhere((final p) => p.id == playerId).seat,
+        'options': options,
+        'values': values,
+        'chosen': chosen,
+        if (kind == 'dragon') 'trick_points': trickPoints,
+        // Per seat: cards in hand, card points won so far, call (0/1/2),
+        // finishing position (0 = still in).
+        'cards_by_seat': [
+          for (var seat = 0; seat < 4; seat++)
+            (snapshot.hands[_idAt(snapshot, seat)] ?? const <Card>[]).length,
+        ],
+        'points_by_seat': [
+          for (var seat = 0; seat < 4; seat++)
+            score.playerRoundPoints[_idAt(snapshot, seat)] ?? 0,
+        ],
+        'call_by_seat': [
+          for (var seat = 0; seat < 4; seat++)
+            switch (score.tichuCalls[_idAt(snapshot, seat)]) {
+              TichuCall.tichu => 1,
+              TichuCall.grandTichu => 2,
+              _ => 0,
+            },
+        ],
+        'finish_seats': [
+          for (final id in score.finishOrder)
+            snapshot.players.firstWhere((final p) => p.id == id).seat,
+        ],
+        'hand': [
+          for (final c in snapshot.hands[playerId] ?? const <Card>[])
+            cardSlot(c),
+        ],
+        'state_features': encodeStateFeatures(
+          snapshot: snapshot,
+          playerId: playerId,
+        ),
+      }),
+    );
+  }
+
+  String _idAt(final GameSnapshot snapshot, final int seat) =>
+      snapshot.players.firstWhere((final p) => p.seat == seat).id;
+
   void emitRoundEnd(
     final GameSnapshot after, {
     final Map<int, int>? cardsLeftAtFirstOut,

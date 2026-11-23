@@ -363,8 +363,11 @@ reason found in the inputs: the passer only knew *how many* of its passed
 cards a player still holds, not which — after passing the Dragon to the
 partner it still counted the Dragon as unseen, i.e. as a threat to its
 Aces. Feature schema v8 adds `passed` (my card to each player while still
-held); v9 trains on it. Keeping the Dog when the partner called Grand Tichu
-is not better than dumping it on an opponent on this data (needs more).
+held); v9 trains on it. Keeping the Dog when the partner called Grand Tichu (373 decisions, later
+data): the partner's Grand succeeds 71.5 % vs 64.4 % (+7.1 ± 1.2 pp; the
+Dog hands the caller the lead whenever we win one), but our double wins
+drop 7.0 ± 1.1 pp (we keep a card that only works as a lead), net +8.2 ±
+6.4 points per round for keeping it; the bot keeps it 69 %.
 
 **Calls** (exact counterfactual value per decision, vs never calling):
 

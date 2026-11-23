@@ -61,7 +61,25 @@ import sys
 import time
 from pathlib import Path
 
-from duel import duel
+from duel import duel as _duel
+
+# Finished duels, by (A, B, deals, seed): a restarted loop (e.g. after a
+# 2-hour job limit) does not replay them. Set by main() to out/duel_cache.json.
+_DUEL_CACHE: list[Path] = []
+
+
+def duel(a: list[str], b: list[str], *, deals: int, seed: int, shards: int) -> dict:
+    key = json.dumps([a, b, deals, seed])
+    path = _DUEL_CACHE[0] if _DUEL_CACHE else None
+    cache = json.loads(path.read_text()) if path and path.exists() else {}
+    if key in cache:
+        return cache[key]
+    r = _duel(a, b, deals=deals, seed=seed, shards=shards)
+    if path:
+        cache = json.loads(path.read_text()) if path.exists() else {}
+        cache[key] = r
+        path.write_text(json.dumps(cache, indent=1))
+    return r
 from headless_runner import run_headless_sharded
 
 RL = Path(__file__).resolve().parent
@@ -257,6 +275,7 @@ def main() -> None:
     args = p.parse_args()
 
     out = Path(args.out_dir)
+    _DUEL_CACHE.append(out / "duel_cache.json")
     data_dir, nets = out / "data", out / "nets"
     data_dir.mkdir(parents=True, exist_ok=True)
     nets.mkdir(parents=True, exist_ok=True)

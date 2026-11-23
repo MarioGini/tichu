@@ -343,6 +343,11 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     data = load([Path(p) for p in args.jsonl.split(",") if p], recency=args.recency)
     if args.save_cache:
         save_npz(data, Path(args.save_cache))
+    if args.zero_action_features:
+        # Control runs: these action inputs are always 0, so (starting from a
+        # net whose weights for them are zero) the net never uses them.
+        lo, hi = (int(x) for x in args.zero_action_features.split(":"))
+        data.a[:, lo:hi] = 0
     d = data.num_decisions
     print(f"rollout data: decisions={d} rows={data.a.shape[0]} ({time.time()-t0:.0f}s)", flush=True)
     if args.hidden:
@@ -419,6 +424,11 @@ def main() -> None:
         help="grow --init-from's hidden layers to these sizes (same play at the start)",
     )
     p.add_argument("--output", required=True)
+    p.add_argument(
+        "--zero-action-features",
+        default="",
+        help="lo:hi action-feature columns set to 0 (ablation control, e.g. 54:58)",
+    )
     p.add_argument("--epochs", type=int, default=4, help="held-out gain peaks after 3-4 epochs")
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--weight-decay", type=float, default=1e-4)

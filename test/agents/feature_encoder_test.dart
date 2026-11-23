@@ -404,6 +404,41 @@ void main() {
     }
   });
 
+  test('passed: my schupf card per receiver while it is still held', () {
+    final dragon = c(CardFace.dragon, CardColor.special);
+    final eight = c(CardFace.eight);
+    final three = c(CardFace.three, CardColor.red);
+    SchupfAction mine(final Card toLeft, final Card toPartner) => SchupfAction(
+      playerId: aiTestSelfId,
+      toLeft: toLeft,
+      toPartner: toPartner,
+      toRight: three,
+    );
+    final snap = fxSnapshot(
+      mine: [c(CardFace.two), c(CardFace.ace, CardColor.red)],
+      others: {
+        aiTestLeftId: [eight, c(CardFace.nine)],
+        aiTestPartnerId: [dragon, c(CardFace.four)],
+        // The three I passed to the right has been played.
+        aiTestRightId: [c(CardFace.five)],
+      },
+      schupfSelections: {aiTestSelfId: mine(eight, dragon)},
+    );
+    final f = encodeStateFeatures(snapshot: snap, playerId: aiTestSelfId);
+    final got = [
+      for (var i = 0; i < passedRankFeatureCount; i++)
+        if (f[slot('passed', i)] != 0) (i, f[slot('passed', i)]),
+    ];
+    // Left: rank 8 (class 6); partner: Dragon (class 16); right: played.
+    expect(got, [(6, 1.0), (17 + 16, 1.0)]);
+
+    final none = fxSnapshot(mine: [c(CardFace.two)], others: const {});
+    final g = encodeStateFeatures(snapshot: none, playerId: aiTestSelfId);
+    for (var i = 0; i < passedRankFeatureCount; i++) {
+      expect(g[slot('passed', i)], 0.0);
+    }
+  });
+
   test('claim: state and after-action features', () {
     // Pair of kings + a five; no ace / Phoenix unseen except one ace.
     final kings = [c(CardFace.king), c(CardFace.king, CardColor.red)];

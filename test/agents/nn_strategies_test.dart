@@ -12,17 +12,19 @@ import 'ai_test_fixtures.dart';
 void main() {
   group('older play-net layouts', () {
     // Old layouts: a state prefix and the first 51 action features.
-    for (final (size, state) in [(319, 268), (318, 267), (252, 201)]) {
+    for (final (size, state) in [
+      (376, 322),
+      (319, 268),
+      (318, 267),
+      (252, 201),
+    ]) {
       test('$size inputs play exactly like the zero-widened net', () {
         final old = Mlp(layerSizes: [size, 16, 8, 1], seed: size);
         final wide = old.widenInputs(
           totalFeatureCount,
           (final i) => i < state ? i : actionOffset + i - state,
         );
-        expect(playNetLayout(size), (
-          state: state,
-          action: legacyActionFeatureCount,
-        ));
+        expect(playNetLayout(size), (state: state, action: size - state));
         for (final simd in [false, true]) {
           final a = NnPlaySelectionStrategy(
             playerId: aiTestSelfId,

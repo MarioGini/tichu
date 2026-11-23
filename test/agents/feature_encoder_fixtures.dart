@@ -68,5 +68,6 @@ int slot(final String group, final int i) => switch (group) {
   'history' => historyOffset + i,
   'claim' => claimOffset + i,
   'received' => receivedOffset + i,
+  'passed' => passedOffset + i,
   _ => throw ArgumentError(group),
 };

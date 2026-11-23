@@ -85,13 +85,19 @@ LEGACY_ACTION_FEATURE_COUNT = 51
 
 # Older input layouts, by net input size -> length of their state prefix.
 # Each layout is the current one with later groups missing at the end of the
-# state prefix, and only the first LEGACY_ACTION_FEATURE_COUNT action
-# features: v4 (252: before `history`), v5 (318: before `turn`), v6 (319:
-# before `claim` / `received`).
+# state prefix: v4 (252: before `history`), v5 (318: before `turn`), v6 (319:
+# before `claim` / `received`) with the first LEGACY_ACTION_FEATURE_COUNT
+# action features; v7 (376: before `passed`) with all of them.
 LEGACY_STATE_PREFIX = {
     SPEC.group(g).offset + LEGACY_ACTION_FEATURE_COUNT: SPEC.group(g).offset
     for g in ("history", "turn", "claim")
 }
+LEGACY_STATE_PREFIX[SPEC.group("passed").offset + ACTION_FEATURE_COUNT] = SPEC.group("passed").offset
+
+
+def legacy_action_count(input_size: int) -> int:
+    """Action features an older layout of ``input_size`` inputs reads."""
+    return input_size - LEGACY_STATE_PREFIX[input_size]
 
 
 def widen_first_layer(w, input_size: int):
@@ -102,9 +108,10 @@ def widen_first_layer(w, input_size: int):
     import torch
 
     prefix = LEGACY_STATE_PREFIX[input_size]
+    n_action = legacy_action_count(input_size)
     new = torch.zeros(w.shape[0], TOTAL_FEATURE_COUNT, dtype=w.dtype)
     new[:, :prefix] = w[:, :prefix]
-    new[:, ACTION_OFFSET : ACTION_OFFSET + LEGACY_ACTION_FEATURE_COUNT] = w[:, prefix:]
+    new[:, ACTION_OFFSET : ACTION_OFFSET + n_action] = w[:, prefix:]
     return new
 
 

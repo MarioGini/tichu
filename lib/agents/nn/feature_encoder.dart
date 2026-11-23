@@ -35,6 +35,7 @@ part 'feature_encoder_state.dart';
 /// | turn           |   1  | out of turn (always 0: bots never interrupt)   |
 /// | claim          |   3  | safe-finish analysis of my hand (v7)           |
 /// | received       |  51  | schupf card received per sender, by rank (v7)  |
+/// | passed         |  51  | my pass to each player while still held (v8)   |
 ///
 /// Action suffix (one per legal action): type, strength, which cards it
 /// uses, whether it can be beaten by unseen cards, and the shape of the hand
@@ -59,6 +60,7 @@ const int historyFeatureCount = 66;
 const int turnFeatureCount = 1;
 const int claimFeatureCount = 3;
 const int receivedRankFeatureCount = 51;
+const int passedRankFeatureCount = 51;
 const int actionFeatureCount = 54;
 
 /// Action features of the layouts up to v6; v7 appends the claim analysis
@@ -77,14 +79,20 @@ const int historyOffset =
 const int turnOffset = historyOffset + historyFeatureCount; // 267
 const int claimOffset = turnOffset + turnFeatureCount; // 268
 const int receivedOffset = claimOffset + claimFeatureCount; // 271
-const int actionOffset = receivedOffset + receivedRankFeatureCount; // 322
+const int passedOffset = receivedOffset + receivedRankFeatureCount; // 322
+const int actionOffset = passedOffset + passedRankFeatureCount; // 373
 
 /// Offset of the after-action claim features within the action part.
 const int actionClaimOffset = legacyActionFeatureCount; // 51
 
 /// Length of the per-decision state prefix (all groups before `action`).
 const int stateFeatureCount = actionOffset;
-const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 376
+const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 427
+
+/// Layout before the `passed` group (schema v7, the v8 play policy): the
+/// state prefix before it and all action features.
+const int v7StateFeatureCount = passedOffset; // 322
+const int v7TotalFeatureCount = v7StateFeatureCount + actionFeatureCount; // 376
 
 /// Layout before the `claim` and `received` groups (schema v6): state prefix
 /// up to `turn`, the first [legacyActionFeatureCount] action features.
@@ -113,6 +121,10 @@ const int legacyTotalFeatureCount =
     switch (inputSize) {
       totalFeatureCount => (
         state: stateFeatureCount,
+        action: actionFeatureCount,
+      ),
+      v7TotalFeatureCount => (
+        state: v7StateFeatureCount,
         action: actionFeatureCount,
       ),
       v6TotalFeatureCount => (

@@ -24,8 +24,8 @@ void main() {
       groups = (spec['groups'] as List).cast<Map<String, dynamic>>();
     });
 
-    test('schema version is current (v7)', () {
-      expect(spec['version'], 7);
+    test('schema version is current (v8)', () {
+      expect(spec['version'], 8);
     });
 
     test('group sizes match listed feature names', () {
@@ -58,6 +58,7 @@ void main() {
         ('turn', turnOffset, turnFeatureCount),
         ('claim', claimOffset, claimFeatureCount),
         ('received', receivedOffset, receivedRankFeatureCount),
+        ('passed', passedOffset, passedRankFeatureCount),
         ('action', actionOffset, actionFeatureCount),
       ];
       expect(
@@ -95,6 +96,7 @@ void main() {
         state: stateFeatureCount,
         action: actionFeatureCount,
       ));
+      expect(playNetLayout(376), (state: 322, action: 54));
       expect(playNetLayout(319), (state: 268, action: 51));
       expect(playNetLayout(318), (state: 267, action: 51));
       expect(playNetLayout(252), (state: 201, action: 51));

@@ -24,8 +24,8 @@ void main() {
       groups = (spec['groups'] as List).cast<Map<String, dynamic>>();
     });
 
-    test('schema version is current (v8)', () {
-      expect(spec['version'], 8);
+    test('schema version is current (v9)', () {
+      expect(spec['version'], 9);
     });
 
     test('group sizes match listed feature names', () {
@@ -87,15 +87,23 @@ void main() {
         action.sublist(0, legacyActionFeatureCount).last,
         'after_low_singles',
       );
-      expect(action.sublist(actionClaimOffset), [
+      expect(action.sublist(actionClaimOffset, actionBeatOffset), [
         'after_claim_min_beatable',
         'after_claim_unbeatable',
         'after_claimable',
+      ]);
+      // v9 appends the graded beatability features.
+      expect(action.sublist(actionBeatOffset), [
+        'beaters',
+        'single_beat_share',
+        'left_can_answer',
+        'right_can_answer',
       ]);
       expect(playNetLayout(totalFeatureCount), (
         state: stateFeatureCount,
         action: actionFeatureCount,
       ));
+      expect(playNetLayout(427), (state: 373, action: 54));
       expect(playNetLayout(376), (state: 322, action: 54));
       expect(playNetLayout(319), (state: 268, action: 51));
       expect(playNetLayout(318), (state: 267, action: 51));

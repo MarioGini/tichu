@@ -92,7 +92,10 @@ LEGACY_STATE_PREFIX = {
     SPEC.group(g).offset + LEGACY_ACTION_FEATURE_COUNT: SPEC.group(g).offset
     for g in ("history", "turn", "claim")
 }
-LEGACY_STATE_PREFIX[SPEC.group("passed").offset + ACTION_FEATURE_COUNT] = SPEC.group("passed").offset
+# Action features of the v7-v8 layouts (before the v9 beatability group).
+V8_ACTION_FEATURE_COUNT = 54
+LEGACY_STATE_PREFIX[SPEC.group("passed").offset + V8_ACTION_FEATURE_COUNT] = SPEC.group("passed").offset
+LEGACY_STATE_PREFIX[STATE_FEATURE_COUNT + V8_ACTION_FEATURE_COUNT] = STATE_FEATURE_COUNT
 
 
 def legacy_action_count(input_size: int) -> int:
@@ -140,7 +143,7 @@ def pad_action(a):
     n = a.shape[1]
     if n == ACTION_FEATURE_COUNT:
         return a
-    if n != LEGACY_ACTION_FEATURE_COUNT:
+    if n not in (LEGACY_ACTION_FEATURE_COUNT, V8_ACTION_FEATURE_COUNT):
         raise ValueError(f"action rows have {n} features, expected {ACTION_FEATURE_COUNT}")
     out = np.zeros((a.shape[0], ACTION_FEATURE_COUNT), dtype=a.dtype)
     out[:, :n] = a

@@ -395,6 +395,8 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         if m["vs_uniform_pts"] > best_gain:
             best_gain, metrics = m["vs_uniform_pts"], m
             best_state = {k: v.clone() for k, v in final.state_dict().items()}
+            # Keep the best epoch on disk, so a job stopped mid-run keeps it.
+            _export(final, Path(args.output), d)
     model = final
     if best_state is not None:
         model.load_state_dict(best_state)

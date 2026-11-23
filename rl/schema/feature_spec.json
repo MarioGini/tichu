@@ -1,6 +1,6 @@
 {
-  "version": 8,
-  "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/feature_encoder.dart) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes. All groups except 'action' form the per-decision state prefix. Card bitmaps use index = color*13 + (rank-2) for normal cards (colors black, green, red, blue; ranks 2..A), then 52 mahjong, 53 dog, 54 phoenix, 55 dragon. Rank histograms use r2..rA, mahjong, dog, phoenix, dragon. History (per other player, from the public round log): cards played this round as a rank histogram, the lowest single / pair passed on while an opponent of that player was winning the trick, and the number of such passes. Turn (v6): off_turn = 1 when the player decides out of turn (an interrupting bomb), else 0; nets of the v5 layout (318 inputs) read the state prefix before it. Claim (v7): safe-finish analysis of the hand: the minimum number of beatable combinations over all partitions of the hand into legal combinations (capped at 4, /4), the number of unbeatable combinations in such a best partition (capped at 7, /7), and claimable = at most one beatable combination (lib/agents/claim_analysis.dart; beatable as in the action feature 'unbeatable', bombs and the Dragon unbeatable, the Dog beatable); zero outside the play phase. Received (v7): the card received in this round's schupf from left / partner / right, one-hot over the 17 rank classes; zero before the exchange. Passed (v8): the card I passed in this round's schupf to left / partner / right, one-hot over the 17 rank classes, while that player still holds it (not yet played); zero before the exchange. The action group appends the same claim analysis for the hand after the action (after_claim_*). Layouts up to v6 (v4 252, v5 318, v6 319 inputs) read a prefix of the state part and the first 51 action features; v7 nets (376 inputs) read the state part before 'passed' and all 54 action features. Seats are relative to the acting player: left = next to play, partner, right = previous.",
+  "version": 9,
+  "description": "Authoritative feature layout for the Tichu Q-network. Both Python (rl/) and Dart (lib/agents/nn/feature_encoder.dart) MUST consume this file. Indices are computed by concatenating groups in order; total dimension = sum of group sizes. All groups except 'action' form the per-decision state prefix. Card bitmaps use index = color*13 + (rank-2) for normal cards (colors black, green, red, blue; ranks 2..A), then 52 mahjong, 53 dog, 54 phoenix, 55 dragon. Rank histograms use r2..rA, mahjong, dog, phoenix, dragon. History (per other player, from the public round log): cards played this round as a rank histogram, the lowest single / pair passed on while an opponent of that player was winning the trick, and the number of such passes. Turn (v6): off_turn = 1 when the player decides out of turn (an interrupting bomb), else 0; nets of the v5 layout (318 inputs) read the state prefix before it. Claim (v7): safe-finish analysis of the hand: the minimum number of beatable combinations over all partitions of the hand into legal combinations (capped at 4, /4), the number of unbeatable combinations in such a best partition (capped at 7, /7), and claimable = at most one beatable combination (lib/agents/claim_analysis.dart; beatable as in the action feature 'unbeatable', bombs and the Dragon unbeatable, the Dog beatable); zero outside the play phase. Received (v7): the card received in this round's schupf from left / partner / right, one-hot over the 17 rank classes; zero before the exchange. Passed (v8): the card I passed in this round's schupf to left / partner / right, one-hot over the 17 rank classes, while that player still holds it (not yet played); zero before the exchange. The action group appends the same claim analysis for the hand after the action (after_claim_*). Beat (v9, end of the action group): beaters = number of non-bomb plays of the unseen cards that beat the action (singles: higher unseen cards incl. Phoenix and Dragon, /16; other types: higher ranks or tops the unseen cards can form, /13), single_beat_share = for a single the share of unseen cards that beat it, left/right_can_answer = that opponent holds at least as many cards as the action (only when beaters > 0). Layouts up to v6 (v4 252, v5 318, v6 319 inputs) read a prefix of the state part and the first 51 action features; v7 nets (376 inputs) read the state part before 'passed' and the first 54 action features; v8 nets (427) the full state and the first 54 action features. Seats are relative to the acting player: left = next to play, partner, right = previous.",
   "groups": [
     {
       "name": "hand",
@@ -449,7 +449,7 @@
     },
     {
       "name": "action",
-      "size": 54,
+      "size": 58,
       "features": [
         "type_pass",
         "type_single",
@@ -504,7 +504,11 @@
         "after_low_singles",
         "after_claim_min_beatable",
         "after_claim_unbeatable",
-        "after_claimable"
+        "after_claimable",
+        "beaters",
+        "single_beat_share",
+        "left_can_answer",
+        "right_can_answer"
       ]
     }
   ]

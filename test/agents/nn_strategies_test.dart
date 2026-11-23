@@ -13,6 +13,7 @@ void main() {
   group('older play-net layouts', () {
     // Old layouts: a state prefix and the first 51 action features.
     for (final (size, state) in [
+      (427, 373),
       (376, 322),
       (319, 268),
       (318, 267),

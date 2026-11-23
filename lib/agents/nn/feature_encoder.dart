@@ -61,7 +61,7 @@ const int turnFeatureCount = 1;
 const int claimFeatureCount = 3;
 const int receivedRankFeatureCount = 51;
 const int passedRankFeatureCount = 51;
-const int actionFeatureCount = 54;
+const int actionFeatureCount = 58;
 
 /// Action features of the layouts up to v6; v7 appends the claim analysis
 /// of the hand after the action, so these are a prefix of the action part.
@@ -85,6 +85,12 @@ const int actionOffset = passedOffset + passedRankFeatureCount; // 373
 /// Offset of the after-action claim features within the action part.
 const int actionClaimOffset = legacyActionFeatureCount; // 51
 
+/// Offset of the graded beatability features (v9) within the action part.
+const int actionBeatOffset = actionClaimOffset + 3; // 54
+
+/// Action features of the layouts v7-v8 (before the beatability group).
+const int v8ActionFeatureCount = actionBeatOffset; // 54
+
 /// Length of the per-decision state prefix (all groups before `action`).
 const int stateFeatureCount = actionOffset;
 const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 427
@@ -92,7 +98,11 @@ const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 427
 /// Layout before the `passed` group (schema v7, the v8 play policy): the
 /// state prefix before it and all action features.
 const int v7StateFeatureCount = passedOffset; // 322
-const int v7TotalFeatureCount = v7StateFeatureCount + actionFeatureCount; // 376
+const int v7TotalFeatureCount =
+    v7StateFeatureCount + v8ActionFeatureCount; // 376
+
+/// Layout before the graded beatability features (schema v8, 427 inputs).
+const int v8TotalFeatureCount = stateFeatureCount + v8ActionFeatureCount;
 
 /// Layout before the `claim` and `received` groups (schema v6): state prefix
 /// up to `turn`, the first [legacyActionFeatureCount] action features.
@@ -123,9 +133,13 @@ const int legacyTotalFeatureCount =
         state: stateFeatureCount,
         action: actionFeatureCount,
       ),
+      v8TotalFeatureCount => (
+        state: stateFeatureCount,
+        action: v8ActionFeatureCount,
+      ),
       v7TotalFeatureCount => (
         state: v7StateFeatureCount,
-        action: actionFeatureCount,
+        action: v8ActionFeatureCount,
       ),
       v6TotalFeatureCount => (
         state: v6StateFeatureCount,
@@ -341,6 +355,28 @@ class FeatureEncoder {
         out,
         offset + actionClaimOffset,
       );
+    }
+
+    // Graded beatability (v9): how many plays of the unseen cards beat
+    // this one; for a single the share of unseen cards that beat it (the
+    // chance a one-card opponent's last card does); whether the left /
+    // right opponent still holds enough cards to answer it.
+    final beaters = _k.beaterCount(play);
+    if (beaters > 0) {
+      final o = offset + actionBeatOffset;
+      out[o] = (beaters / (play.type == TurnType.single ? 16.0 : 13.0)).clamp(
+        0.0,
+        1.0,
+      );
+      if (play.type == TurnType.single) {
+        final total = _k.unseenTotal;
+        if (total > 0) out[o + 1] = (beaters / total).clamp(0.0, 1.0);
+      }
+      for (final (rel, idx) in [(1, 2), (3, 3)]) {
+        final p = _playerAtSeat((_mySeat + rel) % 4);
+        final count = p == null ? 0 : (snapshot.hands[p.id]?.length ?? 0);
+        if (count >= play.cards.length) out[o + idx] = 1.0;
+      }
     }
   }
 

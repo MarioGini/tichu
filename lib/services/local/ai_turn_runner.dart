@@ -191,8 +191,9 @@ class AiTurnRunner {
           chosen: action,
         );
         // The search yields to the event loop: drop the move if the game
-        // moved on meanwhile (e.g. a human bomb); that action re-runs the
-        // bots.
+        // moved on meanwhile (e.g. a human bomb). The run that action
+        // started may have skipped this bot (its turn was in flight), so
+        // run the bots again once the in-flight mark is gone.
         if (state.engineState.roundLog.length != logLength ||
             state
                     .engineState
@@ -201,6 +202,12 @@ class AiTurnRunner {
                 currentPlayer.id ||
             state.opponentAwaitingConfirmation ||
             state.pendingOpponentAction != null) {
+          _automatedTurnsInFlight.remove(inFlightKey);
+          await runAutomatedPlayers(
+            state,
+            buildSnapshot: buildSnapshot,
+            emitSnapshot: emitSnapshot,
+          );
           return;
         }
       }

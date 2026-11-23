@@ -94,7 +94,8 @@ class ObserveController extends ChangeNotifier {
     for (final (label, interval) in speeds) {
       if (interval == autoPlayInterval) return label;
     }
-    return '${(1500 / autoPlayInterval.inMilliseconds).toStringAsFixed(1)}×';
+    final ms = autoPlayInterval.inMilliseconds;
+    return ms <= 0 ? 'max' : '${(1500 / ms).toStringAsFixed(1)}×';
   }
 
   String? get recordLocation =>

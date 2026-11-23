@@ -64,7 +64,7 @@ def main():
             if j == ci:
                 continue
             d = Q[:, j] - Q[:, ci]
-            if d.mean() >= args.margin and np.sum(d >= 0) >= 8:
+            if d.mean() >= args.margin and np.sum(d >= 0) >= len(W) - 1:
                 if best is None or d.mean() > best[1]:
                     best = (j, d.mean())
         key = situation
@@ -87,7 +87,7 @@ def main():
     print(f'\nworst {args.examples} examples (D = describe; L/P/R = left opponent, partner, right opponent):')
     for loss, r, b, c, d in sorted(mistakes, key=lambda m: -m[0])[:args.examples]:
         desc = r.get('desc', {})
-        print(f"- loss {loss:.0f} (better in {int(np.sum(d > 0))}/9 worlds): "
+        print(f"- loss {loss:.0f} (better in {int(np.sum(d > 0))}/{len(d)} worlds): "
               f"{json.dumps({k: desc.get(k) for k in ('hand', 'trick', 'winner', 'trick_points', 'counts', 'hands', 'calls', 'out', 'wish')})}")
         acts = desc.get('acts', [])
         print(f"    played: {acts[c] if c < len(acts) else c}   better: {acts[b] if b < len(acts) else b}")

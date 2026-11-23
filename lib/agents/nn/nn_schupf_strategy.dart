@@ -73,7 +73,13 @@ abstract final class SchupfFeatures {
   /// five weakest cards each opponent may receive under the bomb-safety
   /// convention to the opponents. Training labels and the net's choice both
   /// use this set (about 150 of the 2184 assignments).
-  static List<(int, int, int)> candidates(final List<Card> hand) {
+  ///
+  /// [extended] also lets the partner receive one of the two weakest normal
+  /// cards (a hand going for Tichu keeps its strength).
+  static List<(int, int, int)> candidates(
+    final List<Card> hand, {
+    final bool extended = false,
+  }) {
     final order = List<int>.generate(hand.length, (final i) => i)
       ..sort(
         (final a, final b) =>
@@ -82,6 +88,7 @@ abstract final class SchupfFeatures {
     final partner = <int>{
       ...order.reversed.take(5),
       ...order.where((final i) => hand[i].face == CardFace.dog),
+      if (extended) ...order.where((final i) => _isNormal(hand[i])).take(2),
     };
     final left = order.where((final i) => allowedLeft(hand[i])).take(5);
     final right = order.where((final i) => allowedRight(hand[i])).take(5);
@@ -134,7 +141,11 @@ abstract final class SchupfFeatures {
 class NnSchupfStrategy implements SchupfStrategy {
   final Mlp network;
 
-  NnSchupfStrategy({required this.network}) {
+  /// Score [SchupfFeatures.candidates] with `extended: true` (the net must
+  /// have been trained on such labels, `headless --schupf-extended`).
+  final bool extended;
+
+  NnSchupfStrategy({required this.network, this.extended = false}) {
     if (network.inputSize != SchupfFeatures.size) {
       throw ArgumentError.value(
         network.inputSize,
@@ -171,7 +182,10 @@ class NnSchupfStrategy implements SchupfStrategy {
     var bestL = 0;
     var bestP = 1;
     var bestR = 2;
-    for (final (l, p, r) in SchupfFeatures.candidates(hand)) {
+    for (final (l, p, r) in SchupfFeatures.candidates(
+      hand,
+      extended: extended,
+    )) {
       work.setAll(0, pre);
       network
         ..addFirstLayerColumn(work, SchupfFeatures.leftOffset + slots[l])

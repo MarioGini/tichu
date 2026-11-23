@@ -28,6 +28,11 @@ class _HeadlessConfig {
   final HeuristicOptions opponentHeuristic;
   final StyleBias style;
   final StyleBias opponentStyle;
+  final double? preTichuStrength;
+  final double? opponentPreTichuStrength;
+  final bool schupfExtended;
+  final bool opponentSchupfExtended;
+  final bool schupfLabelExtended;
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
@@ -81,6 +86,11 @@ class _HeadlessConfig {
     required this.opponentHeuristic,
     required this.style,
     required this.opponentStyle,
+    required this.preTichuStrength,
+    required this.opponentPreTichuStrength,
+    required this.schupfExtended,
+    required this.opponentSchupfExtended,
+    required this.schupfLabelExtended,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
@@ -137,6 +147,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var opponentHeuristic = HeuristicOptions.latest;
   var style = StyleBias.none;
   var opponentStyle = StyleBias.none;
+  double? preTichuStrength;
+  double? opponentPreTichuStrength;
+  var schupfExtended = false;
+  var opponentSchupfExtended = false;
+  var schupfLabelExtended = false;
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
   var skipPlayRows = false;
@@ -384,6 +399,26 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
     }
+    if (arg.startsWith('--pre-tichu-strength=')) {
+      preTichuStrength = double.tryParse(arg.split('=').last);
+      continue;
+    }
+    if (arg.startsWith('--opponent-pre-tichu-strength=')) {
+      opponentPreTichuStrength = double.tryParse(arg.split('=').last);
+      continue;
+    }
+    if (arg == '--schupf-extended') {
+      schupfExtended = true;
+      continue;
+    }
+    if (arg == '--schupf-label-extended') {
+      schupfLabelExtended = true;
+      continue;
+    }
+    if (arg == '--opponent-schupf-extended') {
+      opponentSchupfExtended = true;
+      continue;
+    }
     if (arg.startsWith('--style=')) {
       style = StyleBias.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
@@ -467,6 +502,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     opponentHeuristic: opponentHeuristic,
     style: style,
     opponentStyle: opponentStyle,
+    preTichuStrength: preTichuStrength,
+    opponentPreTichuStrength: opponentPreTichuStrength,
+    schupfExtended: schupfExtended,
+    opponentSchupfExtended: opponentSchupfExtended,
+    schupfLabelExtended: schupfLabelExtended,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
@@ -514,6 +554,17 @@ void _printUsage() {
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--rollout-worlds=K] [--worlds-min-cards=N]');
   stdout.writeln('       [--label-max-cards=N]  (label only small hands)');
+  stdout.writeln(
+    '       [--pre-tichu-strength=X] [--opponent-pre-tichu-strength=X]  '
+    '(Tichu before the schupf at 14-card strength >= X)',
+  );
+  stdout.writeln(
+    '       [--schupf-extended] [--opponent-schupf-extended]  '
+    '(schupf candidates: partner may get a weak card)',
+  );
+  stdout.writeln(
+    '       [--schupf-label-extended]  (only the schupf labels use them)',
+  );
   stdout.writeln(
     '       [--lead-rollout-rate=p] [--lead-worlds=K]  (leads: own rate / worlds)',
   );

@@ -71,6 +71,8 @@ Future<void> main(final List<String> args) async {
     heuristicOptions: config.heuristic,
     simdInference: config.simd,
     style: config.style,
+    preSchupfStrength: config.preTichuStrength,
+    schupfExtended: config.schupfExtended,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig
@@ -85,6 +87,8 @@ Future<void> main(final List<String> args) async {
     heuristicOptions: config.opponentHeuristic,
     simdInference: config.simd,
     style: config.opponentStyle,
+    preSchupfStrength: config.opponentPreTichuStrength,
+    schupfExtended: config.opponentSchupfExtended,
   );
   final opponentFactory = opponentConfig
       .withEndgameSearch(config.opponentEndgameSearch)
@@ -151,6 +155,7 @@ Future<void> main(final List<String> args) async {
     shadowVariants: config.shadowVariants,
     schupfRolloutRate: config.schupfRolloutRate,
     schupfCandidates: config.schupfCandidates,
+    schupfExtended: config.schupfExtended || config.schupfLabelExtended,
     pimcWorlds: config.pimcWorlds,
     endgameSearcher:
         config.endgameSearch != null || config.opponentEndgameSearch != null

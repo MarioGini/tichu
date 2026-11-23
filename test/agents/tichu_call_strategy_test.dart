@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -98,6 +99,74 @@ void main() {
     expect(
       await strategy.shouldCallTichu(atOrAboveThreshold, aiTestSelfId),
       isTrue,
+    );
+  });
+
+  test('pre-schupf Tichu only with a threshold and a strong hand', () async {
+    final strong = aiSnapshot(
+      myHand: [
+        Card(CardFace.dragon, CardColor.special),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.ace, CardColor.red),
+        Card(CardFace.ace, CardColor.blue),
+        Card(CardFace.king, CardColor.red),
+        Card(CardFace.king, CardColor.blue),
+        Card(CardFace.queen, CardColor.red),
+        Card(CardFace.queen, CardColor.blue),
+        Card(CardFace.jack, CardColor.red),
+        Card(CardFace.jack, CardColor.blue),
+        Card(CardFace.ten, CardColor.red),
+        Card(CardFace.ten, CardColor.blue),
+        Card(CardFace.nine, CardColor.red),
+        Card(CardFace.nine, CardColor.blue),
+      ],
+    );
+    expect(
+      await strategy.shouldCallTichuBeforeSchupf(strong, aiTestSelfId),
+      isFalse,
+    );
+    expect(
+      await const DefaultTichuCallStrategy(
+        preSchupfThreshold: 1,
+      ).shouldCallTichuBeforeSchupf(strong, aiTestSelfId),
+      isTrue,
+    );
+    expect(
+      await const DefaultTichuCallStrategy(
+        preSchupfThreshold: 99,
+      ).shouldCallTichuBeforeSchupf(strong, aiTestSelfId),
+      isFalse,
+    );
+  });
+
+  test('extended schupf candidates may pass a weak card to the partner', () {
+    final hand = [
+      Card(CardFace.dragon, CardColor.special),
+      Card(CardFace.ace, CardColor.red),
+      Card(CardFace.king, CardColor.red),
+      Card(CardFace.queen, CardColor.red),
+      Card(CardFace.jack, CardColor.red),
+      Card(CardFace.ten, CardColor.red),
+      Card(CardFace.nine, CardColor.blue),
+      Card(CardFace.eight, CardColor.blue),
+      Card(CardFace.seven, CardColor.blue),
+      Card(CardFace.six, CardColor.green),
+      Card(CardFace.five, CardColor.green),
+      Card(CardFace.four, CardColor.green),
+      Card(CardFace.three, CardColor.black),
+      Card(CardFace.two, CardColor.black),
+    ];
+    Set<CardFace> partnerFaces({required final bool extended}) => {
+      for (final (_, p, _) in SchupfFeatures.candidates(
+        hand,
+        extended: extended,
+      ))
+        hand[p].face,
+    };
+    expect(partnerFaces(extended: false), isNot(contains(CardFace.two)));
+    expect(
+      partnerFaces(extended: true),
+      containsAll([CardFace.two, CardFace.three, CardFace.dragon]),
     );
   });
 }

@@ -101,6 +101,9 @@ class _HeadlessSimulator {
   /// Share of schupf decisions labelled with exact candidate values.
   final double schupfRolloutRate;
   final int schupfCandidates;
+
+  /// Schupf labels draw candidates from the extended set.
+  final bool schupfExtended;
   late final List<Map<String, SmartAiAgent>> _variantAgents = [
     for (final _ in shadowVariants) <String, SmartAiAgent>{},
   ];
@@ -152,6 +155,7 @@ class _HeadlessSimulator {
     this.shadowVariants = const [],
     this.schupfRolloutRate = 0,
     this.schupfCandidates = 16,
+    this.schupfExtended = false,
     this.pimcWorlds = 0,
     this.endgameSearcher,
   });

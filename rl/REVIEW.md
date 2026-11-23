@@ -197,6 +197,38 @@ schupf v3 self-play, 3000 matches:
   the lead to the opponents, a bigger threat to the Tichu than the forced
   single-card lead it avoids (1 % of calls). Removed.
 
+## Is v7 too aggressive? (measured 2026-11-23)
+
+Seen in Watch AI: the bots spend their strong cards early and are left with
+weak cards. Two tests, against v7 itself (no human data yet):
+
+1. **Exact rollouts** (800 matches of v7 self-play): when the bot played on a
+   trick although it could pass (58 % of such decisions), passing instead
+   was worse in every situation tried: -19.9 ± 0.5 points overall, -15 with
+   10-14 cards, -33 with 1-4 cards, -24.5 when the play spent an Ace, -35
+   for the Dragon, -12 on the partner's trick.
+2. **Style biases** (`headless --style=`), v7 + schupf v3 with a uniform
+   tilt against plain v7 + schupf v3, 1000 deals x 2:
+
+   | Tilt | Result |
+   |------|--------|
+   | +10 points for passing | 29.8 % |
+   | +25 for passing | 1.2 % |
+   | -15 per control card spent (hand >= 8) | 41.1 % |
+   | -30 per control card spent | 27.9 % |
+   | both (+15 pass, -15 spend) | 6.7 % |
+   | -10 for passing (more aggressive) | 44.9 % |
+
+   v7 sits at the optimum of this axis; patience loses about 4x faster than
+   more aggression. If its style is exploitable, it is situational, not a
+   global "pass more". The pure best-response exploiter against frozen v7
+   (`rl/outputs/v7b`, no self-play, labels with v7's own replies) gained
+   nothing in its first iteration (49.2 % gate, 51.4 % ± 0.9 vs v7 on fresh
+   deals); further iterations running.
+
+Note: until the web net-loading fix (PR 30) the website's bots were the
+heuristic, not v7, which is a likely source of the aggressive look there.
+
 ## Flaws in the setup
 
 **F1. Labels concentrated on few deals** (measured, above). Fix: label a

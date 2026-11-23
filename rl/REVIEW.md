@@ -224,7 +224,11 @@ weak cards. Two tests, against v7 itself (no human data yet):
    global "pass more". The pure best-response exploiter against frozen v7
    (`rl/outputs/v7b`, no self-play, labels with v7's own replies) gained
    nothing in its first iteration (49.2 % gate, 51.4 % ± 0.9 vs v7 on fresh
-   deals); further iterations running.
+   deals). Its second iteration was promoted (55.0 % ± 0.6 vs v7), but it
+   plays exactly as strong as v8 (league training with the new schema v7
+   inputs): v8 vs v7b 50.6 % ± 0.9, v8 vs v6 63.3 %, v7b vs v6 62.8 %. The
+   gain is the new inputs (both nets have them), not an exploit of v7's
+   style; no exploitable weakness was found.
 
 Note: until the web net-loading fix (PR 30) the website's bots were the
 heuristic, not v7, which is a likely source of the aggressive look there.

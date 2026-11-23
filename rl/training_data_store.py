@@ -139,6 +139,26 @@ def upload_file(path: Path, *, run: str, policy: Path | None = None, skip_existi
     return True
 
 
+def delete_run(run: str) -> int:
+    """Delete every stored object of ``run`` (incl. multi-part pieces) and
+    its manifest rows. Returns the number of manifest rows removed."""
+    rows = manifest(run)
+    names = []
+    for r in rows:
+        parts = int((r.get("meta") or {}).get("parts", 1))
+        names += [r["path"]] if parts == 1 else [f"{r['path']}.part{i:02d}" for i in range(parts)]
+    for i in range(0, len(names), 100):
+        _request(
+            "DELETE",
+            f"{_base()}/storage/v1/object/{BUCKET}",
+            json.dumps({"prefixes": names[i : i + 100]}).encode(),
+            {"Content-Type": "application/json"},
+        )
+    _request("DELETE", f"{_base()}/rest/v1/{TABLE}?run=eq.{urllib.parse.quote(run)}")
+    print(f"deleted run {run}: {len(rows)} files ({len(names)} objects)")
+    return len(rows)
+
+
 def download(run: str, dest: Path, *, overwrite: bool = False) -> list[Path]:
     dest.mkdir(parents=True, exist_ok=True)
     out = []
@@ -169,6 +189,8 @@ def main() -> None:
     up.add_argument("files", nargs="+")
     ls = sub.add_parser("list")
     ls.add_argument("--run", default="")
+    rm = sub.add_parser("delete", help="delete every file of a run")
+    rm.add_argument("--run", required=True)
     dl = sub.add_parser("download")
     dl.add_argument("--run", required=True)
     dl.add_argument("--dest", required=True)
@@ -180,6 +202,8 @@ def main() -> None:
         for f in args.files:
             if not upload_file(Path(f), run=args.run, policy=policy, skip_existing=not args.force):
                 print(f"   {f}: already stored", flush=True)
+    elif args.cmd == "delete":
+        delete_run(args.run)
     elif args.cmd == "list":
         rows = manifest(args.run)
         total = sum(r["bytes"] for r in rows)

@@ -85,6 +85,15 @@ def _parse_jsonl(path: Path, max_decisions: int):
                 continue
             row = json.loads(line)
             q = row["q_rollout"]
+            worlds = row.get("q_rollout_worlds")
+            if worlds:
+                # --rollout-worlds: the label is the mean over the real deal
+                # and the re-dealt worlds (what the endgame search computes).
+                q = [
+                    None if v is None else (v + sum(w[i] for w in worlds if w[i] is not None))
+                    / (1 + sum(1 for w in worlds if w[i] is not None))
+                    for i, v in enumerate(q)
+                ]
             keep = [i for i, v in enumerate(q) if v is not None]
             if len(keep) < 2:
                 continue

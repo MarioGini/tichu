@@ -174,6 +174,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var pimcWorlds = 0;
   var endgameSearch = false;
   var opponentEndgameSearch = false;
+  var endgameSolve = false;
+  var opponentEndgameSolve = false;
+  var solveBudget = 20000;
+  var solveMaxCards = 10;
   const defaults = EndgameSearch();
   var endgameWorlds = defaults.worlds;
   var endgameMaxCards = defaults.maxCards;
@@ -351,6 +355,24 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       endgameSearch = true;
       continue;
     }
+    if (arg == '--endgame-solve') {
+      endgameSolve = true;
+      continue;
+    }
+    if (arg == '--opponent-endgame-solve') {
+      opponentEndgameSolve = true;
+      continue;
+    }
+    if (arg.startsWith('--solve-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 2) solveMaxCards = k;
+      continue;
+    }
+    if (arg.startsWith('--solve-budget=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) solveBudget = k;
+      continue;
+    }
     if (arg == '--opponent-endgame-search') {
       opponentEndgameSearch = true;
       continue;
@@ -466,15 +488,20 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     outputPath = 'game.jsonl';
   }
 
-  final search = EndgameSearch(
+  EndgameSearch search({required final bool solve}) => EndgameSearch(
     worlds: endgameWorlds,
     maxCards: endgameMaxCards,
     margin: endgameMargin,
     maxActions: endgameMaxActions,
+    solveOneOnOne: solve,
+    solveBudget: solveBudget,
+    solveMaxCards: solveMaxCards,
   );
   return _HeadlessConfig(
-    endgameSearch: endgameSearch ? search : null,
-    opponentEndgameSearch: opponentEndgameSearch ? search : null,
+    endgameSearch: endgameSearch ? search(solve: endgameSolve) : null,
+    opponentEndgameSearch: opponentEndgameSearch
+        ? search(solve: opponentEndgameSolve)
+        : null,
     seed: seed,
     targetScore: targetScore,
     rounds: rounds,
@@ -554,6 +581,10 @@ void _printUsage() {
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--rollout-worlds=K] [--worlds-min-cards=N]');
   stdout.writeln('       [--label-max-cards=N]  (label only small hands)');
+  stdout.writeln(
+    '       [--endgame-solve] [--opponent-endgame-solve] [--solve-budget=N]  '
+    '(exact one-on-one endgames, with --endgame-search)',
+  );
   stdout.writeln(
     '       [--pre-tichu-strength=X] [--opponent-pre-tichu-strength=X]  '
     '(Tichu before the schupf at 14-card strength >= X)',

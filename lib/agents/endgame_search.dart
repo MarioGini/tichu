@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:tichu/agents/card_knowledge.dart';
+import 'package:tichu/agents/endgame_solver.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/agent_decisions.dart';
@@ -25,17 +26,29 @@ class EndgameSearch {
   /// and the plays with the highest Q.
   final int maxActions;
 
+  /// Solve one-on-one endgames exactly ([OneOnOneSolver]) at any hand size;
+  /// falls back to the world search when the tree exceeds [solveBudget].
+  final bool solveOneOnOne;
+  final int solveBudget;
+
+  /// Solve only when the two hands hold at most this many cards together.
+  final int solveMaxCards;
+
   const EndgameSearch({
     this.worlds = 8,
     this.maxCards = 5,
     this.margin = 10,
     this.maxActions = 7,
+    this.solveOneOnOne = false,
+    this.solveBudget = 20000,
+    this.solveMaxCards = 10,
   });
 
   @override
   String toString() =>
       'EndgameSearch(worlds: $worlds, maxCards: $maxCards, '
-      'margin: $margin, maxActions: $maxActions)';
+      'margin: $margin, maxActions: $maxActions, '
+      'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget)';
 }
 
 /// The decision rule: index of the action to play given rollout values
@@ -200,6 +213,13 @@ class EndgameSearcher {
   int searches = 0;
   int switches = 0;
   int rollouts = 0;
+
+  /// One-on-one endgames solved exactly, moves changed by the solver, and
+  /// solver give-ups (tree too large).
+  int solves = 0;
+  int solveSwitches = 0;
+  int solveGiveUps = 0;
+  final Map<int, OneOnOneSolver> _solvers = {};
   final Stopwatch stopwatch = Stopwatch();
 
   EndgameSearcher({
@@ -224,6 +244,33 @@ class EndgameSearcher {
     if (chosen.playerId != playerId) return chosen;
     final current = state.players[state.currentPlayerIndex];
     if (current.id != playerId) return chosen;
+    if (config.solveOneOnOne &&
+        OneOnOneSolver.applies(
+          state,
+          playerId,
+          maxCards: config.solveMaxCards,
+        )) {
+      stopwatch.start();
+      try {
+        final solver = _solvers[current.seat % 2] ??= OneOnOneSolver(
+          engine: engine,
+          agentFor: rolloutAgent,
+          nodeBudget: config.solveBudget,
+        );
+        final solved = await solver.solve(state, playerId);
+        if (solved != null) {
+          solves++;
+          if (!_sameAction(solved.action, chosen)) {
+            solveSwitches++;
+            return solved.action;
+          }
+          return chosen;
+        }
+        solveGiveUps++;
+      } finally {
+        stopwatch.stop();
+      }
+    }
     final hand = state.hands[playerId] ?? const <Card>[];
     if (hand.isEmpty || hand.length > config.maxCards) return chosen;
 
@@ -359,6 +406,14 @@ class EndgameSearcher {
   static String slotKey(final List<Card> cards) {
     final slots = [for (final c in cards) cardSlot(c)]..sort();
     return slots.join(',');
+  }
+
+  static bool _sameAction(final GameAction a, final GameAction b) {
+    if (a is PassAction && b is PassAction) return true;
+    if (a is PlayTurnAction && b is PlayTurnAction) {
+      return slotKey(a.cards) == slotKey(b.cards);
+    }
+    return false;
   }
 
   static GameAction _copyAction(final GameAction action) =>

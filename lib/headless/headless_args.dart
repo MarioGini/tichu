@@ -36,6 +36,8 @@ class _HeadlessConfig {
   final double rolloutRate;
   final int rolloutMaxActions;
   final int rolloutWorlds;
+  final double leadRolloutRate;
+  final int leadWorlds;
   final double sideRolloutRate;
   final int worldsMinCards;
   final int labelMaxCards;
@@ -87,6 +89,8 @@ class _HeadlessConfig {
     required this.rolloutRate,
     required this.rolloutMaxActions,
     required this.rolloutWorlds,
+    required this.leadRolloutRate,
+    required this.leadWorlds,
     required this.sideRolloutRate,
     required this.worldsMinCards,
     required this.labelMaxCards,
@@ -141,6 +145,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var rolloutRate = 0.0;
   var rolloutMaxActions = 12;
   var rolloutWorlds = 1;
+  var leadRolloutRate = -1.0;
+  var leadWorlds = 0;
   var sideRolloutRate = 0.0;
   var worldsMinCards = 0;
   var labelMaxCards = 14;
@@ -264,6 +270,16 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     if (arg.startsWith('--side-rollout-rate=')) {
       final p = double.tryParse(arg.split('=').last);
       if (p != null && p >= 0 && p <= 1) sideRolloutRate = p;
+      continue;
+    }
+    if (arg.startsWith('--lead-rollout-rate=')) {
+      final p = double.tryParse(arg.split('=').last);
+      if (p != null && p >= 0 && p <= 1) leadRolloutRate = p;
+      continue;
+    }
+    if (arg.startsWith('--lead-worlds=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) leadWorlds = k;
       continue;
     }
     if (arg.startsWith('--rollout-worlds=')) {
@@ -459,6 +475,8 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     rolloutRate: rolloutRate,
     rolloutMaxActions: rolloutMaxActions,
     rolloutWorlds: rolloutWorlds,
+    leadRolloutRate: leadRolloutRate,
+    leadWorlds: leadWorlds,
     sideRolloutRate: sideRolloutRate,
     worldsMinCards: worldsMinCards,
     labelMaxCards: labelMaxCards,
@@ -496,6 +514,9 @@ void _printUsage() {
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--rollout-worlds=K] [--worlds-min-cards=N]');
   stdout.writeln('       [--label-max-cards=N]  (label only small hands)');
+  stdout.writeln(
+    '       [--lead-rollout-rate=p] [--lead-worlds=K]  (leads: own rate / worlds)',
+  );
   stdout.writeln('       [--side-rollout-rate=p]  (Dragon gift / wish labels)');
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
   stdout.writeln('       [--shadow-heuristics=spec|spec|...] [--no-simd]');

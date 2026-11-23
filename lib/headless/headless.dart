@@ -133,6 +133,8 @@ Future<void> main(final List<String> args) async {
     rolloutRate: config.rolloutRate,
     rolloutMaxActions: config.rolloutMaxActions,
     rolloutWorlds: config.rolloutWorlds,
+    leadRolloutRate: config.leadRolloutRate,
+    leadWorlds: config.leadWorlds,
     sideRolloutRate: config.sideRolloutRate,
     worldsMinCards: config.worldsMinCards,
     labelMaxCards: config.labelMaxCards,

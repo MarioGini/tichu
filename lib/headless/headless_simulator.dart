@@ -71,6 +71,14 @@ class _HeadlessSimulator {
   /// cards in hand.
   final int rolloutWorlds;
 
+  /// Labelling rate for leads (the player starts a trick); < 0 = the same
+  /// as [rolloutRate] (`--lead-rollout-rate`). Leads are 15 % of decisions
+  /// and carry the noisiest labels.
+  final double leadRolloutRate;
+
+  /// Worlds per labelled lead (`--lead-worlds=K`, 0 = [rolloutWorlds]).
+  final int leadWorlds;
+
   /// Share of Dragon gifts and Mah Jong wishes labelled with every option
   /// played out (`--side-rollout-rate`, default 0).
   final double sideRolloutRate;
@@ -134,6 +142,8 @@ class _HeadlessSimulator {
     this.rolloutRate = 0,
     this.rolloutMaxActions = 12,
     this.rolloutWorlds = 1,
+    this.leadRolloutRate = -1,
+    this.leadWorlds = 0,
     this.sideRolloutRate = 0,
     this.worldsMinCards = 0,
     this.labelMaxCards = 14,
@@ -212,7 +222,7 @@ class _HeadlessSimulator {
   }
 
   /// Rollout labelling is on (only labelled play rows are written).
-  bool get _rolloutLabelling => rolloutRate > 0;
+  bool get _rolloutLabelling => rolloutRate > 0 || leadRolloutRate > 0;
 
   Future<void> _runEpisode(final int episodeNumber) async {
     final players = _buildAutomatedPlayers();
@@ -305,7 +315,14 @@ class _HeadlessSimulator {
           isLearnerSeat(
             state.players.firstWhere((final p) => p.id == action.playerId).seat,
           )) {
-        if (random.nextDouble() < rolloutRate &&
+        final lead =
+            snapshot.deck.turn.type == TurnType.empty ||
+            snapshot.deck.turn.type == TurnType.none;
+        final rate = lead && leadRolloutRate >= 0
+            ? leadRolloutRate
+            : rolloutRate;
+        final worldCount = lead && leadWorlds > 0 ? leadWorlds : rolloutWorlds;
+        if (random.nextDouble() < rate &&
             (snapshot.hands[action.playerId]?.length ?? 0) <= labelMaxCards) {
           rollouts = await _rolloutValues(
             engine: engine,
@@ -314,13 +331,14 @@ class _HeadlessSimulator {
             chosen: action,
           );
           if (rollouts != null &&
-              rolloutWorlds > 1 &&
+              worldCount > 1 &&
               (snapshot.hands[action.playerId]?.length ?? 0) >=
                   worldsMinCards) {
             worlds = await _worldRollouts(
               engine: engine,
               state: state,
               chosen: action,
+              count: worldCount,
             );
           }
         }

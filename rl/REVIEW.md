@@ -308,6 +308,63 @@ label is the noisiest (the whole rest of the round follows) and leads are
 only 15 % of decisions. Small hands (<= 4) barely move either; the endgame
 search covers them at decision time.
 
+## Schupf and calls under v8 (measured 2026-11-23)
+
+v8 + schupf v4 self-play, ~670 matches, every call decision labelled with
+the exact R(call) - R(no call) (`--counterfactual-calls`), every schupf with
+all four hands (`rl/schupf_report.py`, `rl/call_audit.py`). The heuristic
+schupf with v8 play as the reference (530 matches).
+
+**What the schupf net passes** (26,824 decisions):
+
+| | schupf v4 | heuristic schupf |
+|---|---|---|
+| to the partner, passer then calls Tichu: rank of the card in the passer's hand (1 = best) | 1: 7 %, 2: 14 %, 3: 24 %, 4: 26 %, 5: 26 % | mostly the weakest (12th-14th: 67 %) |
+| to the partner, passer does not call | 1: 28 %, 2: 23 %, 3: 18 %, 4-5: 30 % | 1: 51 %, 2: 39 % |
+| to the partner when the partner called Grand Tichu | best card 60 % | best card 74 % |
+| Ace to the partner (when holding one) | 33 % | 79 % |
+| Phoenix / Dragon to the partner | 30 % / 14 % | 0 % / 1 % |
+| Dog to an opponent / to the partner | 80 % / 4 % | 10 % / 0 % |
+| to the opponents: 2s and 3s | 48 % (more 5-9s) | 68 % |
+| a pass splits an own pair / triple | 29 % (opp.), 25 % (partner) | 38 %, 39 % |
+| own straight (>= 5) destroyed by the pass | 40 % of hands with one | 24 % |
+| straight built by the received cards | 10.4 % | 8.2 % |
+| our pass completes an opponent's bomb | 1.9 % of passes | 0.9 % |
+| our pass completes the partner's bomb | 2.3 % | 1.6 % |
+| a received card completes one of our bombs | 5.8 % of hands | 3.0 % |
+
+The net already plans for a Tichu: a hand that will call keeps its top
+two cards (the partner gets the 3rd-5th best), a hand that will not call
+gives strength (often the Phoenix or the Dragon rather than an Ace). It
+dumps the Dog on an opponent and keeps pairs together but breaks
+straights; it passes middling cards (5-9) to the opponents more often,
+which completes an opponent's bomb twice as often as the heuristic does
+(1.9 % of passes, ~7 % of rounds per team) — and the same for the partner
+and for us. Schupf v4 beats the heuristic schupf by several points, so
+these trade-offs pay overall; the bomb leak is a candidate for an input
+(how many of a rank are unseen / likely held).
+
+**Calls** (exact counterfactual value per decision, vs never calling):
+
+| decision | rule calls | value of the rule | note |
+|---|---|---|---|
+| Grand Tichu (8 cards) | 4.2 % | +1.8 ± 0.3 | best threshold 4.67 instead of 5: +1.9 |
+| Tichu at the first card, no opponent call | 16.5 % | +3.8 ± 0.5 | the marginal calls (strength -0.4 to 0.25) lose -13.5 each |
+| Tichu at the first card, an opponent called | 3.2 % | +0.3 ± 0.6 | break-even |
+| Tichu before the schupf | never | - | negative in every strength bucket (strongest 1 %: -13.5) |
+
+For the 3,492 hands the rule calls at the first card, calling already
+before the schupf instead is +1.3 ± 2.9: no gain *yet* — the partners'
+schupf net never saw a pre-schupf partner call in training (the context
+flag is untrained), so the early call only warns the opponents. The joint
+step is therefore: (1) a pre-schupf call rule for the strongest hands
+(`--pre-tichu-strength`), (2) schupf labels generated with it, so the
+partner learns to support and the caller to keep strength
+(`--schupf-label-extended` adds "weak card to the partner"), (3) retrain
+the schupf net, (4) re-measure the pre-schupf call value and re-tune the
+thresholds on the new play, repeated. The rule's late timing (it waits
+until its first card, passing keeps the option) stays.
+
 ## Plan for v9 (2026-11-23)
 
 What moved the bot from v7 to v8 (all duplicate duels): the new inputs

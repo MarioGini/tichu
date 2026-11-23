@@ -55,6 +55,7 @@ class OneOnOneSolver {
     final GameEngineState state,
     final String playerId, {
     final int maxCards = 28,
+    final bool toMove = true,
   }) {
     final active = [
       for (final p in state.players)
@@ -67,7 +68,7 @@ class OneOnOneSolver {
       (final n, final p) => n + state.hands[p.id]!.length,
     );
     if (cards > maxCards) return false;
-    return state.players[state.currentPlayerIndex].id == playerId;
+    return !toMove || state.players[state.currentPlayerIndex].id == playerId;
   }
 
   /// Solved positions stay valid for the rest of the round: keep the memo
@@ -82,7 +83,8 @@ class OneOnOneSolver {
     final GameEngineState state,
     final String playerId,
   ) async {
-    if (!applies(state, playerId)) return null;
+    final dragon = state.pendingDragonGiveBy == playerId;
+    if (!applies(state, playerId, toMove: !dragon)) return null;
     _team = state.players.firstWhere((final p) => p.id == playerId).seat % 2;
     nodes = 0;
     final owner =
@@ -92,7 +94,12 @@ class OneOnOneSolver {
       _memoOwner = owner;
     }
     try {
-      final options = _options(state, playerId);
+      final options = dragon
+          ? <GameAction>[
+              for (final id in state.pendingDragonGiveTargets)
+                GiveDragonAction(playerId: playerId, targetPlayerId: id),
+            ]
+          : _options(state, playerId);
       if (options.isEmpty) return null;
       GameAction? best;
       var bestValue = -1 << 30;

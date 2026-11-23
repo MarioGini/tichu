@@ -20,7 +20,11 @@ abstract final class AppBots {
   /// beats v7 57.2 % (<= 5 cards: 54.5 %), at ~30 ms per searched decision
   /// in the native headless runner (more on phones and the web).
   static const useEndgameSearch = true;
-  static const endgameSearch = EndgameSearch(maxCards: 8);
+  static const endgameSearch = EndgameSearch(
+    maxCards: 8,
+    solveOneOnOne: true,
+    solveBudget: 10000,
+  );
 
   static BotConfig current = BotConfig.heuristic;
 

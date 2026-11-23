@@ -408,7 +408,55 @@ class EndgameSearcher {
     return slots.join(',');
   }
 
+  /// The Dragon gift to play instead of [chosen] (the rule's choice of
+  /// [agent]): the solver's in a one-on-one endgame, else [chosen]. Who
+  /// gets the trick matters there: the last player's tricks go to the
+  /// first player out.
+  Future<GameAction> refineDragonGift({
+    required final GameEngine engine,
+    required final GameEngineState state,
+    required final PlayerAgent agent,
+    required final GiveDragonAction chosen,
+  }) async {
+    if (agent is! SmartAiAgent) return chosen;
+    final config = agent.endgameSearch;
+    if (config == null || !config.solveOneOnOne) return chosen;
+    final playerId = agent.playerId;
+    if (state.pendingDragonGiveBy != playerId ||
+        !OneOnOneSolver.applies(
+          state,
+          playerId,
+          maxCards: config.solveMaxCards,
+          toMove: false,
+        )) {
+      return chosen;
+    }
+    stopwatch.start();
+    try {
+      final current = state.players.firstWhere((final p) => p.id == playerId);
+      final solver = _solvers[current.seat % 2] ??= OneOnOneSolver(
+        engine: engine,
+        agentFor: rolloutAgent,
+        nodeBudget: config.solveBudget,
+      );
+      final solved = await solver.solve(state, playerId);
+      if (solved == null) {
+        solveGiveUps++;
+        return chosen;
+      }
+      solves++;
+      if (_sameAction(solved.action, chosen)) return chosen;
+      solveSwitches++;
+      return solved.action;
+    } finally {
+      stopwatch.stop();
+    }
+  }
+
   static bool _sameAction(final GameAction a, final GameAction b) {
+    if (a is GiveDragonAction && b is GiveDragonAction) {
+      return a.targetPlayerId == b.targetPlayerId;
+    }
     if (a is PassAction && b is PassAction) return true;
     if (a is PlayTurnAction && b is PlayTurnAction) {
       return slotKey(a.cards) == slotKey(b.cards);

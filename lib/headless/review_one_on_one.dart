@@ -105,6 +105,90 @@ Future<void> main(final List<String> args) async {
             nodeBudget: 200000,
           );
           final values = await solver.values(state, pid, options);
+          if (args.contains('--debug-go-out') &&
+              request is TurnRequest &&
+              values.every((final v) => v != null)) {
+            final hand = state.hands[pid]!;
+            final best = values.whereType<int>().reduce(max);
+            for (var i = 0; i < options.length; i++) {
+              final o = options[i];
+              if (o is PlayTurnAction &&
+                  o.cards.length == hand.length &&
+                  values[i]! < best) {
+                final plain = await OneOnOneSolver(
+                  engine: engine,
+                  agentFor: plainAgent,
+                  memoize: false,
+                  nodeBudget: 1 << 30,
+                ).values(state, pid, options);
+                final sc = state.scoreTracker.state;
+                for (final start in [o, options.last]) {
+                  final line = <String>[];
+                  final cur = state.copy();
+                  engine.applyAction(cur, start);
+                  line.add('${start.playerId}:${_desc(start)}');
+                  for (var d = 0; d < 40; d++) {
+                    final st = cur.scoreTracker.state;
+                    if (st.roundComplete) break;
+                    final req = AgentDecisions.next(engine, cur);
+                    if (req == null) break;
+                    final opts = _options(
+                      engine,
+                      cur,
+                      req,
+                      agents[req.playerId]!,
+                    );
+                    final vs = await OneOnOneSolver(
+                      engine: engine,
+                      agentFor: plainAgent,
+                      memoize: false,
+                      nodeBudget: 1 << 30,
+                    ).values(cur, req.playerId, opts);
+                    var bi = 0;
+                    for (var k = 1; k < opts.length; k++) {
+                      if ((vs[k] ?? -99999) > (vs[bi] ?? -99999)) bi = k;
+                    }
+                    line.add('${req.playerId}:${_desc(opts[bi])}');
+                    engine.applyAction(cur, opts[bi]);
+                  }
+                  final st = cur.scoreTracker.state;
+                  stderr.writeln(
+                    jsonEncode({
+                      'line': line,
+                      'team_one_round': st.teamOneRound,
+                      'team_two_round': st.teamTwoRound,
+                      'finish': st.finishOrder,
+                      'round_points': st.playerRoundPoints,
+                    }),
+                  );
+                }
+                stderr.writeln(
+                  jsonEncode({
+                    'go_out_violation': true,
+                    'actions': [
+                      for (final a in options) a.runtimeType.toString(),
+                    ],
+                    'memo_values': values,
+                    'plain_values': plain,
+                    'finish_order': sc.finishOrder,
+                    'decider': pid,
+                    'tichu_calls': {
+                      for (final e in sc.tichuCalls.entries)
+                        e.key: e.value.name,
+                    },
+                    'round_points': sc.playerRoundPoints,
+                    'last_played_by': state.lastPlayedBy,
+                    'deck_winner': state.deck.currentWinner,
+                    'trick_cards': state.currentTrickCards.length,
+                    'hands': {
+                      for (final p in state.players)
+                        p.id: _cards(state.hands[p.id] ?? const []),
+                    },
+                  }),
+                );
+              }
+            }
+          }
           if (values.any((final v) => v == null)) {
             giveUps++;
           } else {
@@ -186,6 +270,13 @@ bool _same(final GameAction a, final GameAction b) {
   }
   return false;
 }
+
+String _desc(final GameAction a) => switch (a) {
+  PassAction() => 'pass',
+  PlayTurnAction(:final cards) => _cards(cards),
+  GiveDragonAction(:final targetPlayerId) => 'dragon->$targetPlayerId',
+  _ => a.runtimeType.toString(),
+};
 
 String _tok(final Card c) => switch (c.face) {
   CardFace.dog => 'Dog',

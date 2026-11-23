@@ -248,7 +248,14 @@ class OneOnOneSolver {
       ..write('|${deck.turn.type.index}:${trick.join(',')}')
       ..write('|${deck.wish.index}|${deck.currentWinner}')
       ..write('|${s.consecutivePasses}|${pile.join(',')}')
-      ..write('|${s.pendingDragonGiveBy}|${s.finishedPlayers.join(',')}')
+      ..write('|${s.lastPlayedBy}|${s.lastPlayedTurn?.type.index}')
+      ..write(
+        ':${[for (final c in s.lastPlayedTurn?.cards ?? const <Card>[]) cardSlot(c)].join(',')}',
+      )
+      ..write(
+        '|${s.pendingDragonGiveBy}|${s.pendingDragonGiveTargets.join(',')}',
+      )
+      ..write('|${s.finishedPlayers.join(',')}')
       ..write('|${s.scoreTracker.state.finishOrder.join(',')}');
     return b.toString();
   }

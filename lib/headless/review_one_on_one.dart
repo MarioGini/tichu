@@ -116,6 +116,7 @@ Future<void> main(final List<String> args) async {
               ),
             );
             rows++;
+            if (rows % 20 == 0) await out.flush();
           }
         }
       }

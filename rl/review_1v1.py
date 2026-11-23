@@ -34,7 +34,8 @@ def shape(a: str) -> str:
 
 
 def rank(tok: str) -> int:
-    return {"Dog": 0, "1": 1, "T": 10, "J": 11, "Q": 12, "K": 13, "A": 14, "Ph": 15, "Dr": 16}.get(tok) or int(tok)
+    r = {"Dog": 0, "1": 1, "T": 10, "J": 11, "Q": 12, "K": 13, "A": 14, "Ph": 15, "Dr": 16}
+    return r[tok] if tok in r else int(tok)
 
 
 def report(path: str) -> None:

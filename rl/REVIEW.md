@@ -344,6 +344,28 @@ and for us. Schupf v4 beats the heuristic schupf by several points, so
 these trade-offs pay overall; the bomb leak is a candidate for an input
 (how many of a rank are unseen / likely held).
 
+**Specials, on exact candidate values** (10,300 schupf decisions with 20
+labelled candidates each, `rl/outputs/joint`; per decision the mean value
+of the candidates of one class minus the other, no calls unless noted):
+
+| | A - B, points per round | bot does A |
+|---|---|---|
+| Dragon to the partner (A) vs keep it (B) | +5.7 ± 2.3 | 16 % |
+| Phoenix to the partner vs keep it | +4.8 ± 2.3 | 36 % |
+| holding both: one to the partner vs keep both | +11.6 ± 4.1 | 31 % |
+| Dragon vs an Ace to the partner | +1.0 ± 3.3 | 15 % |
+| partner called Grand: keep the Dog vs Dog to an opponent | -7.2 ± 10.0 (124) | 69 % |
+| partner called Grand: keep the Dog vs Dog to the partner | +79 ± 19 | never passes it to him |
+| no calls: keep the Dog vs Dog to an opponent | -10.1 ± 1.7 | 15 % |
+
+Passing a special to the partner pays, and the bot under-does it. One
+reason found in the inputs: the passer only knew *how many* of its passed
+cards a player still holds, not which — after passing the Dragon to the
+partner it still counted the Dragon as unseen, i.e. as a threat to its
+Aces. Feature schema v8 adds `passed` (my card to each player while still
+held); v9 trains on it. Keeping the Dog when the partner called Grand Tichu
+is not better than dumping it on an opponent on this data (needs more).
+
 **Calls** (exact counterfactual value per decision, vs never calling):
 
 | decision | rule calls | value of the rule | note |

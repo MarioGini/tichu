@@ -23,8 +23,8 @@ VIRTUAL_ENV=rl/.venv uv pip install "torch>=2.15.0" "numpy>=2.5.4" "safetensors>
 
 ## Quick start
 
-The shipped bot is play net `assets/bots/tichu_q_v7.safetensors` with schupf
-net `assets/bots/tichu_schupf_v3.safetensors` (see
+The shipped bot is play net `assets/bots/tichu_q_v8.safetensors` with schupf
+net `assets/bots/tichu_schupf_v4.safetensors` and endgame search (see
 `rl/models/README.md`). The play net is trained by **rollout policy iteration**
 (`rollout_loop.py`, see "Rollout policy iteration" below).
 
@@ -935,6 +935,37 @@ Side fix: `Mlp.fromSafetensorsBytes` read the header length with
 `getUint64`, which dart2js does not support, so the web build could not load
 the nets and fell back to the heuristic bots; it now reads two uint32s.
 
+## Results v8 (2026-11-23): schema v7 inputs, schupf v4, shipped
+
+v8 is the rollout loop (`--out-dir=rl/outputs/v8`, data restorable with
+`training_data_store.py download --run=v8`) on feature schema v7 (376
+inputs: safe-finish / claim features recomputed after every card, the
+received schupf cards, and the claim after each candidate move), started
+from v7 widened with zero weights. League of replaced nets plus self-play.
+
+| Iteration | Gate vs best | vs v6 | Promoted |
+|-----------|--------------|-------|----------|
+| 1 | 50.1 % | 60.9 % | no |
+| 2 | 55.5 % (pooled 54.9 %) | 62.8 % | yes |
+| 3 | 51.3 % | 65.5 % | no |
+| 4 | 53.0 % (pooled 52.7 %) | 65.6 % | yes |
+| 5 | 49.8 % | 66.9 % | no |
+| 6 | 51.4 % | 67.4 % | no |
+
+Iterations 5 and 6 lost their gate against iteration 4 by noise, yet beat
+it 54.5 % on the league duel and are stronger against every other
+opponent, so the shipped net is iteration 5 (the gate should use a panel,
+see `rl/REVIEW.md`, "Plan for v9"). Schupf v4: `schupf_cf_train.py` on
+62,540 exact schupf decisions of v8 self-play.
+
+Against the previous shipped bot (v7 + schupf v3), duplicate, fresh deals:
+
+| Bot | Search | Result |
+|-----|--------|--------|
+| v8 it5 + schupf v4 | both sides, <= 8 cards (as in the app) | **61.3 % ± 1.0** (1000 deals x 2), +164 per match |
+| v8 it5 + schupf v4 | none | 63.6 % ± 0.9 |
+| v8 it4 + schupf v4 | both sides | 58.6 % ± 1.0 |
+
 ## Next steps
 
 The review of 2026-11-20 (`rl/REVIEW.md`) measures the label noise, lists
@@ -946,10 +977,8 @@ below where they differ.
 2. Less noisy labels for the early game: several rollouts per action with
    the hidden cards re-dealt consistently with the public history, or a
    perfect-information value net to truncate rollouts (item 6).
-3. Continue the v7 run (`--out-dir=rl/outputs/v7`, data restorable with
-   `training_data_store.py download --run=v7`): steps are now ~+1 pp per
-   iteration, two or three more should pass 60 % against v6. Then the
-   history A/B again at the current data size (2M decisions).
+3. ~~Continue the v7 run~~ Done: v7 shipped 2026-11-19, v8 2026-11-23
+   (see "Results v8"); the v9 plan is in `rl/REVIEW.md`.
 4. Learned calls on exact counterfactual labels from the best policy
    (`call_labels.sh` + `call_train.py`); then the same for the schupf.
 5. ~~Delete the dead heuristic rules listed above.~~ Done 2026-11-17:

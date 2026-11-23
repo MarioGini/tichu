@@ -16,7 +16,7 @@ greedy policy w.r.t. the rollout values = one policy-improvement step; the
 exported net plugs straight into ``NnPlaySelectionStrategy``.
 
   rl/.venv/bin/python rl/rollout_train.py --jsonl=a.jsonl,b.jsonl \
-      --init-from=assets/bots/tichu_q_v7.safetensors \
+      --init-from=assets/bots/tichu_q_v8.safetensors \
       --output=rl/outputs/rollout_policy.safetensors
 """
 
@@ -425,7 +425,6 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     # No-op, accepted only so that rollout_loop.py processes started before
     # the 2026-11-23 cleanup (which passed it) can finish; remove later.
-    p.add_argument("--default-label-p", type=float, help=argparse.SUPPRESS)
     train(p.parse_args())
 
 

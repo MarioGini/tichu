@@ -233,6 +233,81 @@ weak cards. Two tests, against v7 itself (no human data yet):
 Note: until the web net-loading fix (PR 30) the website's bots were the
 heuristic, not v7, which is a likely source of the aggressive look there.
 
+## How the play evolved from v3 to v8 (measured 2026-11-23)
+
+Tools: `rl/style_report.py` (style metrics from `--describe` rows),
+`rl/policy_evolution.py` (every net on the same exact-labelled positions),
+`rl/outputs/evolution/round_robin.py`. Each bot with its own shipped schupf
+net (v3/v4: heuristic schupf).
+
+**No collapse.** Round robin, duplicate, 600 deals x 2 (row beats column):
+
+| | heur | v3 | v4 | v5 | v6 | v7 | v8 |
+|---|---|---|---|---|---|---|---|
+| v3 | 59.5 | - | 24.0 | 18.2 | 13.5 | 7.9 | 5.1 |
+| v4 | 87.6 | 76.0 | - | 38.6 | 28.2 | 21.7 | 13.9 |
+| v5 | 89.7 | 81.8 | 61.4 | - | 35.6 | 24.0 | 17.5 |
+| v6 | 93.9 | 86.5 | 71.8 | 64.4 | - | 39.5 | 25.3 |
+| v7 | 95.3 | 92.1 | 78.3 | 76.0 | 60.5 | - | 36.8 |
+| v8 | 97.5 | 94.9 | 86.1 | 82.5 | 74.7 | 63.2 | - |
+
+Perfectly transitive: every version beats every older one, by more the
+older it is. No cycle (rock-paper-scissors) and no forgotten opponent, the
+two signatures of self-play collapse. Each version changes 21-25 % of the
+previous version's moves (agreement 67, 76, 78, 79, 79 %), v8 still agrees
+with v3 on 60 %: steady refinement, not jumps between strategies. The lead
+shape entropy is constant (1.6-1.7 bits): no narrowing to one move type.
+
+**What changed** (style against a fixed v8 opponent):
+
+| | heur | v3 | v4 | v5 | v6 | v7 | v8 |
+|---|---|---|---|---|---|---|---|
+| pass when it could beat an opponent's trick | 0.2 % | 13 | 24 | 30 | 30 | 30 | 32 |
+| pass when it could beat, hand >= 10 | 17 % | 35 | 41 | 46 | 47 | 46 | 49 |
+| overtake a partner with a live Tichu | 63 % | 14 | 15 | 10 | 14 | 19 | 18 |
+| share of bombs played with >= 10 cards | 89 % | 86 | 68 | 57 | 52 | 49 | 46 |
+| plays that break a pair / triple | 12 % | 9 | 15 | 17 | 18 | 18 | 18 |
+| cheapest single that beats | 79 % | 77 | 68 | 69 | 69 | 70 | 67 |
+| Dog to a partner with <= 2 cards | 98 % | 94 | 80 | 67 | 74 | 78 | 73 |
+| goes out first / finishes last | 35 / 72 % | 36 / 69 | 41 / 61 | 39 / 58 | 43 / 56 | 47 / 53 | 49 / 50 |
+| Tichu / Grand success | 51 / 46 % | 51 / 44 | 60 / 40 | 54 / 59 | 57 / 56 | 62 / 60 | 63 / 63 |
+
+- Every version is *more patient* than the one before, not more
+  aggressive: the heuristic beats every trick it can, v8 lets a third of
+  the beatable opponent tricks go (half of them with a full hand), and
+  bombs are kept for later. The "aggressive" bots seen on the website were
+  the heuristic (the web build could not load the nets before PR 30).
+- Partner play: from overtaking a Tichu-calling partner 63 % of the time
+  (heuristic) to 10-19 %.
+- Flexible hands: more set breaking, less "cheapest card that beats"; the
+  net plays a higher card or splits a pair when it keeps a better hand.
+- The calls are the same heuristic rule throughout; their success rises
+  with the play (Tichu 51 -> 63 %, Grand 46 -> 63 % against v8).
+
+**Where the moves improved** (5,757 v8 self-play decisions with exact
+values of every legal move, rest of the round played by v8; value of the
+chosen move minus the action average, round points; v8 continuation, so
+slightly in v8's favour):
+
+| situation | n | v3 | v4 | v5 | v6 | v7 | v8 |
+|---|---|---|---|---|---|---|---|
+| all | 5757 | 11.7 | 16.4 | 17.9 | 18.7 | 18.0 | 19.9 |
+| follow, opponent's trick | 3694 | 5.2 | 11.5 | 12.9 | 14.6 | 13.5 | 16.0 |
+| some Tichu called | 3363 | 13.0 | 18.1 | 20.0 | 21.2 | 21.2 | 23.8 |
+| hand >= 10 | 3030 | 8.3 | 15.2 | 17.2 | 18.0 | 16.8 | 19.5 |
+| hand 5-9 | 1855 | 16.5 | 19.3 | 20.0 | 21.3 | 20.4 | 22.0 |
+| follow, partner's trick | 1217 | 19.0 | 24.0 | 23.7 | 23.2 | 23.6 | 24.6 |
+| hand <= 4 | 872 | 13.3 | 14.6 | 16.1 | 15.8 | 17.3 | 16.3 |
+| **lead** | 846 | 29.4 | 27.0 | 31.4 | 30.3 | 29.7 | 30.0 |
+
+The whole gain since v3 (+8.2 ± 1.2 per decision) is in following: the
+play-or-pass and which-card decisions on opponents' tricks, early in the
+round and around Tichu calls. **Leads have not improved since v3**
+(v3 - v8 = -0.6 ± 2.4). A lead fixes the trick type for everyone; its
+label is the noisiest (the whole rest of the round follows) and leads are
+only 15 % of decisions. Small hands (<= 4) barely move either; the endgame
+search covers them at decision time.
+
 ## Plan for v9 (2026-11-23)
 
 What moved the bot from v7 to v8 (all duplicate duels): the new inputs

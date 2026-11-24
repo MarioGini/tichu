@@ -29,11 +29,17 @@ class LocalMatchRuntime {
     final Random? random,
     final AgentFactory? agentFactory,
     final Map<String, PlayerAgent>? automatedAgents,
-  }) : _engine = engine ?? GameEngineImpl(random: random),
-       _aiRunner = AiTurnRunner(
-         agentFactory: agentFactory ?? AppBots.current.build,
-       ) {
-    _aiRunner.engine = _engine;
+  }) : this._(
+         engine ?? GameEngineImpl(random: random),
+         agentFactory ?? AppBots.current.build,
+         automatedAgents,
+       );
+
+  LocalMatchRuntime._(
+    this._engine,
+    final AgentFactory agentFactory,
+    final Map<String, PlayerAgent>? automatedAgents,
+  ) : _aiRunner = AiTurnRunner(engine: _engine, agentFactory: agentFactory) {
     if (automatedAgents != null) {
       _aiRunner.addAgents(automatedAgents);
     }

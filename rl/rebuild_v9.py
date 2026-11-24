@@ -19,16 +19,11 @@ recovered: which card went to whom is not in the old features; it stays 0.)
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from schema import ACTION_FEATURE_COUNT, SPEC, pad_action, pad_state  # noqa: E402
-
-from data_upgrade import BEAT, beat_features, groups, upgrade  # noqa: E402,F401
+from data_upgrade import BEAT, beat_features, groups, upgrade
+from schema import ACTION_FEATURE_COUNT, pad_state
 
 
 def rebuild(path: Path) -> int:

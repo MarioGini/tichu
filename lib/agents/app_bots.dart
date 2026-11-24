@@ -44,8 +44,7 @@ abstract final class AppBots {
         endgameSearch: useEndgameSearch ? endgameSearch : null,
       );
       // Loading must never stop the app from starting.
-      // ignore: avoid_catches_without_on_clauses
-    } catch (_) {
+    } on Object {
       current = BotConfig.heuristic;
     }
   }

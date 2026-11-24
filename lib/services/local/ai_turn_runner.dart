@@ -22,15 +22,15 @@ typedef AgentFactory = PlayerAgent Function(String playerId);
 /// actions, and exposes a single [runAutomatedPlayers] entry point so that
 /// the local runtime stays focused on state progression.
 class AiTurnRunner {
-  AiTurnRunner({required final AgentFactory agentFactory})
-    : _agentFactory = agentFactory;
+  AiTurnRunner({
+    required final GameEngine engine,
+    required final AgentFactory agentFactory,
+  }) : _engine = engine,
+       _agentFactory = agentFactory;
 
+  /// The engine of the games this runner plays bots in (the runtime's).
+  final GameEngine _engine;
   final AgentFactory _agentFactory;
-
-  late GameEngine _engine;
-
-  // ignore: avoid_setters_without_getters, engine is write-only; set once by LocalMatchRuntime.
-  set engine(final GameEngine value) => _engine = value;
 
   /// Endgame search of bots configured with one (see `AppBots`). Rollouts
   /// use fresh bots from the factory for every seat (humans included).

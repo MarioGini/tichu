@@ -135,7 +135,9 @@ def upload(path: Path | None, run: str, policy: Path) -> None:
         games = path.with_suffix(".games.jsonl.xz")  # replayable game records
         if games.exists():
             upload_file(games, run=run)
-    except Exception as e:  # noqa: BLE001 - storage must never stop training
+    # Storage must never stop training: network and file errors (OSError),
+    # HTTP errors (RuntimeError), unexpected responses (ValueError, KeyError).
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"   upload of {path.name} failed: {e}", flush=True)
 
 

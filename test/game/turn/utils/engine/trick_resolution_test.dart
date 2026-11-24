@@ -80,7 +80,7 @@ void main() {
     test('throws when turn handler returns invalid turn', () {
       final state = _buildState();
       final handler = _FakeTurnHandler(
-        (final deck, final cards, final wish) => DeckState.Invalid(),
+        (final deck, final cards, final wish) => DeckState.invalid(),
       );
 
       expect(

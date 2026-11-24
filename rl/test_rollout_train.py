@@ -12,19 +12,15 @@ layouts before v7 pad / widen with zeros and keep their outputs.
 from __future__ import annotations
 
 import json
-import sys
 import tempfile
 from pathlib import Path
 
 import numpy as np
 import torch
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from qnet import QNetwork, export_safetensors, load_qnetwork_from_safetensors  # noqa: E402
-from data_upgrade import BEAT  # noqa: E402
-from rollout_train import evaluate, load, save_npz  # noqa: E402
-from schema import (  # noqa: E402
+from data_upgrade import BEAT
+from qnet import QNetwork, export_safetensors, load_qnetwork_from_safetensors
+from rollout_train import evaluate, load, save_npz
+from schema import (
     ACTION_FEATURE_COUNT,
     ACTION_OFFSET,
     LEGACY_ACTION_FEATURE_COUNT,

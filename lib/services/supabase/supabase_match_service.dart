@@ -85,10 +85,10 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
     signatureOf: (final value) => jsonEncode(
       match_dto.GameMatchConnectionSnapshotDto.fromDomain(value).toJson(),
     ),
-    onStatus: (final controller, final status, final error) {
+    onStatus: (final emit, final status, final error) {
       if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.timedOut) {
-        controller.add(
+        emit(
           GameMatchConnectionSnapshot(
             state: GameMatchConnectionState.reconnecting,
             detail: error?.toString(),
@@ -97,8 +97,8 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
         );
       }
     },
-    onProjectionMiss: (final controller) async {
-      controller.add(
+    onProjectionMiss: (final emit) async {
+      emit(
         GameMatchConnectionSnapshot(
           state: GameMatchConnectionState.closed,
           updatedAt: DateTime.now(),

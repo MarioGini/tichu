@@ -34,7 +34,7 @@ class TurnRulesAdapter {
   TichuTurn? firstPlayableBomb(final DeckState deck, final List<Card> hand) {
     for (final bomb in bombsInHand(hand)) {
       final updated = tryApplyTurn(deck, bomb.cards, CardFace.none, hand: hand);
-      if (updated.turn != TichuTurn.InvalidTurn()) {
+      if (updated.turn != TichuTurn.invalid()) {
         return bomb;
       }
     }

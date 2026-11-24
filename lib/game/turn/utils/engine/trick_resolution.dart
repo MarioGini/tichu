@@ -24,7 +24,7 @@ void applyPlayAction(
     action.inputWish,
     hand: hand,
   );
-  if (updatedDeck.turn == TichuTurn.InvalidTurn()) {
+  if (updatedDeck.turn == TichuTurn.invalid()) {
     throw const IllegalActionException('Invalid turn.');
   }
 

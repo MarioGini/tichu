@@ -20,7 +20,7 @@ class GamePlayController {
     }
 
     final selectedTurn = _turnRules.detectTurn(selectedCards);
-    if (selectedTurn == TichuTurn.InvalidTurn()) {
+    if (selectedTurn == TichuTurn.invalid()) {
       return null;
     }
 
@@ -30,7 +30,7 @@ class GamePlayController {
       CardFace.none,
       hand: hand,
     );
-    if (updated.turn == TichuTurn.InvalidTurn()) {
+    if (updated.turn == TichuTurn.invalid()) {
       return null;
     }
 
@@ -76,7 +76,7 @@ class GamePlayController {
         CardFace.none,
         hand: hand,
       );
-      if (updated.turn != TichuTurn.InvalidTurn()) {
+      if (updated.turn != TichuTurn.invalid()) {
         return true;
       }
     }
@@ -125,7 +125,7 @@ class GamePlayController {
       CardFace.none,
       hand: hand,
     );
-    return updated.turn != TichuTurn.InvalidTurn();
+    return updated.turn != TichuTurn.invalid();
   }
 
   /// Whether the given turn contains Mah Jong and thus requires a wish input.

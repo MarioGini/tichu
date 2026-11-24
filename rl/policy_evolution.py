@@ -23,16 +23,12 @@ from __future__ import annotations
 import argparse
 import collections
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
 import torch
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from qnet import load_qnetwork_from_safetensors  # noqa: E402
-from rollout_train import pad_action, pad_state  # noqa: E402
+from qnet import load_qnetwork_from_safetensors
+from rollout_train import pad_action, pad_state
 
 
 def situation(desc: dict, acts: list[str]) -> list[str]:

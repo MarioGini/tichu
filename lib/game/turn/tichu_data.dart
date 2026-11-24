@@ -129,8 +129,8 @@ class TichuTurn {
 
   TichuTurn(this.type, this.cards) : value = getValue(type, cards);
 
-  // ignore: non_constant_identifier_names, prefer_constructors_over_static_methods, legacy sentinel API
-  static TichuTurn InvalidTurn() => TichuTurn(TurnType.none, const []);
+  /// No turn: an empty trick (type [TurnType.none]).
+  TichuTurn.invalid() : this(TurnType.none, const []);
 
   static double getValue(final TurnType type, final List<Card> cards) {
     final sortedCards = [...cards]..sort(compareCards);
@@ -205,7 +205,6 @@ class DeckState {
 
   DeckState(this.turn, this.wish);
 
-  // ignore: non_constant_identifier_names, prefer_constructors_over_static_methods, legacy sentinel API
-  static DeckState Invalid() =>
-      DeckState(TichuTurn.InvalidTurn(), CardFace.none);
+  /// An empty trick with no wish.
+  DeckState.invalid() : this(TichuTurn.invalid(), CardFace.none);
 }

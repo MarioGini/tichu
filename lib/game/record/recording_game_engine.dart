@@ -477,10 +477,10 @@ class RecordingGameEngine implements GameEngine {
   void _changed(final String gameId) {
     final record = _records[gameId];
     if (record == null) return;
-    // Closed in [forget].
-    // ignore: close_sinks
-    final controller = _controllers[gameId];
-    if (controller != null && !controller.isClosed) controller.add(record);
+    // The controllers are closed in [forget].
+    if (_controllers[gameId] case final controller? when !controller.isClosed) {
+      controller.add(record);
+    }
     final store = this.store;
     if (store != null) {
       _saves
@@ -620,8 +620,7 @@ class _SaveQueue {
       try {
         await save();
         // A failing store must never break the game.
-        // ignore: avoid_catches_without_on_clauses
-      } catch (error) {
+      } on Object catch (error) {
         failure = error;
       }
       done(failure);

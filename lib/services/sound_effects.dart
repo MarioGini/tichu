@@ -14,8 +14,7 @@ class SoundEffects {
 
   static bool get enabled => _enabled;
 
-  // ignore: simple toggle API
-  static void setEnabled(final bool value) {
+  static set enabled(final bool value) {
     _enabled = value;
     if (!value) {
       unawaited(_player?.stop());

@@ -25,7 +25,7 @@ void main() {
       const wish = CardFace.nine;
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), false);
     });
     test('canPlayTest', () {
@@ -33,7 +33,7 @@ void main() {
       const wish = CardFace.king;
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
     test('canPlayWithPhoenixTest', () {
@@ -41,7 +41,7 @@ void main() {
       const wish = CardFace.jack;
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
   });
@@ -111,7 +111,7 @@ void main() {
       ];
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final card) => card.face == wish), true);
+      expect(cards.any((card) => card.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
   });
@@ -133,7 +133,7 @@ void main() {
       ];
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final card) => card.face == wish), true);
+      expect(cards.any((card) => card.face == wish), true);
       expect(canPlayWish(deck, cards), false);
     });
     test('canPlayTripletSingleAndPhoenix', () {
@@ -147,7 +147,7 @@ void main() {
       ];
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
     test('canPlayTwoPairsAndPhoenix', () {
@@ -160,7 +160,7 @@ void main() {
       ];
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
     test('canPlayWithoutPhoenix', () {
@@ -174,7 +174,7 @@ void main() {
       ];
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
     test('cannotPlayWithoutPhoenix', () {
@@ -187,7 +187,7 @@ void main() {
       ];
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), false);
     });
   });

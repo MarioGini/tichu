@@ -5,8 +5,8 @@ mixin _LocalMatchApi on _LocalTableBase
     implements GameMatchService, AdjustableAutomatedActionDelay {
   @override
   Stream<GameMatchView> watchMatch(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) async* {
     final resolved = _requireActiveMatch(matchId, accessToken);
     final current = resolved.lobby.latestMatchState;
@@ -16,7 +16,7 @@ mixin _LocalMatchApi on _LocalTableBase
       );
     }
     yield* resolved.lobby.matchEvents.stream.map(
-      (final event) => _roundTripMatchView(
+      (event) => _roundTripMatchView(
         _buildMatchView(resolved.lobby, resolved.participant, event),
       ),
     );
@@ -24,8 +24,8 @@ mixin _LocalMatchApi on _LocalTableBase
 
   @override
   Stream<GameMatchConnectionSnapshot> watchConnection(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) async* {
     final resolved = _requireActiveMatch(matchId, accessToken);
     final current = resolved.lobby.lastConnectionSnapshot;
@@ -39,9 +39,9 @@ mixin _LocalMatchApi on _LocalTableBase
 
   @override
   Future<void> submitAction(
-    final String matchId,
-    final GameActionSubmission submission, {
-    required final String accessToken,
+    String matchId,
+    GameActionSubmission submission, {
+    required String accessToken,
   }) async {
     final decodedSubmission = _roundTripSubmission(submission);
     final resolved = _requireActiveMatch(matchId, accessToken);
@@ -67,18 +67,17 @@ mixin _LocalMatchApi on _LocalTableBase
       _stateStore.appendAction(
         matchId,
         lobby.lobbyId,
-        match_dto.GameActionSubmissionDto.fromDomain(
-          decodedSubmission,
-        ).toJson(),
+        match_dto.GameActionSubmissionDto.fromDomain(decodedSubmission)
+            .toJson(),
       ),
     );
   }
 
   @override
   Future<void> acknowledgeRoundSummary(
-    final String matchId,
-    final RoundSummaryAcknowledgement acknowledgement, {
-    required final String accessToken,
+    String matchId,
+    RoundSummaryAcknowledgement acknowledgement, {
+    required String accessToken,
   }) async {
     final decodedAcknowledgement = _roundTripAcknowledgement(acknowledgement);
     final resolved = _requireActiveMatch(matchId, accessToken);
@@ -121,10 +120,7 @@ mixin _LocalMatchApi on _LocalTableBase
   }
 
   @override
-  Future<void> leaveMatch(
-    final String matchId, {
-    required final String accessToken,
-  }) async {
+  Future<void> leaveMatch(String matchId, {required String accessToken}) async {
     final resolved = _requireActiveMatch(matchId, accessToken);
     final lobby = resolved.lobby;
     final participant = resolved.participant;
@@ -138,7 +134,7 @@ mixin _LocalMatchApi on _LocalTableBase
     }
 
     if (lobby.participantsByPlayerId.values.every(
-      (final entry) => !entry.isConnected,
+      (entry) => !entry.isConnected,
     )) {
       await _closeLobby(lobby);
       return;
@@ -149,9 +145,9 @@ mixin _LocalMatchApi on _LocalTableBase
 
   @override
   Future<void> setMatchAutomatedActionDelay(
-    final String matchId, {
-    required final String accessToken,
-    required final Duration delay,
+    String matchId, {
+    required String accessToken,
+    required Duration delay,
   }) async {
     final resolved = _requireActiveMatch(matchId, accessToken);
     resolved.lobby.automatedActionDelay = delay;
@@ -159,8 +155,8 @@ mixin _LocalMatchApi on _LocalTableBase
   }
 
   Future<void> sendMatchHeartbeat(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) async {
     final resolved = _requireActiveMatch(matchId, accessToken);
     _updateHeartbeat(resolved.lobby, resolved.participant);

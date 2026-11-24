@@ -8,7 +8,7 @@ import '../../utils/test_game_match_service.dart';
 
 void main() {
   testWidgets('shows dragon recipients as left then right from player view', (
-    final tester,
+    tester,
   ) async {
     final backend = FakeGameMatchService();
 

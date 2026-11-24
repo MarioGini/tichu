@@ -27,7 +27,7 @@ void main() {
       )..currentWinner = aiTestLeftId;
       final play = TichuTurn(TurnType.single, [ace]);
 
-      double scoreWith(final List<Card> rightHand) => scorer.scoreTurn(
+      double scoreWith(List<Card> rightHand) => scorer.scoreTurn(
         aiSnapshot(
           myHand: hand,
           deck: deck,

@@ -22,14 +22,14 @@ const _players = [
   GamePlayer(id: 'p4', name: 'P4', seat: 3, type: PlayerType.automated),
 ];
 
-SmartAiAgent _searchingBot(final String id) =>
+SmartAiAgent _searchingBot(String id) =>
     SmartAiAgent(id, endgameSearch: _search);
 
 /// Plays heuristic games and collects on-turn endgame decisions the search
 /// applies to (<= 5 cards, >= 2 actions, no finishing move).
 (List<GameEngineState>, Future<void> Function()) _endgameStates(
-  final GameEngine engine,
-  final int n,
+  GameEngine engine,
+  int n,
 ) {
   final out = <GameEngineState>[];
   final state = engine.createGame(
@@ -153,7 +153,7 @@ void main() {
       'returns a legal action, deterministically, without recursion',
       () async {
         var rolloutAgents = 0;
-        PlayerAgent factory(final String id, final int _) {
+        PlayerAgent factory(String id, int _) {
           rolloutAgents++;
           // Rollout bots carry a search config too: only the searcher runs a
           // search, and it never calls itself from a rollout.
@@ -186,9 +186,7 @@ void main() {
           } else {
             final key = EndgameSearcher.slotKey((a as PlayTurnAction).cards);
             expect(
-              options.turns.any(
-                (final t) => EndgameSearcher.slotKey(t.cards) == key,
-              ),
+              options.turns.any((t) => EndgameSearcher.slotKey(t.cards) == key),
               isTrue,
             );
           }
@@ -249,9 +247,9 @@ void main() {
       var trials = 0;
       for (final state in states) {
         final id = state.players[state.currentPlayerIndex].id;
-        final me = state.players.firstWhere((final p) => p.id == id);
+        final me = state.players.firstWhere((p) => p.id == id);
         final partner = state.players
-            .firstWhere((final p) => p.seat == (me.seat + 2) % 4)
+            .firstWhere((p) => p.seat == (me.seat + 2) % 4)
             .id;
         if (state.hands[partner]!.isEmpty) continue;
         // One unseen card the partner does not hold; the belief says he does.
@@ -261,7 +259,7 @@ void main() {
         ];
         if (others.isEmpty) continue;
         final card = others.first;
-        final holders = List.generate(56, (final _) => [1 / 3, 1 / 3, 1 / 3]);
+        final holders = List.generate(56, (_) => [1 / 3, 1 / 3, 1 / 3]);
         holders[cardSlot(card)] = [0.01, 0.98, 0.01];
         for (var k = 0; k < 20; k++) {
           final world = redealWorld(state, id, Random(k), holders: holders);
@@ -269,11 +267,11 @@ void main() {
           for (final p in state.players) {
             expect(world.hands[p.id]!.length, state.hands[p.id]!.length);
           }
-          if (world.hands[partner]!.any((final c) => _card(c) == _card(card))) {
+          if (world.hands[partner]!.any((c) => _card(c) == _card(card))) {
             withBelief++;
           }
           final flat = redealWorld(state, id, Random(k));
-          if (flat.hands[partner]!.any((final c) => _card(c) == _card(card))) {
+          if (flat.hands[partner]!.any((c) => _card(c) == _card(card))) {
             uniform++;
           }
           trials++;
@@ -285,7 +283,7 @@ void main() {
 
     test('skips decisions outside the endgame', () async {
       final searcher = EndgameSearcher(
-        rolloutAgent: (final id, final _) {
+        rolloutAgent: (id, _) {
           fail('no rollout expected');
         },
       );
@@ -302,8 +300,8 @@ void main() {
   });
 }
 
-String _card(final Card c) => '${c.face.name}-${c.color.name}';
+String _card(Card c) => '${c.face.name}-${c.color.name}';
 
-String _key(final GameAction a) => a is PlayTurnAction
+String _key(GameAction a) => a is PlayTurnAction
     ? 'play ${EndgameSearcher.slotKey(a.cards)} ${a.inputWish}'
     : a.runtimeType.toString();

@@ -97,38 +97,35 @@ void main() {
       expect(pass, isA<PassAction>());
     });
 
-    test(
-      'selectPartnerSupportPass returns null when partner called but opponent is leading',
-      () {
-        final deckTurn = TichuTurn(TurnType.single, [
-          Card(CardFace.five, CardColor.red),
-        ]);
-        final deck = DeckState(deckTurn, CardFace.none)
-          ..currentWinner = aiTestLeftId;
-        final snapshot = aiSnapshot(
-          myHand: [Card(CardFace.six, CardColor.blue)],
-          deck: deck,
-          tichuCalls: {aiTestPartnerId: TichuCall.grandTichu},
-          otherHands: {
-            aiTestLeftId: aiDefaultHand(),
-            aiTestPartnerId: [Card(CardFace.ace, CardColor.red)],
-            aiTestRightId: aiDefaultHand(),
-          },
-          lastPlayedBy: aiTestLeftId,
-          lastPlayedTurn: deckTurn,
-        );
+    test('selectPartnerSupportPass returns null when partner called but opponent is leading', () {
+      final deckTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.five, CardColor.red),
+      ]);
+      final deck = DeckState(deckTurn, CardFace.none)
+        ..currentWinner = aiTestLeftId;
+      final snapshot = aiSnapshot(
+        myHand: [Card(CardFace.six, CardColor.blue)],
+        deck: deck,
+        tichuCalls: {aiTestPartnerId: TichuCall.grandTichu},
+        otherHands: {
+          aiTestLeftId: aiDefaultHand(),
+          aiTestPartnerId: [Card(CardFace.ace, CardColor.red)],
+          aiTestRightId: aiDefaultHand(),
+        },
+        lastPlayedBy: aiTestLeftId,
+        lastPlayedTurn: deckTurn,
+      );
 
-        final pass = policy.selectPartnerSupportPass(
-          playerId: aiTestSelfId,
-          snapshot: snapshot,
-          deck: deck,
-          hand: snapshot.hands[aiTestSelfId]!,
-          table: TableRelationships(snapshot, aiTestSelfId),
-        );
+      final pass = policy.selectPartnerSupportPass(
+        playerId: aiTestSelfId,
+        snapshot: snapshot,
+        deck: deck,
+        hand: snapshot.hands[aiTestSelfId]!,
+        table: TableRelationships(snapshot, aiTestSelfId),
+      );
 
-        expect(pass, isNull);
-      },
-    );
+      expect(pass, isNull);
+    });
 
     test('selectPartnerSupportPass returns null when wish is fulfillable', () {
       final deckTurn = TichuTurn(TurnType.single, [

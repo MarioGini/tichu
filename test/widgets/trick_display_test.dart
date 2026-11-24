@@ -5,12 +5,12 @@ import 'package:tichu/widgets/card_widget.dart';
 import 'package:tichu/widgets/trick_display.dart';
 
 void main() {
-  Widget buildWidget(final TrickDisplay child) => MaterialApp(
+  Widget buildWidget(TrickDisplay child) => MaterialApp(
     home: Scaffold(body: Center(child: child)),
   );
 
   testWidgets('does not render wish row when no active wish exists', (
-    final tester,
+    tester,
   ) async {
     await tester.pumpWidget(
       buildWidget(
@@ -26,7 +26,7 @@ void main() {
     expect(find.byType(CardValueChip), findsNothing);
   });
 
-  testWidgets('renders wish row when active wish exists', (final tester) async {
+  testWidgets('renders wish row when active wish exists', (tester) async {
     await tester.pumpWidget(
       buildWidget(
         const TrickDisplay(
@@ -42,7 +42,7 @@ void main() {
   });
 
   testWidgets('does not duplicate wish card when trick already has Mahjong', (
-    final tester,
+    tester,
   ) async {
     await tester.pumpWidget(
       buildWidget(

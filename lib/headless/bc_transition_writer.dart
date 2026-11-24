@@ -38,13 +38,13 @@ class _BcTransitionWriter {
   ///   {"episode", "round", "team", "call": "tichu"|"grand",
   ///    "called": bool, "explore": bool, "state_features": [...]}
   void emitCallDecision({
-    required final String kind,
-    required final GameSnapshot snapshot,
-    required final String playerId,
-    required final bool called,
-    required final bool explored,
-    final double? counterfactual,
-    final Map<String, Object?>? cfDetails,
+    required String kind,
+    required GameSnapshot snapshot,
+    required String playerId,
+    required bool called,
+    required bool explored,
+    double? counterfactual,
+    Map<String, Object?>? cfDetails,
   }) {
     output.writeln(
       jsonEncode(<String, Object?>{
@@ -55,17 +55,15 @@ class _BcTransitionWriter {
         // Exact R(call) - R(no call) for this deal, in points (optional).
         'cf': ?counterfactual,
         if (counterfactual != null && cfDetails != null) ...cfDetails,
-        'seat': snapshot.players.firstWhere((final p) => p.id == playerId).seat,
+        'seat': snapshot.players.firstWhere((p) => p.id == playerId).seat,
         // Heuristic hand strength (for calibrating the call threshold).
         'strength': DefaultTichuCallStrategy.tichuStrength(
           snapshot.hands[playerId] ?? const <Card>[],
         ),
         'opp_called': snapshot.players.any(
-          (final p) =>
+          (p) =>
               p.seat % 2 !=
-                  snapshot.players
-                          .firstWhere((final q) => q.id == playerId)
-                          .seat %
+                  snapshot.players.firstWhere((q) => q.id == playerId).seat %
                       2 &&
               (snapshot.scoreState.tichuCalls[p.id] ?? TichuCall.none) !=
                   TichuCall.none,
@@ -96,9 +94,9 @@ class _BcTransitionWriter {
   ///    "left": slot, "partner": slot, "right": slot,
   ///    "context": [gt, tichu] × (me, partner, left, right), "explore"?}
   void emitSchupfDecision({
-    required final GameSnapshot snapshot,
-    required final SchupfAction action,
-    required final bool explored,
+    required GameSnapshot snapshot,
+    required SchupfAction action,
+    required bool explored,
   }) {
     final hand = snapshot.hands[action.playerId] ?? const <Card>[];
     output.writeln(
@@ -123,13 +121,13 @@ class _BcTransitionWriter {
   /// the candidate passes ([left, partner, right] slots; index 0 = the
   /// bot's own choice) and their exact outcomes (see `_labelSchupf`).
   void emitSchupfLabels({
-    required final GameSnapshot snapshot,
-    required final String playerId,
-    required final List<SchupfAction> candidates,
-    required final List<List<int>?> outcomes,
+    required GameSnapshot snapshot,
+    required String playerId,
+    required List<SchupfAction> candidates,
+    required List<List<int>?> outcomes,
   }) {
     final table = TableRelationships(snapshot, playerId);
-    List<int> slots(final String? id) => [
+    List<int> slots(String? id) => [
       for (final c in snapshot.hands[id] ?? const <Card>[]) cardSlot(c),
     ];
     output.writeln(
@@ -157,13 +155,13 @@ class _BcTransitionWriter {
   /// One row per labelled Dragon gift or Mah Jong wish
   /// (`--side-rollout-rate`, see `_labelSideDecision`).
   void emitSideDecision({
-    required final String kind,
-    required final GameSnapshot snapshot,
-    required final String playerId,
-    required final List<Object> options,
-    required final List<double?> values,
-    required final int chosen,
-    required final int trickPoints,
+    required String kind,
+    required GameSnapshot snapshot,
+    required String playerId,
+    required List<Object> options,
+    required List<double?> values,
+    required int chosen,
+    required int trickPoints,
   }) {
     final score = snapshot.scoreState;
     output.writeln(
@@ -172,7 +170,7 @@ class _BcTransitionWriter {
         'round': score.roundNumber,
         'team': _teamForPlayer(snapshot, playerId),
         'side': kind,
-        'seat': snapshot.players.firstWhere((final p) => p.id == playerId).seat,
+        'seat': snapshot.players.firstWhere((p) => p.id == playerId).seat,
         'options': options,
         'values': values,
         'chosen': chosen,
@@ -197,7 +195,7 @@ class _BcTransitionWriter {
         ],
         'finish_seats': [
           for (final id in score.finishOrder)
-            snapshot.players.firstWhere((final p) => p.id == id).seat,
+            snapshot.players.firstWhere((p) => p.id == id).seat,
         ],
         'hand': [
           for (final c in snapshot.hands[playerId] ?? const <Card>[])
@@ -211,13 +209,10 @@ class _BcTransitionWriter {
     );
   }
 
-  String _idAt(final GameSnapshot snapshot, final int seat) =>
-      snapshot.players.firstWhere((final p) => p.seat == seat).id;
+  String _idAt(GameSnapshot snapshot, int seat) =>
+      snapshot.players.firstWhere((p) => p.seat == seat).id;
 
-  void emitRoundEnd(
-    final GameSnapshot after, {
-    final Map<int, int>? cardsLeftAtFirstOut,
-  }) {
+  void emitRoundEnd(GameSnapshot after, {Map<int, int>? cardsLeftAtFirstOut}) {
     final score = after.scoreState;
     output.writeln(
       jsonEncode(<String, Object?>{
@@ -232,7 +227,7 @@ class _BcTransitionWriter {
         'trick_points_by_seat': [
           for (var seat = 0; seat < 4; seat++)
             score.playerRoundPoints[after.players
-                    .firstWhere((final p) => p.seat == seat)
+                    .firstWhere((p) => p.seat == seat)
                     .id] ??
                 0,
         ],
@@ -246,7 +241,7 @@ class _BcTransitionWriter {
         ],
         'finish_seats': [
           for (final id in score.finishOrder)
-            after.players.firstWhere((final p) => p.id == id).seat,
+            after.players.firstWhere((p) => p.id == id).seat,
         ],
         // Cards each seat still held when the first player went out.
         if (cardsLeftAtFirstOut != null)
@@ -262,14 +257,14 @@ class _BcTransitionWriter {
                 e.value.name,
                 score.finishOrder.isNotEmpty &&
                     score.finishOrder.first == e.key,
-                after.players.firstWhere((final p) => p.id == e.key).seat,
+                after.players.firstWhere((p) => p.id == e.key).seat,
               ],
         ],
       }),
     );
   }
 
-  void emitEpisodeEnd(final GameSnapshot snapshot) {
+  void emitEpisodeEnd(GameSnapshot snapshot) {
     final score = snapshot.scoreState;
     output.writeln(
       jsonEncode(<String, Object?>{
@@ -284,15 +279,15 @@ class _BcTransitionWriter {
   }
 
   void emitTransition({
-    required final GameSnapshot before,
-    required final GameAction action,
-    required final bool explored,
-    final GameAction? shadow,
-    final List<double?>? rollouts,
-    final List<double?>? rolloutsOwn,
-    final List<List<double?>>? rolloutWorlds,
-    final bool describe = false,
-    final List<GameAction?>? variants,
+    required GameSnapshot before,
+    required GameAction action,
+    required bool explored,
+    GameAction? shadow,
+    List<double?>? rollouts,
+    List<double?>? rolloutsOwn,
+    List<List<double?>>? rolloutWorlds,
+    bool describe = false,
+    List<GameAction?>? variants,
   }) {
     if (before.phase != GamePhase.play) return;
     if (before.currentPlayerId != action.playerId) return;
@@ -357,7 +352,7 @@ class _BcTransitionWriter {
   /// Perfect-information features for training only (PerfectDou-style
   /// oracle critic): card slots of the left opponent's, partner's and right
   /// opponent's current hands. Never used by the acting policy.
-  List<List<int>> _oracle(final GameSnapshot snapshot, final String playerId) {
+  List<List<int>> _oracle(GameSnapshot snapshot, String playerId) {
     final table = TableRelationships(snapshot, playerId);
     final ids = [
       table.playerBySeat(table.leftSeat()).id,
@@ -370,9 +365,9 @@ class _BcTransitionWriter {
     ];
   }
 
-  int _teamForPlayer(final GameSnapshot snapshot, final String playerId) {
+  int _teamForPlayer(GameSnapshot snapshot, String playerId) {
     final player = snapshot.players.firstWhere(
-      (final p) => p.id == playerId,
+      (p) => p.id == playerId,
       orElse: () => snapshot.players.first,
     );
     return player.seat.isEven ? 0 : 1;

@@ -29,9 +29,7 @@ void main() {
     engine.startGame(state);
     final record = engine.recordFor('g')!;
     final agents = {for (final p in players) p.id: SmartAiAgent(p.id)};
-    final searcher = EndgameSearcher(
-      rolloutAgent: (final id, final _) => SmartAiAgent(id),
-    );
+    final searcher = EndgameSearcher(rolloutAgent: (id, _) => SmartAiAgent(id));
 
     // Play the real game; at every on-turn endgame decision, run the search
     // (as the app's AiTurnRunner does) and check the record is untouched.

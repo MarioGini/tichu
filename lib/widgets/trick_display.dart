@@ -26,7 +26,7 @@ class TrickDisplay extends StatelessWidget {
   final bool showTrickPoints;
 
   @override
-  Widget build(final BuildContext context) => Container(
+  Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.fromLTRB(6, 3, 6, 5),
     decoration: BoxDecoration(
       color: Colors.black.withValues(alpha: 0.3),
@@ -41,7 +41,7 @@ class TrickDisplay extends StatelessWidget {
       ],
     ),
     child: LayoutBuilder(
-      builder: (final context, final constraints) {
+      builder: (context, constraints) {
         final availH = constraints.maxHeight - 8; // container padding
         final placeholderScale = (availH / CardWidget.normalHeight).clamp(
           0.25,
@@ -114,9 +114,8 @@ class TrickDisplay extends StatelessWidget {
             if (dragonGiveLabel.isNotEmpty) ...[
               Text(
                 dragonGiveLabel,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelMedium?.copyWith(color: Colors.amber),
+                style: Theme.of(context).textTheme.labelMedium
+                    ?.copyWith(color: Colors.amber),
                 textAlign: TextAlign.center,
               ),
               SizedBox(height: gap),
@@ -128,9 +127,8 @@ class TrickDisplay extends StatelessWidget {
             if (showTrickPoints && !pointsInHeader)
               Text(
                 'Trick points: $trickPoints',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: Colors.white70),
               ),
             if (cards.isNotEmpty) ...[
               SizedBox(height: cardTopGap.toDouble()),
@@ -143,7 +141,7 @@ class TrickDisplay extends StatelessWidget {
                     spacing: 6 * scale,
                     minVisible: cardW * 0.35,
                     height: cardH + 8,
-                    itemBuilder: (final context, final index) {
+                    itemBuilder: (context, index) {
                       final card = cards[index];
                       return CardWidget(
                         card: card,
@@ -161,7 +159,7 @@ class TrickDisplay extends StatelessWidget {
     ),
   );
 
-  String _wishLabel(final CardFace face) => switch (face) {
+  String _wishLabel(CardFace face) => switch (face) {
     CardFace.none => 'None',
     CardFace.mahJong => 'Mah Jong',
     CardFace.dragon => 'Dragon',
@@ -189,7 +187,7 @@ class _WishPill extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(final BuildContext context) => Container(
+  Widget build(BuildContext context) => Container(
     height: 26,
     padding: const EdgeInsets.only(left: 10, right: 3),
     decoration: BoxDecoration(

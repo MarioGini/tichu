@@ -6,7 +6,7 @@ import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-Card fxCard(final CardFace face, final CardColor color) => Card(face, color);
+Card fxCard(CardFace face, CardColor color) => Card(face, color);
 
 class FakePlayerAgent extends PlayerAgent {
   @override
@@ -24,23 +24,23 @@ class FakePlayerAgent extends PlayerAgent {
   });
 
   @override
-  Future<GameAction> selectAction(final GameSnapshot snapshot) async => action;
+  Future<GameAction> selectAction(GameSnapshot snapshot) async => action;
 
   @override
-  int selectDragonGive(final GameSnapshot snapshot) => dragonSeat;
+  int selectDragonGive(GameSnapshot snapshot) => dragonSeat;
 
   @override
-  Future<SchupfAction> selectSchupfCards(final GameSnapshot snapshot) async =>
+  Future<SchupfAction> selectSchupfCards(GameSnapshot snapshot) async =>
       schupfAction;
 
   @override
-  Future<GameAction> selectTurn(final GameSnapshot snapshot) async => action;
+  Future<GameAction> selectTurn(GameSnapshot snapshot) async => action;
 
   @override
-  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async => false;
+  Future<bool> shouldCallGrandTichu(GameSnapshot snapshot) async => false;
 
   @override
-  Future<bool> shouldCallTichu(final GameSnapshot snapshot) async => false;
+  Future<bool> shouldCallTichu(GameSnapshot snapshot) async => false;
 }
 
 class FakeEngine implements GameEngine {
@@ -50,10 +50,7 @@ class FakeEngine implements GameEngine {
   List<String> opponentIdsResult = const <String>[];
   String? initialPendingDragonBy;
 
-  GameEngineState buildState(
-    final String gameId,
-    final List<GamePlayer> players,
-  ) {
+  GameEngineState buildState(String gameId, List<GamePlayer> players) {
     final score = LocalScoreTracker();
     score.startNewRound(players);
     final state = GameEngineState(
@@ -81,13 +78,13 @@ class FakeEngine implements GameEngine {
 
   @override
   GameEngineState createGame({
-    required final String gameId,
-    required final List<GamePlayer> players,
-    final int targetScore = 1000,
+    required String gameId,
+    required List<GamePlayer> players,
+    int targetScore = 1000,
   }) => buildState(gameId, players);
 
   @override
-  void applyAction(final GameEngineState state, final GameAction action) {
+  void applyAction(GameEngineState state, GameAction action) {
     appliedActions.add(action);
     if (action is PassAction || action is PlayTurnAction) {
       state.currentPlayerIndex =
@@ -102,11 +99,11 @@ class FakeEngine implements GameEngine {
 
   @override
   GameSnapshot buildSnapshot(
-    final GameEngineState state, {
-    final String? pendingOpponentPlayerId,
-    final List<Card>? pendingOpponentCards,
-    final bool pendingOpponentPass = false,
-    final bool opponentAwaitingConfirmation = false,
+    GameEngineState state, {
+    String? pendingOpponentPlayerId,
+    List<Card>? pendingOpponentCards,
+    bool pendingOpponentPass = false,
+    bool opponentAwaitingConfirmation = false,
   }) => GameSnapshot(
     gameId: state.gameId,
     players: state.players,
@@ -136,61 +133,55 @@ class FakeEngine implements GameEngine {
   );
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) => PlayerSnapshot(
-    gameId: snapshot.gameId,
-    players: snapshot.players,
-    hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
-    opponentCardCounts: {
-      for (final p in snapshot.players)
-        if (p.id != playerId)
-          p.id: (snapshot.hands[p.id] ?? const <Card>[]).length,
-    },
-    deck: snapshot.deck,
-    trickPoints: snapshot.trickPoints,
-    activeWish: snapshot.activeWish,
-    currentPlayerId: snapshot.currentPlayerId,
-    consecutivePasses: snapshot.consecutivePasses,
-    lastPlayedBy: snapshot.lastPlayedBy,
-    lastPlayedTurn: snapshot.lastPlayedTurn,
-    lastDragonGiveBy: snapshot.lastDragonGiveBy,
-    lastDragonGiveTo: snapshot.lastDragonGiveTo,
-    pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
-    pendingDragonGiveTargets: snapshot.pendingDragonGiveTargets,
-    pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
-    pendingOpponentCards: snapshot.pendingOpponentCards,
-    pendingOpponentPass: snapshot.pendingOpponentPass,
-    scoreState: snapshot.scoreState,
-    opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
-    phase: snapshot.phase,
-    grandTichuDecisions: const {},
-    schupfCompletedPlayers: const [],
-    schupfReceipts: const [],
-  );
+  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId) =>
+      PlayerSnapshot(
+        gameId: snapshot.gameId,
+        players: snapshot.players,
+        hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
+        opponentCardCounts: {
+          for (final p in snapshot.players)
+            if (p.id != playerId)
+              p.id: (snapshot.hands[p.id] ?? const <Card>[]).length,
+        },
+        deck: snapshot.deck,
+        trickPoints: snapshot.trickPoints,
+        activeWish: snapshot.activeWish,
+        currentPlayerId: snapshot.currentPlayerId,
+        consecutivePasses: snapshot.consecutivePasses,
+        lastPlayedBy: snapshot.lastPlayedBy,
+        lastPlayedTurn: snapshot.lastPlayedTurn,
+        lastDragonGiveBy: snapshot.lastDragonGiveBy,
+        lastDragonGiveTo: snapshot.lastDragonGiveTo,
+        pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
+        pendingDragonGiveTargets: snapshot.pendingDragonGiveTargets,
+        pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
+        pendingOpponentCards: snapshot.pendingOpponentCards,
+        pendingOpponentPass: snapshot.pendingOpponentPass,
+        scoreState: snapshot.scoreState,
+        opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
+        phase: snapshot.phase,
+        grandTichuDecisions: const {},
+        schupfCompletedPlayers: const [],
+        schupfReceipts: const [],
+      );
 
   @override
-  bool hasPendingHumanSchupfReceipts(final GameEngineState state) =>
+  bool hasPendingHumanSchupfReceipts(GameEngineState state) =>
       hasPendingHumanReceipts;
 
   @override
-  List<String> opponentIds(
-    final GameEngineState state,
-    final String playerId,
-  ) => opponentIdsResult;
+  List<String> opponentIds(GameEngineState state, String playerId) =>
+      opponentIdsResult;
 
   @override
-  bool shouldPauseForAutomatedOpponent(
-    final GameEngineState state,
-    final String actorId,
-  ) => shouldPause;
+  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId) =>
+      shouldPause;
 
   @override
-  void startGame(final GameEngineState state) {}
+  void startGame(GameEngineState state) {}
 
   @override
-  void startNewRound(final GameEngineState state) {}
+  void startNewRound(GameEngineState state) {}
 }
 
 final fxPlayers = <GamePlayer>[

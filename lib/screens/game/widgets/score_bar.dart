@@ -17,7 +17,7 @@ class ScoreBar extends StatelessWidget {
   final bool isTeamOne;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final us = isTeamOne ? scoreState.teamOneTotal : scoreState.teamTwoTotal;
     final them = isTeamOne ? scoreState.teamTwoTotal : scoreState.teamOneTotal;

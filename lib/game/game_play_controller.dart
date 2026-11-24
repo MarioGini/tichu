@@ -7,13 +7,13 @@ import 'package:tichu/game/turn_rules_adapter.dart';
 class GamePlayController {
   final TurnRulesAdapter _turnRules;
 
-  GamePlayController({final TurnRulesAdapter? turnRules})
+  GamePlayController({TurnRulesAdapter? turnRules})
     : _turnRules = turnRules ?? TurnRulesAdapter();
 
   TichuTurn? resolveSelectedTurn({
-    required final PlayerSnapshot snapshot,
-    required final List<Card> selectedCards,
-    required final List<Card> hand,
+    required PlayerSnapshot snapshot,
+    required List<Card> selectedCards,
+    required List<Card> hand,
   }) {
     if (selectedCards.isEmpty) {
       return null;
@@ -38,11 +38,11 @@ class GamePlayController {
   }
 
   bool canPlaySelected({
-    required final PlayerSnapshot snapshot,
-    required final String humanId,
-    required final List<Card> hand,
-    required final List<Card> selectedCards,
-    required final bool schupfAckPending,
+    required PlayerSnapshot snapshot,
+    required String humanId,
+    required List<Card> hand,
+    required List<Card> selectedCards,
+    required bool schupfAckPending,
   }) {
     if (!_isPlayTurnForHuman(snapshot, humanId, schupfAckPending)) {
       return false;
@@ -59,10 +59,10 @@ class GamePlayController {
   }
 
   bool canPlayAny({
-    required final PlayerSnapshot snapshot,
-    required final String humanId,
-    required final List<Card> hand,
-    required final bool schupfAckPending,
+    required PlayerSnapshot snapshot,
+    required String humanId,
+    required List<Card> hand,
+    required bool schupfAckPending,
   }) {
     if (!_isPlayTurnForHuman(snapshot, humanId, schupfAckPending)) {
       return false;
@@ -85,10 +85,10 @@ class GamePlayController {
   }
 
   bool canPass({
-    required final PlayerSnapshot snapshot,
-    required final String humanId,
-    required final List<Card> hand,
-    required final bool schupfAckPending,
+    required PlayerSnapshot snapshot,
+    required String humanId,
+    required List<Card> hand,
+    required bool schupfAckPending,
   }) {
     if (!_isPlayTurnForHuman(snapshot, humanId, schupfAckPending)) {
       return false;
@@ -107,11 +107,11 @@ class GamePlayController {
   }
 
   bool shouldAutoSelectFinisher({
-    required final PlayerSnapshot snapshot,
-    required final String humanId,
-    required final List<Card> hand,
-    required final bool schupfAckPending,
-    required final bool hasSelectedCards,
+    required PlayerSnapshot snapshot,
+    required String humanId,
+    required List<Card> hand,
+    required bool schupfAckPending,
+    required bool hasSelectedCards,
   }) {
     if (!_isPlayTurnForHuman(snapshot, humanId, schupfAckPending)) {
       return false;
@@ -129,11 +129,11 @@ class GamePlayController {
   }
 
   /// Whether the given turn contains Mah Jong and thus requires a wish input.
-  bool requiresWishInput(final TichuTurn turn) =>
-      turn.cards.any((final card) => card.face == CardFace.mahJong);
+  bool requiresWishInput(TichuTurn turn) =>
+      turn.cards.any((card) => card.face == CardFace.mahJong);
 
   /// Maps cards to their hand indices (first match, no duplicates).
-  Set<int> cardIndicesInHand(final List<Card> hand, final List<Card> cards) {
+  Set<int> cardIndicesInHand(List<Card> hand, List<Card> cards) {
     final indices = <int>{};
     final used = <int>{};
     for (final card in cards) {
@@ -148,7 +148,7 @@ class GamePlayController {
     return indices;
   }
 
-  bool _cardsMatchForSelection(final Card handCard, final Card selectedCard) {
+  bool _cardsMatchForSelection(Card handCard, Card selectedCard) {
     if (handCard == selectedCard) {
       return true;
     }
@@ -161,13 +161,13 @@ class GamePlayController {
 
   /// Returns the first bomb in [hand] that can beat the current [deck], or
   /// `null` if none exists.
-  TichuTurn? firstPlayableBomb(final DeckState deck, final List<Card> hand) =>
+  TichuTurn? firstPlayableBomb(DeckState deck, List<Card> hand) =>
       _turnRules.firstPlayableBomb(deck, hand);
 
   bool _isPlayTurnForHuman(
-    final PlayerSnapshot snapshot,
-    final String humanId,
-    final bool schupfAckPending,
+    PlayerSnapshot snapshot,
+    String humanId,
+    bool schupfAckPending,
   ) {
     if (snapshot.phase != GamePhase.play) return false;
     if (snapshot.pendingDragonGiveBy == humanId) return false;

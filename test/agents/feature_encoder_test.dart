@@ -57,7 +57,7 @@ void main() {
 
   test('seat features distinguish partner from opponents', () {
     final snap = fxSnapshot(
-      mine: List.generate(5, (final i) => c(CardFace.values[2 + i])),
+      mine: List.generate(5, (i) => c(CardFace.values[2 + i])),
       others: {
         aiTestLeftId: [c(CardFace.king, CardColor.red)],
         aiTestPartnerId: [
@@ -208,7 +208,7 @@ void main() {
   });
 
   test('HandShape detects straights with phoenix and full houses', () {
-    List<int> slots(final List<Card> cards) => [
+    List<int> slots(List<Card> cards) => [
       for (final card in cards) cardSlot(card),
     ];
     final straight = HandShape.fromSlots(
@@ -240,8 +240,8 @@ void main() {
 
   group('deterministic beatability', () {
     FeatureEncoder encoderFor(
-      final List<Card> mine,
-      final Map<String, List<Card>> others,
+      List<Card> mine,
+      Map<String, List<Card>> others,
     ) => FeatureEncoder(
       snapshot: fxSnapshot(mine: mine, others: others),
       playerId: aiTestSelfId,
@@ -315,26 +315,21 @@ void main() {
   });
 
   test('history: cards played and passes on opponents per player', () {
-    RoundLogEntry play(final String id, final List<Card> cards) =>
+    RoundLogEntry play(String id, List<Card> cards) => RoundLogEntry(
+      playerId: id,
+      cards: cards,
+      trickType: TurnType.empty,
+      trickValue: 0,
+      trickWinner: '',
+    );
+    RoundLogEntry pass(String id, TurnType type, double value, String winner) =>
         RoundLogEntry(
           playerId: id,
-          cards: cards,
-          trickType: TurnType.empty,
-          trickValue: 0,
-          trickWinner: '',
+          cards: const [],
+          trickType: type,
+          trickValue: value,
+          trickWinner: winner,
         );
-    RoundLogEntry pass(
-      final String id,
-      final TurnType type,
-      final double value,
-      final String winner,
-    ) => RoundLogEntry(
-      playerId: id,
-      cards: const [],
-      trickType: type,
-      trickValue: value,
-      trickWinner: winner,
-    );
     final snap = fxSnapshot(
       mine: [c(CardFace.two)],
       others: {
@@ -372,17 +367,13 @@ void main() {
   });
 
   test('received: schupf card per sender as a rank one-hot', () {
-    SchupfAction pass(
-      final String id,
-      final Card toLeft,
-      final Card toPartner,
-      final Card toRight,
-    ) => SchupfAction(
-      playerId: id,
-      toLeft: toLeft,
-      toPartner: toPartner,
-      toRight: toRight,
-    );
+    SchupfAction pass(String id, Card toLeft, Card toPartner, Card toRight) =>
+        SchupfAction(
+          playerId: id,
+          toLeft: toLeft,
+          toPartner: toPartner,
+          toRight: toRight,
+        );
     final snap = fxSnapshot(
       mine: [c(CardFace.two), c(CardFace.ace, CardColor.red)],
       others: {
@@ -438,7 +429,7 @@ void main() {
     final dragon = c(CardFace.dragon, CardColor.special);
     final eight = c(CardFace.eight);
     final three = c(CardFace.three, CardColor.red);
-    SchupfAction mine(final Card toLeft, final Card toPartner) => SchupfAction(
+    SchupfAction mine(Card toLeft, Card toPartner) => SchupfAction(
       playerId: aiTestSelfId,
       toLeft: toLeft,
       toPartner: toPartner,

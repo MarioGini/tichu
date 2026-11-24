@@ -8,7 +8,7 @@ import '../../utils/test_game_match_service.dart';
 
 void main() {
   testWidgets('places Opponent 3 on left and Opponent 1 on right', (
-    final tester,
+    tester,
   ) async {
     final backend = FakeGameMatchService();
 
@@ -32,7 +32,7 @@ void main() {
     expect(opponent3Center.dx, lessThan(opponent1Center.dx));
   });
 
-  testWidgets('highlights only the current player', (final tester) async {
+  testWidgets('highlights only the current player', (tester) async {
     final backend = FakeGameMatchService();
 
     await tester.pumpWidget(
@@ -45,7 +45,7 @@ void main() {
     );
     await tester.pump();
 
-    OpponentDisplay opponentByName(final String name) =>
+    OpponentDisplay opponentByName(String name) =>
         tester.widget<OpponentDisplay>(
           find.ancestor(
             of: find.text(name),

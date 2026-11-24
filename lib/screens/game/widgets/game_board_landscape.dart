@@ -3,7 +3,7 @@ part of 'game_board.dart';
 extension _GameBoardLandscape on GameBoard {
   // ── Landscape ────────────────────────────────────────────────────────
 
-  Widget _landscape(final double w, final double h) {
+  Widget _landscape(double w, double h) {
     final topBarH = (h * 0.13).clamp(44.0, 64.0);
     final pillW = (w * 0.19).clamp(132.0, 220.0);
     final pillH = topBarH - 6;
@@ -29,7 +29,7 @@ extension _GameBoardLandscape on GameBoard {
       130.0,
     );
 
-    Widget sideColumn(final Widget pill, final Widget pending) => SizedBox(
+    Widget sideColumn(Widget pill, Widget pending) => SizedBox(
       width: sideW,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

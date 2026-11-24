@@ -92,9 +92,7 @@ void main() {
             for (final e in othersBefore.entries) {
               expect(points[e.key] ?? 0, e.value, reason: '${e.key} unchanged');
             }
-            final outIndex = state.players.indexWhere(
-              (final p) => p.id == watching,
-            );
+            final outIndex = state.players.indexWhere((p) => p.id == watching);
             var next = (outIndex + 1) % 4;
             while (state.finishedPlayers.contains(state.players[next].id)) {
               next = (next + 1) % 4;

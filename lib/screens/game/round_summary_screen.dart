@@ -19,7 +19,7 @@ class RoundSummaryScreen extends StatelessWidget {
   final Future<void> Function()? onStartNextRound;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final isMatchComplete = scoreState.gameComplete;
     final winningTeam = scoreState.winningTeam;
     final winnerLabel = switch (winningTeam) {
@@ -111,7 +111,7 @@ class _ScoreSummaryTable extends StatelessWidget {
   final int localTeam;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     if (scoreState.rounds.isEmpty) {
       return const Text('No scoring data yet.');
     }
@@ -130,8 +130,8 @@ class _ScoreSummaryTable extends StatelessWidget {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     final usFirst = localTeam == 0;
-    int us(final int one, final int two) => usFirst ? one : two;
-    int them(final int one, final int two) => usFirst ? two : one;
+    int us(int one, int two) => usFirst ? one : two;
+    int them(int one, int two) => usFirst ? two : one;
 
     final rows = <TableRow>[
       TableRow(
@@ -142,7 +142,7 @@ class _ScoreSummaryTable extends StatelessWidget {
         ],
       ),
       ...scoreState.rounds.map(
-        (final round) => TableRow(
+        (round) => TableRow(
           children: [
             _ScoreSummaryCell('${round.roundNumber}', style: numberStyle),
             _ScoreSummaryCell(
@@ -201,7 +201,7 @@ class _ScoreSummaryCell extends StatelessWidget {
   final TextStyle? style;
 
   @override
-  Widget build(final BuildContext context) => Padding(
+  Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     child: Text(text, style: style, textAlign: TextAlign.center),
   );

@@ -48,28 +48,23 @@ class RoundLog {
   /// Actions recorded so far (as [replayRoundLog] counts them).
   int get actionCount => actionSeats.length;
 
-  void addGrandTichu(final int seat) => addCall(seat, grand: true);
+  void addGrandTichu(int seat) => addCall(seat, grand: true);
 
   /// A call before the play phase (Grand Tichu, or Tichu at 14 cards).
-  void addCall(final int seat, {required final bool grand}) {
+  void addCall(int seat, {required bool grand}) {
     _calls.write('${grand ? '^' : '*'}$seat');
     // Calls before the schupf replay before it.
     actionSeats.insert(actionSeats.length - _schupfCount, seat);
   }
 
   /// A Tichu call during the play phase.
-  void addTichuDuringPlay(final int seat) {
+  void addTichuDuringPlay(int seat) {
     _moves.write('*$seat');
     _lastWasPlay = false;
     actionSeats.add(seat);
   }
 
-  void addSchupf(
-    final int seat,
-    final Card toLeft,
-    final Card toPartner,
-    final Card toRight,
-  ) {
+  void addSchupf(int seat, Card toLeft, Card toPartner, Card toRight) {
     _schupf[seat] = [toLeft, toPartner, toRight];
     _schupfCount++;
     actionSeats.add(seat);
@@ -81,10 +76,10 @@ class RoundLog {
   }
 
   void addPlay(
-    final int seat,
-    final List<Card> cards, {
-    final CardFace wish = CardFace.none,
-    final bool outOfTurn = false,
+    int seat,
+    List<Card> cards, {
+    CardFace wish = CardFace.none,
+    bool outOfTurn = false,
   }) {
     if (outOfTurn) {
       _moves.write('!$seat');
@@ -101,14 +96,14 @@ class RoundLog {
     actionSeats.add(seat);
   }
 
-  void addPass(final int seat) {
+  void addPass(int seat) {
     _moves.write('.');
     _lastWasPlay = false;
     actionSeats.add(seat);
   }
 
   /// [toLeft]: the trick goes to the opponent on the giver's left.
-  void addDragonGift(final int seat, {required final bool toLeft}) {
+  void addDragonGift(int seat, {required bool toLeft}) {
     _moves.write(toLeft ? '<' : '>');
     _lastWasPlay = false;
     actionSeats.add(seat);
@@ -130,7 +125,7 @@ class RoundLog {
   /// The stored string (see the class comment).
   String encode() {
     final out = StringBuffer(dealCode)..write(_calls);
-    if (_schupf.every((final s) => s != null)) {
+    if (_schupf.every((s) => s != null)) {
       for (final s in _schupf) {
         out.writeAll(s!.map(cardChar));
       }
@@ -188,7 +183,7 @@ const int _phoenix = 54;
 const int _dragon = 55;
 
 /// Index 0-55 of [card] (see [RoundLog]).
-int cardIndex(final Card card) => switch (card.face) {
+int cardIndex(Card card) => switch (card.face) {
   CardFace.mahJong => _mahJong,
   CardFace.dog => _dog,
   CardFace.phoenix => _phoenix,
@@ -199,7 +194,7 @@ int cardIndex(final Card card) => switch (card.face) {
 
 /// One-character code of [card]; a Phoenix with a rank inside a combination
 /// is `~` plus that rank.
-String cardChar(final Card card, {final bool inCombination = false}) {
+String cardChar(Card card, {bool inCombination = false}) {
   if (card.face == CardFace.phoenix && inCombination) {
     final v = card.value;
     if (v == v.roundToDouble() && v >= 2 && v <= 14) {
@@ -210,7 +205,7 @@ String cardChar(final Card card, {final bool inCombination = false}) {
 }
 
 /// Readable label of card index [i]: `Ag`, `10r`, `MahJong`, ...
-String cardIndexLabel(final int i) => switch (i) {
+String cardIndexLabel(int i) => switch (i) {
   _mahJong => 'MahJong',
   _dog => 'Dog',
   _phoenix => 'Phoenix',
@@ -218,11 +213,11 @@ String cardIndexLabel(final int i) => switch (i) {
   _ => '${_rankLabel(_rankFaces[i ~/ 4])}${const ['g', 'b', 'k', 'r'][i % 4]}',
 };
 
-String _rankLabel(final CardFace face) =>
+String _rankLabel(CardFace face) =>
     face == CardFace.ten ? '10' : _rankChars[face]!;
 
 /// The 14 dealt cards (indices) of each seat in a stored round.
-List<List<int>> dealtHands(final String log) {
+List<List<int>> dealtHands(String log) {
   final r = _Reader(log);
   return [
     for (var seat = 0; seat < 4; seat++)
@@ -247,7 +242,7 @@ class RoundLogStep {
 /// Replays a stored round ([RoundLog.encode]); [names] are the players by
 /// seat. Seats follow the engine's turn order. Throws [FormatException] on
 /// a malformed log, e.g. a card the seat does not hold.
-List<RoundLogStep> replayRoundLog(final String log, final List<String> names) {
+List<RoundLogStep> replayRoundLog(String log, List<String> names) {
   final r = _Reader(log);
   final hands = List.generate(4, (_) => <int>[]);
   for (var seat = 0; seat < 4; seat++) {
@@ -256,16 +251,15 @@ List<RoundLogStep> replayRoundLog(final String log, final List<String> names) {
     }
   }
   final steps = <RoundLogStep>[];
-  void step(final int seat, final String text) => steps.add(
+  void step(int seat, String text) => steps.add(
     RoundLogStep(
       seat: seat,
       text: text,
       hands: [for (final h in hands) List<int>.unmodifiable(h)],
     ),
   );
-  String labels(final Iterable<int> cards) =>
-      cards.map(cardIndexLabel).join(' ');
-  void take(final int seat, final List<int> cards) {
+  String labels(Iterable<int> cards) => cards.map(cardIndexLabel).join(' ');
+  void take(int seat, List<int> cards) {
     for (final c in cards) {
       if (!hands[seat].remove(c)) {
         throw FormatException(
@@ -304,8 +298,8 @@ List<RoundLogStep> replayRoundLog(final String log, final List<String> names) {
 
   // Play, mirroring the engine's turn order (trick_resolution.dart).
   final out = <int>[];
-  bool isOut(final int seat) => out.contains(seat);
-  int nextActive(final int from) {
+  bool isOut(int seat) => out.contains(seat);
+  int nextActive(int from) {
     var next = (from + 1) % 4;
     while (isOut(next) && next != from) {
       next = (next + 1) % 4;
@@ -313,7 +307,7 @@ List<RoundLogStep> replayRoundLog(final String log, final List<String> names) {
     return next;
   }
 
-  var current = hands.indexWhere((final h) => h.contains(_mahJong));
+  var current = hands.indexWhere((h) => h.contains(_mahJong));
   int? lastPlayedBy;
   var trickOpen = false;
 

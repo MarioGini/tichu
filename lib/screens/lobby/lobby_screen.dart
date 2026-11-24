@@ -49,7 +49,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     super.dispose();
   }
 
-  void _handleLobbySnapshot(final GameLobbySnapshot snapshot) {
+  void _handleLobbySnapshot(GameLobbySnapshot snapshot) {
     if (!mounted) return;
     setState(() {
       _lobby = snapshot;
@@ -60,14 +60,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
-  void _handleLobbyError(final Object error) {
+  void _handleLobbyError(Object error) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$error')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$error')));
   }
 
-  Future<void> _openMatch(final GameLobbySnapshot lobby) async {
+  Future<void> _openMatch(GameLobbySnapshot lobby) async {
     final matchId = lobby.matchId;
     if (matchId == null || !mounted) return;
 
@@ -92,12 +91,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (joinCode == null) return;
     await Clipboard.setData(ClipboardData(text: joinCode));
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Join code copied.')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Join code copied.')));
   }
 
-  Future<void> _claimSeat(final int seat) async {
+  Future<void> _claimSeat(int seat) async {
     await _runLobbyAction(() async {
       await _sessionService.claimSeat(
         widget.sessionHandle.lobbyId,
@@ -163,7 +161,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     });
   }
 
-  Future<void> _runLobbyAction(final Future<void> Function() action) async {
+  Future<void> _runLobbyAction(Future<void> Function() action) async {
     if (_isBusy) return;
     setState(() {
       _isBusy = true;
@@ -172,9 +170,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
       await action();
     } on Object catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$error')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$error')));
     } finally {
       if (mounted) {
         setState(() {
@@ -184,7 +181,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
-  GameLobbySeatSnapshot? _localSeatSnapshot(final GameLobbySnapshot lobby) {
+  GameLobbySeatSnapshot? _localSeatSnapshot(GameLobbySnapshot lobby) {
     for (final seat in lobby.seats) {
       if (seat.playerId == widget.sessionHandle.playerId) {
         return seat;
@@ -194,12 +191,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final lobby = _lobby;
     final localSeat = lobby == null ? null : _localSeatSnapshot(lobby);
     final hasOpenSeats =
         lobby != null &&
-        lobby.seats.any((final seat) => seat.state == GameLobbySeatState.open);
+        lobby.seats.any((seat) => seat.state == GameLobbySeatState.open);
     final size = MediaQuery.sizeOf(context);
     final shortScreen = size.height < 500;
 
@@ -246,8 +243,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                   localPlayerId: widget.sessionHandle.playerId,
                                   onClaim: _isBusy
                                       ? null
-                                      : (final seat) =>
-                                            unawaited(_claimSeat(seat)),
+                                      : (seat) => unawaited(_claimSeat(seat)),
                                 ),
                                 const SizedBox(height: 10),
                                 Text(

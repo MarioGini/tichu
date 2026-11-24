@@ -3,8 +3,8 @@ part of 'play_tactics_policy.dart';
 /// Tactics that are never swapped out in tests (so not overridable).
 extension PlayTacticsExtras on PlayTacticsPolicy {
   TichuTurn? selectEarlyDogLead({
-    required final List<TichuTurn> legalTurns,
-    required final bool isLeading,
+    required List<TichuTurn> legalTurns,
+    required bool isLeading,
   }) {
     if (!isLeading) {
       return null;
@@ -12,7 +12,7 @@ extension PlayTacticsExtras on PlayTacticsPolicy {
 
     for (final turn in legalTurns) {
       if (turn.type == TurnType.dog ||
-          turn.cards.any((final card) => card.face == CardFace.dog)) {
+          turn.cards.any((card) => card.face == CardFace.dog)) {
         return turn;
       }
     }
@@ -21,11 +21,11 @@ extension PlayTacticsExtras on PlayTacticsPolicy {
   }
 
   TichuTurn? selectPartnerGrandTichuDogLead({
-    required final String playerId,
-    required final GameSnapshot snapshot,
-    required final List<TichuTurn> legalTurns,
-    required final bool isLeading,
-    required final TableRelationships table,
+    required String playerId,
+    required GameSnapshot snapshot,
+    required List<TichuTurn> legalTurns,
+    required bool isLeading,
+    required TableRelationships table,
   }) {
     if (!isLeading) {
       return null;
@@ -48,7 +48,7 @@ extension PlayTacticsExtras on PlayTacticsPolicy {
 
     for (final turn in legalTurns) {
       if (turn.type == TurnType.dog ||
-          turn.cards.any((final card) => card.face == CardFace.dog)) {
+          turn.cards.any((card) => card.face == CardFace.dog)) {
         return turn;
       }
     }
@@ -57,10 +57,10 @@ extension PlayTacticsExtras on PlayTacticsPolicy {
   }
 
   bool opponentTichuNearFinishWinning({
-    required final String playerId,
-    required final GameSnapshot snapshot,
-    required final DeckState deck,
-    required final TableRelationships table,
+    required String playerId,
+    required GameSnapshot snapshot,
+    required DeckState deck,
+    required TableRelationships table,
   }) {
     final winnerId = deck.currentWinner.isNotEmpty
         ? deck.currentWinner
@@ -85,22 +85,20 @@ extension PlayTacticsExtras on PlayTacticsPolicy {
   /// combos are preserved.  Returns the lowest such singleton, or `null` if
   /// none exists (in which case the caller falls through to the scorer).
   TichuTurn? selectSingletonResponse({
-    required final List<TichuTurn> legalTurns,
-    required final DeckState deck,
-    required final List<Card> hand,
+    required List<TichuTurn> legalTurns,
+    required DeckState deck,
+    required List<Card> hand,
   }) {
     if (deck.turn.type != TurnType.single) return null;
 
-    final singles = legalTurns
-        .where((final t) => t.type == TurnType.single)
-        .toList();
+    final singles = legalTurns.where((t) => t.type == TurnType.single).toList();
     if (singles.isEmpty) return null;
 
     // Count how many times each face appears in the hand (ignoring specials
     // like phoenix which can substitute for anything).
     final normalCards = hand
         .where(
-          (final c) =>
+          (c) =>
               c.face != CardFace.phoenix &&
               c.face != CardFace.dog &&
               c.face != CardFace.dragon,
@@ -108,7 +106,7 @@ extension PlayTacticsExtras on PlayTacticsPolicy {
         .toList();
     final occurrences = getOccurrenceCount(normalCards);
 
-    final hasNaturalWinningSingle = singles.any((final t) {
+    final hasNaturalWinningSingle = singles.any((t) {
       final face = t.cards.first.face;
       return face != CardFace.phoenix &&
           face != CardFace.dragon &&
@@ -116,7 +114,7 @@ extension PlayTacticsExtras on PlayTacticsPolicy {
     });
 
     // Filter to singles whose face is a true singleton in the hand.
-    final singletonPlays = singles.where((final t) {
+    final singletonPlays = singles.where((t) {
       final face = t.cards.first.face;
       // Dragon and dog are always fine to play. Preserve phoenix when a
       // natural winning single exists, since phoenix is our most flexible
@@ -133,7 +131,7 @@ extension PlayTacticsExtras on PlayTacticsPolicy {
     if (singletonPlays.isEmpty) return null;
 
     // Pick the lowest-value singleton.
-    singletonPlays.sort((final a, final b) => a.value.compareTo(b.value));
+    singletonPlays.sort((a, b) => a.value.compareTo(b.value));
     return singletonPlays.first;
   }
 }

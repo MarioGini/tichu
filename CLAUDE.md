@@ -22,7 +22,7 @@
 
 ## Toolchain
 
-- Flutter 3.50.x (Dart 3.14). `pubspec.lock` is resolved with this version.
+- Flutter 3.50.1 (Dart 3.14.0). `pubspec.lock` is resolved with this version.
 - Check before committing: `flutter analyze` (0 errors/warnings) and `flutter test`.
 - Never silence lints: no `// ignore:` / `// ignore_for_file:` in Dart, no
   `# noqa` / `# type: ignore` / `# pylint: disable` in Python, no rules set to

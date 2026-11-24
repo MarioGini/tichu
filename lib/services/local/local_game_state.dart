@@ -21,7 +21,7 @@ class LocalGameState {
     : controller = StreamController<GameSnapshot>.broadcast();
 
   Stream<GameSnapshot> watchSnapshots() =>
-      Stream<GameSnapshot>.multi((final streamController) {
+      Stream<GameSnapshot>.multi((streamController) {
         final current = latestSnapshot;
         if (current != null) {
           streamController.add(current);

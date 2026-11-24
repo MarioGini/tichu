@@ -7,9 +7,7 @@ import '../../utils/test_game_fixtures.dart';
 import '../../utils/test_game_match_service.dart';
 
 void main() {
-  testWidgets('enables bomb button when hand contains bomb', (
-    final tester,
-  ) async {
+  testWidgets('enables bomb button when hand contains bomb', (tester) async {
     final backend = FakeGameMatchService();
 
     await tester.pumpWidget(

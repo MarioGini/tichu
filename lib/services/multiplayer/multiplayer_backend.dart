@@ -26,8 +26,8 @@ abstract interface class MultiplayerBackend {
 
 class LocalMultiplayerBackend implements MultiplayerBackend {
   LocalMultiplayerBackend({
-    final LocalGameTableService? tableService,
-    final GameRecordStore? recordStore,
+    LocalGameTableService? tableService,
+    GameRecordStore? recordStore,
   }) : _tableService =
            tableService ??
            LocalGameTableService(

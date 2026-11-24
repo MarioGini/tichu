@@ -46,7 +46,7 @@ void main() {
       final legal = adapter.legalTurns(deck, hand);
 
       expect(legal, isNotEmpty);
-      expect(legal.any((final turn) => turn.type == TurnType.single), isTrue);
+      expect(legal.any((turn) => turn.type == TurnType.single), isTrue);
     });
 
     test('bombsInHand identifies quartet bomb in hand', () {

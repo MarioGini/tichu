@@ -24,7 +24,7 @@ AccountService createAccountService() => supabaseConfigured
 /// Keeps the account in local storage (shared_preferences; localStorage on
 /// web), so the device is recognised again as long as its app data is kept.
 class LocalAccountService implements AccountService {
-  LocalAccountService({final DateTime Function()? clock})
+  LocalAccountService({DateTime Function()? clock})
     : _clock = clock ?? DateTime.now;
 
   static const storageKey = 'account.local';
@@ -48,17 +48,17 @@ class LocalAccountService implements AccountService {
   }
 
   @override
-  Future<PlayerAccount> updateDisplayName(final String name) async =>
+  Future<PlayerAccount> updateDisplayName(String name) async =>
       save((await load()).copyWith(displayName: normalizeDisplayName(name)));
 
   /// Stores [account] as this device's account.
-  Future<PlayerAccount> save(final PlayerAccount account) async {
+  Future<PlayerAccount> save(PlayerAccount account) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(storageKey, jsonEncode(account.toJson()));
     return _cached = account;
   }
 
-  static PlayerAccount? _decode(final String? raw) {
+  static PlayerAccount? _decode(String? raw) {
     if (raw == null) return null;
     try {
       return PlayerAccount.fromJson(
@@ -79,7 +79,7 @@ class LocalAccountService implements AccountService {
 class SupabaseAccountService implements AccountService {
   SupabaseAccountService({
     required this.local,
-    final Future<SupabaseClient> Function()? client,
+    Future<SupabaseClient> Function()? client,
   }) : _client = client ?? appSupabaseClient;
 
   static const table = 'tichu_profiles';
@@ -99,9 +99,9 @@ class SupabaseAccountService implements AccountService {
   /// while the account is still loading is not overwritten by the load.
   Future<void> _queue = Future<void>.value();
 
-  Future<T> _serial<T>(final Future<T> Function() op) {
+  Future<T> _serial<T>(Future<T> Function() op) {
     final result = _queue.then((_) => op());
-    _queue = result.then<void>((_) {}, onError: (final Object _) {});
+    _queue = result.then<void>((_) {}, onError: (Object _) {});
     return result;
   }
 
@@ -109,7 +109,7 @@ class SupabaseAccountService implements AccountService {
   Future<PlayerAccount> load() => _serial(_load);
 
   @override
-  Future<PlayerAccount> updateDisplayName(final String name) =>
+  Future<PlayerAccount> updateDisplayName(String name) =>
       _serial(() => _updateDisplayName(name));
 
   Future<PlayerAccount> _load() async {
@@ -155,7 +155,7 @@ class SupabaseAccountService implements AccountService {
     }
   }
 
-  Future<PlayerAccount> _updateDisplayName(final String name) async {
+  Future<PlayerAccount> _updateDisplayName(String name) async {
     final account = await local.updateDisplayName(name);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(pendingNameKey, true);

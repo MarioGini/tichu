@@ -10,9 +10,9 @@ abstract final class TableSeat {
 /// The player sitting [seatOffset] seats from [selfSeat] (see [TableSeat]):
 /// the table is rotated so that the player at [selfSeat] is at the bottom.
 GamePlayer? playerAtRelativeSeat(
-  final List<GamePlayer> players,
-  final int? selfSeat,
-  final int seatOffset,
+  List<GamePlayer> players,
+  int? selfSeat,
+  int seatOffset,
 ) {
   if (players.isEmpty || selfSeat == null) return null;
   final playerCount = players.length;

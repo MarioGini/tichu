@@ -42,13 +42,13 @@ class HandDisplay extends StatelessWidget {
   static const int referenceHandSize = 14;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     if (cards.isEmpty) {
       return _buildEmpty(context);
     }
 
     return LayoutBuilder(
-      builder: (final context, final constraints) {
+      builder: (context, constraints) {
         final availH = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : 180.0;
@@ -106,7 +106,7 @@ class HandDisplay extends StatelessWidget {
                     cardHeight: cardH,
                     spacing: spacing,
                     height: cardH,
-                    itemBuilder: (final context, final index) => CardWidget(
+                    itemBuilder: (context, index) => CardWidget(
                       card: cards[index],
                       isSelected: selectedIndexes.contains(index),
                       onTap: () => onCardTap(index),
@@ -123,7 +123,7 @@ class HandDisplay extends StatelessWidget {
   }
 
   /// Hand played out: a slim full-width bar with the header and position.
-  Widget _buildEmpty(final BuildContext context) {
+  Widget _buildEmpty(BuildContext context) {
     if (header == null && finishPosition == null) {
       return const SizedBox.shrink();
     }
@@ -156,9 +156,8 @@ class HandDisplay extends StatelessWidget {
                 ),
                 child: Text(
                   'Out #$finishPosition',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(color: Colors.greenAccent),
+                  style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(color: Colors.greenAccent),
                 ),
               ),
             ],

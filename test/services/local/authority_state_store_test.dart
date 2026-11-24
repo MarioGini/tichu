@@ -73,8 +73,8 @@ class _RecordingStateStore implements AuthorityStateStore {
 
   @override
   Future<void> saveLobbyState(
-    final String lobbyId,
-    final Map<String, dynamic> state,
+    String lobbyId,
+    Map<String, dynamic> state,
   ) async {
     savedLobbies[lobbyId] = state;
   }
@@ -84,21 +84,21 @@ class _RecordingStateStore implements AuthorityStateStore {
       Map<String, Map<String, dynamic>>.from(savedLobbies);
 
   @override
-  Future<void> deleteLobbyState(final String lobbyId) async {
+  Future<void> deleteLobbyState(String lobbyId) async {
     savedLobbies.remove(lobbyId);
     deletedLobbyIds.add(lobbyId);
   }
 
   @override
   Future<void> appendAction(
-    final String matchId,
-    final String lobbyId,
-    final Map<String, dynamic> action,
+    String matchId,
+    String lobbyId,
+    Map<String, dynamic> action,
   ) async {
     appendedActions.add(action);
   }
 
   @override
-  Future<List<Map<String, dynamic>>> loadActions(final String matchId) async =>
+  Future<List<Map<String, dynamic>>> loadActions(String matchId) async =>
       List<Map<String, dynamic>>.from(appendedActions);
 }

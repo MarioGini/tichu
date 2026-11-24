@@ -2,7 +2,7 @@ part of '../game_screen.dart';
 
 /// The human's hand area and the three other seats around the table.
 mixin _GameScreenSeats on _GameScreenStateBase {
-  Widget _buildHandArea(final BuildContext context, final _TableFlags flags) {
+  Widget _buildHandArea(BuildContext context, _TableFlags flags) {
     final snapshot = flags.snapshot;
     final scoreState = flags.scoreState;
     // The match-end banner expects 0 = the local player's team.
@@ -45,11 +45,11 @@ mixin _GameScreenSeats on _GameScreenStateBase {
   }
 
   OpponentDisplay _buildOpponent(
-    final _TableFlags flags, {
-    required final GamePlayer? player,
-    required final String fallbackName,
-    required final IconData icon,
-    final bool pill = false,
+    _TableFlags flags, {
+    required GamePlayer? player,
+    required String fallbackName,
+    required IconData icon,
+    bool pill = false,
   }) {
     final playerId = player?.id;
     final call = flags.tichuCalls[playerId];
@@ -72,10 +72,10 @@ mixin _GameScreenSeats on _GameScreenStateBase {
   }
 
   Widget _buildPendingSlot({
-    required final String? playerId,
-    required final bool showPending,
-    required final Alignment alignment,
-    final String? label,
+    required String? playerId,
+    required bool showPending,
+    required Alignment alignment,
+    String? label,
   }) {
     final isActive = showPending && _pendingOpponentPlayerId == playerId;
     return PendingPlaySlot(

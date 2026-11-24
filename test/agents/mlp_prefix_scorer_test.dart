@@ -64,7 +64,7 @@ void main() {
       const prefixLength = 25;
       final simd = net.simdPrefixScorer(prefixLength);
       final f = Float32List(1); // rounds to float32 on store
-      double r(final double x) => (f..[0] = x)[0];
+      double r(double x) => (f..[0] = x)[0];
       for (var decision = 0; decision < 30; decision++) {
         double value() =>
             rng.nextDouble() < 0.6 ? 0.0 : rng.nextDouble() * 2 - 1;
@@ -105,9 +105,9 @@ void main() {
 /// A safetensors file of an MLP with the given float32 weights (row-major
 /// (out, in)) and biases, as `rl/qnet.py` exports it.
 Uint8List _safetensors(
-  final List<int> sizes,
-  final List<Float32List> weights,
-  final List<Float32List> biases,
+  List<int> sizes,
+  List<Float32List> weights,
+  List<Float32List> biases,
 ) {
   final header = <String, Object>{
     '__metadata__': {'layer_sizes': jsonEncode(sizes)},

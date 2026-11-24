@@ -1,10 +1,10 @@
 import 'package:tichu/game/engine_state.dart';
 
-void advanceToNextPlayer(final GameEngineState state) {
+void advanceToNextPlayer(GameEngineState state) {
   state.currentPlayerIndex = nextActiveIndex(state, state.currentPlayerIndex);
 }
 
-int nextActiveIndex(final GameEngineState state, final int startIndex) {
+int nextActiveIndex(GameEngineState state, int startIndex) {
   final total = state.players.length;
   var next = (startIndex + 1) % total;
   while (state.finishedPlayers.contains(state.players[next].id)) {
@@ -16,18 +16,15 @@ int nextActiveIndex(final GameEngineState state, final int startIndex) {
   return next;
 }
 
-int partnerIndex(final int index) => (index + 2) % 4;
+int partnerIndex(int index) => (index + 2) % 4;
 
-int playerIndexById(final GameEngineState state, final String playerId) =>
-    state.players.indexWhere((final player) => player.id == playerId);
+int playerIndexById(GameEngineState state, String playerId) =>
+    state.players.indexWhere((player) => player.id == playerId);
 
-List<String> opponentIdsForPlayer(
-  final GameEngineState state,
-  final String playerId,
-) {
-  final player = state.players.firstWhere((final p) => p.id == playerId);
+List<String> opponentIdsForPlayer(GameEngineState state, String playerId) {
+  final player = state.players.firstWhere((p) => p.id == playerId);
   return state.players
-      .where((final p) => p.id != playerId && (p.seat % 2 != player.seat % 2))
-      .map((final p) => p.id)
+      .where((p) => p.id != playerId && (p.seat % 2 != player.seat % 2))
+      .map((p) => p.id)
       .toList();
 }

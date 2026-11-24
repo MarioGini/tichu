@@ -23,9 +23,9 @@ class GrandTichuBanner extends StatelessWidget {
   final ValueChanged<bool> onToggle;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    Widget choice({required final String label, required final bool yes}) {
+    Widget choice({required String label, required bool yes}) {
       final highlighted = yes ? !selectNo : selectNo;
       final onPressed = isPending
           ? null
@@ -77,9 +77,8 @@ class GrandTichuBanner extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   'Grand Tichu?',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(color: Colors.white),
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(color: Colors.white),
                 ),
                 const SizedBox(width: 12),
                 choice(label: 'No', yes: false),

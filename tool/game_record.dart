@@ -15,7 +15,7 @@ import 'dart:io';
 import 'package:tichu/game/record/round_log.dart';
 import 'package:tichu/services/records/file_game_record_store.dart';
 
-Future<void> main(final List<String> args) async {
+Future<void> main(List<String> args) async {
   if (args.isEmpty || args.contains('-h') || args.contains('--help')) {
     stdout.writeln(
       'Usage: dart run tool/game_record.dart <game-id | file.json> '
@@ -23,7 +23,7 @@ Future<void> main(final List<String> args) async {
     );
     return;
   }
-  int? intArg(final String flag) {
+  int? intArg(String flag) {
     final i = args.indexOf(flag);
     return i >= 0 && i + 1 < args.length ? int.parse(args[i + 1]) : null;
   }
@@ -87,7 +87,7 @@ Future<void> main(final List<String> args) async {
     final players = (record['players']! as List).cast<Map<String, Object?>>();
     final seatNames = [
       for (var seat = 0; seat < 4; seat++)
-        players.firstWhere((final p) => p['seat'] == seat)['name']! as String,
+        players.firstWhere((p) => p['seat'] == seat)['name']! as String,
     ];
     var seq = 0;
     for (var i = 0; i < log.length; i++) {
@@ -143,8 +143,8 @@ Future<void> main(final List<String> args) async {
 
 /// GET on the `tichu_game_records` REST endpoint of the Supabase project.
 Future<List<Map<String, Object?>>> _supabaseGet(
-  final String supabaseUrl,
-  final String query,
+  String supabaseUrl,
+  String query,
 ) async {
   if (supabaseUrl.isEmpty) throw StateError('SUPABASE_URL is not set.');
   // A network proxy may inject the real key; any placeholder works then.

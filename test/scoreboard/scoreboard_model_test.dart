@@ -68,11 +68,10 @@ void main() {
   });
 
   group('ScoreboardGame', () {
-    ScoreboardGame game(final List<ScoreboardRound> rounds) =>
-        ScoreboardGame.start(
-          teamNames: const ['A', 'B'],
-          now: DateTime(2026),
-        ).copyWith(rounds: rounds);
+    ScoreboardGame game(List<ScoreboardRound> rounds) => ScoreboardGame.start(
+      teamNames: const ['A', 'B'],
+      now: DateTime(2026),
+    ).copyWith(rounds: rounds);
 
     test('running totals and winner', () {
       final g = game(const [

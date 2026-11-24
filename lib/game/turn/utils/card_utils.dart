@@ -2,7 +2,7 @@ import 'package:meta/meta.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 // Returns number of occurrences of the card face in the list.
-int occurrences(final CardFace face, final List<Card> cards) {
+int occurrences(CardFace face, List<Card> cards) {
   var occurrences = 0;
   for (final card in cards) {
     if (card.face == face) ++occurrences;
@@ -12,20 +12,16 @@ int occurrences(final CardFace face, final List<Card> cards) {
 }
 
 // Returns map containing occurrence information of all cards.
-Map<CardFace, int> getOccurrenceCount(final List<Card> cards) {
+Map<CardFace, int> getOccurrenceCount(List<Card> cards) {
   final occurrenceCount = <CardFace, int>{};
   for (final card in cards) {
-    occurrenceCount.update(
-      card.face,
-      (final value) => value + 1,
-      ifAbsent: () => 1,
-    );
+    occurrenceCount.update(card.face, (value) => value + 1, ifAbsent: () => 1);
   }
   return occurrenceCount;
 }
 
 // Returns true when all cards in the list have the same color.
-bool uniformColor(final List<Card> cards) {
+bool uniformColor(List<Card> cards) {
   var uniformColor = true;
   var i = 0;
   while (i <= cards.length - 2) {
@@ -48,7 +44,7 @@ class ConnectedCards {
 
   // Override to allow testing
   @override
-  bool operator ==(final Object other) =>
+  bool operator ==(Object other) =>
       other is ConnectedCards &&
       beginIdx == other.beginIdx &&
       endIdx == other.endIdx;
@@ -57,7 +53,7 @@ class ConnectedCards {
   int get hashCode => beginIdx + 5 * endIdx;
 }
 
-List<ConnectedCards> findConnectedCards(final List<Card> input) {
+List<ConnectedCards> findConnectedCards(List<Card> input) {
   final cards = List<Card>.of(input)..sort(compareCards);
   final connected = <ConnectedCards>[];
   var beginIdx = 0;

@@ -50,10 +50,10 @@ class OneOnOneSolver {
   /// Whether [state] is a one-on-one endgame with [playerId] to move and at
   /// most [maxCards] cards left in the two hands together.
   static bool applies(
-    final GameEngineState state,
-    final String playerId, {
-    final int maxCards = 28,
-    final bool toMove = true,
+    GameEngineState state,
+    String playerId, {
+    int maxCards = 28,
+    bool toMove = true,
   }) {
     final active = [
       for (final p in state.players)
@@ -61,10 +61,7 @@ class OneOnOneSolver {
     ];
     if (active.length != 2) return false;
     if (active[0].seat % 2 == active[1].seat % 2) return false;
-    final cards = active.fold<int>(
-      0,
-      (final n, final p) => n + state.hands[p.id]!.length,
-    );
+    final cards = active.fold<int>(0, (n, p) => n + state.hands[p.id]!.length);
     if (cards > maxCards) return false;
     return !toMove || state.players[state.currentPlayerIndex].id == playerId;
   }
@@ -78,12 +75,12 @@ class OneOnOneSolver {
   /// [playerId]'s team (round points minus the opponents'), or null when
   /// the solver does not apply or the tree is too large.
   Future<({GameAction action, int value})?> solve(
-    final GameEngineState state,
-    final String playerId,
+    GameEngineState state,
+    String playerId,
   ) async {
     final dragon = state.pendingDragonGiveBy == playerId;
     if (!applies(state, playerId, toMove: !dragon)) return null;
-    _team = state.players.firstWhere((final p) => p.id == playerId).seat % 2;
+    _team = state.players.firstWhere((p) => p.id == playerId).seat % 2;
     nodes = 0;
     final owner =
         '${state.gameId}:${state.scoreTracker.state.roundNumber}:$_team';
@@ -119,11 +116,11 @@ class OneOnOneSolver {
   /// Exact values of [actions] (for [playerId] in [state]); null entries
   /// when the tree is too large. For analysis and tests.
   Future<List<int?>> values(
-    final GameEngineState state,
-    final String playerId,
-    final List<GameAction> actions,
+    GameEngineState state,
+    String playerId,
+    List<GameAction> actions,
   ) async {
-    _team = state.players.firstWhere((final p) => p.id == playerId).seat % 2;
+    _team = state.players.firstWhere((p) => p.id == playerId).seat % 2;
     final out = <int?>[];
     for (final action in actions) {
       nodes = 0;
@@ -138,7 +135,7 @@ class OneOnOneSolver {
     return out;
   }
 
-  Future<int> _value(final GameEngineState state) async {
+  Future<int> _value(GameEngineState state) async {
     final score = state.scoreTracker.state;
     if (score.roundComplete) {
       final diff = score.teamOneRound - score.teamTwoRound;
@@ -163,7 +160,7 @@ class OneOnOneSolver {
       default:
         final agent = agentFor(
           request.playerId,
-          state.players.firstWhere((final p) => p.id == request.playerId).seat,
+          state.players.firstWhere((p) => p.id == request.playerId).seat,
         );
         final action = await AgentDecisions.resolve(
           request,
@@ -178,9 +175,7 @@ class OneOnOneSolver {
         return v;
     }
     if (options.isEmpty) throw _BudgetExceeded();
-    final mover = state.players.firstWhere(
-      (final p) => p.id == request.playerId,
-    );
+    final mover = state.players.firstWhere((p) => p.id == request.playerId);
     final maximise = mover.seat % 2 == _team;
     var best = maximise ? -1 << 30 : 1 << 30;
     for (final action in options) {
@@ -194,10 +189,7 @@ class OneOnOneSolver {
   }
 
   /// Every legal play (wish-filtered) and the pass when legal.
-  List<GameAction> _options(
-    final GameEngineState state,
-    final String playerId,
-  ) {
+  List<GameAction> _options(GameEngineState state, String playerId) {
     final snapshot = simulationEngine.buildSnapshot(state);
     final hand = List<Card>.from(state.hands[playerId] ?? const <Card>[]);
     final deck = snapshot.deck;
@@ -207,7 +199,7 @@ class OneOnOneSolver {
       moveGeneratorTurns: generateLegalTurns(deck, hand),
     );
     final agent = _agents.putIfAbsent(playerId, () {
-      final seat = state.players.firstWhere((final p) => p.id == playerId).seat;
+      final seat = state.players.firstWhere((p) => p.id == playerId).seat;
       final a = agentFor(playerId, seat);
       return a is SmartAiAgent ? a : null;
     });
@@ -222,7 +214,7 @@ class OneOnOneSolver {
     ];
   }
 
-  String _key(final GameEngineState s) {
+  String _key(GameEngineState s) {
     final b = StringBuffer()
       ..write(s.currentPlayerIndex)
       ..write('|')
@@ -257,7 +249,7 @@ class OneOnOneSolver {
     return b.toString();
   }
 
-  static GameAction _copy(final GameAction action) => action is PlayTurnAction
+  static GameAction _copy(GameAction action) => action is PlayTurnAction
       ? PlayTurnAction(
           playerId: action.playerId,
           cards: List<Card>.from(action.cards),

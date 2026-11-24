@@ -62,7 +62,7 @@ class _ObserveScreenState extends State<ObserveScreen> {
     setState(() {});
   }
 
-  KeyEventResult _onKey(final FocusNode node, final KeyEvent event) {
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.space ||
@@ -75,12 +75,11 @@ class _ObserveScreenState extends State<ObserveScreen> {
     return KeyEventResult.ignored;
   }
 
-  Future<void> _copy(final String text, final String what) async {
+  Future<void> _copy(String text, String what) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('$what copied')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('$what copied')));
   }
 
   Future<void> _showRecordInfo() async {
@@ -88,7 +87,7 @@ class _ObserveScreenState extends State<ObserveScreen> {
     if (id == null) return;
     await showDialog<void>(
       context: context,
-      builder: (final context) => AlertDialog(
+      builder: (context) => AlertDialog(
         title: const Text('Game record'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -140,7 +139,7 @@ class _ObserveScreenState extends State<ObserveScreen> {
   }
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final snapshot = _controller.snapshot;
     final record = _controller.record;
     final score = snapshot?.scoreState;

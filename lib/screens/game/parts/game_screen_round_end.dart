@@ -3,7 +3,7 @@ part of '../game_screen.dart';
 /// Round / match end: celebrations, then the round summary screen.
 mixin _GameScreenRoundEnd on _GameScreenStateBase {
   @override
-  void _maybeShowRoundCompleteDialog(final PlayerSnapshot snapshot) {
+  void _maybeShowRoundCompleteDialog(PlayerSnapshot snapshot) {
     final scoreState = snapshot.scoreState;
     if (!scoreState.roundComplete) return;
     if (scoreState.roundNumber <= _lastDialogRoundNumber) return;
@@ -39,7 +39,7 @@ mixin _GameScreenRoundEnd on _GameScreenStateBase {
 
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (final context) => RoundSummaryScreen(
+          builder: (context) => RoundSummaryScreen(
             scoreState: scoreState,
             localTeam: _localTeam(snapshot),
             onBackHome: () {
@@ -61,9 +61,9 @@ mixin _GameScreenRoundEnd on _GameScreenStateBase {
   }
 
   Future<void> _showCelebrationBeforeSummary({
-    required final String message,
-    required final String label,
-    required final bool isPositive,
+    required String message,
+    required String label,
+    required bool isPositive,
   }) async {
     if (!mounted) return;
     await Navigator.of(context).push(
@@ -72,20 +72,19 @@ mixin _GameScreenRoundEnd on _GameScreenStateBase {
         barrierColor: Colors.transparent,
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
-        pageBuilder:
-            (final context, final animation, final secondaryAnimation) =>
-                TichuCelebrationOverlay(
-                  message: message,
-                  label: label,
-                  isPositive: isPositive,
-                ),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            TichuCelebrationOverlay(
+              message: message,
+              label: label,
+              isPositive: isPositive,
+            ),
       ),
     );
   }
 
   ({String message, bool isPositive})? _buildMatchSuccessMessage(
-    final ScoreState scoreState, {
-    required final int localTeam,
+    ScoreState scoreState, {
+    required int localTeam,
   }) {
     if (!scoreState.gameComplete) return null;
     final winningTeam = scoreState.winningTeam;
@@ -97,7 +96,7 @@ mixin _GameScreenRoundEnd on _GameScreenStateBase {
         : (message: 'Other team wins the match!', isPositive: false);
   }
 
-  int _localTeam(final PlayerSnapshot snapshot) {
+  int _localTeam(PlayerSnapshot snapshot) {
     for (final player in snapshot.players) {
       if (player.id == _humanId) return player.seat % 2;
     }
@@ -105,7 +104,7 @@ mixin _GameScreenRoundEnd on _GameScreenStateBase {
   }
 
   ({String message, bool isPositive})? _buildTichuSuccessMessage(
-    final PlayerSnapshot snapshot,
+    PlayerSnapshot snapshot,
   ) {
     final finishOrder = snapshot.scoreState.finishOrder;
     if (finishOrder.isEmpty) return null;
@@ -140,12 +139,12 @@ mixin _GameScreenRoundEnd on _GameScreenStateBase {
     );
   }
 
-  bool _isOurTeamPlayer(final PlayerSnapshot snapshot, final String playerId) {
+  bool _isOurTeamPlayer(PlayerSnapshot snapshot, String playerId) {
     final mySeat = snapshot.players
-        .firstWhere((final player) => player.id == _humanId)
+        .firstWhere((player) => player.id == _humanId)
         .seat;
     final winnerSeat = snapshot.players
-        .firstWhere((final player) => player.id == playerId)
+        .firstWhere((player) => player.id == playerId)
         .seat;
     return mySeat % 2 == winnerSeat % 2;
   }

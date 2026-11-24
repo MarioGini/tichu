@@ -37,7 +37,7 @@ class ActionBar extends StatelessWidget {
   final VoidCallback onDeclareTichu;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     const shape = StadiumBorder();
     const padding = EdgeInsets.symmetric(horizontal: 16);
@@ -59,7 +59,7 @@ class ActionBar extends StatelessWidget {
             icon: const Icon(Icons.bolt, size: 18),
             style: neutralButtonStyle.copyWith(
               foregroundColor: WidgetStateProperty.resolveWith(
-                (final states) => states.contains(WidgetState.disabled)
+                (states) => states.contains(WidgetState.disabled)
                     ? Colors.white38
                     : Colors.deepOrangeAccent.shade100,
               ),

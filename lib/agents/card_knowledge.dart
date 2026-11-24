@@ -36,7 +36,7 @@ class CardKnowledge {
 
   /// Cached instance for ([snapshot], [playerId]). Snapshots are immutable
   /// views, so the analysis is done at most once per snapshot and player.
-  factory CardKnowledge.of(final GameSnapshot snapshot, final String playerId) {
+  factory CardKnowledge.of(GameSnapshot snapshot, String playerId) {
     final byPlayer = _cache[snapshot] ??= <String, CardKnowledge>{};
     return byPlayer[playerId] ??= CardKnowledge.fromSnapshot(
       snapshot,
@@ -44,7 +44,7 @@ class CardKnowledge {
     );
   }
 
-  CardKnowledge.fromSnapshot(final GameSnapshot snapshot, this.playerId)
+  CardKnowledge.fromSnapshot(GameSnapshot snapshot, this.playerId)
     : isTracking = snapshot.phase == GamePhase.play,
       _owner = List<int>.filled(slotCount, 0),
       _unseenRank = List<int>.filled(15, 0) {
@@ -69,12 +69,12 @@ class CardKnowledge {
   // ── Basic queries ────────────────────────────────────────────────────────
 
   /// Held by one of the other three players (false when not tracking).
-  bool isUnseen(final Card card) => isTracking && _slotIs(card, 2);
+  bool isUnseen(Card card) => isTracking && _slotIs(card, 2);
 
-  bool isSlotPlayed(final int slot) => isTracking && _owner[slot] == 0;
+  bool isSlotPlayed(int slot) => isTracking && _owner[slot] == 0;
 
   /// Unseen copies of [face] (0..4; 0..1 for specials).
-  int unseenCount(final CardFace face) {
+  int unseenCount(CardFace face) {
     if (!isTracking) return 0;
     return switch (face) {
       CardFace.dog => _owner[dogSlot] == 2 ? 1 : 0,
@@ -102,7 +102,7 @@ class CardKnowledge {
   /// rare. Examples: a single ace cannot be beaten once dragon and phoenix
   /// are out; a pair of kings once no two aces (or ace + phoenix) remain.
   /// Conservative (`true`) when not tracking.
-  bool canBeBeaten(final TichuTurn play) {
+  bool canBeBeaten(TichuTurn play) {
     if (!isTracking) return true;
     if (play.cards.isEmpty) return true;
     final u = _unseenRank;
@@ -180,7 +180,7 @@ class CardKnowledge {
   /// other types the higher ranks (pairs, triplets, full houses by triplet
   /// rank) or tops (straights, pair straights) the unseen cards can form.
   /// A graded [canBeBeaten] (0 = unbeatable).
-  int beaterCount(final TichuTurn play) {
+  int beaterCount(TichuTurn play) {
     if (!isTracking || play.cards.isEmpty) return 0;
     final u = _unseenRank;
     final phx = phoenixUnseen;
@@ -251,7 +251,7 @@ class CardKnowledge {
   }
 
   /// `!canBeBeaten(play)`: wins the trick unless someone bombs.
-  bool isUnbeatable(final TichuTurn play) => !canBeBeaten(play);
+  bool isUnbeatable(TichuTurn play) => !canBeBeaten(play);
 
   /// Highest-value bomb the unseen cards can form, 0 if none (four of a
   /// kind = rank, straight flush = 20 + top, as in `validTurn`). The
@@ -276,7 +276,7 @@ class CardKnowledge {
     return best;
   }
 
-  bool _slotIs(final Card card, final int owner) {
+  bool _slotIs(Card card, int owner) {
     final slot = cardSlot(card);
     return slot >= 0 && _owner[slot] == owner;
   }
@@ -285,7 +285,7 @@ class CardKnowledge {
 /// Card slot in a 56-wide bitmap: `color*13 + (rank-2)` for normal cards
 /// (black, green, red, blue; ranks 2..A), then 52 mahjong, 53 dog,
 /// 54 phoenix, 55 dragon. -1 for an invalid card.
-int cardSlot(final Card card) {
+int cardSlot(Card card) {
   switch (card.face) {
     case CardFace.mahJong:
       return CardKnowledge.mahJongSlot;
@@ -316,7 +316,7 @@ int cardSlot(final Card card) {
 }
 
 /// Natural rank: 2..14 for normal cards, 1 for mahjong, 0 otherwise.
-int faceRank(final CardFace face) => switch (face) {
+int faceRank(CardFace face) => switch (face) {
   CardFace.mahJong => 1,
   CardFace.two => 2,
   CardFace.three => 3,

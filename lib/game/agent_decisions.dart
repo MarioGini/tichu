@@ -63,12 +63,12 @@ abstract final class AgentDecisions {
   /// Bots are never offered an out-of-turn bomb (measured: about -50 points
   /// per bomb); only humans in the app bomb out of turn.
   static DecisionRequest? next(
-    final GameEngine engine,
-    final GameEngineState state, {
-    final bool Function(GamePlayer player)? include,
-    final Set<String>? preSchupfDecided,
+    GameEngine engine,
+    GameEngineState state, {
+    bool Function(GamePlayer player)? include,
+    Set<String>? preSchupfDecided,
   }) {
-    bool accepts(final GamePlayer p) => include == null || include(p);
+    bool accepts(GamePlayer p) => include == null || include(p);
 
     for (final player in state.players) {
       final receipts = state.schupfReceipts[player.id];
@@ -110,7 +110,7 @@ abstract final class AgentDecisions {
 
     final dragonBy = state.pendingDragonGiveBy;
     if (dragonBy != null) {
-      final player = state.players.firstWhere((final p) => p.id == dragonBy);
+      final player = state.players.firstWhere((p) => p.id == dragonBy);
       if (!accepts(player)) return null;
       return DragonGiveRequest(dragonBy, engine.opponentIds(state, dragonBy));
     }
@@ -125,10 +125,10 @@ abstract final class AgentDecisions {
   ///
   /// May throw [StateError] when the agent has no legal turn.
   static Future<GameAction?> resolve(
-    final DecisionRequest request,
-    final PlayerAgent agent,
-    final GameSnapshot snapshot,
-    final GameEngineState state,
+    DecisionRequest request,
+    PlayerAgent agent,
+    GameSnapshot snapshot,
+    GameEngineState state,
   ) async {
     switch (request) {
       case SchupfReceiptRequest(:final playerId):
@@ -161,9 +161,9 @@ abstract final class AgentDecisions {
   /// The opponent sitting at [preferredSeat], or the first opponent when the
   /// seat is not an opponent's.
   static String dragonTarget({
-    required final GameEngineState state,
-    required final List<String> opponentIds,
-    required final int? preferredSeat,
+    required GameEngineState state,
+    required List<String> opponentIds,
+    required int? preferredSeat,
   }) {
     if (opponentIds.isEmpty) {
       throw StateError('No valid dragon target available.');

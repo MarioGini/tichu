@@ -42,7 +42,7 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
   }
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final sliderValue = _scoreOptions.indexOf(_targetScore).toDouble();
 
     return AlertDialog(
@@ -79,7 +79,7 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                 ],
                 selected: <GameLobbyVisibility>{_visibility},
                 showSelectedIcon: false,
-                onSelectionChanged: (final selection) {
+                onSelectionChanged: (selection) {
                   setState(() {
                     _visibility = selection.first;
                   });
@@ -106,7 +106,7 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                 ],
                 selected: <int>{_preferredTeam},
                 showSelectedIcon: false,
-                onSelectionChanged: (final selection) {
+                onSelectionChanged: (selection) {
                   setState(() {
                     _preferredTeam = selection.first;
                   });
@@ -124,7 +124,7 @@ class _CreateGameDialogState extends State<CreateGameDialog> {
                 max: (_scoreOptions.length - 1).toDouble(),
                 divisions: _scoreOptions.length - 1,
                 label: '$_targetScore',
-                onChanged: (final value) {
+                onChanged: (value) {
                   setState(() {
                     _targetScore = _scoreOptions[value.round().clamp(0, 3)];
                   });
@@ -174,7 +174,7 @@ class _JoinPrivateDialogState extends State<JoinPrivateDialog> {
   }
 
   @override
-  Widget build(final BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => AlertDialog(
     title: const Text('Join Private Game'),
     content: TextField(
       controller: _codeController,

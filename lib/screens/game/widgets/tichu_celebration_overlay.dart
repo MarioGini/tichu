@@ -65,7 +65,7 @@ class _TichuCelebrationOverlayState extends State<TichuCelebrationOverlay>
   }
 
   @override
-  Widget build(final BuildContext context) => Material(
+  Widget build(BuildContext context) => Material(
     // Dim the table so the message reads clearly over the cards.
     color: Colors.black.withValues(alpha: 0.55),
     child: SafeArea(

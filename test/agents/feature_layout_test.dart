@@ -62,8 +62,8 @@ void main() {
         ('action', actionOffset, actionFeatureCount),
       ];
       expect(
-        groups.map((final g) => g['name']).toList(),
-        dart.map((final d) => d.$1).toList(),
+        groups.map((g) => g['name']).toList(),
+        dart.map((d) => d.$1).toList(),
       );
       var offset = 0;
       for (var i = 0; i < groups.length; i++) {

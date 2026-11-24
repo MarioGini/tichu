@@ -4,10 +4,10 @@ import 'package:tichu/game/turn/wish_logic.dart';
 
 class TurnHandler {
   DeckState handleTurn(
-    final DeckState currentDeck,
-    final List<Card> selectedCards,
-    final CardFace inputWish, {
-    final List<Card>? hand,
+    DeckState currentDeck,
+    List<Card> selectedCards,
+    CardFace inputWish, {
+    List<Card>? hand,
   }) {
     final normalizedCards = _normalizePhoenixSingle(currentDeck, selectedCards);
     final currentTurn = getTurn(normalizedCards);
@@ -36,8 +36,8 @@ class TurnHandler {
 }
 
 List<Card> _normalizePhoenixSingle(
-  final DeckState currentDeck,
-  final List<Card> selectedCards,
+  DeckState currentDeck,
+  List<Card> selectedCards,
 ) {
   if (selectedCards.length != 1) {
     return selectedCards;
@@ -66,7 +66,7 @@ List<Card> _normalizePhoenixSingle(
   return [Card.phoenix(phoenixValue)];
 }
 
-bool validTurn(final TichuTurn deck, final TichuTurn turn) {
+bool validTurn(TichuTurn deck, TichuTurn turn) {
   // We can play any turn on an empty deck or dog.
   if (deck.type == TurnType.empty || deck.type == TurnType.dog) {
     return true;

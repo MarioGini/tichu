@@ -3,14 +3,14 @@ import 'package:meta/meta.dart';
 /// Scorekeeping for Tichu played at a real table: the players count their
 /// cards and the app adds up rounds, Tichu calls and double victories.
 
-int _team(final int team) {
+int _team(int team) {
   if (team != 0 && team != 1) {
     throw FormatException('team must be 0 or 1, got $team');
   }
   return team;
 }
 
-List<String> _teamNames(final List<Object?> names) {
+List<String> _teamNames(List<Object?> names) {
   if (names.length != 2) {
     throw FormatException('expected 2 team names, got ${names.length}');
   }
@@ -41,7 +41,7 @@ class TichuCall {
     required this.success,
   });
 
-  factory TichuCall.fromJson(final Map<String, Object?> json) => TichuCall(
+  factory TichuCall.fromJson(Map<String, Object?> json) => TichuCall(
     team: _team(json['team']! as int),
     kind: TichuCallKind.values.byName(json['kind']! as String),
     success: json['success']! as bool,
@@ -56,12 +56,11 @@ class TichuCall {
 
   int get points => success ? kind.value : -kind.value;
 
-  TichuCall copyWith({final TichuCallKind? kind, final bool? success}) =>
-      TichuCall(
-        team: team,
-        kind: kind ?? this.kind,
-        success: success ?? this.success,
-      );
+  TichuCall copyWith({TichuCallKind? kind, bool? success}) => TichuCall(
+    team: team,
+    kind: kind ?? this.kind,
+    success: success ?? this.success,
+  );
 
   Map<String, Object?> toJson() => {
     'team': team,
@@ -70,7 +69,7 @@ class TichuCall {
   };
 
   @override
-  bool operator ==(final Object other) =>
+  bool operator ==(Object other) =>
       other is TichuCall &&
       other.team == team &&
       other.kind == kind &&
@@ -89,7 +88,7 @@ class ScoreboardRound {
     this.calls = const <TichuCall>[],
   });
 
-  factory ScoreboardRound.fromJson(final Map<String, Object?> json) =>
+  factory ScoreboardRound.fromJson(Map<String, Object?> json) =>
       ScoreboardRound(
         cardPointsTeamA: json['cardPointsTeamA']! as int,
         doubleVictoryTeam: switch (json['doubleVictoryTeam'] as int?) {
@@ -116,14 +115,14 @@ class ScoreboardRound {
   final List<TichuCall> calls;
 
   /// Card points (or the 200 of a match) for [team].
-  int cardPointsFor(final int team) {
+  int cardPointsFor(int team) {
     final dv = doubleVictoryTeam;
     if (dv != null) return dv == team ? 200 : 0;
     return team == 0 ? cardPointsTeamA : 100 - cardPointsTeamA;
   }
 
   /// Tichu / Grand Tichu bonuses and penalties for [team].
-  int callPointsFor(final int team) {
+  int callPointsFor(int team) {
     var total = 0;
     for (final call in calls) {
       if (call.team == team) total += call.points;
@@ -131,7 +130,7 @@ class ScoreboardRound {
     return total;
   }
 
-  int totalFor(final int team) => cardPointsFor(team) + callPointsFor(team);
+  int totalFor(int team) => cardPointsFor(team) + callPointsFor(team);
 
   /// Rule violations; empty when the round can be saved.
   List<String> validate() {
@@ -144,15 +143,15 @@ class ScoreboardRound {
       errors.add('Card points must be a multiple of 5 from -25 to 125.');
     }
     for (final team in const [0, 1]) {
-      if (calls.where((final c) => c.team == team).length > 2) {
+      if (calls.where((c) => c.team == team).length > 2) {
         errors.add('A team has only two players to call Tichu.');
       }
     }
-    final made = calls.where((final c) => c.success).toList();
+    final made = calls.where((c) => c.success).toList();
     if (made.length > 1) {
       errors.add('Only one player can go out first.');
     }
-    if (dv != null && made.any((final c) => c.team != dv)) {
+    if (dv != null && made.any((c) => c.team != dv)) {
       errors.add(
         'A call against a match cannot succeed: '
         'the other team went out first.',
@@ -164,9 +163,9 @@ class ScoreboardRound {
   bool get isValid => validate().isEmpty;
 
   ScoreboardRound copyWith({
-    final int? cardPointsTeamA,
-    final int? Function()? doubleVictoryTeam,
-    final List<TichuCall>? calls,
+    int? cardPointsTeamA,
+    int? Function()? doubleVictoryTeam,
+    List<TichuCall>? calls,
   }) => ScoreboardRound(
     cardPointsTeamA: cardPointsTeamA ?? this.cardPointsTeamA,
     doubleVictoryTeam: doubleVictoryTeam != null
@@ -194,9 +193,9 @@ class ScoreboardGame {
   });
 
   factory ScoreboardGame.start({
-    required final List<String> teamNames,
-    final int targetScore = 1000,
-    final DateTime? now,
+    required List<String> teamNames,
+    int targetScore = 1000,
+    DateTime? now,
   }) {
     final started = now ?? DateTime.now();
     return ScoreboardGame(
@@ -207,17 +206,16 @@ class ScoreboardGame {
     );
   }
 
-  factory ScoreboardGame.fromJson(final Map<String, Object?> json) =>
-      ScoreboardGame(
-        id: json['id']! as String,
-        teamNames: _teamNames(json['teamNames']! as List<Object?>),
-        targetScore: json['targetScore']! as int,
-        startedAt: DateTime.parse(json['startedAt']! as String),
-        rounds: [
-          for (final r in json['rounds']! as List<Object?>)
-            ScoreboardRound.fromJson(Map<String, Object?>.from(r! as Map)),
-        ],
-      );
+  factory ScoreboardGame.fromJson(Map<String, Object?> json) => ScoreboardGame(
+    id: json['id']! as String,
+    teamNames: _teamNames(json['teamNames']! as List<Object?>),
+    targetScore: json['targetScore']! as int,
+    startedAt: DateTime.parse(json['startedAt']! as String),
+    rounds: [
+      for (final r in json['rounds']! as List<Object?>)
+        ScoreboardRound.fromJson(Map<String, Object?>.from(r! as Map)),
+    ],
+  );
 
   final String id;
 
@@ -227,7 +225,7 @@ class ScoreboardGame {
   final List<ScoreboardRound> rounds;
   final DateTime startedAt;
 
-  int totalFor(final int team) {
+  int totalFor(int team) {
     var total = 0;
     for (final r in rounds) {
       total += r.totalFor(team);
@@ -257,9 +255,9 @@ class ScoreboardGame {
   bool get isFinished => winner != null;
 
   ScoreboardGame copyWith({
-    final List<String>? teamNames,
-    final int? targetScore,
-    final List<ScoreboardRound>? rounds,
+    List<String>? teamNames,
+    int? targetScore,
+    List<ScoreboardRound>? rounds,
   }) => ScoreboardGame(
     id: id,
     teamNames: teamNames ?? this.teamNames,
@@ -268,13 +266,13 @@ class ScoreboardGame {
     startedAt: startedAt,
   );
 
-  ScoreboardGame addRound(final ScoreboardRound round) =>
+  ScoreboardGame addRound(ScoreboardRound round) =>
       copyWith(rounds: [...rounds, round]);
 
-  ScoreboardGame replaceRound(final int index, final ScoreboardRound round) =>
+  ScoreboardGame replaceRound(int index, ScoreboardRound round) =>
       copyWith(rounds: [...rounds]..[index] = round);
 
-  ScoreboardGame removeRound(final int index) =>
+  ScoreboardGame removeRound(int index) =>
       copyWith(rounds: [...rounds]..removeAt(index));
 
   Map<String, Object?> toJson() => {

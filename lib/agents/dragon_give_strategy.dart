@@ -3,14 +3,14 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 
 abstract class DragonGiveStrategy {
-  int selectDragonGive(final GameSnapshot snapshot, final String playerId);
+  int selectDragonGive(GameSnapshot snapshot, String playerId);
 }
 
 class DefaultDragonGiveStrategy implements DragonGiveStrategy {
   const DefaultDragonGiveStrategy();
 
   @override
-  int selectDragonGive(final GameSnapshot snapshot, final String playerId) {
+  int selectDragonGive(GameSnapshot snapshot, String playerId) {
     final table = TableRelationships(snapshot, playerId);
     final leftSeat = table.leftSeat();
     final rightSeat = table.rightSeat();

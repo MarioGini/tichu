@@ -14,7 +14,7 @@ class SoundEffects {
 
   static bool get enabled => _enabled;
 
-  static set enabled(final bool value) {
+  static set enabled(bool value) {
     _enabled = value;
     if (!value) {
       unawaited(_player?.stop());
@@ -30,8 +30,8 @@ class SoundEffects {
   }
 
   static Future<void> _playAsset(
-    final String assetPath,
-    final SystemSoundType fallback,
+    String assetPath,
+    SystemSoundType fallback,
   ) async {
     if (!_enabled) {
       return;
@@ -64,7 +64,7 @@ class SoundEffects {
     await SystemSound.play(fallback);
   }
 
-  static Future<bool> _assetExists(final String assetPath) async {
+  static Future<bool> _assetExists(String assetPath) async {
     if (_assetManifest == null) {
       try {
         final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);

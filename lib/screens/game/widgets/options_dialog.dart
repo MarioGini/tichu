@@ -48,7 +48,7 @@ class _OptionsDialogState extends State<OptionsDialog> {
   }
 
   @override
-  Widget build(final BuildContext context) => AlertDialog(
+  Widget build(BuildContext context) => AlertDialog(
     // Scrolls on short (landscape phone) screens instead of overflowing.
     scrollable: true,
     insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -58,7 +58,7 @@ class _OptionsDialogState extends State<OptionsDialog> {
       children: [
         SwitchListTile(
           value: _aiSuggestionEnabled,
-          onChanged: (final value) {
+          onChanged: (value) {
             setState(() {
               _aiSuggestionEnabled = value;
             });
@@ -84,7 +84,7 @@ class _OptionsDialogState extends State<OptionsDialog> {
           max: 5,
           divisions: 4,
           label: '${_opponentDelay.toStringAsFixed(0)}s',
-          onChanged: (final value) {
+          onChanged: (value) {
             setState(() {
               _opponentDelay = value;
             });
@@ -93,7 +93,7 @@ class _OptionsDialogState extends State<OptionsDialog> {
         ),
         SwitchListTile(
           value: _autoPassEnabled,
-          onChanged: (final value) {
+          onChanged: (value) {
             setState(() {
               _autoPassEnabled = value;
             });
@@ -105,7 +105,7 @@ class _OptionsDialogState extends State<OptionsDialog> {
         ),
         SwitchListTile(
           value: _soundEnabled,
-          onChanged: (final value) {
+          onChanged: (value) {
             setState(() {
               _soundEnabled = value;
             });

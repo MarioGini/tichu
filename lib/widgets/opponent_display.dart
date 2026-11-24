@@ -36,11 +36,11 @@ class OpponentDisplay extends StatelessWidget {
   final bool pill;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     if (pill) return _buildPill(context);
     final colorScheme = Theme.of(context).colorScheme;
     return LayoutBuilder(
-      builder: (final context, final constraints) => Center(
+      builder: (context, constraints) => Center(
         child: SizedBox.square(
           dimension: math.max<double>(
             0,
@@ -62,14 +62,13 @@ class OpponentDisplay extends StatelessWidget {
   }
 
   /// Wide seat pill: avatar with card count, name and points, badges.
-  Widget _buildPill(final BuildContext context) {
+  Widget _buildPill(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: _boxDecoration(
-        colorScheme,
-      ).copyWith(borderRadius: BorderRadius.circular(999)),
+      decoration: _boxDecoration(colorScheme)
+          .copyWith(borderRadius: BorderRadius.circular(999)),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
@@ -85,10 +84,8 @@ class OpponentDisplay extends StatelessWidget {
                 Text(
                   name,
                   maxLines: 1,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
-                    height: 1.1,
-                  ),
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(color: Colors.white, height: 1.1),
                 ),
                 Text(
                   finishPosition != null
@@ -117,10 +114,7 @@ class OpponentDisplay extends StatelessWidget {
 
   // ───── shared building blocks ─────
 
-  Widget _tileContent(
-    final BuildContext context,
-    final ColorScheme colorScheme,
-  ) => Column(
+  Widget _tileContent(BuildContext context, ColorScheme colorScheme) => Column(
     mainAxisSize: MainAxisSize.min,
     children: [
       _avatar(colorScheme, size: 34),
@@ -128,9 +122,8 @@ class OpponentDisplay extends StatelessWidget {
       Text(
         name,
         maxLines: 1,
-        style: Theme.of(
-          context,
-        ).textTheme.titleSmall?.copyWith(color: Colors.white),
+        style: Theme.of(context).textTheme.titleSmall
+            ?.copyWith(color: Colors.white),
       ),
       // Points and Tichu badge share one row; the finish position sits on
       // the avatar badge, so finished tiles stay as compact as live ones.
@@ -143,9 +136,8 @@ class OpponentDisplay extends StatelessWidget {
               if (showPoints)
                 Text(
                   '$teamScore pts',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelSmall?.copyWith(color: Colors.white60),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: Colors.white60),
                 ),
               if (showPoints && (tichuDeclared || grandTichuDeclared))
                 const SizedBox(width: 6),
@@ -159,7 +151,7 @@ class OpponentDisplay extends StatelessWidget {
   );
 
   /// Round avatar with the seat icon and a card-count badge.
-  Widget _avatar(final ColorScheme colorScheme, {required final double size}) {
+  Widget _avatar(ColorScheme colorScheme, {required double size}) {
     final ringColor = isFinished
         ? Colors.greenAccent
         : isActive
@@ -230,17 +222,14 @@ class OpponentDisplay extends StatelessWidget {
     );
   }
 
-  BoxDecoration _boxDecoration(final ColorScheme colorScheme) =>
+  BoxDecoration _boxDecoration(ColorScheme colorScheme) =>
       buildPlayerStateFrameDecoration(
         isActive: isActive,
         isFinished: isFinished,
         borderRadius: 12,
       );
 
-  Widget _statusPill(
-    final BuildContext context,
-    final ColorScheme colorScheme,
-  ) {
+  Widget _statusPill(BuildContext context, ColorScheme colorScheme) {
     if (!isFinished) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -251,17 +240,16 @@ class OpponentDisplay extends StatelessWidget {
       ),
       child: Text(
         'Out',
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(color: Colors.greenAccent),
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: Colors.greenAccent),
       ),
     );
   }
 
   Widget _tichuBadge(
-    final BuildContext context, {
-    required final bool isHorizontal,
-    final bool compact = false,
+    BuildContext context, {
+    required bool isHorizontal,
+    bool compact = false,
   }) {
     if (!tichuDeclared && !grandTichuDeclared) return const SizedBox.shrink();
 

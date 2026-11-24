@@ -11,7 +11,7 @@ import '../../utils/test_helpers.dart';
 
 void main() {
   testWidgets('quick schupf assign fills left then partner then right', (
-    final tester,
+    tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1400, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -60,8 +60,8 @@ void main() {
     await quickAssignFirstAvailable();
     await quickAssignFirstAvailable();
 
-    Finder cardFinder(final Card card) => find.byWidgetPredicate(
-      (final widget) => widget is CardWidget && widget.card == card,
+    Finder cardFinder(Card card) => find.byWidgetPredicate(
+      (widget) => widget is CardWidget && widget.card == card,
     );
 
     final firstCenter = tester.getCenter(cardFinder(hand[0]));

@@ -88,7 +88,7 @@ class ClaimSolver {
   ///
   /// Solvers are cached by the unseen rank counts (every decision builds
   /// one; the thresholds are only recomputed when the unseen cards change).
-  factory ClaimSolver.of(final CardKnowledge k) {
+  factory ClaimSolver.of(CardKnowledge k) {
     if (!k.isTracking) {
       return _untracked ??= ClaimSolver._(List<int>.filled(_kinds, 15));
     }
@@ -116,14 +116,14 @@ class ClaimSolver {
   /// Solver from unseen counts per rank ([unseenRank] index 1 = Mah Jong,
   /// 2..14) and whether the Phoenix / Dragon are unseen.
   factory ClaimSolver.fromUnseen({
-    required final List<int> unseenRank,
-    required final bool phoenix,
-    required final bool dragon,
+    required List<int> unseenRank,
+    required bool phoenix,
+    required bool dragon,
   }) => ClaimSolver._(_thresholds(unseenRank, phoenix, dragon));
 
   /// Claim analysis of the hand given as card slots (see [cardSlot]).
   /// Exact, for any number of beatable combinations.
-  ClaimResult ofSlots(final List<int> slots) =>
+  ClaimResult ofSlots(List<int> slots) =>
       ClaimResult.fromScore(scoreOfSlots(slots, capped: false));
 
   /// Rank counts of the hand being analysed (index 1 = Mah Jong, 2..14);
@@ -139,21 +139,17 @@ class ClaimSolver {
   /// otherwise: the search returns `64 * cap` for every position whose
   /// lower bound ([_unsafeSingletons]) reaches the cap, which prunes most
   /// of the search for full hands. Without it the search is exhaustive.
-  int scoreOfSlots(final List<int> slots, {final bool capped = true}) =>
+  int scoreOfSlots(List<int> slots, {bool capped = true}) =>
       _score(slots, capped: capped).score;
 
   /// The claim score of a hand plus what [after] needs to answer for its
   /// sub-hands from the memo.
-  ClaimHand hand(final List<int> slots) => _score(slots, capped: true);
+  ClaimHand hand(List<int> slots) => _score(slots, capped: true);
 
   /// Score of [hand] minus the cards [played] ([remaining] = the slots left):
   /// a memo lookup by key arithmetic when the position is known, else
   /// [scoreOfSlots] of [remaining].
-  int after(
-    final ClaimHand hand,
-    final List<Card> played,
-    final List<int> remaining,
-  ) {
+  int after(ClaimHand hand, List<Card> played, List<int> remaining) {
     if (!hand._flush) {
       var key = hand._key;
       var extra = hand._extra;
@@ -179,7 +175,7 @@ class ClaimSolver {
     return scoreOfSlots(remaining);
   }
 
-  ClaimHand _score(final List<int> slots, {required final bool capped}) {
+  ClaimHand _score(List<int> slots, {required bool capped}) {
     final counts = _counts;
     for (var r = 1; r <= 14; r++) {
       counts[r] = 0;
@@ -264,11 +260,7 @@ class ClaimSolver {
   /// unbeatable, and no straight through it is possible even with the
   /// Phoenix, generously). Each needs a beatable combination of its own:
   /// two such cards never fit in one full house, pair straight or straight.
-  static int _unsafeSingletons(
-    final List<int> c,
-    final int ph,
-    final List<int> t,
-  ) {
+  static int _unsafeSingletons(List<int> c, int ph, List<int> t) {
     final down = _runDown;
     final up = _runUp;
     for (var r = 1; r <= 14; r++) {
@@ -310,12 +302,12 @@ class ClaimSolver {
     return n;
   }
 
-  static bool _hasRun(final int m) =>
+  static bool _hasRun(int m) =>
       m & (m >> 1) & (m >> 2) & (m >> 3) & (m >> 4) != 0;
 
   /// Every straight flush (rank run of >= 5 in one colour) as
   /// (colour, low, high).
-  static List<(int, int, int)> _straightFlushes(final List<int> colours) {
+  static List<(int, int, int)> _straightFlushes(List<int> colours) {
     List<(int, int, int)>? out;
     for (var c = 0; c < 4; c++) {
       final m = colours[c];
@@ -333,13 +325,13 @@ class ClaimSolver {
   /// Best score when choosing any set of disjoint straight flushes from
   /// [flushes] (index >= [from]) as bombs, the rest by the rank solver.
   int _bestWithFlushes(
-    final _ClaimMemo memo,
-    final List<(int, int, int)> flushes,
-    final int from,
-    final int key,
-    final List<int> counts,
-    final int ph, [
-    final List<(int, int, int)> used = const [],
+    _ClaimMemo memo,
+    List<(int, int, int)> flushes,
+    int from,
+    int key,
+    List<int> counts,
+    int ph, [
+    List<(int, int, int)> used = const [],
   ]) {
     var best = memo.score(key, counts, ph, _threshold);
     for (var i = from; i < flushes.length; i++) {
@@ -371,11 +363,7 @@ class ClaimSolver {
   /// Unbeatability thresholds, mirroring [CardKnowledge.canBeBeaten]: the
   /// highest value of each kind the unseen cards can form, searched from
   /// the top with prefix sums (O(1) per straight window).
-  static List<int> _thresholds(
-    final List<int> u,
-    final bool phx,
-    final bool dragon,
-  ) {
+  static List<int> _thresholds(List<int> u, bool phx, bool dragon) {
     final t = List<int>.filled(_kinds, 0);
     // Singles: the Dragon or the Phoenix beat every other single.
     if (dragon || phx) {
@@ -478,7 +466,7 @@ class ClaimResult {
   const ClaimResult(this.minBeatable, this.unbeatable);
 
   /// From a solver score `64 * minBeatable - unbeatable`.
-  factory ClaimResult.fromScore(final int score) {
+  factory ClaimResult.fromScore(int score) {
     final b = (score + 63) ~/ 64;
     return ClaimResult(b, 64 * b - score);
   }
@@ -493,15 +481,11 @@ class ClaimResult {
   /// Write the 3 normalised claim features at [offset]: min beatable (capped
   /// at [cap]) / 4, unbeatable (capped at 7; 0 when min beatable reaches the
   /// cap) / 7, claimable flag.
-  void writeTo(final List<double> out, final int offset) =>
+  void writeTo(List<double> out, int offset) =>
       writeScore(64 * minBeatable - unbeatable, out, offset);
 
   /// [writeTo] for a solver score, without allocating a result.
-  static void writeScore(
-    final int score,
-    final List<double> out,
-    final int offset,
-  ) {
+  static void writeScore(int score, List<double> out, int offset) {
     final b = (score + 63) ~/ 64;
     final u = b < cap ? 64 * b - score : 0;
     out[offset] = (b < cap ? b : cap) / 4.0;
@@ -563,10 +547,7 @@ class _ClaimMemo {
   static int _nextId = 1;
   static int _currentGeneration = 0;
 
-  factory _ClaimMemo.forThresholds(
-    final List<int> t, {
-    required final bool capped,
-  }) {
+  factory _ClaimMemo.forThresholds(List<int> t, {required bool capped}) {
     // 20 thresholds of 4 bits in three 28-bit words (dart2js-safe).
     var s0 = 0;
     var s1 = 0;
@@ -606,7 +587,7 @@ class _ClaimMemo {
 
   /// Score of the hand (state [key], rank counts [c], [ph] Phoenix) under
   /// thresholds [t]; see [solve].
-  int score(final int key, final List<int> c, final int ph, final List<int> t) {
+  int score(int key, List<int> c, int ph, List<int> t) {
     if (_keys == null ||
         _generation != _currentGeneration ||
         _count >= _size >> 1) {
@@ -616,7 +597,7 @@ class _ClaimMemo {
   }
 
   /// The memoised score of state [key], or null.
-  int? lookup(final int key) {
+  int? lookup(int key) {
     if (key == 0) return 0;
     if (_keys == null ||
         _generation != _currentGeneration ||
@@ -635,7 +616,7 @@ class _ClaimMemo {
   }
 
   /// Store a score found without the search (the lower bound).
-  void remember(final int key, final int score) {
+  void remember(int key, int score) {
     if (key == 0) return;
     if (_keys == null ||
         _generation != _currentGeneration ||
@@ -645,13 +626,13 @@ class _ClaimMemo {
     _store((_id * _idStride + key).toDouble(), key, score);
   }
 
-  int _slotOf(final int key) =>
+  int _slotOf(int key) =>
       ((key % 1000003) * 1031 + (key ~/ 1000003) * 7 + _id * 92821) & _mask;
 
   /// Minimum of `64 * beatable - unbeatable` over the partitions of the
   /// rank multiset [c] (index 1..14) plus [ph] Phoenix, with key [key].
   /// [c] is modified during the search and restored.
-  int solve(final int key, final List<int> c, final int ph, final List<int> t) {
+  int solve(int key, List<int> c, int ph, List<int> t) {
     if (key == 0) return 0;
     final keys = _keys!;
     final full = (_id * _idStride + key).toDouble();
@@ -807,7 +788,7 @@ class _ClaimMemo {
     return best;
   }
 
-  static bool _runToAce(final List<int> c, final int a) {
+  static bool _runToAce(List<int> c, int a) {
     for (var r = a; r <= 14; r++) {
       if (c[r] == 0) return false;
     }
@@ -815,7 +796,7 @@ class _ClaimMemo {
   }
 
   /// Insert (the search may have filled slots since the lookup).
-  void _store(final double full, final int key, final int score) {
+  void _store(double full, int key, int score) {
     final keys = _keys!;
     var slot = _slotOf(key);
     while (keys[slot] != 0) {
@@ -827,6 +808,6 @@ class _ClaimMemo {
     _count++;
   }
 
-  static int _cost(final List<int> t, final int kind, final int value) =>
+  static int _cost(List<int> t, int kind, int value) =>
       value >= t[kind] ? -1 : 64;
 }

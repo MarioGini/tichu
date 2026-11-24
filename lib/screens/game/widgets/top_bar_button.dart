@@ -14,7 +14,7 @@ class TopBarButton extends StatelessWidget {
   final VoidCallback? onPressed;
 
   @override
-  Widget build(final BuildContext context) => Padding(
+  Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 4),
     child: IconButton(
       tooltip: tooltip,

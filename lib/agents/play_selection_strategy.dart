@@ -4,10 +4,10 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 abstract class PlaySelectionStrategy {
   TichuTurn selectPlay(
-    final GameSnapshot snapshot,
-    final List<TichuTurn> plays,
-    final DeckState deck,
-    final List<Card> hand,
+    GameSnapshot snapshot,
+    List<TichuTurn> plays,
+    DeckState deck,
+    List<Card> hand,
   );
 }
 
@@ -18,26 +18,26 @@ abstract class PlaySelectionStrategy {
 abstract interface class FullTurnPolicy {
   /// Returns the chosen play, or `null` to pass (only when [canPass]).
   TichuTurn? selectTurnOrPass(
-    final GameSnapshot snapshot,
-    final List<TichuTurn> legalTurns,
-    final DeckState deck,
-    final List<Card> hand, {
-    required final bool canPass,
+    GameSnapshot snapshot,
+    List<TichuTurn> legalTurns,
+    DeckState deck,
+    List<Card> hand, {
+    required bool canPass,
   });
 }
 
 class DefaultPlaySelectionStrategy implements PlaySelectionStrategy {
   final TurnScorer turnScorer;
 
-  const DefaultPlaySelectionStrategy({final TurnScorer? turnScorer})
+  const DefaultPlaySelectionStrategy({TurnScorer? turnScorer})
     : turnScorer = turnScorer ?? const TurnScorer();
 
   @override
   TichuTurn selectPlay(
-    final GameSnapshot snapshot,
-    final List<TichuTurn> plays,
-    final DeckState deck,
-    final List<Card> hand,
+    GameSnapshot snapshot,
+    List<TichuTurn> plays,
+    DeckState deck,
+    List<Card> hand,
   ) {
     TichuTurn? bestPlay;
     var bestScore = double.negativeInfinity;

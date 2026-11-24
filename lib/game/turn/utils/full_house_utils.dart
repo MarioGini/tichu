@@ -1,11 +1,11 @@
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/card_utils.dart';
 
-List<TichuTurn> getFullHouses(final List<Card> input) {
+List<TichuTurn> getFullHouses(List<Card> input) {
   // Work on a copy: callers pass live hands.
   final cards = List<Card>.of(input);
   cards.removeWhere(
-    (final element) =>
+    (element) =>
         element.face == CardFace.dragon || element.face == CardFace.dog,
   );
   if (cards.length < 5) return [];
@@ -16,10 +16,10 @@ List<TichuTurn> getFullHouses(final List<Card> input) {
   final occurrenceCount = getOccurrenceCount(cards);
 
   final tripledFaces = occurrenceCount.keys
-      .where((final key) => occurrenceCount[key]! >= 3)
+      .where((key) => occurrenceCount[key]! >= 3)
       .toList();
   final pairedFaces = occurrenceCount.keys
-      .where((final key) => occurrenceCount[key] == 2)
+      .where((key) => occurrenceCount[key] == 2)
       .toList();
 
   // TODO(fullHouse): there are many full house combinations when color of
@@ -28,25 +28,25 @@ List<TichuTurn> getFullHouses(final List<Card> input) {
     final tripleFace = tripledFaces[i];
 
     final fullHouseCards = cards
-        .where((final card) => card.face == tripleFace)
+        .where((card) => card.face == tripleFace)
         .toList()
         .sublist(0, 3);
 
     final possiblePairs = tripledFaces
-        .where((final element) => element != tripleFace)
+        .where((element) => element != tripleFace)
         .toList();
     possiblePairs.addAll(pairedFaces);
 
     for (var j = 0; j < possiblePairs.length; ++j) {
       final pair = cards
-          .where((final card) => card.face == possiblePairs[j])
+          .where((card) => card.face == possiblePairs[j])
           .toList()
           .sublist(0, 2);
       fullHouses.add(TichuTurn(TurnType.fullHouse, fullHouseCards + pair));
     }
   }
 
-  if (cards.any((final element) => element.face == CardFace.phoenix)) {
+  if (cards.any((element) => element.face == CardFace.phoenix)) {
     if (pairedFaces.isNotEmpty) {
       // We can promote any pair to a triplet and then use any of the other pair
       // to form full house.
@@ -54,19 +54,19 @@ List<TichuTurn> getFullHouses(final List<Card> input) {
         final tripleFace = pairedFaces[i];
 
         final phoenixCards = cards
-            .where((final card) => card.face == tripleFace)
+            .where((card) => card.face == tripleFace)
             .toList()
             .sublist(0, 2);
         phoenixCards.add(Card.phoenix(phoenixCards.first.value));
 
         final possiblePairs = pairedFaces
-            .where((final element) => element != tripleFace)
+            .where((element) => element != tripleFace)
             .toList();
         possiblePairs.addAll(tripledFaces);
 
         for (var j = 0; j < possiblePairs.length; ++j) {
           final pair = cards
-              .where((final card) => card.face == possiblePairs[j])
+              .where((card) => card.face == possiblePairs[j])
               .toList()
               .sublist(0, 2);
           fullHouses.add(TichuTurn(TurnType.fullHouse, phoenixCards + pair));
@@ -81,18 +81,18 @@ List<TichuTurn> getFullHouses(final List<Card> input) {
         final tripleFace = tripledFaces[i];
 
         final fullHouseCards = cards
-            .where((final card) => card.face == tripleFace)
+            .where((card) => card.face == tripleFace)
             .toList()
             .sublist(0, 3);
         final availablePairs = occurrenceCount.keys
             .where(
-              (final element) =>
+              (element) =>
                   occurrenceCount[element] == 1 && element != CardFace.phoenix,
             )
             .toList();
         for (var j = 0; j < availablePairs.length; ++j) {
           final pairCard = cards
-              .where((final element) => element.face == availablePairs[j])
+              .where((element) => element.face == availablePairs[j])
               .first;
           final phoenix = Card.phoenix(pairCard.value);
           fullHouses.add(

@@ -23,7 +23,7 @@ void main() {
         final old = Mlp(layerSizes: [size, 16, 8, 1], seed: size);
         final wide = old.widenInputs(
           totalFeatureCount,
-          (final i) => i < state ? i : actionOffset + i - state,
+          (i) => i < state ? i : actionOffset + i - state,
         );
         expect(playNetLayout(size), (state: state, action: size - state));
         for (final simd in [false, true]) {

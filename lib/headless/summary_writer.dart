@@ -11,7 +11,7 @@ class _SummaryWriter {
 
   _SummaryWriter({required this.output, required this.episode});
 
-  void emit(final GameSnapshot snapshot) {
+  void emit(GameSnapshot snapshot) {
     if (_emitted) return;
     _emitted = true;
     final score = snapshot.scoreState;

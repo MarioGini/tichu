@@ -3,10 +3,7 @@ part of 'local_table_service.dart';
 /// Publishing state to watchers, projection and state stores, plus the JSON
 /// round trips that keep the local service honest about the wire format.
 extension _PublishHelpers on _LocalTableBase {
-  void _handleBackendSnapshot(
-    final _LocalLobbyState lobby,
-    final GameSnapshot snapshot,
-  ) {
+  void _handleBackendSnapshot(_LocalLobbyState lobby, GameSnapshot snapshot) {
     if (snapshot.scoreState.gameComplete) {
       lobby.state = GameLobbyState.finished;
       lobby.pendingRoundNumber = null;
@@ -32,10 +29,7 @@ extension _PublishHelpers on _LocalTableBase {
     _publishMatchState(lobby, snapshot);
   }
 
-  void _publishMatchState(
-    final _LocalLobbyState lobby,
-    final GameSnapshot snapshot,
-  ) {
+  void _publishMatchState(_LocalLobbyState lobby, GameSnapshot snapshot) {
     final matchId = lobby.matchId;
     if (matchId == null) {
       throw StateError('Cannot publish match state without a matchId.');
@@ -59,8 +53,8 @@ extension _PublishHelpers on _LocalTableBase {
   }
 
   GameLobbySnapshot _buildLobbySnapshot(
-    final _LocalLobbyState lobby,
-    final String localPlayerId,
+    _LocalLobbyState lobby,
+    String localPlayerId,
   ) => GameLobbySnapshot(
     lobbyId: lobby.lobbyId,
     joinCode: lobby.joinCode,
@@ -77,9 +71,9 @@ extension _PublishHelpers on _LocalTableBase {
   );
 
   GameMatchView _buildMatchView(
-    final _LocalLobbyState lobby,
-    final _LocalParticipant participant,
-    final _LocalMatchState event,
+    _LocalLobbyState lobby,
+    _LocalParticipant participant,
+    _LocalMatchState event,
   ) {
     final snapshot = _projectionEngine.buildPlayerSnapshot(
       event.snapshot,
@@ -88,7 +82,7 @@ extension _PublishHelpers on _LocalTableBase {
     final selfSeat =
         participant.seat ??
         snapshot.players
-            .firstWhere((final player) => player.id == participant.playerId)
+            .firstWhere((player) => player.id == participant.playerId)
             .seat;
     return GameMatchView(
       lobbyId: lobby.lobbyId,
@@ -102,7 +96,7 @@ extension _PublishHelpers on _LocalTableBase {
   }
 
   CreateGameLobbyRequest _roundTripCreateLobbyRequest(
-    final CreateGameLobbyRequest request,
+    CreateGameLobbyRequest request,
   ) => session_dto.CreateGameLobbyRequestDto.fromJson(
     _roundTripJson(
       session_dto.CreateGameLobbyRequestDto.fromDomain(request).toJson(),
@@ -110,21 +104,21 @@ extension _PublishHelpers on _LocalTableBase {
   ).toDomain();
 
   JoinGameLobbyRequest _roundTripJoinLobbyRequest(
-    final JoinGameLobbyRequest request,
+    JoinGameLobbyRequest request,
   ) => session_dto.JoinGameLobbyRequestDto.fromJson(
     _roundTripJson(
       session_dto.JoinGameLobbyRequestDto.fromDomain(request).toJson(),
     ),
   ).toDomain();
 
-  GameSessionHandle _roundTripSessionHandle(final GameSessionHandle handle) =>
+  GameSessionHandle _roundTripSessionHandle(GameSessionHandle handle) =>
       session_dto.GameSessionHandleDto.fromJson(
         _roundTripJson(
           session_dto.GameSessionHandleDto.fromDomain(handle).toJson(),
         ),
       ).toDomain();
 
-  GameLobbySnapshot _roundTripLobbySnapshot(final GameLobbySnapshot snapshot) =>
+  GameLobbySnapshot _roundTripLobbySnapshot(GameLobbySnapshot snapshot) =>
       session_dto.GameLobbySnapshotDto.fromJson(
         _roundTripJson(
           session_dto.GameLobbySnapshotDto.fromDomain(snapshot).toJson(),
@@ -132,40 +126,38 @@ extension _PublishHelpers on _LocalTableBase {
       ).toDomain();
 
   GameMatchConnectionSnapshot _roundTripConnectionSnapshot(
-    final GameMatchConnectionSnapshot snapshot,
+    GameMatchConnectionSnapshot snapshot,
   ) => match_dto.GameMatchConnectionSnapshotDto.fromJson(
     _roundTripJson(
       match_dto.GameMatchConnectionSnapshotDto.fromDomain(snapshot).toJson(),
     ),
   ).toDomain();
 
-  GameMatchView _roundTripMatchView(final GameMatchView view) =>
+  GameMatchView _roundTripMatchView(GameMatchView view) =>
       match_dto.GameMatchViewDto.fromJson(
         _roundTripJson(match_dto.GameMatchViewDto.fromDomain(view).toJson()),
       ).toDomain();
 
-  GameActionSubmission _roundTripSubmission(
-    final GameActionSubmission submission,
-  ) => match_dto.GameActionSubmissionDto.fromJson(
-    _roundTripJson(
-      match_dto.GameActionSubmissionDto.fromDomain(submission).toJson(),
-    ),
-  ).toDomain();
+  GameActionSubmission _roundTripSubmission(GameActionSubmission submission) =>
+      match_dto.GameActionSubmissionDto.fromJson(
+        _roundTripJson(
+          match_dto.GameActionSubmissionDto.fromDomain(submission).toJson(),
+        ),
+      ).toDomain();
 
   RoundSummaryAcknowledgement _roundTripAcknowledgement(
-    final RoundSummaryAcknowledgement acknowledgement,
+    RoundSummaryAcknowledgement acknowledgement,
   ) => match_dto.RoundSummaryAcknowledgementDto.fromJson(
     _roundTripJson(
-      match_dto.RoundSummaryAcknowledgementDto.fromDomain(
-        acknowledgement,
-      ).toJson(),
+      match_dto.RoundSummaryAcknowledgementDto.fromDomain(acknowledgement)
+          .toJson(),
     ),
   ).toDomain();
 
-  Map<String, dynamic> _roundTripJson(final Map<String, dynamic> json) =>
+  Map<String, dynamic> _roundTripJson(Map<String, dynamic> json) =>
       Map<String, dynamic>.from(jsonDecode(jsonEncode(json)) as Map);
 
-  void _emitLobby(final _LocalLobbyState lobby) {
+  void _emitLobby(_LocalLobbyState lobby) {
     if (!lobby.lobbyEvents.isClosed) {
       lobby.lobbyEvents.add(null);
     }
@@ -181,8 +173,8 @@ extension _PublishHelpers on _LocalTableBase {
   }
 
   void _emitConnection(
-    final _LocalLobbyState lobby,
-    final GameMatchConnectionSnapshot snapshot,
+    _LocalLobbyState lobby,
+    GameMatchConnectionSnapshot snapshot,
   ) {
     lobby.lastConnectionSnapshot = snapshot;
     if (!lobby.connectionEvents.isClosed) {
@@ -201,8 +193,8 @@ extension _PublishHelpers on _LocalTableBase {
   }
 
   ProjectedLobbyView _buildProjectedLobbyView(
-    final _LocalLobbyState lobby,
-    final _LocalParticipant participant,
+    _LocalLobbyState lobby,
+    _LocalParticipant participant,
   ) => ProjectedLobbyView(
     lobbyId: lobby.lobbyId,
     authUserId: participant.authUserId,
@@ -214,9 +206,9 @@ extension _PublishHelpers on _LocalTableBase {
   );
 
   ProjectedMatchView _buildProjectedMatchView(
-    final _LocalLobbyState lobby,
-    final _LocalParticipant participant,
-    final _LocalMatchState event,
+    _LocalLobbyState lobby,
+    _LocalParticipant participant,
+    _LocalMatchState event,
   ) {
     final view = _buildMatchView(lobby, participant, event);
     return ProjectedMatchView(
@@ -231,21 +223,20 @@ extension _PublishHelpers on _LocalTableBase {
   }
 
   ProjectedConnectionView _buildProjectedConnectionView(
-    final _LocalLobbyState lobby,
-    final _LocalParticipant participant,
-    final GameMatchConnectionSnapshot snapshot,
+    _LocalLobbyState lobby,
+    _LocalParticipant participant,
+    GameMatchConnectionSnapshot snapshot,
   ) => ProjectedConnectionView(
     lobbyId: lobby.lobbyId,
     matchId: lobby.matchId!,
     authUserId: participant.authUserId,
     accessToken: participant.accessToken,
     playerId: participant.playerId,
-    payload: match_dto.GameMatchConnectionSnapshotDto.fromDomain(
-      snapshot,
-    ).toJson(),
+    payload: match_dto.GameMatchConnectionSnapshotDto.fromDomain(snapshot)
+        .toJson(),
   );
 
-  Map<String, dynamic> _serializeLobby(final _LocalLobbyState lobby) =>
+  Map<String, dynamic> _serializeLobby(_LocalLobbyState lobby) =>
       <String, dynamic>{
         'lobbyId': lobby.lobbyId,
         'joinCode': lobby.joinCode,

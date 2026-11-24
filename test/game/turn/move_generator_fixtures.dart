@@ -7,7 +7,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 DeckState emptyDeck() =>
     DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
 
-DeckState singleDeck(final CardFace face) {
+DeckState singleDeck(CardFace face) {
   final deck = DeckState(
     TichuTurn(TurnType.single, [Card(face, CardColor.red)]),
     CardFace.none,
@@ -16,7 +16,7 @@ DeckState singleDeck(final CardFace face) {
   return deck;
 }
 
-DeckState pairDeck(final CardFace face) {
+DeckState pairDeck(CardFace face) {
   final deck = DeckState(
     TichuTurn(TurnType.pair, [
       Card(face, CardColor.red),

@@ -73,10 +73,10 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
 
   @override
   TichuTurn selectPlay(
-    final GameSnapshot snapshot,
-    final List<TichuTurn> plays,
-    final DeckState deck,
-    final List<Card> hand,
+    GameSnapshot snapshot,
+    List<TichuTurn> plays,
+    DeckState deck,
+    List<Card> hand,
   ) {
     if (plays.isEmpty) {
       throw ArgumentError.value(plays, 'plays', 'Must not be empty.');
@@ -111,11 +111,11 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
 
   @override
   TichuTurn? selectTurnOrPass(
-    final GameSnapshot snapshot,
-    final List<TichuTurn> legalTurns,
-    final DeckState deck,
-    final List<Card> hand, {
-    required final bool canPass,
+    GameSnapshot snapshot,
+    List<TichuTurn> legalTurns,
+    DeckState deck,
+    List<Card> hand, {
+    required bool canPass,
   }) {
     if (legalTurns.isEmpty) {
       if (canPass) return null;
@@ -126,10 +126,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   }
 
   /// Q(s, a) of each of [plays] (same order), for ranking candidates.
-  List<double> qValues(
-    final GameSnapshot snapshot,
-    final List<TichuTurn> plays,
-  ) {
+  List<double> qValues(GameSnapshot snapshot, List<TichuTurn> plays) {
     final encoder = FeatureEncoder(
       snapshot: snapshot,
       playerId: playerId,
@@ -147,9 +144,9 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// Highest-Q play among [plays], or `null` when [canPass] and the pass
   /// action scores strictly highest.
   TichuTurn? _argmax(
-    final GameSnapshot snapshot,
-    final List<TichuTurn> plays, {
-    required final bool canPass,
+    GameSnapshot snapshot,
+    List<TichuTurn> plays, {
+    required bool canPass,
   }) {
     final encoder = FeatureEncoder(
       snapshot: snapshot,

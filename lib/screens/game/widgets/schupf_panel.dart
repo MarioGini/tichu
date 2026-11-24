@@ -70,8 +70,8 @@ class SchupfPanel extends StatelessWidget {
   final Widget? header;
 
   @override
-  Widget build(final BuildContext context) => LayoutBuilder(
-    builder: (final context, final constraints) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
       final totalHeight = constraints.maxHeight.isFinite
           ? constraints.maxHeight
           : null;
@@ -111,11 +111,11 @@ class SchupfPanel extends StatelessWidget {
   // ── Selection mode ─────────────────────────────────────────────────
 
   Widget _buildSelection(
-    final BuildContext context,
-    final BoxConstraints constraints,
-    final SchupfLayout layout,
-    final SchupfSelectionMode m, {
-    required final bool compact,
+    BuildContext context,
+    BoxConstraints constraints,
+    SchupfLayout layout,
+    SchupfSelectionMode m, {
+    required bool compact,
   }) {
     final canSubmit =
         m.schupfToLeft != null &&
@@ -125,7 +125,7 @@ class SchupfPanel extends StatelessWidget {
       ...[m.schupfToLeft, m.schupfToPartner, m.schupfToRight].whereType<Card>(),
     };
     final available = hand
-        .where((final card) => !selectedCards.contains(card))
+        .where((card) => !selectedCards.contains(card))
         .toList();
     final panelWidth = _panelWidth(constraints, layout, available.length);
     final contentMaxWidth = constraints.maxWidth.isFinite
@@ -135,33 +135,32 @@ class SchupfPanel extends StatelessWidget {
         : _contentWidth(layout, available.length);
 
     Widget buildTarget({
-      required final String label,
-      required final Card? value,
-      required final VoidCallback onRemove,
-      required final ValueChanged<Card> onAccept,
+      required String label,
+      required Card? value,
+      required VoidCallback onRemove,
+      required ValueChanged<Card> onAccept,
     }) => DragTarget<Card>(
-      onAcceptWithDetails: (final details) => onAccept(details.data),
-      builder: (final context, final candidateData, final rejectedData) =>
-          SchupfTargetBox(
-            label: label,
-            targetWidth: layout.targetWidth,
-            targetHeight: layout.targetHeight,
-            labelGap: layout.tightGap,
-            content: value == null
-                ? const Icon(
-                    Icons.add_circle_outline,
-                    color: Colors.white38,
-                    size: 26,
-                  )
-                : CardWidget(
-                    card: value,
-                    isSelected: false,
-                    compact: true,
-                    scale: layout.cardScale,
-                  ),
-            onTap: value == null ? null : onRemove,
-            isActive: candidateData.isNotEmpty,
-          ),
+      onAcceptWithDetails: (details) => onAccept(details.data),
+      builder: (context, candidateData, rejectedData) => SchupfTargetBox(
+        label: label,
+        targetWidth: layout.targetWidth,
+        targetHeight: layout.targetHeight,
+        labelGap: layout.tightGap,
+        content: value == null
+            ? const Icon(
+                Icons.add_circle_outline,
+                color: Colors.white38,
+                size: 26,
+              )
+            : CardWidget(
+                card: value,
+                isSelected: false,
+                compact: true,
+                scale: layout.cardScale,
+              ),
+        onTap: value == null ? null : onRemove,
+        isActive: candidateData.isNotEmpty,
+      ),
     );
 
     final handRow = _handRow(layout, available, m, maxWidth: contentMaxWidth);
@@ -171,19 +170,19 @@ class SchupfPanel extends StatelessWidget {
         label: 'Left',
         value: m.schupfToRight,
         onRemove: () => m.onClearSlot(SchupfSlot.right),
-        onAccept: (final card) => m.onSetSlot(SchupfSlot.right, card),
+        onAccept: (card) => m.onSetSlot(SchupfSlot.right, card),
       ),
       buildTarget(
         label: 'Partner',
         value: m.schupfToPartner,
         onRemove: () => m.onClearSlot(SchupfSlot.partner),
-        onAccept: (final card) => m.onSetSlot(SchupfSlot.partner, card),
+        onAccept: (card) => m.onSetSlot(SchupfSlot.partner, card),
       ),
       buildTarget(
         label: 'Right',
         value: m.schupfToLeft,
         onRemove: () => m.onClearSlot(SchupfSlot.left),
-        onAccept: (final card) => m.onSetSlot(SchupfSlot.left, card),
+        onAccept: (card) => m.onSetSlot(SchupfSlot.left, card),
       ),
     ];
     final schupfButton = ElevatedButton.icon(
@@ -234,10 +233,10 @@ class SchupfPanel extends StatelessWidget {
   }
 
   Widget _handRow(
-    final SchupfLayout layout,
-    final List<Card> available,
-    final SchupfSelectionMode m, {
-    required final double maxWidth,
+    SchupfLayout layout,
+    List<Card> available,
+    SchupfSelectionMode m, {
+    required double maxWidth,
   }) => SizedBox(
     width: math.min(_contentWidth(layout, available.length), maxWidth),
     child: OverlappingCardRow(
@@ -247,7 +246,7 @@ class SchupfPanel extends StatelessWidget {
       spacing: layout.rowSpacing,
       minVisible: 14 * layout.rowScale,
       height: layout.rowCardHeight + 8,
-      itemBuilder: (final context, final index) {
+      itemBuilder: (context, index) {
         final card = available[index];
         void onQuickAssign() {
           if (m.schupfToRight == null) {

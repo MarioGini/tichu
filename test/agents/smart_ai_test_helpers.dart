@@ -35,13 +35,13 @@ final aiPlayers = [
 ];
 
 GameSnapshot aiSnapshot({
-  required final List<Card> myHand,
-  final DeckState? deck,
-  final Map<String, List<Card>>? otherHands,
-  final Map<String, TichuCall>? tichuCalls,
-  final String? lastPlayedBy,
-  final TichuTurn? lastPlayedTurn,
-  final CardFace? activeWish,
+  required List<Card> myHand,
+  DeckState? deck,
+  Map<String, List<Card>>? otherHands,
+  Map<String, TichuCall>? tichuCalls,
+  String? lastPlayedBy,
+  TichuTurn? lastPlayedTurn,
+  CardFace? activeWish,
 }) {
   final hands = <String, List<Card>>{
     aiId: myHand,
@@ -103,8 +103,8 @@ class FixedSchupfStrategy implements SchupfStrategy {
 
   @override
   Future<SchupfAction> selectSchupfCards(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async => SchupfAction(
     playerId: playerId,
     toLeft: toLeft,
@@ -118,34 +118,34 @@ class ForceEmptyValidPlaysPolicy extends PlayTacticsPolicy {
 
   @override
   PassAction? selectPartnerSupportPass({
-    required final String playerId,
-    required final GameSnapshot snapshot,
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final TableRelationships table,
+    required String playerId,
+    required GameSnapshot snapshot,
+    required DeckState deck,
+    required List<Card> hand,
+    required TableRelationships table,
   }) => null;
 
   @override
   TichuTurn? selectPartnerFinishLead({
-    required final GameSnapshot snapshot,
-    required final List<TichuTurn> legalTurns,
-    required final bool isLeading,
-    required final TableRelationships table,
+    required GameSnapshot snapshot,
+    required List<TichuTurn> legalTurns,
+    required bool isLeading,
+    required TableRelationships table,
   }) => null;
 
   @override
   TichuTurn? selectMahjongLeadTurn({
-    required final List<TichuTurn> legalTurns,
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final bool isLeading,
-    required final TichuTurn Function(List<TichuTurn>) selectPlay,
+    required List<TichuTurn> legalTurns,
+    required DeckState deck,
+    required List<Card> hand,
+    required bool isLeading,
+    required TichuTurn Function(List<TichuTurn>) selectPlay,
   }) => null;
 
   @override
   List<TichuTurn> filterWishValidPlays({
-    required final DeckState deck,
-    required final List<TichuTurn> legalTurns,
-    required final List<Card> hand,
+    required DeckState deck,
+    required List<TichuTurn> legalTurns,
+    required List<Card> hand,
   }) => const <TichuTurn>[];
 }

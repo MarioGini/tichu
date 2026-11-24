@@ -11,17 +11,16 @@ part of 'headless.dart';
 /// records double wins and the Tichu calls that followed, so the effect of
 /// a pass on the partner's and the opponents' play can be analysed.
 extension _SchupfLabels on _HeadlessSimulator {
-  bool _sameCard(final Card a, final Card b) =>
-      a.face == b.face && a.color == b.color;
+  bool _sameCard(Card a, Card b) => a.face == b.face && a.color == b.color;
 
   /// The bot's own pass first, then up to [schupfCandidates] - 1 random
   /// others from [SchupfFeatures.candidates].
   List<SchupfAction> _schupfCandidates(
-    final String playerId,
-    final List<Card> hand,
-    final SchupfAction chosen,
+    String playerId,
+    List<Card> hand,
+    SchupfAction chosen,
   ) {
-    bool isChosen(final int l, final int p, final int r) =>
+    bool isChosen(int l, int p, int r) =>
         _sameCard(hand[l], chosen.toLeft) &&
         _sameCard(hand[p], chosen.toPartner) &&
         _sameCard(hand[r], chosen.toRight);
@@ -46,18 +45,18 @@ extension _SchupfLabels on _HeadlessSimulator {
   /// call, best opponent call]. Call codes: 0 none, 1 Tichu lost, 2 Tichu
   /// made, 3 Grand Tichu lost, 4 Grand Tichu made.
   Future<void> _labelSchupf({
-    required final GameEngineState state,
-    required final GameSnapshot snapshot,
-    required final String playerId,
-    required final SchupfAction chosen,
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required String playerId,
+    required SchupfAction chosen,
   }) async {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     if (hand.length < 3) return;
     final candidates = _schupfCandidates(playerId, hand, chosen);
-    final me = state.players.firstWhere((final p) => p.id == playerId);
+    final me = state.players.firstWhere((p) => p.id == playerId);
     final team = me.seat % 2;
     final partnerId = state.players
-        .firstWhere((final p) => p.seat == (me.seat + 2) % 4)
+        .firstWhere((p) => p.seat == (me.seat + 2) % 4)
         .id;
     final outcomes = <List<int>?>[];
     for (final candidate in candidates) {
@@ -73,12 +72,12 @@ extension _SchupfLabels on _HeadlessSimulator {
       }
       final score = fork.scoreTracker.state;
       final order = score.finishOrder;
-      int teamOf(final String id) =>
-          fork.players.firstWhere((final p) => p.id == id).seat % 2;
+      int teamOf(String id) =>
+          fork.players.firstWhere((p) => p.id == id).seat % 2;
       final firstMine = order.isNotEmpty && teamOf(order.first) == team;
       final doubleWin =
           order.length >= 2 && teamOf(order[0]) == teamOf(order[1]);
-      int callCode(final String id) {
+      int callCode(String id) {
         final call = score.tichuCalls[id] ?? TichuCall.none;
         if (call == TichuCall.none) return 0;
         final made = order.isNotEmpty && order.first == id;

@@ -14,20 +14,20 @@ mixin _LocalLobbyApi on _LocalTableBase implements GameSessionService {
           targetScore: lobby.targetScore,
           visibility: lobby.visibility,
           occupiedSeats: lobby.seats
-              .where((final s) => s.state == GameLobbySeatState.occupied)
+              .where((s) => s.state == GameLobbySeatState.occupied)
               .length,
         ),
   ];
 
-  String _hostDisplayName(final _LocalLobbyState lobby) {
+  String _hostDisplayName(_LocalLobbyState lobby) {
     final host = lobby.participantsByPlayerId[lobby.hostPlayerId];
     return host?.displayName ?? 'Unknown';
   }
 
   @override
   Stream<GameLobbySnapshot> watchLobby(
-    final String lobbyId, {
-    required final String accessToken,
+    String lobbyId, {
+    required String accessToken,
   }) async* {
     final lobby = _requireLobby(lobbyId);
     final participant = _requireParticipant(lobby, accessToken);
@@ -43,11 +43,11 @@ mixin _LocalLobbyApi on _LocalTableBase implements GameSessionService {
 
   @override
   Future<void> claimSeat(
-    final String lobbyId, {
-    required final String accessToken,
-    required final int seat,
-    final PlayerType type = PlayerType.human,
-    final String? automatedDisplayName,
+    String lobbyId, {
+    required String accessToken,
+    required int seat,
+    PlayerType type = PlayerType.human,
+    String? automatedDisplayName,
   }) async {
     final lobby = _requireLobby(lobbyId);
     final participant = _requireParticipant(lobby, accessToken);
@@ -66,9 +66,9 @@ mixin _LocalLobbyApi on _LocalTableBase implements GameSessionService {
 
   @override
   Future<void> setReadyState(
-    final String lobbyId, {
-    required final String accessToken,
-    required final bool isReady,
+    String lobbyId, {
+    required String accessToken,
+    required bool isReady,
   }) async {
     final lobby = _requireLobby(lobbyId);
     final participant = _requireParticipant(lobby, accessToken);
@@ -84,10 +84,7 @@ mixin _LocalLobbyApi on _LocalTableBase implements GameSessionService {
   }
 
   @override
-  Future<void> startMatch(
-    final String lobbyId, {
-    required final String accessToken,
-  }) async {
+  Future<void> startMatch(String lobbyId, {required String accessToken}) async {
     final lobby = _requireLobby(lobbyId);
     final participant = _requireParticipant(lobby, accessToken);
     if (participant.playerId != lobby.hostPlayerId) {
@@ -126,7 +123,7 @@ mixin _LocalLobbyApi on _LocalTableBase implements GameSessionService {
     lobby.state = GameLobbyState.active;
     lobby.runtimeSubscription = runtime
         .watchGameState(matchId)
-        .listen((final snapshot) => _handleBackendSnapshot(lobby, snapshot));
+        .listen((snapshot) => _handleBackendSnapshot(lobby, snapshot));
     await runtime.setAutomatedActionDelay(lobby.automatedActionDelay);
     _emitLobby(lobby);
     _emitConnection(

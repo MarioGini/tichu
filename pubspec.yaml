@@ -6,16 +6,16 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.0
+  sdk: ^3.14.0
 
 dependencies:
   audioplayers: ^6.8.1
   flutter:
     sdk: flutter
-  material_ui: ^1.11.0
+  material_ui: ^1.11.1
   meta: ^1.19.0
-  postgres: ^3.6.0
-  shared_preferences: ^2.5.3
+  postgres: ^3.7.0
+  shared_preferences: ^2.5.6
   supabase: ^2.16.5
   supabase_flutter: ^2.18.3
 

@@ -29,10 +29,10 @@ class _TableFlags {
   Map<String, TichuCall> get tichuCalls =>
       scoreState?.tichuCalls ?? const <String, TichuCall>{};
 
-  int roundPointsFor(final String? playerId) =>
+  int roundPointsFor(String? playerId) =>
       playerId == null ? 0 : scoreState?.playerRoundPoints[playerId] ?? 0;
 
-  int? finishPositionFor(final String? playerId) {
+  int? finishPositionFor(String? playerId) {
     if (playerId == null) return null;
     final index = (scoreState?.finishOrder ?? const <String>[]).indexOf(
       playerId,
@@ -40,7 +40,7 @@ class _TableFlags {
     return index == -1 ? null : index + 1;
   }
 
-  bool isFinished(final String? playerId) {
+  bool isFinished(String? playerId) {
     final cardsLeft = snapshot?.opponentCardCounts[playerId];
     return cardsLeft == 0 || finishPositionFor(playerId) != null;
   }
@@ -70,7 +70,7 @@ mixin _GameScreenView on _GameScreenStateBase, _GameScreenSeats {
     );
   }
 
-  Widget _buildTable(final BuildContext context) {
+  Widget _buildTable(BuildContext context) {
     final flags = _tableFlags();
     final snapshot = flags.snapshot;
     final scoreState = flags.scoreState;
@@ -84,7 +84,7 @@ mixin _GameScreenView on _GameScreenStateBase, _GameScreenSeats {
       body: Focus(
         focusNode: _schupfFocusNode,
         autofocus: true,
-        onKeyEvent: (final node, final event) => handleDirectionalEnterKeyEvent(
+        onKeyEvent: (node, event) => handleDirectionalEnterKeyEvent(
           event,
           onEnter: _handleShortcutEnter,
           onLeft: _handleShortcutLeft,
@@ -160,11 +160,11 @@ mixin _GameScreenView on _GameScreenStateBase, _GameScreenSeats {
     );
   }
 
-  Widget _buildTrickArea(final _TableFlags flags) {
+  Widget _buildTrickArea(_TableFlags flags) {
     final snapshot = flags.snapshot;
-    String nameOf(final String id) =>
+    String nameOf(String id) =>
         snapshot?.players
-            .where((final player) => player.id == id)
+            .where((player) => player.id == id)
             .firstOrNull
             ?.name ??
         'Unknown';
@@ -196,7 +196,7 @@ mixin _GameScreenView on _GameScreenStateBase, _GameScreenSeats {
     );
   }
 
-  Widget _buildActionBar(final _TableFlags flags) {
+  Widget _buildActionBar(_TableFlags flags) {
     final snapshot = flags.snapshot;
     final manual = _isSelfManual;
     final showTurnActions = flags.showPlayInfo;
@@ -213,9 +213,8 @@ mixin _GameScreenView on _GameScreenStateBase, _GameScreenSeats {
           GrandTichuBanner(
             selectNo: _grandTichuSelectNo,
             isPending: _grandTichuDialogOpen,
-            onDecision: (final call) =>
-                unawaited(_submitGrandTichuDecision(call)),
-            onToggle: (final selectNo) {
+            onDecision: (call) => unawaited(_submitGrandTichuDecision(call)),
+            onToggle: (selectNo) {
               setState(() {
                 _grandTichuSelectNo = selectNo;
               });

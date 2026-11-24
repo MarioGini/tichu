@@ -5,30 +5,24 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
   SupabaseGameSessionService({required super.client, required super.config});
 
   @override
-  Future<GameSessionHandle> createLobby(
-    final CreateGameLobbyRequest request,
-  ) async {
+  Future<GameSessionHandle> createLobby(CreateGameLobbyRequest request) async {
     final payload = await invokeJson(
       'create-lobby',
       body: <String, dynamic>{
-        'request': session_dto.CreateGameLobbyRequestDto.fromDomain(
-          request,
-        ).toJson(),
+        'request': session_dto.CreateGameLobbyRequestDto.fromDomain(request)
+            .toJson(),
       },
     );
     return session_dto.GameSessionHandleDto.fromJson(payload).toDomain();
   }
 
   @override
-  Future<GameSessionHandle> joinLobby(
-    final JoinGameLobbyRequest request,
-  ) async {
+  Future<GameSessionHandle> joinLobby(JoinGameLobbyRequest request) async {
     final payload = await invokeJson(
       'join-lobby',
       body: <String, dynamic>{
-        'request': session_dto.JoinGameLobbyRequestDto.fromDomain(
-          request,
-        ).toJson(),
+        'request': session_dto.JoinGameLobbyRequestDto.fromDomain(request)
+            .toJson(),
       },
     );
     return session_dto.GameSessionHandleDto.fromJson(payload).toDomain();
@@ -48,8 +42,8 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
 
   @override
   Stream<GameLobbySnapshot> watchLobby(
-    final String lobbyId, {
-    required final String accessToken,
+    String lobbyId, {
+    required String accessToken,
   }) => withHeartbeat(
     source: () => _watchLobbyProjected(lobbyId, accessToken: accessToken),
     heartbeatBody: <String, dynamic>{
@@ -59,8 +53,8 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
   );
 
   Stream<GameLobbySnapshot> _watchLobbyProjected(
-    final String lobbyId, {
-    required final String accessToken,
+    String lobbyId, {
+    required String accessToken,
   }) => watchProjectedValue(
     channelTopic: 'tichu:lobby:$lobbyId:$accessToken',
     table: _SupabaseServiceBase._lobbyViewTable,
@@ -85,17 +79,17 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
       );
       return session_dto.GameLobbySnapshotDto.fromJson(payload).toDomain();
     },
-    signatureOf: (final value) =>
+    signatureOf: (value) =>
         jsonEncode(session_dto.GameLobbySnapshotDto.fromDomain(value).toJson()),
   );
 
   @override
   Future<void> claimSeat(
-    final String lobbyId, {
-    required final String accessToken,
-    required final int seat,
-    final PlayerType type = PlayerType.human,
-    final String? automatedDisplayName,
+    String lobbyId, {
+    required String accessToken,
+    required int seat,
+    PlayerType type = PlayerType.human,
+    String? automatedDisplayName,
   }) => invokeVoid(
     'claim-seat',
     body: <String, dynamic>{
@@ -109,9 +103,9 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
 
   @override
   Future<void> setReadyState(
-    final String lobbyId, {
-    required final String accessToken,
-    required final bool isReady,
+    String lobbyId, {
+    required String accessToken,
+    required bool isReady,
   }) => invokeVoid(
     'set-ready-state',
     body: <String, dynamic>{
@@ -122,29 +116,23 @@ final class SupabaseGameSessionService extends _SupabaseServiceBase
   );
 
   @override
-  Future<void> startMatch(
-    final String lobbyId, {
-    required final String accessToken,
-  }) => invokeVoid(
-    'start-match',
-    body: <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
-  );
+  Future<void> startMatch(String lobbyId, {required String accessToken}) =>
+      invokeVoid(
+        'start-match',
+        body: <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
+      );
 
   @override
-  Future<void> leaveLobby(
-    final String lobbyId, {
-    required final String accessToken,
-  }) => invokeVoid(
-    'leave-lobby',
-    body: <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
-  );
+  Future<void> leaveLobby(String lobbyId, {required String accessToken}) =>
+      invokeVoid(
+        'leave-lobby',
+        body: <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
+      );
 
   @override
-  Future<void> sendHeartbeat(
-    final String lobbyId, {
-    required final String accessToken,
-  }) => invokeVoid(
-    'heartbeat',
-    body: <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
-  );
+  Future<void> sendHeartbeat(String lobbyId, {required String accessToken}) =>
+      invokeVoid(
+        'heartbeat',
+        body: <String, dynamic>{'lobbyId': lobbyId, 'accessToken': accessToken},
+      );
 }

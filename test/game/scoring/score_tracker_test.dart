@@ -201,12 +201,12 @@ void main() {
     });
 
     void playRound(
-      final LocalScoreTracker t, {
-      required final int teamOnePoints,
-      required final int teamTwoPoints,
+      LocalScoreTracker t, {
+      required int teamOnePoints,
+      required int teamTwoPoints,
     }) {
       t.startNewRound(players);
-      List<Card> tens(final int points) => [
+      List<Card> tens(int points) => [
         for (var i = 0; i < points ~/ 10; i++)
           fxCard(CardFace.ten, CardColor.values[i % 4]),
       ];

@@ -32,11 +32,11 @@ enum ObserveStep {
 class ObserveController extends ChangeNotifier {
   ObserveController({
     this.store,
-    final AgentFactory? agentFactory,
+    this._agentFactory,
     this.targetScore = 1000,
     this.phaseDelay = const Duration(milliseconds: 250),
     this.botNames = const ['Bot 1', 'Bot 2', 'Bot 3', 'Bot 4'],
-  }) : _agentFactory = agentFactory;
+  });
 
   final GameRecordStore? store;
   final AgentFactory? _agentFactory;
@@ -108,7 +108,7 @@ class ObserveController extends ChangeNotifier {
     await _runtime.setAutomatedActionDelay(phaseDelay);
     final gameId = await _runtime.createGame(players, targetScore: targetScore);
     _gameId = gameId;
-    _snapshotSub = _runtime.watchGameState(gameId).listen((final s) {
+    _snapshotSub = _runtime.watchGameState(gameId).listen((s) {
       _snapshot = s;
       _notify();
     });
@@ -134,7 +134,7 @@ class ObserveController extends ChangeNotifier {
   }
 
   /// Steps automatically every [autoPlayInterval] (stops at round end).
-  void setAutoPlay(final bool value) {
+  void setAutoPlay(bool value) {
     _autoPlay = value;
     _scheduleAuto();
     _notify();
@@ -146,7 +146,7 @@ class ObserveController extends ChangeNotifier {
     if (id != null) await _engine.flush(id);
   }
 
-  Future<void> _guard(final Future<void> Function() body) async {
+  Future<void> _guard(Future<void> Function() body) async {
     _busy = true;
     _notify();
     try {

@@ -47,7 +47,7 @@ void main() {
       final action = await schupfAgent.selectTurn(playSnapshot);
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
-      if (play.cards.any((final c) => c.face == CardFace.mahJong)) {
+      if (play.cards.any((c) => c.face == CardFace.mahJong)) {
         expect(play.inputWish, CardFace.seven);
       }
     });
@@ -64,7 +64,7 @@ void main() {
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
       // The agent should wish for a high card it doesn't hold.
-      if (play.cards.any((final c) => c.face == CardFace.mahJong)) {
+      if (play.cards.any((c) => c.face == CardFace.mahJong)) {
         expect(
           play.inputWish,
           isIn([
@@ -92,7 +92,7 @@ void main() {
       final action = await agent.selectTurn(snapshot);
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
-      if (play.cards.any((final c) => c.face == CardFace.mahJong)) {
+      if (play.cards.any((c) => c.face == CardFace.mahJong)) {
         expect(play.inputWish, CardFace.none);
       }
     });
@@ -105,15 +105,9 @@ void main() {
       final snapshot = aiSnapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          leftId: List.generate(
-            6,
-            (final i) => Card(CardFace.two, CardColor.red),
-          ),
+          leftId: List.generate(6, (i) => Card(CardFace.two, CardColor.red)),
           partnerId: defaultHand(),
-          rightId: List.generate(
-            2,
-            (final i) => Card(CardFace.two, CardColor.blue),
-          ),
+          rightId: List.generate(2, (i) => Card(CardFace.two, CardColor.blue)),
         },
         tichuCalls: {leftId: TichuCall.tichu},
       );
@@ -130,15 +124,9 @@ void main() {
       final snapshot = aiSnapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          leftId: List.generate(
-            8,
-            (final i) => Card(CardFace.two, CardColor.red),
-          ),
+          leftId: List.generate(8, (i) => Card(CardFace.two, CardColor.red)),
           partnerId: defaultHand(),
-          rightId: List.generate(
-            3,
-            (final i) => Card(CardFace.two, CardColor.blue),
-          ),
+          rightId: List.generate(3, (i) => Card(CardFace.two, CardColor.blue)),
         },
       );
 
@@ -153,15 +141,9 @@ void main() {
       final snapshot = aiSnapshot(
         myHand: [Card(CardFace.dragon, CardColor.special)],
         otherHands: {
-          leftId: List.generate(
-            2,
-            (final i) => Card(CardFace.two, CardColor.red),
-          ),
+          leftId: List.generate(2, (i) => Card(CardFace.two, CardColor.red)),
           partnerId: defaultHand(),
-          rightId: List.generate(
-            10,
-            (final i) => Card(CardFace.two, CardColor.blue),
-          ),
+          rightId: List.generate(10, (i) => Card(CardFace.two, CardColor.blue)),
         },
       );
 

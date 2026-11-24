@@ -49,7 +49,7 @@ void main() {
           reason: 'round ${i + 1}: ${logs[i]}',
         );
         final left = (roundEnds[i].data['handsLeft']! as Map).map(
-          (final k, final v) => MapEntry(k as String, (v as List).length),
+          (k, v) => MapEntry(k as String, (v as List).length),
         );
         for (var seat = 0; seat < 4; seat++) {
           final id = record.playerAtSeat(seat)!.id;

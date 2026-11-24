@@ -18,9 +18,9 @@ typedef SchupfLayout = ({
 });
 
 SchupfLayout computeSchupfLayout({
-  required final double? maxHeight,
-  final bool hasHeader = true,
-  final bool compact = false,
+  required double? maxHeight,
+  bool hasHeader = true,
+  bool compact = false,
 }) {
   // Precise overhead for all fixed-height items in the selection Column:
   //   header + gap:       hasHeader ? ~38  : 0
@@ -101,8 +101,8 @@ SchupfLayout computeSchupfLayout({
 
 /// Shared container decoration for schupf panels.
 Widget buildSchupfPanelContainer({
-  required final double panelWidth,
-  required final Widget child,
+  required double panelWidth,
+  required Widget child,
 }) => Align(
   alignment: Alignment.topCenter,
   heightFactor: 1,
@@ -144,16 +144,15 @@ class SchupfTargetBox extends StatelessWidget {
   final double targetInset;
 
   @override
-  Widget build(final BuildContext context) => SizedBox(
+  Widget build(BuildContext context) => SizedBox(
     width: targetWidth,
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label,
-          style: Theme.of(
-            context,
-          ).textTheme.labelSmall?.copyWith(color: Colors.white70),
+          style: Theme.of(context).textTheme.labelSmall
+              ?.copyWith(color: Colors.white70),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

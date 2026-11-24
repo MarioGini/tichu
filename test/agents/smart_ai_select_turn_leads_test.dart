@@ -95,7 +95,7 @@ void main() {
         final action = await agent.selectTurn(snapshot);
         expect(action, isA<PlayTurnAction>());
         final play = action as PlayTurnAction;
-        expect(play.cards.any((final c) => c.face == CardFace.mahJong), isTrue);
+        expect(play.cards.any((c) => c.face == CardFace.mahJong), isTrue);
         expect(getTurn(play.cards).type, isNot(TurnType.dog));
       },
     );
@@ -117,7 +117,7 @@ void main() {
         final action = await agent.selectTurn(snapshot);
         expect(action, isA<PlayTurnAction>());
         final play = action as PlayTurnAction;
-        expect(play.cards.any((final c) => c.face == CardFace.mahJong), isTrue);
+        expect(play.cards.any((c) => c.face == CardFace.mahJong), isTrue);
         expect(getTurn(play.cards).type, TurnType.straight);
       },
     );

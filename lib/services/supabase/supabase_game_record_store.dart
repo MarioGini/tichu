@@ -7,7 +7,7 @@ import 'package:tichu/services/supabase/supabase_app_client.dart';
 /// (see `supabase/migrations/*_tichu_game_records.sql`), as the app's
 /// anonymous user. Rows are owned by that user (row-level security).
 class SupabaseGameRecordStore implements GameRecordStore {
-  SupabaseGameRecordStore({final Future<SupabaseClient> Function()? client})
+  SupabaseGameRecordStore({Future<SupabaseClient> Function()? client})
     : _client = client ?? appSupabaseClient;
 
   static const table = 'tichu_game_records';
@@ -19,7 +19,7 @@ class SupabaseGameRecordStore implements GameRecordStore {
   DateTime? lastSavedAt;
 
   @override
-  Future<void> save(final GameRecord record) async {
+  Future<void> save(GameRecord record) async {
     try {
       final client = await _client();
       await client.from(table).upsert({
@@ -40,7 +40,7 @@ class SupabaseGameRecordStore implements GameRecordStore {
   }
 
   @override
-  Future<Map<String, Object?>?> load(final String id) async {
+  Future<Map<String, Object?>?> load(String id) async {
     final client = await _client();
     final row = await client
         .from(table)
@@ -52,6 +52,5 @@ class SupabaseGameRecordStore implements GameRecordStore {
   }
 
   @override
-  String describeLocation(final String id) =>
-      "Supabase: $table where id = '$id'";
+  String describeLocation(String id) => "Supabase: $table where id = '$id'";
 }

@@ -15,7 +15,7 @@ import 'package:tichu/services/supabase/supabase_authority_server.dart';
 import 'package:tichu/services/supabase/supabase_projection_schema_bootstrap.dart';
 import 'package:tichu/services/supabase/supabase_table_projection_store.dart';
 
-Future<void> main(final List<String> args) async {
+Future<void> main(List<String> args) async {
   if (args.contains('--help') || args.contains('-h')) {
     stdout.writeln(_usage);
     return;
@@ -86,9 +86,9 @@ Future<void> main(final List<String> args) async {
 }
 
 Future<SupabaseTableProjectionStore?> _createProjectionStore({
-  required final String? supabaseUrl,
-  required final String? supabaseServiceRoleKey,
-  required final String? supabaseDbUrl,
+  required String? supabaseUrl,
+  required String? supabaseServiceRoleKey,
+  required String? supabaseDbUrl,
 }) async {
   if (supabaseUrl == null ||
       supabaseUrl.isEmpty ||
@@ -103,37 +103,36 @@ Future<SupabaseTableProjectionStore?> _createProjectionStore({
     );
   }
 
-  await SupabaseProjectionSchemaBootstrap(
-    databaseUrl: supabaseDbUrl,
-  ).ensureReady();
+  await SupabaseProjectionSchemaBootstrap(databaseUrl: supabaseDbUrl)
+      .ensureReady();
 
   return SupabaseTableProjectionStore(
     client: SupabaseClient(supabaseUrl, supabaseServiceRoleKey),
   );
 }
 
-AuthorityStateStore? _createStateStore({required final String? supabaseDbUrl}) {
+AuthorityStateStore? _createStateStore({required String? supabaseDbUrl}) {
   if (supabaseDbUrl == null || supabaseDbUrl.isEmpty) {
     return null;
   }
   return PostgresAuthorityStateStore(databaseUrl: supabaseDbUrl);
 }
 
-GameRecordStore _createRecordStore({required final String? supabaseDbUrl}) =>
+GameRecordStore _createRecordStore({required String? supabaseDbUrl}) =>
     (supabaseDbUrl == null || supabaseDbUrl.isEmpty)
     ? FileGameRecordStore.defaultLocation()
     : PostgresGameRecordStore(databaseUrl: supabaseDbUrl);
 
 String _readStringArg(
-  final List<String> args,
-  final String flag, {
-  required final String fallback,
+  List<String> args,
+  String flag, {
+  required String fallback,
 }) => _readOptionalStringArg(args, flag, fallback: fallback) ?? fallback;
 
 String? _readOptionalStringArg(
-  final List<String> args,
-  final String flag, {
-  final String? fallback,
+  List<String> args,
+  String flag, {
+  String? fallback,
 }) {
   final flagIndex = args.indexOf(flag);
   if (flagIndex == -1) {

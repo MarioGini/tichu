@@ -8,7 +8,7 @@ import 'package:tichu/screens/game/widgets/wish_dialog.dart';
 import 'package:tichu/screens/home/home_screen.dart';
 
 void main() {
-  Future<void> setTargetViewport(final WidgetTester tester) async {
+  Future<void> setTargetViewport(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(1080, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
   }
@@ -16,7 +16,7 @@ void main() {
   ScoreState buildSummaryState() {
     final rounds = List<RoundScore>.generate(
       10,
-      (final index) => RoundScore(
+      (index) => RoundScore(
         roundNumber: index + 1,
         teamOnePoints: 90 + (index % 3) * 10,
         teamTwoPoints: 110 - (index % 3) * 10,
@@ -52,7 +52,7 @@ void main() {
   }
 
   testWidgets('home screen renders without overflow at 1080x2400', (
-    final tester,
+    tester,
   ) async {
     await setTargetViewport(tester);
 
@@ -64,7 +64,7 @@ void main() {
   });
 
   testWidgets('round summary renders without overflow at 1080x2400', (
-    final tester,
+    tester,
   ) async {
     await setTargetViewport(tester);
 
@@ -84,7 +84,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('options dialog content fits at 1080x2400', (final tester) async {
+  testWidgets('options dialog content fits at 1080x2400', (tester) async {
     await setTargetViewport(tester);
 
     await tester.pumpWidget(
@@ -95,10 +95,10 @@ void main() {
             opponentDelay: 2,
             autoPassEnabled: false,
             soundEnabled: true,
-            onAiSuggestionChanged: (final _) {},
-            onOpponentDelayChanged: (final _) {},
-            onAutoPassChanged: (final _) {},
-            onSoundChanged: (final _) {},
+            onAiSuggestionChanged: (_) {},
+            onOpponentDelayChanged: (_) {},
+            onAutoPassChanged: (_) {},
+            onSoundChanged: (_) {},
           ),
         ),
       ),
@@ -110,7 +110,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('wish dialog content fits at 1080x2400', (final tester) async {
+  testWidgets('wish dialog content fits at 1080x2400', (tester) async {
     await setTargetViewport(tester);
 
     await tester.pumpWidget(

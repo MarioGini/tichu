@@ -8,9 +8,9 @@ import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
 /// Returns a session handle with `seat` and `matchId` set, ready to be passed
 /// straight to the game screen.
 Future<GameSessionHandle> startSoloMatch(
-  final MultiplayerBackend backend, {
-  required final String displayName,
-  final int targetScore = 1000,
+  MultiplayerBackend backend, {
+  required String displayName,
+  int targetScore = 1000,
 }) async {
   final service = backend.sessionService;
   final handle = await service.createLobby(
@@ -32,7 +32,7 @@ Future<GameSessionHandle> startSoloMatch(
   var localSeat = _localSeat(lobby, handle.playerId);
   if (localSeat == null) {
     final open = lobby.seats.firstWhere(
-      (final s) => s.state == GameLobbySeatState.open,
+      (s) => s.state == GameLobbySeatState.open,
     );
     await service.claimSeat(
       handle.lobbyId,
@@ -65,15 +65,12 @@ Future<GameSessionHandle> startSoloMatch(
   await service.startMatch(handle.lobbyId, accessToken: handle.accessToken);
   final active = await service
       .watchLobby(handle.lobbyId, accessToken: handle.accessToken)
-      .firstWhere((final s) => s.matchId != null);
+      .firstWhere((s) => s.matchId != null);
   localSeat = _localSeat(active, handle.playerId);
   return handle.copyWith(seat: localSeat?.seat, matchId: active.matchId);
 }
 
-GameLobbySeatSnapshot? _localSeat(
-  final GameLobbySnapshot lobby,
-  final String playerId,
-) {
+GameLobbySeatSnapshot? _localSeat(GameLobbySnapshot lobby, String playerId) {
   for (final seat in lobby.seats) {
     if (seat.playerId == playerId) return seat;
   }

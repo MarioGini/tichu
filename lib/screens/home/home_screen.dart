@@ -9,14 +9,22 @@ import 'package:tichu/screens/home/widgets/open_games_panel.dart';
 import 'package:tichu/screens/lobby/lobby_screen.dart';
 import 'package:tichu/screens/observe/observe_screen.dart';
 import 'package:tichu/screens/scoreboard/scoreboard_screen.dart';
+import 'package:tichu/services/account/account_service.dart';
+import 'package:tichu/services/account/player_account.dart';
 import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
 import 'package:tichu/services/multiplayer/solo_match.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, final MultiplayerBackend? multiplayerBackend})
-    : _multiplayerBackend = multiplayerBackend;
+  const HomeScreen({
+    super.key,
+    final MultiplayerBackend? multiplayerBackend,
+    this.accountService,
+  }) : _multiplayerBackend = multiplayerBackend;
 
   final MultiplayerBackend? _multiplayerBackend;
+
+  /// Remembers this device's player; defaults to [createAccountService].
+  final AccountService? accountService;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -25,9 +33,14 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final MultiplayerBackend _multiplayerBackend =
       widget._multiplayerBackend ?? LocalMultiplayerBackend();
+  late final AccountService _accountService =
+      widget.accountService ?? createAccountService();
   final TextEditingController _displayNameController = TextEditingController(
-    text: 'Player',
+    text: PlayerAccount.defaultDisplayName,
   );
+  PlayerAccount? _account;
+  bool _nameEdited = false;
+  Timer? _saveNameTimer;
   // Keeps the start panel (and the name field's focus) alive when the
   // layout switches, e.g. when the on-screen keyboard shrinks the screen
   // below the short-screen breakpoint.
@@ -36,13 +49,18 @@ class _HomeScreenState extends State<HomeScreen> {
   List<GameLobbyListEntry> _games = const <GameLobbyListEntry>[];
   Timer? _refreshTimer;
 
-  String get _displayName => _displayNameController.text.trim();
+  /// The name as games and the account use it (normalised), or empty.
+  String get _displayName {
+    final text = _displayNameController.text.trim();
+    return text.isEmpty ? '' : normalizeDisplayName(text);
+  }
 
   bool get _canAct => !_isBusy && _displayName.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadAccount());
     unawaited(_refreshGames());
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 3),
@@ -53,8 +71,41 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    if (_saveNameTimer?.isActive ?? false) {
+      _saveNameTimer!.cancel();
+      unawaited(_saveName());
+    }
     _displayNameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadAccount() async {
+    try {
+      final account = await _accountService.load();
+      if (!mounted) return;
+      setState(() {
+        _account = account;
+        // Typing before the account loaded wins over the stored name.
+        if (!_nameEdited) _displayNameController.text = account.displayName;
+      });
+    } on Object catch (_) {
+      // No storage (e.g. in tests): play on with the name in the field.
+    }
+  }
+
+  void _onNameChanged(final String _) {
+    _nameEdited = true;
+    setState(() {});
+    _saveNameTimer?.cancel();
+    _saveNameTimer = Timer(const Duration(milliseconds: 600), _saveName);
+  }
+
+  Future<void> _saveName() async {
+    if (_displayName.isEmpty) return;
+    try {
+      final account = await _accountService.updateDisplayName(_displayName);
+      if (mounted) setState(() => _account = account);
+    } on Object catch (_) {}
   }
 
   Future<void> _refreshGames() async {
@@ -199,7 +250,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 key: _startPanelKey,
                 compact: wide,
                 nameController: _displayNameController,
-                onNameChanged: (_) => setState(() {}),
+                onNameChanged: _onNameChanged,
+                account: _account,
                 showSolo: _multiplayerBackend.supportsAutomatedSeats,
                 canAct: _canAct,
                 isBusy: _isBusy,

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/agent_decisions.dart';
@@ -20,7 +22,7 @@ const _players = [
 void main() {
   test('going out with the Phoenix: the others answer, then the next player '
       'leads and the out player takes the trick', () async {
-    final engine = GameEngineImpl();
+    final engine = GameEngineImpl(random: Random(4));
     final state = engine.createGame(
       gameId: 'phoenix_out',
       players: _players,
@@ -37,7 +39,11 @@ void main() {
     var anyPlay = false;
     final answered = <String>{};
     var passes = 0;
-    for (var steps = 0; steps < 400000 && checked < 25; steps++) {
+    for (
+      var steps = 0;
+      steps < 400000 && (checked < 6 || allPassed < 1);
+      steps++
+    ) {
       if (state.scoreTracker.state.roundComplete) {
         outPlayer = null;
         engine.startNewRound(state);
@@ -118,7 +124,7 @@ void main() {
         anyPlay = false;
       }
     }
-    expect(checked, greaterThan(5));
+    expect(checked, greaterThanOrEqualTo(6));
     expect(allPassed, greaterThan(0));
   });
 }

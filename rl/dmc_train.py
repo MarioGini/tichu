@@ -65,16 +65,19 @@ def main() -> None:
     print(f"dmc: {y.numel()} decisions from {nf} files, target mean {float(y.mean()):+.3f} sd {float(y.std()):.3f} ({time.time()-t0:.0f}s)", flush=True)
     model = load_qnetwork_from_safetensors(Path(args.init_from), torch.device("cpu"))
     roll = load([Path(x) for x in args.rollout.split(",") if x]) if args.rollout else None
+    best = float("-inf")
     if roll is not None:
         val, tr = split_by_match(roll, 0.2, args.seed)
-        print("  start (held-out rollout): " + "  ".join(f"{k}={v:.3f}" for k, v in evaluate(model, roll, val).items()), flush=True)
+        m0 = evaluate(model, roll, val)
+        print("  start (held-out rollout): " + "  ".join(f"{k}={v:.3f}" for k, v in m0.items()), flush=True)
+        best = m0["vs_uniform_pts"]  # keep the starting net unless an evaluation beats it
+        _export(model, Path(args.output), 0)
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)
     ema = torch.optim.swa_utils.AveragedModel(
         model, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(args.ema)
     )
     n = y.numel()
     steps = (n + args.batch - 1) // args.batch
-    best = float("-inf")
     for epoch in range(args.epochs):
         model.train()
         order = torch.randperm(n)

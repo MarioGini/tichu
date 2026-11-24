@@ -410,7 +410,11 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     # The starting net counts as epoch 0: training never exports a net
     # that is worse on the held-out decisions than the one it started from.
     init_state = {k: v.clone() for k, v in model.state_dict().items()}
-    best_state, best_gain, metrics = None, m0["vs_uniform_pts"], m0
+    # (--allow-worse: when the starting net was trained on these same
+    # decisions its held-out score is in-sample, and a duel gate judges.)
+    best_state = None
+    best_gain = float("-inf") if args.allow_worse else m0["vs_uniform_pts"]
+    metrics = m0
     for epoch in range(args.epochs):
         model.train()
         order = tr[torch.randperm(tr.numel())]
@@ -458,6 +462,11 @@ def main() -> None:
         help="grow --init-from's hidden layers to these sizes (same play at the start)",
     )
     p.add_argument("--output", required=True)
+    p.add_argument(
+        "--allow-worse",
+        action="store_true",
+        help="export the best epoch even if the starting net scores higher (rollout_loop: its duels gate)",
+    )
     p.add_argument(
         "--zero-action-features",
         default="",

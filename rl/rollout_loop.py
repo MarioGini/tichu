@@ -369,6 +369,7 @@ def main() -> None:
                 f"--output={cand}",
                 f"--epochs={args.epochs}",
                 f"--lr={args.lr}",
+                "--allow-worse",
                 *shlex.split(args.train_args),
             ],
             cwd=RL.parent,

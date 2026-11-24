@@ -112,5 +112,29 @@ void main() {
       expect(back.toJson(), g.toJson());
       expect(back.totalFor(1), g.totalFor(1));
     });
+
+    test('fromJson rejects malformed teams', () {
+      final json = game(const []).toJson();
+      expect(
+        () => ScoreboardGame.fromJson({
+          ...json,
+          'teamNames': ['A'],
+        }),
+        throwsFormatException,
+      );
+      expect(
+        () => ScoreboardGame.fromJson({
+          ...json,
+          'rounds': [
+            {
+              'cardPointsTeamA': 50,
+              'doubleVictoryTeam': 2,
+              'calls': <Object>[],
+            },
+          ],
+        }),
+        throwsFormatException,
+      );
+    });
   });
 }

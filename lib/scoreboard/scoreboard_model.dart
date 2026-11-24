@@ -3,6 +3,20 @@ import 'package:meta/meta.dart';
 /// Scorekeeping for Tichu played at a real table: the players count their
 /// cards and the app adds up rounds, Tichu calls and double victories.
 
+int _team(final int team) {
+  if (team != 0 && team != 1) {
+    throw FormatException('team must be 0 or 1, got $team');
+  }
+  return team;
+}
+
+List<String> _teamNames(final List<Object?> names) {
+  if (names.length != 2) {
+    throw FormatException('expected 2 team names, got ${names.length}');
+  }
+  return [for (final n in names) n! as String];
+}
+
 enum TichuCallKind {
   tichu(100),
   grandTichu(200);
@@ -28,7 +42,7 @@ class TichuCall {
   });
 
   factory TichuCall.fromJson(final Map<String, Object?> json) => TichuCall(
-    team: json['team']! as int,
+    team: _team(json['team']! as int),
     kind: TichuCallKind.values.byName(json['kind']! as String),
     success: json['success']! as bool,
   );
@@ -78,7 +92,10 @@ class ScoreboardRound {
   factory ScoreboardRound.fromJson(final Map<String, Object?> json) =>
       ScoreboardRound(
         cardPointsTeamA: json['cardPointsTeamA']! as int,
-        doubleVictoryTeam: json['doubleVictoryTeam'] as int?,
+        doubleVictoryTeam: switch (json['doubleVictoryTeam'] as int?) {
+          null => null,
+          final t => _team(t),
+        },
         calls: [
           for (final c in json['calls']! as List<Object?>)
             TichuCall.fromJson(Map<String, Object?>.from(c! as Map)),
@@ -193,9 +210,7 @@ class ScoreboardGame {
   factory ScoreboardGame.fromJson(final Map<String, Object?> json) =>
       ScoreboardGame(
         id: json['id']! as String,
-        teamNames: [
-          for (final n in json['teamNames']! as List<Object?>) n! as String,
-        ],
+        teamNames: _teamNames(json['teamNames']! as List<Object?>),
         targetScore: json['targetScore']! as int,
         startedAt: DateTime.parse(json['startedAt']! as String),
         rounds: [

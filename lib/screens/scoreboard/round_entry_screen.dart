@@ -20,7 +20,6 @@ class RoundEntryDeleted extends RoundEntryResult {
 
 /// Enter one real-life round: Tichu calls, match (double victory) and
 /// counted card points.
-/// Tichu calls with their outcome.
 class RoundEntryScreen extends StatefulWidget {
   const RoundEntryScreen({
     super.key,

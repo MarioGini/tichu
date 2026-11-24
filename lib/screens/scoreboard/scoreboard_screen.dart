@@ -29,10 +29,28 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
   /// Shows the setup form instead of the sheet (new match / edit teams).
   bool _setup = false;
 
+  /// The setup form edits the current match rather than starting one.
+  bool _editing = false;
+
+  ScaffoldMessengerState? _messenger;
+
   @override
   void initState() {
     super.initState();
     unawaited(_load());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _messenger = ScaffoldMessenger.maybeOf(context);
+  }
+
+  @override
+  void dispose() {
+    // A pending "Undo" must not outlive this screen.
+    _messenger?.hideCurrentSnackBar();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -50,12 +68,22 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
 
   void _setGame(final ScoreboardGame game) {
     setState(() => _game = game);
-    unawaited(_store.saveCurrent(game).catchError((final Object _) {}));
+    unawaited(_save(game));
+  }
+
+  Future<void> _save(final ScoreboardGame game) async {
+    try {
+      await _store.saveCurrent(game);
+    } on Object catch (error) {
+      _messenger?.showSnackBar(
+        SnackBar(content: Text('Could not save the score sheet: $error')),
+      );
+    }
   }
 
   void _onSetup(final ScoreboardSetupResult result) {
     final current = _game;
-    final game = current != null && _setup && current.rounds.isNotEmpty
+    final game = current != null && _editing
         ? current.copyWith(
             teamNames: result.teamNames,
             targetScore: result.targetScore,
@@ -65,6 +93,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
             targetScore: result.targetScore,
           );
     _setup = false;
+    _editing = false;
     _setGame(game);
   }
 
@@ -90,16 +119,20 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
       );
       if (!(confirmed ?? false) || !mounted) return;
     }
-    // Keep the team names for the next match at the same table.
+    // Keep the team names for the next match at the same table. Saved now
+    // so the discarded rounds do not come back when the screen reopens.
+    if (game != null) _setGame(game.copyWith(rounds: const []));
     setState(() {
-      _game = game?.copyWith(rounds: const []);
       _setup = true;
+      _editing = false;
     });
   }
 
   Future<void> _openRound([final int? index]) async {
     final game = _game;
     if (game == null) return;
+    // Round indices may shift: drop a pending "Undo" of a deletion.
+    _messenger?.hideCurrentSnackBar();
     final result = await Navigator.of(context).push<RoundEntryResult>(
       MaterialPageRoute(
         fullscreenDialog: true,
@@ -125,8 +158,9 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
   }
 
   void _removeRound(final int index) {
-    final before = _game!;
-    _setGame(before.removeRound(index));
+    final game = _game!;
+    final removed = game.rounds[index];
+    _setGame(game.removeRound(index));
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -134,7 +168,17 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
           content: Text('Round ${index + 1} deleted'),
           action: SnackBarAction(
             label: 'Undo',
-            onPressed: () => _setGame(before),
+            onPressed: () {
+              final current = _game;
+              if (!mounted || current == null) return;
+              // Re-insert only the deleted round, keeping later changes.
+              final at = index.clamp(0, current.rounds.length);
+              _setGame(
+                current.copyWith(
+                  rounds: [...current.rounds]..insert(at, removed),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -159,7 +203,12 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
               ),
             PopupMenuButton<String>(
               onSelected: (final v) {
-                if (v == 'edit') setState(() => _setup = true);
+                if (v == 'edit') {
+                  setState(() {
+                    _setup = true;
+                    _editing = true;
+                  });
+                }
                 if (v == 'new') unawaited(_newMatch());
               },
               itemBuilder: (_) => const [
@@ -200,7 +249,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
   }
 
   Widget _buildSetup(final ScoreboardGame? game) {
-    final editing = game != null && game.rounds.isNotEmpty;
+    final editing = game != null && _editing;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Center(
@@ -234,7 +283,10 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
               if (editing) ...[
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () => setState(() => _setup = false),
+                  onPressed: () => setState(() {
+                    _setup = false;
+                    _editing = false;
+                  }),
                   child: const Text('Cancel'),
                 ),
               ],

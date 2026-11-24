@@ -109,4 +109,67 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('\u221250'), findsOneWidget);
   });
+
+  ScoreboardGame twoRounds() =>
+      ScoreboardGame.start(
+        teamNames: const ['Us', 'Them'],
+        now: DateTime(2026),
+      ).copyWith(
+        rounds: const [
+          ScoreboardRound(cardPointsTeamA: 70),
+          ScoreboardRound(cardPointsTeamA: 20),
+        ],
+      );
+
+  testWidgets('undo re-inserts the deleted round and keeps later rounds', (
+    final tester,
+  ) async {
+    final store = InMemoryScoreboardStore(twoRounds());
+    await tester.pumpWidget(_app(store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Undo last round'));
+    await tester.pumpAndSettle();
+    expect((await store.loadCurrent())!.rounds, hasLength(1));
+
+    // Editing a round while the snack bar is up drops the stale Undo.
+    await tester.tap(find.text('+70'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Undo'), findsNothing);
+
+    await tester.tap(find.text('Add round 2'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect((await store.loadCurrent())!.rounds, hasLength(2));
+
+    // A fresh delete + Undo restores exactly that round.
+    await tester.tap(find.byTooltip('Undo last round'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Undo'));
+    await tester.pumpAndSettle();
+    final rounds = (await store.loadCurrent())!.rounds;
+    expect(rounds.map((final r) => r.cardPointsTeamA), [70, 50]);
+  });
+
+  testWidgets('confirmed new match is not restored on reopen', (
+    final tester,
+  ) async {
+    final store = InMemoryScoreboardStore(twoRounds());
+    await tester.pumpWidget(_app(store));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('New match'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'New match'));
+    await tester.pumpAndSettle();
+
+    final saved = (await store.loadCurrent())!;
+    expect(saved.rounds, isEmpty);
+    expect(saved.teamNames, ['Us', 'Them']);
+  });
 }

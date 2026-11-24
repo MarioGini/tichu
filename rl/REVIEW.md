@@ -444,6 +444,36 @@ positions, <1 % give-ups), including the Dragon gift. Against plain v8 it
 wins 50.8 % ± 0.3 and **+11.5 ± 2.5 points per match** (2 x 300 deals x 2,
 no other search), +16 % run time. On in the app (budget 10,000).
 
+## Three ways out of the stall, tried one at a time (measured 2026-11-24)
+
+The v9 loop on the schema-v8 inputs stalled (49.5 / 49.7 / 49.6 % against v8
+in three iterations), so three single changes were tested against controls.
+
+| experiment | control | held-out (pts over the average action) | duel vs v8 (600 deals x 2, no search) |
+|---|---|---|---|
+| **A. wider net** (512-256-128, widened from v8, 10 epochs, all 3.0M v8 decisions) | same training, v8 size | 21.98 vs 21.97 (v8: 21.89) | 50.2 % ± 1.1 (control 51.1 %, wide vs control 50.0 %) |
+| **B. graded beatability inputs** (schema v9: how many unseen plays beat an action, the share of unseen cards that beat a single, whether the next opponents can answer; 426k fresh decisions + the v8 data) | same data, the four inputs zeroed | 23.16 vs 23.19 (= v8) | 49.9 % ± 1.1 |
+| **C. deep Monte-Carlo labels** (4.35M self-play decisions labelled with the round result after the chosen action, mixed with the fresh rollout labels, from v8) | v8 | 24.14 -> 23.11 over 2 epochs (worse at every evaluation) | not needed (kept v8) |
+
+Also: training on the 426k fresh decisions alone makes the net worse than
+v8 (25.03 -> 24.70): one iteration's data cannot move a net trained on 3M.
+
+**Reading.** None of capacity, these inputs or 30x cheaper labels moves the
+play net. Capacity is not the limit (a 3x wider net learns the same). The
+graded beatability adds nothing the net could not already compute from
+`unseen` and the yes/no flag, at least with 426k decisions to learn it from.
+One-outcome labels at 4M decisions are far too noisy next to all-action
+rollout labels of the same deals: DouZero needed billions; at our CPU budget
+(~4M per hour) the exact all-action labels carry more information per CPU
+second than they cost. The play net is at the fixed point of its training
+signal; the gains of the last two versions came from new information
+(inputs), the schupf retrains and decision-time search.
+
+**Next:** decision-time search where most decisions are (9-14 cards), which
+needs worlds weighted by what the play revealed (a learned card-location
+model), the three-player exact solving (`--pimc-solve`), and the joint
+schupf (extended candidates, +2.9 pp).
+
 ## Plan for v9 (2026-11-23)
 
 What moved the bot from v7 to v8 (all duplicate duels): the new inputs

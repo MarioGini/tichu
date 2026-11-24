@@ -73,7 +73,6 @@ Future<void> main(final List<String> args) async {
     heuristicOptions: config.heuristic,
     simdInference: config.simd,
     style: config.style,
-    preSchupfStrength: config.preTichuStrength,
     schupfExtended: config.schupfExtended,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
@@ -89,7 +88,6 @@ Future<void> main(final List<String> args) async {
     heuristicOptions: config.opponentHeuristic,
     simdInference: config.simd,
     style: config.opponentStyle,
-    preSchupfStrength: config.opponentPreTichuStrength,
     schupfExtended: config.opponentSchupfExtended,
   );
   final opponentFactory = opponentConfig
@@ -139,8 +137,6 @@ Future<void> main(final List<String> args) async {
     rolloutRate: config.rolloutRate,
     rolloutMaxActions: config.rolloutMaxActions,
     rolloutWorlds: config.rolloutWorlds,
-    leadRolloutRate: config.leadRolloutRate,
-    leadWorlds: config.leadWorlds,
     sideRolloutRate: config.sideRolloutRate,
     worldsMinCards: config.worldsMinCards,
     labelMaxCards: config.labelMaxCards,

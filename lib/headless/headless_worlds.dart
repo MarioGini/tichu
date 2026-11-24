@@ -19,10 +19,9 @@ extension _Worlds on _HeadlessSimulator {
     required final GameEngine engine,
     required final GameEngineState state,
     required final GameAction chosen,
-    final int? count,
   }) async {
     final out = <List<double?>>[];
-    for (var w = 1; w < (count ?? rolloutWorlds); w++) {
+    for (var w = 1; w < rolloutWorlds; w++) {
       final world = _redeal(state, chosen.playerId);
       final values = await _rolloutValues(
         engine: engine,

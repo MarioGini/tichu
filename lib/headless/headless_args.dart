@@ -28,8 +28,6 @@ class _HeadlessConfig {
   final HeuristicOptions opponentHeuristic;
   final StyleBias style;
   final StyleBias opponentStyle;
-  final double? preTichuStrength;
-  final double? opponentPreTichuStrength;
   final bool schupfExtended;
   final bool opponentSchupfExtended;
   final bool schupfLabelExtended;
@@ -43,8 +41,6 @@ class _HeadlessConfig {
   final double rolloutRate;
   final int rolloutMaxActions;
   final int rolloutWorlds;
-  final double leadRolloutRate;
-  final int leadWorlds;
   final double sideRolloutRate;
   final int worldsMinCards;
   final int labelMaxCards;
@@ -88,8 +84,6 @@ class _HeadlessConfig {
     required this.opponentHeuristic,
     required this.style,
     required this.opponentStyle,
-    required this.preTichuStrength,
-    required this.opponentPreTichuStrength,
     required this.schupfExtended,
     required this.opponentSchupfExtended,
     required this.schupfLabelExtended,
@@ -103,8 +97,6 @@ class _HeadlessConfig {
     required this.rolloutRate,
     required this.rolloutMaxActions,
     required this.rolloutWorlds,
-    required this.leadRolloutRate,
-    required this.leadWorlds,
     required this.sideRolloutRate,
     required this.worldsMinCards,
     required this.labelMaxCards,
@@ -151,8 +143,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var opponentHeuristic = HeuristicOptions.latest;
   var style = StyleBias.none;
   var opponentStyle = StyleBias.none;
-  double? preTichuStrength;
-  double? opponentPreTichuStrength;
   var schupfExtended = false;
   var opponentSchupfExtended = false;
   var schupfLabelExtended = false;
@@ -164,8 +154,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var rolloutRate = 0.0;
   var rolloutMaxActions = 12;
   var rolloutWorlds = 1;
-  var leadRolloutRate = -1.0;
-  var leadWorlds = 0;
   var sideRolloutRate = 0.0;
   var worldsMinCards = 0;
   var labelMaxCards = 14;
@@ -182,13 +170,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var opponentEndgameSolve = false;
   var solveBudget = 20000;
   var solveMaxCards = 10;
-  var pimcSolve = false;
-  var opponentPimcSolve = false;
   String? beliefNetPath;
   var recordGames = false;
   var endgameBelief = false;
   var opponentEndgameBelief = false;
-  var pimcMaxCards = 12;
   const defaults = EndgameSearch();
   var endgameWorlds = defaults.worlds;
   var endgameMaxCards = defaults.maxCards;
@@ -303,16 +288,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (p != null && p >= 0 && p <= 1) sideRolloutRate = p;
       continue;
     }
-    if (arg.startsWith('--lead-rollout-rate=')) {
-      final p = double.tryParse(arg.split('=').last);
-      if (p != null && p >= 0 && p <= 1) leadRolloutRate = p;
-      continue;
-    }
-    if (arg.startsWith('--lead-worlds=')) {
-      final k = int.tryParse(arg.split('=').last);
-      if (k != null && k >= 1) leadWorlds = k;
-      continue;
-    }
     if (arg.startsWith('--rollout-worlds=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 1) rolloutWorlds = k;
@@ -375,10 +350,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       opponentEndgameSolve = true;
       continue;
     }
-    if (arg == '--pimc-solve') {
-      pimcSolve = true;
-      continue;
-    }
     if (arg.startsWith('--belief-net=')) {
       beliefNetPath = arg.substring('--belief-net='.length);
       continue;
@@ -393,15 +364,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     }
     if (arg == '--opponent-endgame-belief') {
       opponentEndgameBelief = true;
-      continue;
-    }
-    if (arg == '--opponent-pimc-solve') {
-      opponentPimcSolve = true;
-      continue;
-    }
-    if (arg.startsWith('--pimc-max-cards=')) {
-      final k = int.tryParse(arg.split('=').last);
-      if (k != null && k >= 3) pimcMaxCards = k;
       continue;
     }
     if (arg.startsWith('--solve-max-cards=')) {
@@ -467,14 +429,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
     }
-    if (arg.startsWith('--pre-tichu-strength=')) {
-      preTichuStrength = double.tryParse(arg.split('=').last);
-      continue;
-    }
-    if (arg.startsWith('--opponent-pre-tichu-strength=')) {
-      opponentPreTichuStrength = double.tryParse(arg.split('=').last);
-      continue;
-    }
     if (arg == '--schupf-extended') {
       schupfExtended = true;
       continue;
@@ -536,7 +490,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
 
   EndgameSearch search({
     required final bool solve,
-    required final bool pimc,
     required final bool belief,
     final int? maxCards,
   }) => EndgameSearch(
@@ -548,17 +501,14 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     solveOneOnOne: solve,
     solveBudget: solveBudget,
     solveMaxCards: solveMaxCards,
-    pimcSolve: pimc && solve,
-    pimcMaxCards: pimcMaxCards,
   );
   return _HeadlessConfig(
     endgameSearch: endgameSearch
-        ? search(solve: endgameSolve, pimc: pimcSolve, belief: endgameBelief)
+        ? search(solve: endgameSolve, belief: endgameBelief)
         : null,
     opponentEndgameSearch: opponentEndgameSearch
         ? search(
             solve: opponentEndgameSolve,
-            pimc: opponentPimcSolve,
             belief: opponentEndgameBelief,
             maxCards: opponentEndgameMaxCards,
           )
@@ -590,8 +540,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     opponentHeuristic: opponentHeuristic,
     style: style,
     opponentStyle: opponentStyle,
-    preTichuStrength: preTichuStrength,
-    opponentPreTichuStrength: opponentPreTichuStrength,
     schupfExtended: schupfExtended,
     opponentSchupfExtended: opponentSchupfExtended,
     schupfLabelExtended: schupfLabelExtended,
@@ -605,8 +553,6 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     rolloutRate: rolloutRate,
     rolloutMaxActions: rolloutMaxActions,
     rolloutWorlds: rolloutWorlds,
-    leadRolloutRate: leadRolloutRate,
-    leadWorlds: leadWorlds,
     sideRolloutRate: sideRolloutRate,
     worldsMinCards: worldsMinCards,
     labelMaxCards: labelMaxCards,
@@ -649,10 +595,6 @@ void _printUsage() {
     '(exact one-on-one endgames, with --endgame-search)',
   );
   stdout.writeln(
-    '       [--pre-tichu-strength=X] [--opponent-pre-tichu-strength=X]  '
-    '(Tichu before the schupf at 14-card strength >= X)',
-  );
-  stdout.writeln(
     '       [--schupf-extended] [--opponent-schupf-extended]  '
     '(schupf candidates: partner may get a weak card)',
   );
@@ -665,9 +607,6 @@ void _printUsage() {
   );
   stdout.writeln(
     '       [--record-games]  (bc-jsonl: a replayable record of every round)',
-  );
-  stdout.writeln(
-    '       [--lead-rollout-rate=p] [--lead-worlds=K]  (leads: own rate / worlds)',
   );
   stdout.writeln('       [--side-rollout-rate=p]  (Dragon gift / wish labels)');
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');

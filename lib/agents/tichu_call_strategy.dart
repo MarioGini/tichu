@@ -26,22 +26,13 @@ abstract class TichuCallStrategy {
 /// reaches a threshold. Both thresholds are calibrated on exact
 /// counterfactual call values.
 class DefaultTichuCallStrategy implements TichuCallStrategy {
-  /// Call Tichu already before the schupf when the 14-card [tichuStrength]
-  /// reaches this (null = never). A public early call lets the partner
-  /// support with a strong pass.
-  final double? preSchupfThreshold;
-
-  const DefaultTichuCallStrategy({this.preSchupfThreshold});
+  const DefaultTichuCallStrategy();
 
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
     final GameSnapshot snapshot,
     final String playerId,
-  ) async {
-    final t = preSchupfThreshold;
-    return t != null &&
-        tichuStrength(snapshot.hands[playerId] ?? const <Card>[]) >= t;
-  }
+  ) async => false;
 
   @override
   Future<bool> shouldCallGrandTichu(

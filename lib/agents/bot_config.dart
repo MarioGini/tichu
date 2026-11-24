@@ -8,7 +8,6 @@ import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
-import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/player_agent.dart';
 
 /// A loaded network plus the denormalisation from its safetensors metadata.
@@ -35,7 +34,7 @@ class LoadedNet {
 /// agent factory) and by the headless training runner — so a policy that is
 /// trained and evaluated headlessly behaves the same in the app.
 class BotConfig {
-  /// Play/pass policy (Q(s, a), `rl/bc_pretrain.py` / `rl/rollout_loop.py`).
+  /// Play/pass policy (Q(s, a), `rl/rollout_loop.py`).
   final LoadedNet? play;
 
   /// Tichu call-value net (`rl/call_train.py`).
@@ -53,10 +52,6 @@ class BotConfig {
   /// The schupf net scores the extended candidate set (see
   /// [SchupfFeatures.candidates]).
   final bool schupfExtended;
-
-  /// Rule for a Tichu call before the schupf (14-card strength threshold,
-  /// [DefaultTichuCallStrategy.preSchupfThreshold]); null = never.
-  final double? preSchupfStrength;
 
   /// Heuristic rules used for everything not covered by a learned net.
   final HeuristicOptions heuristicOptions;
@@ -82,7 +77,6 @@ class BotConfig {
     this.preSchupfTichu,
     this.schupf,
     this.schupfExtended = false,
-    this.preSchupfStrength,
     this.callMargin = 0,
     this.simdInference = false,
     this.style = StyleBias.none,
@@ -98,7 +92,6 @@ class BotConfig {
     preSchupfTichu: preSchupfTichu,
     schupf: schupf,
     schupfExtended: schupfExtended,
-    preSchupfStrength: preSchupfStrength,
     callMargin: callMargin,
     simdInference: simdInference,
     style: style,
@@ -129,11 +122,7 @@ class BotConfig {
             )),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null
-          ? (preSchupfStrength == null
-                ? null
-                : DefaultTichuCallStrategy(
-                    preSchupfThreshold: preSchupfStrength,
-                  ))
+          ? null
           : NnTichuCallStrategy(
               tichuNetwork: tichu?.network,
               grandTichuNetwork: grandTichu?.network,
@@ -142,9 +131,6 @@ class BotConfig {
               preSchupfTichuNetwork: preSchupfTichu?.network,
               preSchupfTichuScale: preSchupfTichu?.targetStd ?? 100,
               margin: callMargin,
-              fallback: DefaultTichuCallStrategy(
-                preSchupfThreshold: preSchupfStrength,
-              ),
             ),
       schupfStrategy: schupf == null
           ? null

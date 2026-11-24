@@ -6,19 +6,18 @@ import 'package:tichu/agents/endgame_search.dart';
 /// The bots the app plays with. [load] is called once at startup; until
 /// then (and in tests, or if loading fails) bots use the heuristic.
 abstract final class AppBots {
-  /// Trained play policy (rl/models/README.md): v7. With [schupfAsset] it
-  /// beats the previous bot (v6 + schupf v2) 62 % and the heuristic 95 %.
+  /// Trained play policy (rl/models/README.md): v8. With [schupfAsset] and
+  /// the search it beats the previous bot (v7 + schupf v3) 61 %.
   /// Calls stay heuristic.
   static const playPolicyAsset = 'assets/bots/tichu_q_v8.safetensors';
 
-  /// Learned schupf v3 (rl/schupf_cf_train.py), trained on v7's games:
-  /// v7 with it beats v7 with schupf v2 53 %.
+  /// Learned schupf v4 (rl/schupf_cf_train.py), trained on v8's games.
   static const schupfAsset = 'assets/bots/tichu_schupf_v4.safetensors';
 
-  /// Decision-time endgame search for the app bots (rl/README.md, "Endgame
-  /// search"). Flip to switch it off. With <= 8 cards in hand v7 + search
-  /// beats v7 57.2 % (<= 5 cards: 54.5 %), at ~30 ms per searched decision
-  /// in the native headless runner (more on phones and the web).
+  /// Decision-time endgame search and one-on-one solver for the app bots
+  /// (rl/README.md, "Search at decision time"). Flip to switch it off. With
+  /// <= 8 cards in hand the search beats the same bot without it 57 %, at
+  /// ~30 ms per searched decision natively (more on phones and the web).
   static const useEndgameSearch = true;
   static const endgameSearch = EndgameSearch(
     maxCards: 8,

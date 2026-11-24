@@ -102,43 +102,6 @@ void main() {
     );
   });
 
-  test('pre-schupf Tichu only with a threshold and a strong hand', () async {
-    final strong = aiSnapshot(
-      myHand: [
-        Card(CardFace.dragon, CardColor.special),
-        Card(CardFace.phoenix, CardColor.special),
-        Card(CardFace.ace, CardColor.red),
-        Card(CardFace.ace, CardColor.blue),
-        Card(CardFace.king, CardColor.red),
-        Card(CardFace.king, CardColor.blue),
-        Card(CardFace.queen, CardColor.red),
-        Card(CardFace.queen, CardColor.blue),
-        Card(CardFace.jack, CardColor.red),
-        Card(CardFace.jack, CardColor.blue),
-        Card(CardFace.ten, CardColor.red),
-        Card(CardFace.ten, CardColor.blue),
-        Card(CardFace.nine, CardColor.red),
-        Card(CardFace.nine, CardColor.blue),
-      ],
-    );
-    expect(
-      await strategy.shouldCallTichuBeforeSchupf(strong, aiTestSelfId),
-      isFalse,
-    );
-    expect(
-      await const DefaultTichuCallStrategy(
-        preSchupfThreshold: 1,
-      ).shouldCallTichuBeforeSchupf(strong, aiTestSelfId),
-      isTrue,
-    );
-    expect(
-      await const DefaultTichuCallStrategy(
-        preSchupfThreshold: 99,
-      ).shouldCallTichuBeforeSchupf(strong, aiTestSelfId),
-      isFalse,
-    );
-  });
-
   test('extended schupf candidates may pass a weak card to the partner', () {
     final hand = [
       Card(CardFace.dragon, CardColor.special),

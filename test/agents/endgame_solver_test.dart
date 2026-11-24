@@ -60,7 +60,7 @@ void main() {
     expect(states, isNotEmpty);
     for (final s in states) {
       final me = s.players[s.currentPlayerIndex].id;
-      final solver = OneOnOneSolver(engine: engine, agentFor: bot);
+      final solver = OneOnOneSolver(agentFor: bot);
       final solved = await solver.solve(s, me);
       expect(solved, isNotNull);
       final snap = engine.buildSnapshot(s);
@@ -71,7 +71,6 @@ void main() {
         if (options.canPass) PassAction(playerId: me),
       ];
       final values = await OneOnOneSolver(
-        engine: engine,
         agentFor: bot,
       ).values(s, me, actions);
       final best = values.whereType<int>().fold<int>(
@@ -88,11 +87,9 @@ void main() {
     for (final s in states) {
       final me = s.players[s.currentPlayerIndex].id;
       final a = await OneOnOneSolver(
-        engine: engine,
         agentFor: bot,
       ).solve(s, me);
       final b = await OneOnOneSolver(
-        engine: engine,
         agentFor: bot,
         memoize: false,
         nodeBudget: 1 << 30,

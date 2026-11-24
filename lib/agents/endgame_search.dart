@@ -5,13 +5,12 @@ import 'package:tichu/agents/endgame_solver.dart';
 import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
-import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
-import 'package:tichu/game/turn/engine/engine_impl.dart';
+import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 /// Settings of the decision-time endgame search (see [EndgameSearcher]).
@@ -206,36 +205,6 @@ GameEngineState redealWorld(
   return world;
 }
 
-/// Play [fork] to the end of the round with [agents]; returns team one's
-/// round points minus team two's, or null when the playout got stuck.
-Future<int?> playOutRound(
-  final GameEngine engine,
-  final GameEngineState fork,
-  final Map<String, PlayerAgent> agents,
-) async {
-  for (var steps = 0; steps < 5000; steps++) {
-    final score = fork.scoreTracker.state;
-    if (score.roundComplete) return score.teamOneRound - score.teamTwoRound;
-    final request = AgentDecisions.next(engine, fork);
-    if (request == null) return null;
-    final snap = engine.buildSnapshot(fork);
-    GameAction? action;
-    try {
-      action = await AgentDecisions.resolve(
-        request,
-        agents[request.playerId]!,
-        snap,
-        fork,
-      );
-    } on NoLegalActionException {
-      return null;
-    }
-    if (action == null) continue;
-    engine.applyAction(fork, action);
-  }
-  return null;
-}
-
 /// Decision-time endgame search, run by a driver that owns the game state
 /// (the headless simulator, the app's `AiTurnRunner`).
 ///
@@ -276,10 +245,6 @@ class EndgameSearcher {
   /// Card-location model for [EndgameSearch.beliefWorlds].
   final BeliefModel? belief;
 
-  /// The searcher's own engine: forks are played out on it, never on the
-  /// engine of the game being played (which may record or publish moves).
-  final GameEngine _engine = GameEngineImpl();
-
   EndgameSearcher({
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
@@ -311,7 +276,6 @@ class EndgameSearcher {
       stopwatch.start();
       try {
         final solver = _solvers[current.seat % 2] ??= OneOnOneSolver(
-          engine: _engine,
           agentFor: rolloutAgent,
           nodeBudget: config.solveBudget,
         );
@@ -332,7 +296,7 @@ class EndgameSearcher {
     final hand = state.hands[playerId] ?? const <Card>[];
     if (hand.isEmpty || hand.length > config.maxCards) return chosen;
 
-    final snapshot = _engine.buildSnapshot(state);
+    final snapshot = simulationEngine.buildSnapshot(state);
     final options = agent.searchableActions(snapshot);
     if (options == null) return chosen;
     final turns = options.turns;
@@ -385,12 +349,12 @@ class EndgameSearcher {
           };
           final action = actions[i]!;
           try {
-            _engine.applyAction(fork, _copyAction(action));
+            simulationEngine.applyAction(fork, _copyAction(action));
           } on IllegalActionException {
             continue;
           }
           rollouts++;
-          final diff = await playOutRound(_engine, fork, agents);
+          final diff = await playOutRound(fork, agents);
           if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();
           if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
         }
@@ -493,7 +457,6 @@ class EndgameSearcher {
     try {
       final current = state.players.firstWhere((final p) => p.id == playerId);
       final solver = _solvers[current.seat % 2] ??= OneOnOneSolver(
-        engine: _engine,
         agentFor: rolloutAgent,
         nodeBudget: config.solveBudget,
       );

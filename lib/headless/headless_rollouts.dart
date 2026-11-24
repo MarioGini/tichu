@@ -17,7 +17,6 @@ extension _Rollouts on _HeadlessSimulator {
   /// `own` holds the actor's team's own round points for the same rollouts
   /// (with `diff` they give both teams' points, for match-win targets).
   Future<({List<double?> diff, List<double?> own})?> _rolloutValues({
-    required final GameEngine engine,
     required final GameEngineState state,
     required final GameSnapshot snapshot,
     required final GameAction chosen,
@@ -69,11 +68,11 @@ extension _Rollouts on _HeadlessSimulator {
               );
       }
       try {
-        engine.applyAction(fork, action);
+        simulationEngine.applyAction(fork, action);
       } on IllegalActionException {
         continue;
       }
-      final diff = await _playOutRound(engine, fork, forkAgents);
+      final diff = await playOutRound(fork, forkAgents);
       if (diff != null) {
         values[i] = (team == 0 ? diff : -diff).toDouble();
         final score = fork.scoreTracker.state;
@@ -83,14 +82,6 @@ extension _Rollouts on _HeadlessSimulator {
     }
     return (diff: values, own: own);
   }
-
-  /// Play [fork] to the end of the round; returns team one's round points
-  /// minus team two's, or null when the playout got stuck.
-  Future<int?> _playOutRound(
-    final GameEngine engine,
-    final GameEngineState fork,
-    final Map<String, PlayerAgent> forkAgents,
-  ) => playOutRound(engine, fork, forkAgents);
 
   String _slotKey(final List<Card> cards) {
     final slots = [for (final c in cards) cardSlot(c)]..sort();

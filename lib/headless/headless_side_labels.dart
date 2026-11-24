@@ -10,7 +10,6 @@ part of 'headless.dart';
 /// difference for the decider's team (null = playout stuck).
 extension _SideLabels on _HeadlessSimulator {
   Future<void> _labelSideDecision({
-    required final GameEngine engine,
     required final GameEngineState state,
     required final GameSnapshot snapshot,
     required final GameAction action,
@@ -30,7 +29,7 @@ extension _SideLabels on _HeadlessSimulator {
     final List<GameAction> options;
     final List<Object> optionLabels;
     if (isDragon) {
-      final targets = engine.opponentIds(state, playerId);
+      final targets = simulationEngine.opponentIds(state, playerId);
       options = [
         for (final t in targets)
           GiveDragonAction(playerId: playerId, targetPlayerId: t),
@@ -59,12 +58,12 @@ extension _SideLabels on _HeadlessSimulator {
         for (final p in fork.players) p.id: agentFactory(p.id, p.seat),
       };
       try {
-        engine.applyAction(fork, option);
+        simulationEngine.applyAction(fork, option);
       } on IllegalActionException {
         values.add(null);
         continue;
       }
-      final diff = await _playOutRound(engine, fork, forkAgents);
+      final diff = await playOutRound(fork, forkAgents);
       values.add(diff == null ? null : (team == 0 ? diff : -diff).toDouble());
     }
     final chosen = isDragon

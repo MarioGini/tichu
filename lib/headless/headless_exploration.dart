@@ -14,7 +14,6 @@ extension _Exploration on _HeadlessSimulator {
   /// on normally) or 'pre' (before the schupf; no-call = continues
   /// normally, may still call Tichu later).
   Future<double?> _counterfactualCall(
-    final GameEngine engine,
     final GameEngineState state,
     final String playerId,
     final String kind,
@@ -31,12 +30,12 @@ extension _Exploration on _HeadlessSimulator {
       };
       final preDecided = {..._preSchupfDecided};
       if (kind == 'grand') {
-        engine.applyAction(
+        simulationEngine.applyAction(
           fork,
           GrandTichuDecisionAction(playerId: playerId, call: call),
         );
       } else if (call) {
-        engine.applyAction(fork, CallTichuAction(playerId: playerId));
+        simulationEngine.applyAction(fork, CallTichuAction(playerId: playerId));
       }
       if (kind == 'pre') preDecided.add(playerId);
       for (var steps = 0; steps < 5000; steps++) {
@@ -49,14 +48,14 @@ extension _Exploration on _HeadlessSimulator {
           return (team == 0 ? diff : -diff, first);
         }
         final request = AgentDecisions.next(
-          engine,
+          simulationEngine,
           fork,
           preSchupfDecided: preDecided,
         );
         if (request == null) return null;
         if (request is PreSchupfTichuRequest) preDecided.add(request.playerId);
         final agent = forkAgents[request.playerId]!;
-        final snap = engine.buildSnapshot(fork);
+        final snap = simulationEngine.buildSnapshot(fork);
         GameAction? action;
         try {
           // The decider keeps the counterfactual: no Tichu in the
@@ -71,7 +70,7 @@ extension _Exploration on _HeadlessSimulator {
           return null;
         }
         if (action == null) continue;
-        engine.applyAction(fork, action);
+        simulationEngine.applyAction(fork, action);
       }
       return null;
     }

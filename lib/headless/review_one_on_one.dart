@@ -99,7 +99,6 @@ Future<void> main(final List<String> args) async {
         final options = _options(engine, state, request, agent);
         if (options.length >= 2) {
           final solver = OneOnOneSolver(
-            engine: engine,
             agentFor: plainAgent,
             nodeBudget: 200000,
           );

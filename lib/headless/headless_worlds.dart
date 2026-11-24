@@ -16,7 +16,6 @@ extension _Worlds on _HeadlessSimulator {
   /// worlds (the real deal is the caller's first world). Null entries: not
   /// rolled out (cap) or the world got stuck.
   Future<List<List<double?>>> _worldRollouts({
-    required final GameEngine engine,
     required final GameEngineState state,
     required final GameAction chosen,
   }) async {
@@ -24,9 +23,8 @@ extension _Worlds on _HeadlessSimulator {
     for (var w = 1; w < rolloutWorlds; w++) {
       final world = _redeal(state, chosen.playerId);
       final values = await _rolloutValues(
-        engine: engine,
         state: world,
-        snapshot: engine.buildSnapshot(world),
+        snapshot: simulationEngine.buildSnapshot(world),
         chosen: chosen,
       );
       if (values != null) out.add(values.diff);

@@ -37,7 +37,7 @@ extension _Decisions on _HeadlessSimulator {
         called: shouldCall,
         explored: explored,
         counterfactual: _labelCounterfactual()
-            ? await _counterfactualCall(engine, state, playerId, 'pre')
+            ? await _counterfactualCall(state, playerId, 'pre')
             : null,
         cfDetails: _lastCallDetails,
       );
@@ -70,7 +70,7 @@ extension _Decisions on _HeadlessSimulator {
           called: shouldCall,
           explored: explored,
           counterfactual: _labelCounterfactual()
-              ? await _counterfactualCall(engine, state, playerId, 'grand')
+              ? await _counterfactualCall(state, playerId, 'grand')
               : null,
           cfDetails: _lastCallDetails,
         );
@@ -88,7 +88,6 @@ extension _Decisions on _HeadlessSimulator {
         if (schupfRolloutRate > 0) {
           if (random.nextDouble() < schupfRolloutRate) {
             await _labelSchupf(
-              engine: engine,
               state: state,
               snapshot: snapshot,
               playerId: playerId,
@@ -176,7 +175,7 @@ extension _Decisions on _HeadlessSimulator {
           called: shouldCall,
           explored: explored,
           counterfactual: _labelCounterfactual()
-              ? await _counterfactualCall(engine, state, playerId, 'tichu')
+              ? await _counterfactualCall(state, playerId, 'tichu')
               : null,
           cfDetails: _lastCallDetails,
         );

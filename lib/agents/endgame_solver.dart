@@ -6,6 +6,7 @@ import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -26,8 +27,6 @@ import 'package:tichu/game/turn/tichu_data.dart';
 /// perfectly. It gives up (returns null) when the tree exceeds [nodeBudget]
 /// distinct positions.
 class OneOnOneSolver {
-  final GameEngine engine;
-
   /// Agents for the other decisions of the line (only the Mah Jong wish is
   /// taken from them: [SmartAiAgent.playActionFor]).
   final PlayerAgent Function(String playerId, int seat) agentFor;
@@ -44,7 +43,6 @@ class OneOnOneSolver {
   late int _team;
 
   OneOnOneSolver({
-    required this.engine,
     required this.agentFor,
     this.nodeBudget = 20000,
     this.memoize = true,
@@ -106,7 +104,7 @@ class OneOnOneSolver {
       var bestValue = -1 << 30;
       for (final action in options) {
         final child = state.copy();
-        engine.applyAction(child, _copy(action));
+        simulationEngine.applyAction(child, _copy(action));
         final v = await _value(child);
         if (v > bestValue) {
           bestValue = v;
@@ -134,7 +132,7 @@ class OneOnOneSolver {
       nodes = 0;
       try {
         final child = state.copy();
-        engine.applyAction(child, _copy(action));
+        simulationEngine.applyAction(child, _copy(action));
         out.add(await _value(child));
       } on _BudgetExceeded {
         out.add(null);
@@ -156,7 +154,7 @@ class OneOnOneSolver {
     if (hit != null) return hit;
     if (++nodes > nodeBudget) throw _BudgetExceeded();
 
-    final request = AgentDecisions.next(engine, state);
+    final request = AgentDecisions.next(simulationEngine, state);
     if (request == null) throw _BudgetExceeded();
     final List<GameAction> options;
     switch (request) {
@@ -175,11 +173,11 @@ class OneOnOneSolver {
         final action = await AgentDecisions.resolve(
           request,
           agent,
-          engine.buildSnapshot(state),
+          simulationEngine.buildSnapshot(state),
           state,
         );
         final child = state.copy();
-        if (action != null) engine.applyAction(child, action);
+        if (action != null) simulationEngine.applyAction(child, action);
         final v = await _value(child);
         if (memoize) _memo[key] = v;
         return v;
@@ -192,7 +190,7 @@ class OneOnOneSolver {
     var best = maximise ? -1 << 30 : 1 << 30;
     for (final action in options) {
       final child = state.copy();
-      engine.applyAction(child, _copy(action));
+      simulationEngine.applyAction(child, _copy(action));
       final v = await _value(child);
       if (maximise ? v > best : v < best) best = v;
     }
@@ -205,7 +203,7 @@ class OneOnOneSolver {
     final GameEngineState state,
     final String playerId,
   ) {
-    final snapshot = engine.buildSnapshot(state);
+    final snapshot = simulationEngine.buildSnapshot(state);
     final hand = List<Card>.from(state.hands[playerId] ?? const <Card>[]);
     final deck = snapshot.deck;
     final turns = LegalPlayGuard.filterMoveGeneratorTurns(

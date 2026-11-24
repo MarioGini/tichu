@@ -320,7 +320,6 @@ class _HeadlessSimulator {
         if (random.nextDouble() < rolloutRate &&
             (snapshot.hands[action.playerId]?.length ?? 0) <= labelMaxCards) {
           rollouts = await _rolloutValues(
-            engine: engine,
             state: state,
             snapshot: snapshot,
             chosen: action,
@@ -330,7 +329,6 @@ class _HeadlessSimulator {
               (snapshot.hands[action.playerId]?.length ?? 0) >=
                   worldsMinCards) {
             worlds = await _worldRollouts(
-              engine: engine,
               state: state,
               chosen: action,
             );
@@ -338,7 +336,6 @@ class _HeadlessSimulator {
         }
       }
       await _labelSideDecision(
-        engine: engine,
         state: state,
         snapshot: snapshot,
         action: action,

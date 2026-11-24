@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:tichu/agents/app_bots.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
@@ -11,6 +12,7 @@ import 'package:tichu/game/record/game_record.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/services/local/ai_turn_runner.dart';
 import 'package:tichu/services/local/local_game_state.dart';
+import 'package:tichu/services/request_rejected_exception.dart';
 
 /// Fully local, in-process runtime for a single match.
 ///
@@ -88,7 +90,9 @@ class LocalMatchRuntime {
         action is! ConfirmOpponentTurnAction &&
         action is! AcknowledgeSchupfAction &&
         action is! CallTichuAction) {
-      throw StateError('Confirm the pending opponent turn before continuing.');
+      throw const IllegalActionException(
+        'Confirm the pending opponent turn before continuing.',
+      );
     }
 
     if (action is ConfirmOpponentTurnAction) {
@@ -126,7 +130,9 @@ class LocalMatchRuntime {
 
   LocalGameState _requireGame(final String gameId) {
     final state = _games[gameId];
-    if (state == null) throw StateError('Unknown gameId: $gameId');
+    if (state == null) {
+      throw RequestRejectedException('Unknown gameId: $gameId');
+    }
     return state;
   }
 

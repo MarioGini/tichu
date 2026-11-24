@@ -91,13 +91,19 @@ mixin _LocalLobbyApi on _LocalTableBase implements GameSessionService {
     final lobby = _requireLobby(lobbyId);
     final participant = _requireParticipant(lobby, accessToken);
     if (participant.playerId != lobby.hostPlayerId) {
-      throw StateError('Only the host can start the match.');
+      throw const RequestRejectedException(
+        'Only the host can start the match.',
+      );
     }
     if (!_canStart(lobby)) {
-      throw StateError('All seats must be occupied and ready before starting.');
+      throw const RequestRejectedException(
+        'All seats must be occupied and ready before starting.',
+      );
     }
     if (lobby.runtime != null || lobby.matchId != null) {
-      throw StateError('Match already started for this lobby.');
+      throw const RequestRejectedException(
+        'Match already started for this lobby.',
+      );
     }
 
     final runtime = _runtimeFactory();

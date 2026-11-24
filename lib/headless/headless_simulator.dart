@@ -167,9 +167,7 @@ class _HeadlessSimulator {
     );
     try {
       return await agent.selectTurn(snapshot);
-      // Agents signal "no legal action" with StateError.
-      // ignore: avoid_catching_errors
-    } on StateError {
+    } on NoLegalActionException {
       return null;
     }
   }
@@ -187,9 +185,7 @@ class _HeadlessSimulator {
       );
       try {
         turns.add(await agent.selectTurn(snapshot));
-        // Agents signal "no legal action" with StateError.
-        // ignore: avoid_catching_errors
-      } on StateError {
+      } on NoLegalActionException {
         turns.add(null);
       }
     }

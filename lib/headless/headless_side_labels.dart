@@ -60,9 +60,7 @@ extension _SideLabels on _HeadlessSimulator {
       };
       try {
         engine.applyAction(fork, option);
-        // Agents signal "no legal action" with StateError.
-        // ignore: avoid_catching_errors
-      } on StateError {
+      } on IllegalActionException {
         values.add(null);
         continue;
       }

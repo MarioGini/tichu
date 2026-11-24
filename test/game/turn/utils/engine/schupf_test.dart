@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -113,7 +114,7 @@ void main() {
               toRight: _card(CardFace.queen, CardColor.black),
             ),
           ),
-          throwsStateError,
+          throwsA(isA<IllegalActionException>()),
         );
       },
     );

@@ -294,11 +294,7 @@ void main() {
       final agent = _searchingBot('p1');
       const chosen = PassAction(playerId: 'p1');
       expect(
-        await searcher.refine(
-          state: state,
-          agent: agent,
-          chosen: chosen,
-        ),
+        await searcher.refine(state: state, agent: agent, chosen: chosen),
         same(chosen),
       );
       expect(searcher.searches, 0);

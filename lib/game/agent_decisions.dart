@@ -1,5 +1,6 @@
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
@@ -123,7 +124,7 @@ abstract final class AgentDecisions {
   /// Ask [agent] for its answer to [request] and return it as an action.
   /// Returns null only for a [PreSchupfTichuRequest] answered with "no".
   ///
-  /// May throw [StateError] when the agent has no legal turn.
+  /// May throw [NoLegalActionException] when the agent has no legal turn.
   static Future<GameAction?> resolve(
     final DecisionRequest request,
     final PlayerAgent agent,
@@ -166,7 +167,7 @@ abstract final class AgentDecisions {
     required final int? preferredSeat,
   }) {
     if (opponentIds.isEmpty) {
-      throw StateError('No valid dragon target available.');
+      throw const NoLegalActionException('No valid dragon target available.');
     }
     for (final player in state.players) {
       if (player.seat == preferredSeat && opponentIds.contains(player.id)) {

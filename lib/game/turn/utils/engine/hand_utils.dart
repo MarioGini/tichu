@@ -1,3 +1,4 @@
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 bool handContainsAll(final List<Card> hand, final List<Card> cards) {
@@ -35,7 +36,7 @@ void removeCardsFromHand(final List<Card> hand, final List<Card> cards) {
   final List<Card> hand,
 ) {
   if (hand.length < 3) {
-    throw StateError('Not enough cards to schupf.');
+    throw const IllegalActionException('Not enough cards to schupf.');
   }
   final sorted = List<Card>.from(hand)
     ..sort((final a, final b) => a.value.compareTo(b.value));

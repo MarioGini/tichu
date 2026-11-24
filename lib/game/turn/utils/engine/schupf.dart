@@ -1,5 +1,6 @@
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/hand_utils.dart';
@@ -25,7 +26,7 @@ void applySchupfSelection(
     );
     selected = [toLeft, toPartner, toRight];
     if (!handContainsAll(hand, selected)) {
-      throw StateError('Schupf cards are not in hand.');
+      throw const IllegalActionException('Schupf cards are not in hand.');
     }
   }
 

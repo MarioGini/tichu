@@ -1,5 +1,6 @@
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -22,7 +23,7 @@ class DefaultSchupfStrategy implements SchupfStrategy {
   ) async {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     if (hand.length < 3) {
-      throw StateError('Not enough cards to schupf.');
+      throw const NoLegalActionException('Not enough cards to schupf.');
     }
 
     final (toLeft, toPartner, toRight) = _selectSchupfCards(

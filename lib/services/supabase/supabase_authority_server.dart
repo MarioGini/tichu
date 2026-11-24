@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/services/local/local_table_service.dart';
+import 'package:tichu/services/request_rejected_exception.dart';
 import 'package:tichu/services/transport/dto/match_dto.dart' as match_dto;
 import 'package:tichu/services/transport/dto/session_dto.dart' as session_dto;
 
@@ -85,13 +87,9 @@ class SupabaseAuthorityServer {
       await _writeJson(request.response, response);
     } on _ClientRequestError catch (error) {
       await _writeError(request.response, error.statusCode, error.message);
-      // The engine reports invalid client actions as StateError/ArgumentError.
-      // ignore: avoid_catching_errors
-    } on StateError catch (error) {
+    } on IllegalActionException catch (error) {
       await _writeError(request.response, HttpStatus.badRequest, '$error');
-      // Invalid client input surfaces as ArgumentError from the engine.
-      // ignore: avoid_catching_errors
-    } on ArgumentError catch (error) {
+    } on RequestRejectedException catch (error) {
       await _writeError(request.response, HttpStatus.badRequest, '$error');
     } on FormatException catch (error) {
       await _writeError(request.response, HttpStatus.badRequest, '$error');

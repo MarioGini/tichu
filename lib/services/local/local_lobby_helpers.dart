@@ -77,7 +77,7 @@ extension _LobbyHelpers on _LocalTableBase {
   _LocalLobbyState _requireLobby(final String lobbyId) {
     final lobby = _lobbies[lobbyId];
     if (lobby == null) {
-      throw StateError('Unknown lobbyId: $lobbyId');
+      throw RequestRejectedException('Unknown lobbyId: $lobbyId');
     }
     return lobby;
   }
@@ -88,7 +88,9 @@ extension _LobbyHelpers on _LocalTableBase {
   ) {
     final participant = lobby.participantsByAccessToken[accessToken];
     if (participant == null) {
-      throw StateError('Unknown access token for lobby ${lobby.lobbyId}.');
+      throw RequestRejectedException(
+        'Unknown access token for lobby ${lobby.lobbyId}.',
+      );
     }
     return participant;
   }
@@ -99,11 +101,11 @@ extension _LobbyHelpers on _LocalTableBase {
   ) {
     final lobby = _lobbies.values.firstWhere(
       (final entry) => entry.matchId == matchId,
-      orElse: () => throw StateError('Unknown matchId: $matchId'),
+      orElse: () => throw RequestRejectedException('Unknown matchId: $matchId'),
     );
     final participant = _requireParticipant(lobby, accessToken);
     if (lobby.runtime == null) {
-      throw StateError('Match is not active.');
+      throw const RequestRejectedException('Match is not active.');
     }
     return (lobby: lobby, participant: participant);
   }
@@ -116,7 +118,9 @@ extension _LobbyHelpers on _LocalTableBase {
 
   void _ensureLobbyNotActive(final _LocalLobbyState lobby) {
     if (lobby.matchId != null || lobby.runtime != null) {
-      throw StateError('Cannot change seats after the match has started.');
+      throw const RequestRejectedException(
+        'Cannot change seats after the match has started.',
+      );
     }
   }
 
@@ -128,7 +132,7 @@ extension _LobbyHelpers on _LocalTableBase {
   }) {
     final targetSeat = lobby.seats[seat];
     if (targetSeat.isOccupiedByDifferentParticipant(participant.playerId)) {
-      throw StateError('Seat $seat is already occupied.');
+      throw RequestRejectedException('Seat $seat is already occupied.');
     }
 
     final previousSeat = participant.seat;
@@ -153,7 +157,9 @@ extension _LobbyHelpers on _LocalTableBase {
   ) {
     final targetSeat = lobby.seats[seat];
     if (targetSeat.state == GameLobbySeatState.occupied && !targetSeat.isBot) {
-      throw StateError('Seat $seat is already occupied by a player.');
+      throw RequestRejectedException(
+        'Seat $seat is already occupied by a player.',
+      );
     }
 
     targetSeat.assignBot(

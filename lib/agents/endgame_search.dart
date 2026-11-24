@@ -8,6 +8,7 @@ import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
@@ -226,9 +227,7 @@ Future<int?> playOutRound(
         snap,
         fork,
       );
-      // Agents signal "no legal action" with StateError.
-      // ignore: avoid_catching_errors
-    } on StateError {
+    } on NoLegalActionException {
       return null;
     }
     if (action == null) continue;
@@ -387,9 +386,7 @@ class EndgameSearcher {
           final action = actions[i]!;
           try {
             _engine.applyAction(fork, _copyAction(action));
-            // The engine signals an illegal action with StateError.
-            // ignore: avoid_catching_errors
-          } on StateError {
+          } on IllegalActionException {
             continue;
           }
           rollouts++;

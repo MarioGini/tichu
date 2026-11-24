@@ -67,9 +67,7 @@ extension _Exploration on _HeadlessSimulator {
                   request.playerId == playerId
               ? await agent.selectTurn(snap)
               : await AgentDecisions.resolve(request, agent, snap, fork);
-          // Agents signal "no legal action" with StateError.
-          // ignore: avoid_catching_errors
-        } on StateError {
+        } on NoLegalActionException {
           return null;
         }
         if (action == null) continue;

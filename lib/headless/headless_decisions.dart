@@ -115,11 +115,7 @@ extension _Decisions on _HeadlessSimulator {
         if (turn == null || searcher == null || _lastActionExplored) {
           return turn;
         }
-        return searcher.refine(
-          state: state,
-          agent: agent,
-          chosen: turn,
-        );
+        return searcher.refine(state: state, agent: agent, chosen: turn);
       case DragonGiveRequest():
         final gift = await AgentDecisions.resolve(
           request,
@@ -188,9 +184,7 @@ extension _Decisions on _HeadlessSimulator {
         return turn ?? await agent.selectTurn(snapshot);
       }
       return await agent.selectAction(snapshot);
-      // Agents signal "no legal action" with StateError.
-      // ignore: avoid_catching_errors
-    } on StateError {
+    } on NoLegalActionException {
       return null;
     }
   }

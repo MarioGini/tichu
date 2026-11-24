@@ -4,6 +4,7 @@ import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -115,9 +116,7 @@ class OneOnOneSolver {
       return best == null ? null : (action: best, value: bestValue);
     } on _BudgetExceeded {
       return null;
-      // The engine signals an illegal action with StateError.
-      // ignore: avoid_catching_errors
-    } on StateError {
+    } on IllegalActionException {
       return null;
     }
   }
@@ -139,9 +138,7 @@ class OneOnOneSolver {
         out.add(await _value(child));
       } on _BudgetExceeded {
         out.add(null);
-        // The engine signals an illegal action with StateError.
-        // ignore: avoid_catching_errors
-      } on StateError {
+      } on IllegalActionException {
         out.add(null);
       }
     }

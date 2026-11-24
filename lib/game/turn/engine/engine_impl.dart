@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
@@ -59,7 +60,9 @@ class GameEngineImpl implements GameEngine {
   @override
   void startNewRound(final GameEngineState state) {
     if (state.scoreTracker.state.gameComplete) {
-      throw StateError('Game has ended. Start a new game to play again.');
+      throw const IllegalActionException(
+        'Game has ended. Start a new game to play again.',
+      );
     }
 
     final (hands, reserved) = dealInitialHands(state.players, _random);
@@ -120,17 +123,23 @@ class GameEngineImpl implements GameEngine {
       state,
       action.playerId,
     )) {
-      throw StateError('Accept schupf before continuing play.');
+      throw const IllegalActionException(
+        'Accept schupf before continuing play.',
+      );
     }
 
     if (state.scoreTracker.state.roundComplete) {
-      throw StateError('Round has ended. Start a new round to continue.');
+      throw const IllegalActionException(
+        'Round has ended. Start a new round to continue.',
+      );
     }
 
     if (state.phase == GamePhase.grandTichu) {
       final expectedPlayer = state.players[state.currentPlayerIndex].id;
       if (action.playerId != expectedPlayer) {
-        throw StateError('Grand tichu decisions must be made in turn order.');
+        throw const IllegalActionException(
+          'Grand tichu decisions must be made in turn order.',
+        );
       }
 
       if (action is CallGrandTichuAction) {
@@ -142,7 +151,7 @@ class GameEngineImpl implements GameEngine {
         applyGrandTichuDecision(state, action);
       } else if (action is CallTichuAction) {
         if (!canPlayerCallTichu(state, action.playerId)) {
-          throw StateError(
+          throw const IllegalActionException(
             'Tichu can only be called before playing your first card.',
           );
         }
@@ -152,7 +161,9 @@ class GameEngineImpl implements GameEngine {
           GrandTichuDecisionAction(playerId: action.playerId, call: false),
         );
       } else {
-        throw StateError('Grand tichu decision required before play.');
+        throw const IllegalActionException(
+          'Grand tichu decision required before play.',
+        );
       }
       return;
     }
@@ -164,21 +175,21 @@ class GameEngineImpl implements GameEngine {
       }
       if (action is CallTichuAction) {
         if (!canPlayerCallTichu(state, action.playerId)) {
-          throw StateError(
+          throw const IllegalActionException(
             'Tichu can only be called before playing your first card.',
           );
         }
         state.scoreTracker.recordTichuCall(action.playerId, isGrand: false);
         return;
       }
-      throw StateError('Schupfen required before play.');
+      throw const IllegalActionException('Schupfen required before play.');
     }
 
     // Tichu may be called at any time before the player's first card,
     // not only on their own turn.
     if (action is CallTichuAction) {
       if (!canPlayerCallTichu(state, action.playerId)) {
-        throw StateError(
+        throw const IllegalActionException(
           'Tichu can only be called before playing your first card.',
         );
       }
@@ -189,7 +200,9 @@ class GameEngineImpl implements GameEngine {
     if (state.pendingDragonGiveBy != null) {
       if (action is! GiveDragonAction ||
           action.playerId != state.pendingDragonGiveBy) {
-        throw StateError('Dragon give required before continuing play.');
+        throw const IllegalActionException(
+          'Dragon give required before continuing play.',
+        );
       }
       applyGiveDragonAction(state, action);
       return;
@@ -205,10 +218,10 @@ class GameEngineImpl implements GameEngine {
             deckType != TurnType.empty &&
             deckType != TurnType.none;
         if (!canInterrupt) {
-          throw StateError("Not this player's turn.");
+          throw const IllegalActionException("Not this player's turn.");
         }
       } else {
-        throw StateError("Not this player's turn.");
+        throw const IllegalActionException("Not this player's turn.");
       }
     }
 
@@ -217,7 +230,7 @@ class GameEngineImpl implements GameEngine {
     } else if (action is PassAction) {
       applyPassAction(state, action);
     } else if (action is GiveDragonAction) {
-      throw StateError('No dragon trick to give.');
+      throw const IllegalActionException('No dragon trick to give.');
     } else if (action is CallGrandTichuAction) {
       state.scoreTracker.recordTichuCall(action.playerId, isGrand: true);
     }

@@ -70,9 +70,7 @@ extension _Rollouts on _HeadlessSimulator {
       }
       try {
         engine.applyAction(fork, action);
-        // Agents signal "no legal action" with StateError.
-        // ignore: avoid_catching_errors
-      } on StateError {
+      } on IllegalActionException {
         continue;
       }
       final diff = await _playOutRound(engine, fork, forkAgents);

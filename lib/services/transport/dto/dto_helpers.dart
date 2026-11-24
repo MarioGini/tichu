@@ -1,5 +1,11 @@
-T enumByName<T extends Enum>(final List<T> values, final String name) =>
-    values.firstWhere((final value) => value.name == name);
+/// The value of [values] named [name]; [FormatException] for an unknown
+/// name (the JSON came from a client).
+T enumByName<T extends Enum>(final List<T> values, final String name) {
+  for (final value in values) {
+    if (value.name == name) return value;
+  }
+  throw FormatException('Unknown $T: $name');
+}
 
 List<Map<String, dynamic>> decodeMapList(final Object? json) =>
     (json as List? ?? const <Object>[])

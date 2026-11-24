@@ -40,7 +40,7 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
           setState(() {
             _soundEnabled = value;
           });
-          SoundEffects.setEnabled(value);
+          SoundEffects.enabled = value;
         },
       ),
     );

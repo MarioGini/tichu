@@ -46,7 +46,6 @@ extension _SchupfLabels on _HeadlessSimulator {
   /// call, best opponent call]. Call codes: 0 none, 1 Tichu lost, 2 Tichu
   /// made, 3 Grand Tichu lost, 4 Grand Tichu made.
   Future<void> _labelSchupf({
-    required final GameEngine engine,
     required final GameEngineState state,
     required final GameSnapshot snapshot,
     required final String playerId,
@@ -66,15 +65,8 @@ extension _SchupfLabels on _HeadlessSimulator {
       final agents = {
         for (final p in fork.players) p.id: agentFactory(p.id, p.seat),
       };
-      try {
-        engine.applyAction(fork, candidate);
-        // Agents signal "no legal action" with StateError.
-        // ignore: avoid_catching_errors
-      } on StateError {
-        outcomes.add(null);
-        continue;
-      }
-      final diff = await _playOutRound(engine, fork, agents);
+      simulationEngine.applyAction(fork, candidate);
+      final diff = await playOutRound(fork, agents);
       if (diff == null) {
         outcomes.add(null);
         continue;

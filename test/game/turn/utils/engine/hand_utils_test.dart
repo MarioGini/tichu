@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/hand_utils.dart';
 
@@ -73,7 +74,7 @@ void main() {
     test('throws when fewer than three cards are available', () {
       expect(
         () => fallbackSchupf([_card(CardFace.two, CardColor.red)]),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 

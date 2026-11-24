@@ -14,17 +14,17 @@ class TurnHandler {
     final handCards = hand ?? selectedCards;
 
     // Selected cards must form a valid turn.
-    if (currentTurn == TichuTurn.InvalidTurn()) {
-      return DeckState.Invalid(); // TODO(turnHandler): inform user
+    if (currentTurn == TichuTurn.invalid()) {
+      return DeckState.invalid(); // TODO(turnHandler): inform user
     }
 
     // When mah jong is not obeyed, turn is invalid.
     if (mahJong(currentDeck, currentTurn, handCards)) {
-      return DeckState.Invalid();
+      return DeckState.invalid();
     }
 
     if (!validTurn(currentDeck.turn, currentTurn)) {
-      return DeckState.Invalid();
+      return DeckState.invalid();
     }
 
     // The wish is either fulfilled or propagated to next deck state.

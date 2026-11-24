@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
@@ -105,7 +106,7 @@ void main() {
           state,
           const CallTichuAction(playerId: testHumanId),
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
   });

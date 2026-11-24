@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -72,14 +73,14 @@ void main() {
           ),
           handler,
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
     test('throws when turn handler returns invalid turn', () {
       final state = _buildState();
       final handler = _FakeTurnHandler(
-        (final deck, final cards, final wish) => DeckState.Invalid(),
+        (final deck, final cards, final wish) => DeckState.invalid(),
       );
 
       expect(
@@ -91,7 +92,7 @@ void main() {
           ),
           handler,
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -124,7 +125,7 @@ void main() {
 
       expect(
         () => applyPassAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -143,7 +144,7 @@ void main() {
 
       expect(
         () => applyPassAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -217,7 +218,7 @@ void main() {
             targetPlayerId: testOpponentLeftId,
           ),
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
 
       state.pendingDragonGiveBy = testHumanId;
@@ -237,7 +238,7 @@ void main() {
             targetPlayerId: testOpponentPartnerId,
           ),
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
 
       applyGiveDragonAction(

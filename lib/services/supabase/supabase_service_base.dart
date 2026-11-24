@@ -79,19 +79,22 @@ abstract base class _SupabaseServiceBase {
     required final String Function(T value) signatureOf,
     final T? seedValue,
     final void Function(
-      StreamController<T> controller,
+      void Function(T value) emit,
       RealtimeSubscribeStatus status,
       Object? error,
     )?
     onStatus,
-    final Future<void> Function(StreamController<T> controller)?
-    onProjectionMiss,
+    final Future<void> Function(void Function(T value) emit)? onProjectionMiss,
   }) {
-    // Closed by the subscriber via onCancel; the stream is returned.
-    // ignore: close_sinks
     final controller = StreamController<T>();
     RealtimeChannel? channel;
     String? previousSignature;
+
+    /// Adds [value] unless the subscriber has cancelled (callbacks can
+    /// still run after that, e.g. once an await returns).
+    void emit(final T value) {
+      if (!controller.isClosed) controller.add(value);
+    }
 
     Future<void> emitIfChanged(final T value) async {
       if (controller.isClosed) {
@@ -114,7 +117,7 @@ abstract base class _SupabaseServiceBase {
         }
         if (!allowFallback) {
           if (onProjectionMiss != null) {
-            await onProjectionMiss(controller);
+            await onProjectionMiss(emit);
           }
           return;
         }
@@ -152,7 +155,7 @@ abstract base class _SupabaseServiceBase {
               unawaited(emitCurrent(allowFallback: true));
             }
             if (onStatus != null) {
-              onStatus(controller, status, error);
+              onStatus(emit, status, error);
             }
           });
     };
@@ -162,6 +165,7 @@ abstract base class _SupabaseServiceBase {
       if (activeChannel != null) {
         await _client.removeChannel(activeChannel);
       }
+      await controller.close();
     };
 
     return controller.stream;

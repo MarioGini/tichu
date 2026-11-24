@@ -140,10 +140,7 @@ void main() {
         Card(CardFace.three, CardColor.blue),
       ];
       final snapshot = aiSnapshot(myHand: hand);
-      expect(
-        () => agent.selectSchupfCards(snapshot),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => agent.selectSchupfCards(snapshot), throwsStateError);
     });
 
     test('gives best card to partner on grand tichu', () async {

@@ -56,7 +56,9 @@ mixin _LocalMatchApi on _LocalTableBase
     if (decodedSubmission.expectedRevision != null &&
         latestRevision != null &&
         latestRevision != decodedSubmission.expectedRevision) {
-      throw StateError('Stale match revision. Refresh and retry.');
+      throw const RequestRejectedException(
+        'Stale match revision. Refresh and retry.',
+      );
     }
 
     await lobby.runtime!.submitAction(matchId, decodedSubmission.action);
@@ -89,17 +91,19 @@ mixin _LocalMatchApi on _LocalTableBase
 
     final latestState = lobby.latestMatchState;
     if (latestState == null) {
-      throw StateError('No match snapshot available yet.');
+      throw const RequestRejectedException('No match snapshot available yet.');
     }
     if (!latestState.roundAcknowledgementRequired) {
       return;
     }
     if (decodedAcknowledgement.expectedRevision != null &&
         decodedAcknowledgement.expectedRevision != latestState.revision) {
-      throw StateError('Stale match revision. Refresh and retry.');
+      throw const RequestRejectedException(
+        'Stale match revision. Refresh and retry.',
+      );
     }
     if (lobby.pendingRoundNumber != decodedAcknowledgement.roundNumber) {
-      throw StateError(
+      throw const RequestRejectedException(
         'Round acknowledgement does not match the active round.',
       );
     }

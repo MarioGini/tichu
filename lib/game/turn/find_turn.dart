@@ -10,7 +10,7 @@ TichuTurn getTurn(final List<Card> cards) {
 
   if (_hasUnassignedPhoenix(cards)) {
     detectedTurn = _resolvePhoenixTurn(cards);
-    if (detectedTurn != TichuTurn.InvalidTurn()) {
+    if (detectedTurn != TichuTurn.invalid()) {
       return detectedTurn;
     }
   }
@@ -51,7 +51,7 @@ TichuTurn _resolvePhoenixTurn(final List<Card> cards) {
       .where((final card) => card.face == CardFace.phoenix)
       .length;
   if (phoenixCount != 1) {
-    return TichuTurn.InvalidTurn();
+    return TichuTurn.invalid();
   }
 
   if (cards.length == 2) {
@@ -104,7 +104,7 @@ TichuTurn _resolvePhoenixTurn(final List<Card> cards) {
     if (bestPairStraight != null) return bestPairStraight;
   }
 
-  return TichuTurn.InvalidTurn();
+  return TichuTurn.invalid();
 }
 
 List<Card> _withPhoenixValue(final List<Card> cards, final double value) =>
@@ -132,7 +132,7 @@ TichuTurn checkSingle(final Card card) {
 }
 
 TichuTurn checkForPair(final List<Card> cards) {
-  var possibleTurn = TichuTurn.InvalidTurn();
+  var possibleTurn = TichuTurn.invalid();
 
   if (cards.length == 2 &&
       !cards.any((final card) => _isForbiddenPairFace(card.face)) &&
@@ -148,7 +148,7 @@ bool _isForbiddenPairFace(final CardFace face) =>
     face == CardFace.mahJong || face == CardFace.dragon || face == CardFace.dog;
 
 TichuTurn checkForTriplet(final List<Card> cards) {
-  var possibleTurn = TichuTurn.InvalidTurn();
+  var possibleTurn = TichuTurn.invalid();
 
   if (cards.length == 3 &&
       ((cards[0].value == cards[1].value && cards[1].value == cards[2].value) ||
@@ -166,7 +166,7 @@ TichuTurn checkForTriplet(final List<Card> cards) {
 }
 
 TichuTurn checkForQuartet(final List<Card> cards) {
-  var possibleTurn = TichuTurn.InvalidTurn();
+  var possibleTurn = TichuTurn.invalid();
 
   if (cards.length == 4 &&
       cards.every((final element) => element.face != CardFace.phoenix) &&
@@ -184,7 +184,7 @@ TichuTurn checkForQuartet(final List<Card> cards) {
 }
 
 TichuTurn checkFives(final List<Card> cards) {
-  var possibleTurn = TichuTurn.InvalidTurn();
+  var possibleTurn = TichuTurn.invalid();
 
   final fullHouses = getFullHouses(List<Card>.from(cards));
   if (fullHouses.isNotEmpty) {
@@ -209,7 +209,7 @@ TichuTurn checkFives(final List<Card> cards) {
 // For selections with six or more cards. That can only be a straight or pair
 // straight. Uniformly colored straights are bombs.
 TichuTurn checkBigTurns(final List<Card> cards) {
-  var possibleTurn = TichuTurn.InvalidTurn();
+  var possibleTurn = TichuTurn.invalid();
 
   if (isStraight(cards)) {
     if (uniformColor(cards)) {

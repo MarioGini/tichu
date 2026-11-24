@@ -165,13 +165,7 @@ class _HeadlessSimulator {
       playerId,
       () => SmartAiAgent(playerId),
     );
-    try {
-      return await agent.selectTurn(snapshot);
-      // Agents signal "no legal action" with StateError.
-      // ignore: avoid_catching_errors
-    } on StateError {
-      return null;
-    }
+    return await agent.selectTurn(snapshot);
   }
 
   /// What each shadow variant would play in [snapshot] (null = no move).
@@ -185,13 +179,7 @@ class _HeadlessSimulator {
         playerId,
         () => SmartAiAgent(playerId, options: shadowVariants[i]),
       );
-      try {
-        turns.add(await agent.selectTurn(snapshot));
-        // Agents signal "no legal action" with StateError.
-        // ignore: avoid_catching_errors
-      } on StateError {
-        turns.add(null);
-      }
+      turns.add(await agent.selectTurn(snapshot));
     }
     return turns;
   }
@@ -324,7 +312,6 @@ class _HeadlessSimulator {
         if (random.nextDouble() < rolloutRate &&
             (snapshot.hands[action.playerId]?.length ?? 0) <= labelMaxCards) {
           rollouts = await _rolloutValues(
-            engine: engine,
             state: state,
             snapshot: snapshot,
             chosen: action,
@@ -333,16 +320,11 @@ class _HeadlessSimulator {
               rolloutWorlds > 1 &&
               (snapshot.hands[action.playerId]?.length ?? 0) >=
                   worldsMinCards) {
-            worlds = await _worldRollouts(
-              engine: engine,
-              state: state,
-              chosen: action,
-            );
+            worlds = await _worldRollouts(state: state, chosen: action);
           }
         }
       }
       await _labelSideDecision(
-        engine: engine,
         state: state,
         snapshot: snapshot,
         action: action,

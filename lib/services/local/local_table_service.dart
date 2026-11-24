@@ -11,6 +11,7 @@ import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/services/local/local_match_runtime.dart';
 import 'package:tichu/services/multiplayer/authority_state_store.dart';
 import 'package:tichu/services/multiplayer/table_projection_store.dart';
+import 'package:tichu/services/request_rejected_exception.dart';
 import 'package:tichu/services/transport/dto/match_dto.dart' as match_dto;
 import 'package:tichu/services/transport/dto/session_dto.dart' as session_dto;
 
@@ -117,11 +118,13 @@ class LocalGameTableService extends _LocalTableBase
             ? decodedRequest.joinCode
             : null);
     if (lobbyId == null) {
-      throw StateError('Unknown join code: ${decodedRequest.joinCode}');
+      throw RequestRejectedException(
+        'Unknown join code: ${decodedRequest.joinCode}',
+      );
     }
     final lobby = _requireLobby(lobbyId);
     if (lobby.state == GameLobbyState.closed) {
-      throw StateError('Lobby is closed.');
+      throw const RequestRejectedException('Lobby is closed.');
     }
 
     final participant = _findParticipantByAuthUserId(lobby, authUserId);

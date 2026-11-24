@@ -18,7 +18,7 @@ class SupabaseMultiplayerConfig {
     required this.url,
     required this.anonKey,
     this.functionName = 'tichu',
-    this.watchInterval = const Duration(milliseconds: 1000),
+    required this.watchInterval,
   });
 
   final String url;
@@ -53,8 +53,6 @@ class SupabaseMultiplayerConfig {
       functionName: legacyFunctionPrefix.isNotEmpty
           ? legacyFunctionPrefix
           : configuredFunctionName,
-      // Value comes from the environment; the default only looks redundant.
-      // ignore: avoid_redundant_argument_values
       watchInterval: const Duration(milliseconds: watchIntervalMs),
     );
   }

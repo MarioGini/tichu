@@ -111,7 +111,7 @@ void main() {
         Card(CardFace.seven, CardColor.blue),
         Card(CardFace.nine, CardColor.green),
       ];
-      expect(getTurn(cards), TichuTurn.InvalidTurn());
+      expect(getTurn(cards), TichuTurn.invalid());
     });
     test('threePairStraightTest', () {
       final cards = <Card>[
@@ -132,7 +132,7 @@ void main() {
         Card.phoenix(Card.getValue(CardFace.five)),
         Card.phoenix(Card.getValue(CardFace.five)),
       ];
-      expect(getTurn(cards), TichuTurn.InvalidTurn());
+      expect(getTurn(cards), TichuTurn.invalid());
     });
 
     test('phoenix resolves as straight in six-card hand', () {

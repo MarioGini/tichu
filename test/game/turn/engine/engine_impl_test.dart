@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import '../../../utils/test_game_fixtures.dart';
-
 import 'engine_test_fixtures.dart';
 
 void main() {
@@ -32,7 +32,7 @@ void main() {
       expect(
         () =>
             engine.applyAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -48,7 +48,7 @@ void main() {
             call: false,
           ),
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -105,7 +105,7 @@ void main() {
       expect(
         () =>
             engine.applyAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -145,7 +145,7 @@ void main() {
       expect(
         () =>
             engine.applyAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -167,7 +167,7 @@ void main() {
             cards: [fxCard(CardFace.six, CardColor.red)],
           ),
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -181,7 +181,7 @@ void main() {
       expect(
         () =>
             engine.applyAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -199,7 +199,7 @@ void main() {
       expect(
         () =>
             engine.applyAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
 
       engine.applyAction(

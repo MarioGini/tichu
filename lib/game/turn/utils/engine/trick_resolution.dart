@@ -1,5 +1,6 @@
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/turn_handler.dart';
@@ -14,7 +15,7 @@ void applyPlayAction(
 ) {
   final hand = state.hands[action.playerId] ?? [];
   if (!handContainsAll(hand, action.cards)) {
-    throw StateError('Played cards are not in hand.');
+    throw const IllegalActionException('Played cards are not in hand.');
   }
 
   final updatedDeck = turnHandler.handleTurn(
@@ -23,8 +24,8 @@ void applyPlayAction(
     action.inputWish,
     hand: hand,
   );
-  if (updatedDeck.turn == TichuTurn.InvalidTurn()) {
-    throw StateError('Invalid turn.');
+  if (updatedDeck.turn == TichuTurn.invalid()) {
+    throw const IllegalActionException('Invalid turn.');
   }
 
   _logAction(state, action.playerId, List<Card>.unmodifiable(action.cards));
@@ -80,11 +81,11 @@ void applyPassAction(final GameEngineState state, final PassAction action) {
 
   if (state.deck.turn.type == TurnType.empty ||
       state.deck.turn.type == TurnType.none) {
-    throw StateError('Cannot pass on an empty trick.');
+    throw const IllegalActionException('Cannot pass on an empty trick.');
   }
 
   if (mahJong(state.deck, TichuTurn(TurnType.none, const []), hand)) {
-    throw StateError('Wish must be fulfilled when possible.');
+    throw const IllegalActionException('Wish must be fulfilled when possible.');
   }
 
   _logAction(state, action.playerId, const <Card>[]);
@@ -202,10 +203,12 @@ void applyGiveDragonAction(
   final GiveDragonAction action,
 ) {
   if (state.pendingDragonGiveBy == null) {
-    throw StateError('No dragon trick to give.');
+    throw const IllegalActionException('No dragon trick to give.');
   }
   if (!state.pendingDragonGiveTargets.contains(action.targetPlayerId)) {
-    throw StateError('Dragon trick must be given to an opponent.');
+    throw const IllegalActionException(
+      'Dragon trick must be given to an opponent.',
+    );
   }
 
   state.scoreTracker.recordTrick(

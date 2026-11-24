@@ -24,11 +24,23 @@
 
 - Flutter 3.50.x (Dart 3.14). `pubspec.lock` is resolved with this version.
 - Check before committing: `flutter analyze` (0 errors/warnings) and `flutter test`.
+- Never silence lints: no `// ignore:` / `// ignore_for_file:` in Dart, no
+  `# noqa` / `# type: ignore` / `# pylint: disable` in Python, no rules set to
+  `ignore` in `analysis_options.yaml`. A lint that fires points at code to
+  change: fix the design (e.g. do not catch `StateError`, inject a
+  dependency instead of a write-only setter). If a rule is wrong for the
+  whole project, propose turning it off in `analysis_options.yaml` and say
+  why. `test/no_lint_suppressions_test.dart`
+  enforces this.
 
-## RL
+## Architecture rules
 
-- The neural RL pipeline lives in `rl/` (Python) and `lib/headless/` +
-  `lib/agents/nn/` (Dart). See `rl/README.md`.
-- Compile the headless runner before RL runs:
-  `dart compile exe lib/headless/headless.dart -o build/bin/headless`
-  (`rl/headless_runner.py` looks for exactly `build/bin/headless`).
+- Simulations (endgame search, solver, rollouts, training labels) play out
+  forks on `simulationEngine` (`lib/game/simulation.dart`), never on the
+  engine of the game being played, which may record or publish moves.
+- Only moves from outside (a person, a network client) can be illegal: the
+  engine throws `IllegalActionException` and the authority server answers
+  400. Bots, searches and rollouts choose from the legal moves, so for them
+  an illegal move or "no legal move" is a bug: never caught, no null/enum
+  fallback. Refused lobby/match requests throw `RequestRejectedException`.
+  `Error`s (`StateError`, ...) are bugs and are never caught.

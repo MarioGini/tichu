@@ -151,7 +151,6 @@ extension _PhaseResolvers on AiTurnRunner {
     );
     if (action is GiveDragonAction) {
       action = await _endgameSearcher.refineDragonGift(
-        engine: _engine,
         state: state.engineState,
         agent: agent,
         chosen: action,

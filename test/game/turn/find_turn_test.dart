@@ -63,7 +63,7 @@ void main() {
         Card(CardFace.dragon, CardColor.special),
         Card(CardFace.phoenix, CardColor.special),
       ];
-      expect(getTurn(cards), TichuTurn.InvalidTurn());
+      expect(getTurn(cards), TichuTurn.invalid());
     });
 
     test('mahjongWithPhoenixIsInvalidPair', () {
@@ -71,7 +71,7 @@ void main() {
         Card(CardFace.mahJong, CardColor.special),
         Card(CardFace.phoenix, CardColor.special),
       ];
-      expect(getTurn(cards), TichuTurn.InvalidTurn());
+      expect(getTurn(cards), TichuTurn.invalid());
     });
   });
   group('triplets', () {

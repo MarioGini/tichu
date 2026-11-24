@@ -19,7 +19,7 @@ void main() {
 
       expect(
         () => strategy.selectSchupfCards(snapshot, aiTestSelfId),
-        throwsA(isA<StateError>()),
+        throwsStateError,
       );
     });
 

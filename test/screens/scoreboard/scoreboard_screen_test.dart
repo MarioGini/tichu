@@ -33,25 +33,27 @@ void main() {
     await tester.tap(find.text('Add round 1'));
     await tester.pumpAndSettle();
 
-    // 50 : 50, then +5 for team A twice.
-    for (var i = 0; i < 2; i++) {
-      await tester.tap(find.text('+5').first);
-      await tester.pump(const Duration(milliseconds: 400));
-    }
-    // Team A calls Tichu (defaults to made).
+    // Team A calls Tichu (defaults to made); cards stay 50 : 50.
     await tester.tap(find.text('Tichu').first);
     await tester.pumpAndSettle();
-    expect(find.text('+160'), findsOneWidget);
-    expect(find.text('+40'), findsOneWidget);
+    expect(find.text('+150'), findsOneWidget);
+    expect(find.text('+50'), findsOneWidget);
+
+    // Marking it failed flips the bonus.
+    await tester.tap(find.byTooltip('Failed'));
+    await tester.pumpAndSettle();
+    expect(find.text('\u221250'), findsOneWidget);
+    await tester.tap(find.byTooltip('Made'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    expect(find.text('160'), findsWidgets);
-    expect(find.text('40'), findsWidgets);
+    expect(find.text('150'), findsWidgets);
+    expect(find.text('50'), findsWidgets);
     final saved = await store.loadCurrent();
     expect(saved!.teamNames, ['Us', 'Them']);
-    expect(saved.totalFor(0), 160);
+    expect(saved.totalFor(0), 150);
     expect(tester.takeException(), isNull);
   });
 

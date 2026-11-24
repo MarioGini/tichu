@@ -572,7 +572,7 @@ class _RoundRow extends StatelessWidget {
       final points = round.totalFor(team);
       final badges = <Widget>[
         if (round.doubleVictoryTeam == team)
-          const _Badge(label: '1-2', color: Color(0xFFF2C94C)),
+          const _Badge(label: 'Match', color: Color(0xFFF2C94C)),
         for (final c in round.calls)
           if (c.team == team)
             _Badge(

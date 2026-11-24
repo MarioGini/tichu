@@ -18,7 +18,8 @@ class RoundEntryDeleted extends RoundEntryResult {
   const RoundEntryDeleted();
 }
 
-/// Enter one real-life round: double victory, counted card points and the
+/// Enter one real-life round: Tichu calls, match (double victory) and
+/// counted card points.
 /// Tichu calls with their outcome.
 class RoundEntryScreen extends StatefulWidget {
   const RoundEntryScreen({
@@ -46,7 +47,7 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
   void _update(final ScoreboardRound round) => setState(() => _round = round);
 
   void _setDoubleVictory(final int? team) {
-    // The double-victory team went out first, so a call by the other team
+    // The match team went out first, so a call by the other team
     // has failed.
     final calls = _round.calls
         .map(
@@ -159,7 +160,15 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                       children: [
-                        _DoubleVictorySection(
+                        _CallsSection(
+                          teamNames: widget.teamNames,
+                          calls: _round.calls,
+                          onAdd: _addCall,
+                          onSuccessChanged: _setCallSuccess,
+                          onRemove: _removeCall,
+                        ),
+                        const SizedBox(height: 12),
+                        _MatchSection(
                           teamNames: widget.teamNames,
                           value: _round.doubleVictoryTeam,
                           onChanged: _setDoubleVictory,
@@ -169,14 +178,6 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
                           teamNames: widget.teamNames,
                           round: _round,
                           onChanged: _setCardPoints,
-                        ),
-                        const SizedBox(height: 12),
-                        _CallsSection(
-                          teamNames: widget.teamNames,
-                          calls: _round.calls,
-                          onAdd: _addCall,
-                          onSuccessChanged: _setCallSuccess,
-                          onRemove: _removeCall,
                         ),
                       ],
                     ),
@@ -197,8 +198,8 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
   }
 }
 
-class _DoubleVictorySection extends StatelessWidget {
-  const _DoubleVictorySection({
+class _MatchSection extends StatelessWidget {
+  const _MatchSection({
     required this.teamNames,
     required this.value,
     required this.onChanged,
@@ -213,7 +214,7 @@ class _DoubleVictorySection extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ScoreboardSectionTitle('Double victory (1-2 finish)'),
+        const ScoreboardSectionTitle('Match (1-2 finish)'),
         SegmentedButton<int>(
           showSelectedIcon: false,
           segments: [
@@ -274,7 +275,7 @@ class _CardPointsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ScoreboardSectionTitle(
-            doubleVictory ? 'Card points (double victory)' : 'Card points',
+            doubleVictory ? 'Card points (match)' : 'Card points',
           ),
           Row(
             children: [
@@ -292,7 +293,7 @@ class _CardPointsSection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Cards are not counted: the double victory scores 200.',
+                'Cards are not counted: the match scores 200.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: Colors.white54,
@@ -313,50 +314,11 @@ class _CardPointsSection extends StatelessWidget {
               inactiveColor: scoreboardTeamColors[1].withValues(alpha: 0.6),
               onChanged: (final v) => onChanged(v.round()),
             ),
-            Row(
-              children: [
-                _StepButton(label: '−5', onTap: () => onChanged(a - 5)),
-                const SizedBox(width: 6),
-                _StepButton(label: '+5', onTap: () => onChanged(a + 5)),
-                Expanded(
-                  child: Text(
-                    'Sums to 100',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.white38,
-                    ),
-                  ),
-                ),
-                _StepButton(label: '−5', onTap: () => onChanged(a + 5)),
-                const SizedBox(width: 6),
-                _StepButton(label: '+5', onTap: () => onChanged(a - 5)),
-              ],
-            ),
           ],
         ],
       ),
     );
   }
-}
-
-class _StepButton extends StatelessWidget {
-  const _StepButton({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(final BuildContext context) => OutlinedButton(
-    onPressed: onTap,
-    style: OutlinedButton.styleFrom(
-      foregroundColor: Colors.white,
-      side: const BorderSide(color: Colors.white24),
-      minimumSize: const Size(44, 36),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ),
-    child: Text(label),
-  );
 }
 
 class _CallsSection extends StatelessWidget {
@@ -377,64 +339,62 @@ class _CallsSection extends StatelessWidget {
   @override
   Widget build(final BuildContext context) {
     final theme = Theme.of(context);
-    return ScoreboardPanel(
+    Widget column(final int team) => Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const ScoreboardSectionTitle('Tichu calls'),
-          for (final team in const [0, 1]) ...[
-            if (team == 1) const Divider(color: Colors.white12, height: 20),
-            Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: scoreboardTeamColors[team],
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    teamNames[team],
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                if (calls.where((final c) => c.team == team).length < 2) ...[
-                  _AddCallButton(
-                    label: 'Tichu',
-                    onTap: () => onAdd(team, TichuCallKind.tichu),
-                  ),
-                  const SizedBox(width: 6),
-                  _AddCallButton(
-                    label: 'Grand',
-                    onTap: () => onAdd(team, TichuCallKind.grandTichu),
-                  ),
-                ],
-              ],
+          Text(
+            teamNames[team],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: scoreboardTeamColors[team],
             ),
-            for (var i = 0; i < calls.length; i++)
-              if (calls[i].team == team)
-                _CallRow(
+          ),
+          for (var i = 0; i < calls.length; i++)
+            if (calls[i].team == team)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: _CallPill(
                   call: calls[i],
                   onSuccessChanged: (final s) => onSuccessChanged(i, s),
                   onRemove: () => onRemove(i),
                 ),
-            if (!calls.any((final c) => c.team == team))
-              Padding(
-                padding: const EdgeInsets.only(left: 18, top: 4),
-                child: Text(
-                  'No call',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white38,
-                  ),
-                ),
               ),
-          ],
+          if (calls.where((final c) => c.team == team).length < 2)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _AddCallButton(
+                      label: 'Tichu',
+                      onTap: () => onAdd(team, TichuCallKind.tichu),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _AddCallButton(
+                      label: 'Grand',
+                      onTap: () => onAdd(team, TichuCallKind.grandTichu),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    return ScoreboardPanel(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ScoreboardSectionTitle('Tichu calls'),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [column(0), const SizedBox(width: 12), column(1)],
+          ),
         ],
       ),
     );
@@ -448,19 +408,26 @@ class _AddCallButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(final BuildContext context) => ActionChip(
-    avatar: const Icon(Icons.add, size: 16, color: Colors.white70),
-    label: Text(label),
-    labelStyle: const TextStyle(color: Colors.white),
-    backgroundColor: Colors.white.withValues(alpha: 0.06),
-    side: const BorderSide(color: Colors.white24),
-    visualDensity: VisualDensity.compact,
+  Widget build(final BuildContext context) => OutlinedButton.icon(
     onPressed: onTap,
+    style: OutlinedButton.styleFrom(
+      foregroundColor: Colors.white,
+      side: const BorderSide(color: Colors.white24),
+      minimumSize: const Size(0, 32),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ),
+    icon: const Icon(Icons.add, size: 16),
+    label: Text(label),
   );
 }
 
-class _CallRow extends StatelessWidget {
-  const _CallRow({
+/// A call as a compact pill: name, made / failed toggles, remove.
+class _CallPill extends StatelessWidget {
+  const _CallPill({
     required this.call,
     required this.onSuccessChanged,
     required this.onRemove,
@@ -472,62 +439,68 @@ class _CallRow extends StatelessWidget {
 
   @override
   Widget build(final BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(left: 18, top: 8),
+    final color = call.success ? Colors.greenAccent : Colors.redAccent;
+    Widget toggle({
+      required final bool value,
+      required final IconData icon,
+      required final String tooltip,
+    }) {
+      final selected = call.success == value;
+      final c = value ? Colors.greenAccent : Colors.redAccent;
+      return Tooltip(
+        message: tooltip,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => onSuccessChanged(value),
+          child: Semantics(
+            button: true,
+            selected: selected,
+            label: tooltip,
+            child: Container(
+              width: 28,
+              height: 26,
+              decoration: BoxDecoration(
+                color: selected ? c.withValues(alpha: 0.3) : null,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 16, color: selected ? c : Colors.white38),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.only(left: 10, right: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  call.kind.label,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  signedPoints(call.points),
-                  style: theme.textTheme.bodySmall
-                      ?.merge(scoreboardTabular)
-                      .copyWith(
-                        color: call.success
-                            ? Colors.greenAccent
-                            : Colors.redAccent,
-                      ),
-                ),
-              ],
+            child: Text(
+              call.kind == TichuCallKind.tichu ? 'Tichu' : 'Grand',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
-          SegmentedButton<bool>(
-            showSelectedIcon: false,
-            style: SegmentedButton.styleFrom(
-              visualDensity: VisualDensity.compact,
-              selectedBackgroundColor: call.success
-                  ? Colors.green.withValues(alpha: 0.45)
-                  : Colors.red.withValues(alpha: 0.45),
-            ),
-            segments: const [
-              ButtonSegment(
-                value: true,
-                icon: Icon(Icons.check, size: 18),
-                label: Text('Made'),
-              ),
-              ButtonSegment(
-                value: false,
-                icon: Icon(Icons.close, size: 18),
-                label: Text('Failed'),
-              ),
-            ],
-            selected: {call.success},
-            onSelectionChanged: (final s) => onSuccessChanged(s.first),
-          ),
+          toggle(value: true, icon: Icons.check, tooltip: 'Made'),
+          toggle(value: false, icon: Icons.close, tooltip: 'Failed'),
           IconButton(
             tooltip: 'Remove call',
-            icon: const Icon(Icons.remove_circle_outline, size: 20),
-            color: Colors.white54,
+            icon: const Icon(Icons.delete_outline, size: 16),
+            color: Colors.white38,
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints.tightFor(width: 26, height: 26),
             onPressed: onRemove,
           ),
         ],

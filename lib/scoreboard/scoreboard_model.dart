@@ -92,12 +92,13 @@ class ScoreboardRound {
   /// Ignored when [doubleVictoryTeam] is set.
   final int cardPointsTeamA;
 
-  /// The team whose two players went out first and second, if any.
+  /// The team that made a match (double victory): its two players went
+  /// out first and second.
   final int? doubleVictoryTeam;
 
   final List<TichuCall> calls;
 
-  /// Card points (or the 200 of a double victory) for [team].
+  /// Card points (or the 200 of a match) for [team].
   int cardPointsFor(final int team) {
     final dv = doubleVictoryTeam;
     if (dv != null) return dv == team ? 200 : 0;
@@ -136,7 +137,7 @@ class ScoreboardRound {
     }
     if (dv != null && made.any((final c) => c.team != dv)) {
       errors.add(
-        'A call against a double victory cannot succeed: '
+        'A call against a match cannot succeed: '
         'the other team went out first.',
       );
     }

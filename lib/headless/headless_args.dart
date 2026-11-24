@@ -189,6 +189,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   const defaults = EndgameSearch();
   var endgameWorlds = defaults.worlds;
   var endgameMaxCards = defaults.maxCards;
+  int? opponentEndgameMaxCards;
   var endgameMargin = defaults.margin;
   var endgameMaxActions = defaults.maxActions;
 
@@ -415,6 +416,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       if (k != null && k >= 1) endgameWorlds = k;
       continue;
     }
+    if (arg.startsWith('--opponent-endgame-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) opponentEndgameMaxCards = k;
+      continue;
+    }
     if (arg.startsWith('--endgame-max-cards=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 1) endgameMaxCards = k;
@@ -525,10 +531,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     required final bool solve,
     required final bool pimc,
     required final bool belief,
+    final int? maxCards,
   }) => EndgameSearch(
     beliefWorlds: belief,
     worlds: endgameWorlds,
-    maxCards: endgameMaxCards,
+    maxCards: maxCards ?? endgameMaxCards,
     margin: endgameMargin,
     maxActions: endgameMaxActions,
     solveOneOnOne: solve,
@@ -546,6 +553,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
             solve: opponentEndgameSolve,
             pimc: opponentPimcSolve,
             belief: opponentEndgameBelief,
+            maxCards: opponentEndgameMaxCards,
           )
         : null,
     seed: seed,

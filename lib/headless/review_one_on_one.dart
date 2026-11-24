@@ -82,7 +82,6 @@ Future<void> main(final List<String> args) async {
       if (action == null) continue;
       if (request is TurnRequest && search) {
         action = await searcher.refine(
-          engine: engine,
           state: state,
           agent: agent,
           chosen: action,

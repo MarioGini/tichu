@@ -10,6 +10,7 @@ import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 /// Settings of the decision-time endgame search (see [EndgameSearcher]).
@@ -276,6 +277,10 @@ class EndgameSearcher {
   /// Card-location model for [EndgameSearch.beliefWorlds].
   final BeliefModel? belief;
 
+  /// The searcher's own engine: forks are played out on it, never on the
+  /// engine of the game being played (which may record or publish moves).
+  final GameEngine _engine = GameEngineImpl();
+
   EndgameSearcher({
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
@@ -286,7 +291,6 @@ class EndgameSearcher {
   /// [state]); [chosen] itself when the search does not apply or finds
   /// nothing clearly better.
   Future<GameAction> refine({
-    required final GameEngine engine,
     required final GameEngineState state,
     required final PlayerAgent agent,
     required final GameAction chosen,
@@ -308,7 +312,7 @@ class EndgameSearcher {
       stopwatch.start();
       try {
         final solver = _solvers[current.seat % 2] ??= OneOnOneSolver(
-          engine: engine,
+          engine: _engine,
           agentFor: rolloutAgent,
           nodeBudget: config.solveBudget,
         );
@@ -329,7 +333,7 @@ class EndgameSearcher {
     final hand = state.hands[playerId] ?? const <Card>[];
     if (hand.isEmpty || hand.length > config.maxCards) return chosen;
 
-    final snapshot = engine.buildSnapshot(state);
+    final snapshot = _engine.buildSnapshot(state);
     final options = agent.searchableActions(snapshot);
     if (options == null) return chosen;
     final turns = options.turns;
@@ -382,14 +386,14 @@ class EndgameSearcher {
           };
           final action = actions[i]!;
           try {
-            engine.applyAction(fork, _copyAction(action));
+            _engine.applyAction(fork, _copyAction(action));
             // The engine signals an illegal action with StateError.
             // ignore: avoid_catching_errors
           } on StateError {
             continue;
           }
           rollouts++;
-          final diff = await playOutRound(engine, fork, agents);
+          final diff = await playOutRound(_engine, fork, agents);
           if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();
           if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
         }
@@ -471,7 +475,6 @@ class EndgameSearcher {
   /// gets the trick matters there: the last player's tricks go to the
   /// first player out.
   Future<GameAction> refineDragonGift({
-    required final GameEngine engine,
     required final GameEngineState state,
     required final PlayerAgent agent,
     required final GiveDragonAction chosen,
@@ -493,7 +496,7 @@ class EndgameSearcher {
     try {
       final current = state.players.firstWhere((final p) => p.id == playerId);
       final solver = _solvers[current.seat % 2] ??= OneOnOneSolver(
-        engine: engine,
+        engine: _engine,
         agentFor: rolloutAgent,
         nodeBudget: config.solveBudget,
       );

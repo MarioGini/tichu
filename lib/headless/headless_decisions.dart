@@ -116,7 +116,6 @@ extension _Decisions on _HeadlessSimulator {
           return turn;
         }
         return searcher.refine(
-          engine: engine,
           state: state,
           agent: agent,
           chosen: turn,
@@ -131,7 +130,6 @@ extension _Decisions on _HeadlessSimulator {
         final searcher = endgameSearcher;
         if (gift is! GiveDragonAction || searcher == null) return gift;
         return searcher.refineDragonGift(
-          engine: engine,
           state: state,
           agent: agent,
           chosen: gift,

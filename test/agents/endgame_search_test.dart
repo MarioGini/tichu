@@ -168,14 +168,12 @@ void main() {
           final chosen = await agent.selectTurn(snapshot);
           final before = searcher.searches;
           final a = await searcher.refine(
-            engine: engine,
             state: state,
             agent: agent,
             chosen: chosen,
           );
           expect(searcher.searches, before + 1);
           final b = await EndgameSearcher(rolloutAgent: factory).refine(
-            engine: engine,
             state: state.copy(),
             agent: _searchingBot(id),
             chosen: chosen,
@@ -297,7 +295,6 @@ void main() {
       const chosen = PassAction(playerId: 'p1');
       expect(
         await searcher.refine(
-          engine: engine,
           state: state,
           agent: agent,
           chosen: chosen,

@@ -149,7 +149,6 @@ class AiTurnRunner {
       if (action != null) {
         final logLength = state.engineState.roundLog.length;
         action = await _endgameSearcher.refine(
-          engine: _engine,
           state: state.engineState,
           agent: agent,
           chosen: action,

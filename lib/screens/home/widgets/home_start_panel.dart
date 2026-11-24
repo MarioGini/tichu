@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:tichu/services/account/player_account.dart';
 
 /// Title, name field and the play / create / join buttons.
 class HomeStartPanel extends StatelessWidget {
@@ -7,6 +8,7 @@ class HomeStartPanel extends StatelessWidget {
     required this.compact,
     required this.nameController,
     required this.onNameChanged,
+    this.account,
     required this.showSolo,
     required this.canAct,
     required this.isBusy,
@@ -20,6 +22,9 @@ class HomeStartPanel extends StatelessWidget {
   final bool compact;
   final TextEditingController nameController;
   final ValueChanged<String> onNameChanged;
+
+  /// This device's player, once loaded; shown under the name field.
+  final PlayerAccount? account;
   final bool showSolo;
   final bool canAct;
   final bool isBusy;
@@ -72,6 +77,31 @@ class HomeStartPanel extends StatelessWidget {
             ),
           ),
         ),
+        if (account case final account?)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.phonelink_lock_outlined,
+                  size: 14,
+                  color: Colors.white54,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Guest account ${account.shortId} · '
+                    'remembered on this device',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white54,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         SizedBox(height: compact ? 10 : 16),
         if (showSolo)
           FilledButton.icon(

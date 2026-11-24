@@ -83,4 +83,42 @@ void main() {
       expect((await local.load()).displayName, 'Anna');
     },
   );
+
+  test('an offline rename is marked pending for the next sync', () async {
+    final service = SupabaseAccountService(
+      local: LocalAccountService(),
+      client: () => Future.error(StateError('offline')),
+    );
+    await service.updateDisplayName('Mario');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(SupabaseAccountService.pendingNameKey), isTrue);
+    // The device keeps the new name, offline loads return it.
+    expect((await service.load()).displayName, 'Mario');
+  });
+
+  test('load and rename run one at a time, in call order', () async {
+    final service = SupabaseAccountService(
+      local: LocalAccountService(),
+      client: () => Future.error(StateError('offline')),
+    );
+    final loading = service.load();
+    final renaming = service.updateDisplayName('Anna');
+    await Future.wait([loading, renaming]);
+    expect((await LocalAccountService().load()).displayName, 'Anna');
+  });
+
+  test('names are cut by code point, never inside an emoji', () {
+    final name = '${'a' * 23}\u{1F600}b';
+    expect(normalizeDisplayName(name), '${'a' * 23}\u{1F600}');
+  });
+
+  test('a stored account with a too short id is replaced', () async {
+    SharedPreferences.setMockInitialValues({
+      LocalAccountService.storageKey:
+          '{"id":"ab","displayName":"x","createdAt":"2026-01-01T00:00:00Z"}',
+    });
+    final account = await LocalAccountService().load();
+    expect(account.id, hasLength(36));
+    expect(account.shortId, hasLength(5));
+  });
 }

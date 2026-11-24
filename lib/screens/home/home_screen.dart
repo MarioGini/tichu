@@ -49,7 +49,11 @@ class _HomeScreenState extends State<HomeScreen> {
   List<GameLobbyListEntry> _games = const <GameLobbyListEntry>[];
   Timer? _refreshTimer;
 
-  String get _displayName => _displayNameController.text.trim();
+  /// The name as games and the account use it (normalised), or empty.
+  String get _displayName {
+    final text = _displayNameController.text.trim();
+    return text.isEmpty ? '' : normalizeDisplayName(text);
+  }
 
   bool get _canAct => !_isBusy && _displayName.isNotEmpty;
 

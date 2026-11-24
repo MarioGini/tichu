@@ -90,32 +90,61 @@ class SupabaseAccountService implements AccountService {
   /// Error of the last server call, null after a successful one.
   Object? lastError;
 
+  /// Set while a rename has not reached the server (e.g. made offline);
+  /// the next [load] then pushes the device's name instead of taking the
+  /// server's.
+  static const pendingNameKey = 'account.namePending';
+
+  /// Runs [load] and [updateDisplayName] one at a time, so a rename made
+  /// while the account is still loading is not overwritten by the load.
+  Future<void> _queue = Future<void>.value();
+
+  Future<T> _serial<T>(final Future<T> Function() op) {
+    final result = _queue.then((_) => op());
+    _queue = result.then<void>((_) {}, onError: (final Object _) {});
+    return result;
+  }
+
   @override
-  Future<PlayerAccount> load() async {
+  Future<PlayerAccount> load() => _serial(_load);
+
+  @override
+  Future<PlayerAccount> updateDisplayName(final String name) =>
+      _serial(() => _updateDisplayName(name));
+
+  Future<PlayerAccount> _load() async {
     final device = await local.load();
     try {
       final client = await _client();
       final user = client.auth.currentUser;
       if (user == null) return device;
+      final prefs = await SharedPreferences.getInstance();
+      final pending = prefs.getBool(pendingNameKey) ?? false;
       final row = await client
           .from(table)
           .select('display_name, created_at')
           .eq('id', user.id)
           .maybeSingle();
+      final serverName = row?['display_name'] as String?;
       final account = PlayerAccount(
         id: user.id,
-        displayName: row?['display_name'] as String? ?? device.displayName,
+        displayName: pending || serverName == null
+            ? device.displayName
+            : serverName,
         createdAt: switch (row?['created_at']) {
           final String at => DateTime.parse(at),
           _ => DateTime.parse(user.createdAt),
         },
         isAnonymous: user.isAnonymous,
       );
-      if (row == null) {
-        await client.from(table).insert({
+      if (row == null || pending) {
+        // Upsert: two first launches racing must not fail on the key.
+        await client.from(table).upsert({
           'id': user.id,
           'display_name': account.displayName,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
         });
+        await prefs.remove(pendingNameKey);
       }
       lastError = null;
       return await local.save(account);
@@ -126,9 +155,10 @@ class SupabaseAccountService implements AccountService {
     }
   }
 
-  @override
-  Future<PlayerAccount> updateDisplayName(final String name) async {
+  Future<PlayerAccount> _updateDisplayName(final String name) async {
     final account = await local.updateDisplayName(name);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(pendingNameKey, true);
     try {
       final client = await _client();
       final user = client.auth.currentUser;
@@ -138,6 +168,7 @@ class SupabaseAccountService implements AccountService {
           'display_name': account.displayName,
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         });
+        await prefs.remove(pendingNameKey);
       }
       lastError = null;
     } on Object catch (error) {

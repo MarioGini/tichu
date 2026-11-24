@@ -65,8 +65,10 @@ class HomeStartPanel extends StatelessWidget {
           controller: nameController,
           onChanged: onNameChanged,
           textInputAction: TextInputAction.done,
+          maxLength: 24,
           decoration: InputDecoration(
             labelText: 'Your name',
+            counterText: '',
             prefixIcon: const Icon(Icons.person_outline),
             isDense: true,
             filled: true,

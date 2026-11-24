@@ -14,13 +14,18 @@ class PlayerAccount {
     this.isAnonymous = true,
   });
 
-  factory PlayerAccount.fromJson(final Map<String, Object?> json) =>
-      PlayerAccount(
-        id: json['id']! as String,
-        displayName: json['displayName']! as String,
-        createdAt: DateTime.parse(json['createdAt']! as String),
-        isAnonymous: json['isAnonymous'] as bool? ?? true,
-      );
+  factory PlayerAccount.fromJson(final Map<String, Object?> json) {
+    final id = json['id']! as String;
+    if (id.replaceAll('-', '').length < 4) {
+      throw FormatException('account id too short: $id');
+    }
+    return PlayerAccount(
+      id: id,
+      displayName: json['displayName']! as String,
+      createdAt: DateTime.parse(json['createdAt']! as String),
+      isAnonymous: json['isAnonymous'] as bool? ?? true,
+    );
+  }
 
   static const String defaultDisplayName = 'Player';
 
@@ -30,8 +35,10 @@ class PlayerAccount {
   final bool isAnonymous;
 
   /// Short form of [id] to tell accounts apart in the UI, e.g. `#3F9A`.
-  String get shortId =>
-      '#${id.replaceAll('-', '').substring(0, 4).toUpperCase()}';
+  String get shortId {
+    final hex = id.replaceAll('-', '');
+    return '#${hex.substring(0, hex.length < 4 ? hex.length : 4).toUpperCase()}';
+  }
 
   PlayerAccount copyWith({final String? displayName}) => PlayerAccount(
     id: id,
@@ -75,7 +82,10 @@ String newAccountId([final Random? random]) {
 String normalizeDisplayName(final String name, {final int maxLength = 24}) {
   final trimmed = name.trim().replaceAll(RegExp(r'\s+'), ' ');
   if (trimmed.isEmpty) return PlayerAccount.defaultDisplayName;
-  return trimmed.length > maxLength
-      ? trimmed.substring(0, maxLength).trimRight()
+  // Count code points, like Postgres char_length, so an emoji is never
+  // cut in half.
+  final runes = trimmed.runes;
+  return runes.length > maxLength
+      ? String.fromCharCodes(runes.take(maxLength)).trimRight()
       : trimmed;
 }

@@ -172,4 +172,12 @@ void main() {
     expect(saved.rounds, isEmpty);
     expect(saved.teamNames, ['Us', 'Them']);
   });
+
+  testWidgets('rounds run top to bottom, newest last', (final tester) async {
+    await tester.pumpWidget(_app(InMemoryScoreboardStore(twoRounds())));
+    await tester.pumpAndSettle();
+    final first = tester.getTopLeft(find.text('+70'));
+    final second = tester.getTopLeft(find.text('+20'));
+    expect(first.dy, lessThan(second.dy));
+  });
 }

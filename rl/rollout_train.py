@@ -39,7 +39,7 @@ from qnet import (
     load_qnetwork_from_safetensors,
     select_device,
 )
-from schema import LEGACY_ACTION_FEATURE_COUNT, TOTAL_FEATURE_COUNT, pad_action, pad_state
+from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, LEGACY_ACTION_FEATURE_COUNT, TOTAL_FEATURE_COUNT, pad_action, pad_state
 
 SCALE = 100.0
 HAND_OFFSET = 0
@@ -158,30 +158,63 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
     ``recency`` < 1 down-weights older rollout_loop iterations: a file of
     iteration k gets loss weight ``recency ** (newest - k)``. Their labels
     are values under the policy of their own iteration, not the current one.
+
+    Memory: the big arrays are allocated once at their final size and each
+    file is copied in and released, so the peak is the data plus one file
+    (concatenating all parts at the end needed twice the data: 5M decisions
+    were ~14 GB).
     """
-    parts = [
-        _read_npz(p) if p.suffix == ".npz" else _parse_jsonl(p, max_decisions) for p in paths
-    ]
     its = [file_iteration(p) for p in paths]
     newest = max((i for i in its if i is not None), default=0)
-    starts, chosen, games, weights, cursor, game_cursor = [np.zeros(1, dtype=np.int64)], [], [], [], 0, 0
-    for d, it in zip(parts, its):
+    # Pass 1: sizes (and the small per-decision columns).
+    meta = []
+    for p in paths:
+        if p.suffix == ".npz":
+            with np.load(p) as z:
+                if "x" in z.files:  # old full-row cache: convert in memory
+                    d = _read_npz(p)
+                    meta.append(("mem", d))
+                    continue
+                starts = z["starts"]
+                meta.append(("npz", {"starts": starts, "chosen": z["chosen"], "explore": z["explore"],
+                                      "game": z["game"] if "game" in z.files else None,
+                                      "rows": int(starts[-1])}))
+        else:
+            meta.append(("mem", _parse_jsonl(p, max_decisions)))
+    n_dec = sum(len(m[1]["chosen"]) for m in meta)
+    n_rows = sum(int(m[1]["starts"][-1]) for m in meta)
+    s_all = np.empty((n_dec, ACTION_OFFSET), np.float16)
+    a_all = np.empty((n_rows, ACTION_FEATURE_COUNT), np.float16)
+    q_all = np.empty(n_rows, np.float32)
+    starts, chosen, games, weights, explore = [np.zeros(1, dtype=np.int64)], [], [], [], []
+    cursor = game_cursor = dec = 0
+    for (kind, m), p, it in zip(meta, paths, its):
+        if kind == "npz":
+            d = _read_npz(p)
+        else:
+            d = m
+        k, r = len(d["chosen"]), int(d["starts"][-1])
+        s_all[dec : dec + k] = d["s"]
+        a_all[cursor : cursor + r] = d["a"]
+        q_all[cursor : cursor + r] = d["q"]
         starts.append(d["starts"][1:] + cursor)
         chosen.append(np.where(d["chosen"] >= 0, d["chosen"] + cursor, -1))
-        cursor += int(d["starts"][-1])
+        explore.append(d["explore"])
         g = np.unique(d["game"], return_inverse=True)[1].astype(np.int64)
         games.append(g + game_cursor)
         game_cursor += int(g.max()) + 1 if g.size else 0
         w = 1.0 if it is None else recency ** (newest - it)
-        weights.append(np.full(len(d["chosen"]), w, dtype=np.float32))
-    cat = lambda k: torch.from_numpy(np.concatenate([d[k] for d in parts]))  # noqa: E731
+        weights.append(np.full(k, w, dtype=np.float32))
+        cursor += r
+        dec += k
+        del d
     return RolloutData(
-        cat("s"),
-        cat("a"),
-        cat("q"),
+        torch.from_numpy(s_all),
+        torch.from_numpy(a_all),
+        torch.from_numpy(q_all),
         torch.from_numpy(np.concatenate(starts)),
         torch.from_numpy(np.concatenate(chosen)),
-        cat("explore"),
+        torch.from_numpy(np.concatenate(explore)),
         torch.from_numpy(np.concatenate(games)),
         torch.from_numpy(np.concatenate(weights)),
     )

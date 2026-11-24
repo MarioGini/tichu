@@ -8,6 +8,7 @@ import 'package:tichu/screens/home/widgets/home_start_panel.dart';
 import 'package:tichu/screens/home/widgets/open_games_panel.dart';
 import 'package:tichu/screens/lobby/lobby_screen.dart';
 import 'package:tichu/screens/observe/observe_screen.dart';
+import 'package:tichu/screens/scoreboard/scoreboard_screen.dart';
 import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
 import 'package:tichu/services/multiplayer/solo_match.dart';
 
@@ -206,6 +207,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 onObserve: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const ObserveScreen(),
+                  ),
+                ),
+                onScoreboard: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ScoreboardScreen(),
                   ),
                 ),
                 onCreate: () => unawaited(_showCreateGameDialog()),

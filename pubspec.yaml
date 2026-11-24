@@ -15,6 +15,7 @@ dependencies:
   material_ui: ^1.11.0
   meta: ^1.19.0
   postgres: ^3.6.0
+  shared_preferences: ^2.5.3
   supabase: ^2.16.5
   supabase_flutter: ^2.18.3
 

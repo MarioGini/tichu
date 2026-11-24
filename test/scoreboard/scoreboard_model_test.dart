@@ -115,26 +115,13 @@ void main() {
 
     test('fromJson rejects malformed teams', () {
       final json = game(const []).toJson();
-      expect(
-        () => ScoreboardGame.fromJson({
-          ...json,
-          'teamNames': ['A'],
-        }),
-        throwsFormatException,
-      );
-      expect(
-        () => ScoreboardGame.fromJson({
-          ...json,
-          'rounds': [
-            {
-              'cardPointsTeamA': 50,
-              'doubleVictoryTeam': 2,
-              'calls': <Object>[],
-            },
-          ],
-        }),
-        throwsFormatException,
-      );
+      final oneTeam = Map<String, Object?>.of(json)..['teamNames'] = ['A'];
+      expect(() => ScoreboardGame.fromJson(oneTeam), throwsFormatException);
+      final badTeam = Map<String, Object?>.of(json)
+        ..['rounds'] = [
+          const ScoreboardRound().toJson()..['doubleVictoryTeam'] = 2,
+        ];
+      expect(() => ScoreboardGame.fromJson(badTeam), throwsFormatException);
     });
   });
 }

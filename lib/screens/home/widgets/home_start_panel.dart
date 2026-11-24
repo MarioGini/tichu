@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:tichu/services/account/player_account.dart';
 
 /// Title, name field and the play / create / join buttons.
 class HomeStartPanel extends StatelessWidget {
@@ -7,11 +8,13 @@ class HomeStartPanel extends StatelessWidget {
     required this.compact,
     required this.nameController,
     required this.onNameChanged,
+    this.account,
     required this.showSolo,
     required this.canAct,
     required this.isBusy,
     required this.onPlaySolo,
     required this.onObserve,
+    required this.onScoreboard,
     required this.onCreate,
     required this.onJoinWithCode,
   });
@@ -19,11 +22,17 @@ class HomeStartPanel extends StatelessWidget {
   final bool compact;
   final TextEditingController nameController;
   final ValueChanged<String> onNameChanged;
+
+  /// This device's player, once loaded; shown under the name field.
+  final PlayerAccount? account;
   final bool showSolo;
   final bool canAct;
   final bool isBusy;
   final VoidCallback onPlaySolo;
   final VoidCallback onObserve;
+
+  /// Opens the score sheet for games played with real cards.
+  final VoidCallback onScoreboard;
   final VoidCallback onCreate;
   final VoidCallback onJoinWithCode;
 
@@ -56,8 +65,10 @@ class HomeStartPanel extends StatelessWidget {
           controller: nameController,
           onChanged: onNameChanged,
           textInputAction: TextInputAction.done,
+          maxLength: 24,
           decoration: InputDecoration(
             labelText: 'Your name',
+            counterText: '',
             prefixIcon: const Icon(Icons.person_outline),
             isDense: true,
             filled: true,
@@ -68,6 +79,31 @@ class HomeStartPanel extends StatelessWidget {
             ),
           ),
         ),
+        if (account case final account?)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.phonelink_lock_outlined,
+                  size: 14,
+                  color: Colors.white54,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Guest account ${account.shortId} · '
+                    'remembered on this device',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white54,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         SizedBox(height: compact ? 10 : 16),
         if (showSolo)
           FilledButton.icon(
@@ -92,15 +128,30 @@ class HomeStartPanel extends StatelessWidget {
                 : const Icon(Icons.smart_toy_outlined),
             label: const Text('Play vs AI'),
           ),
-        if (showSolo) ...[
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: isBusy ? null : onObserve,
-            style: _secondaryButtonStyle,
-            icon: const Icon(Icons.visibility_outlined),
-            label: const Text('Watch AI play'),
-          ),
-        ],
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            if (showSolo) ...[
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: isBusy ? null : onObserve,
+                  style: _secondaryButtonStyle,
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: const Text('Watch AI play'),
+                ),
+              ),
+              const SizedBox(width: 10),
+            ],
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: isBusy ? null : onScoreboard,
+                style: _secondaryButtonStyle,
+                icon: const Icon(Icons.scoreboard_outlined),
+                label: const Text('Scoreboard'),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 10),
         Row(
           children: [

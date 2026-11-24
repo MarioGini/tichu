@@ -11,7 +11,14 @@ Future<SupabaseClient>? _client;
 
 /// The app's Supabase client: initialised once and signed in anonymously.
 /// Shared by the Supabase multiplayer backend and the game-record upload.
-Future<SupabaseClient> appSupabaseClient() => _client ??= _connect();
+Future<SupabaseClient> appSupabaseClient() => _client ??= _connect().catchError(
+  (final Object error, final StackTrace stackTrace) {
+    // Retry on the next call (e.g. after starting offline) instead of
+    // keeping the failure for the whole session.
+    _client = null;
+    Error.throwWithStackTrace(error, stackTrace);
+  },
+);
 
 Future<SupabaseClient> _connect() async {
   if (!supabaseConfigured) {

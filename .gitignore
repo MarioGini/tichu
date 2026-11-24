@@ -22,6 +22,9 @@
 .pub/
 build/
 
+# Default output of the headless runner (lib/headless)
+/game.jsonl
+
 # Python RL tooling
 __pycache__/
 *.py[cod]

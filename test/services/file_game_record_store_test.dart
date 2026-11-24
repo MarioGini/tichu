@@ -18,7 +18,7 @@ void main() {
       ],
       targetScore: 1000,
     );
-    record.roundLogs.add(RoundLog(round: 1)..actions.add('0-'));
+    record.roundLogs.add(RoundLog(round: 1)..addGrandTichu(2));
 
     await store.save(record);
 
@@ -26,8 +26,8 @@ void main() {
     final loaded = await store.load(record.id);
     expect(loaded!['id'], record.id);
     expect(loaded['mode'], 'play');
-    expect(loaded['format'], 2);
-    expect((loaded['log']! as List).single, containsPair('m', '0-'));
+    expect(loaded['format'], 3);
+    expect((loaded['log']! as List).single, '^2');
     expect(await store.load('missing'), isNull);
   });
 

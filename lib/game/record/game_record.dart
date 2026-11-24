@@ -4,9 +4,10 @@ import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/record/round_log.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-/// Version of the JSON layout written by [GameRecord.toJson]: 2 stores a
-/// compact [RoundLog] per round instead of the event list of version 1.
-const int gameRecordFormatVersion = 2;
+/// Version of the JSON layout written by [GameRecord.toJson]: 3 stores one
+/// [RoundLog] string per round (initial cards and move order); 1 stored
+/// the full event list.
+const int gameRecordFormatVersion = 3;
 
 /// Random (version 4) UUID, used as game id and record id.
 String generateUuidV4([final Random? random]) {
@@ -158,7 +159,7 @@ class GameRecord {
 
   /// Actions recorded so far; numbers moves as the viewer tool does.
   int get actionCount =>
-      roundLogs.fold(0, (final n, final r) => n + r.actions.length);
+      roundLogs.fold(0, (final n, final r) => n + r.actionCount);
 
   int teamOneTotal = 0;
   int teamTwoTotal = 0;
@@ -238,6 +239,6 @@ class GameRecord {
       for (final p in players)
         {'id': p.id, 'name': p.name, 'seat': p.seat, 'type': p.type.name},
     ],
-    'log': [for (final r in roundLogs) r.toJson()],
+    'log': [for (final r in roundLogs) r.encode()],
   };
 }

@@ -83,37 +83,37 @@ Future<void> main(final List<String> args) async {
     '${record['complete'] == true ? ' (complete)' : ''}',
   );
   if (record['log'] case final List<Object?> log) {
-    // Format 2: compact round logs, replayed into a timeline.
+    // Format 3: one string per round (initial cards + move order), replayed.
     final players = (record['players']! as List).cast<Map<String, Object?>>();
     final seatNames = [
       for (var seat = 0; seat < 4; seat++)
         players.firstWhere((final p) => p['seat'] == seat)['name']! as String,
     ];
     var seq = 0;
-    for (final r in log.cast<Map<String, Object?>>()) {
-      final n = r['n']! as int;
-      final steps = describeRoundLog(r, seatNames);
-      if (round == null || round == n) {
-        stdout.writeln('── Round $n (${r['t']}), result ${r['r'] ?? '-'}');
+    for (var i = 0; i < log.length; i++) {
+      final n = i + 1;
+      final steps = replayRoundLog(log[i]! as String, seatNames);
+      final show = round == null || round == n;
+      if (show) {
+        stdout.writeln('── Round $n');
         if (showHands) {
-          final deal = splitCardCodes(r['d']! as String);
+          final hands = dealtHands(log[i]! as String);
           for (var seat = 0; seat < 4; seat++) {
-            final hand = deal.sublist(seat * 14, seat * 14 + 14);
             stdout.writeln(
               '      ${seatNames[seat]}: '
-              '${hand.map(cardCodeLabel).join(' ')}',
+              '${hands[seat].map(cardIndexLabel).join(' ')}',
             );
           }
         }
       }
       for (final step in steps) {
         seq++;
-        if (round != null && round != n) continue;
-        if (seq < from || seq > to) continue;
+        if (!show || seq < from || seq > to) continue;
         stdout.writeln('#$seq r$n ${step.text}');
         if (showHands) {
           stdout.writeln(
-            '      hand: ${step.hands[step.seat].map(cardCodeLabel).join(' ')}',
+            '      hand: '
+            '${step.hands[step.seat].map(cardIndexLabel).join(' ')}',
           );
         }
       }

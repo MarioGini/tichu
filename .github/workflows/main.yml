@@ -35,7 +35,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-flutter
-      - run: flutter test --total-shards=2 --shard-index=$(( ${{ matrix.shard }} - 1 ))
+      # Split by file, not with --total-shards: that splits test cases, so
+      # every shard would still compile all files (most of the test time).
+      - run: >-
+          flutter test $(find test -name '*_test.dart' | sort
+          | awk -v s=${{ matrix.shard }} 'NR % 2 == s - 1')
 
   build:
     name: Build (${{ matrix.target }})

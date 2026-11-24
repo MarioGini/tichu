@@ -39,7 +39,11 @@ void main() {
     var anyPlay = false;
     final answered = <String>{};
     var passes = 0;
-    for (var steps = 0; steps < 400000 && (checked < 6 || allPassed < 1); steps++) {
+    for (
+      var steps = 0;
+      steps < 400000 && (checked < 6 || allPassed < 1);
+      steps++
+    ) {
       if (state.scoreTracker.state.roundComplete) {
         outPlayer = null;
         engine.startNewRound(state);

@@ -32,6 +32,11 @@ class RecordingGameEngine implements GameEngine {
   final String? botDescription;
 
   final Map<String, GameRecord> _records = {};
+
+  /// The state [createGame] returned for each recorded game. Bots (the
+  /// endgame search) play out forks of it through this engine: those share
+  /// the game id but are not part of the game, so they are not recorded.
+  final Map<String, GameEngineState> _states = {};
   final Map<String, StreamController<GameRecord>> _controllers = {};
   final Map<String, _SaveQueue> _saves = {};
 
@@ -60,6 +65,7 @@ class RecordingGameEngine implements GameEngine {
       players: players,
       targetScore: targetScore,
     );
+    _states[gameId] = state;
     _records[gameId] = GameRecord(
       id: gameId,
       players: List<GamePlayer>.unmodifiable(players),
@@ -84,7 +90,7 @@ class RecordingGameEngine implements GameEngine {
 
   @override
   void applyAction(final GameEngineState state, final GameAction action) {
-    final record = _records[state.gameId];
+    final record = _recordOf(state);
     if (record == null) {
       _inner.applyAction(state, action);
       return;
@@ -134,8 +140,12 @@ class RecordingGameEngine implements GameEngine {
 
   // ── Recording ───────────────────────────────────────────────────────
 
+  /// The record [state] belongs to; null for a fork or a foreign game.
+  GameRecord? _recordOf(final GameEngineState state) =>
+      identical(_states[state.gameId], state) ? _records[state.gameId] : null;
+
   void _recordDeal(final GameEngineState state) {
-    final record = _records[state.gameId];
+    final record = _recordOf(state);
     if (record == null) return;
     final round = state.scoreTracker.state.roundNumber;
     record.roundsPlayed = round;

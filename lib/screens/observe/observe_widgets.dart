@@ -1,186 +1,136 @@
 part of 'observe_screen.dart';
 
-/// Observe controls in the place of the game's action bar: the staged move
-/// with its record number, speed, play / pause and Step.
-class _ControlBar extends StatelessWidget {
-  const _ControlBar({
-    required this.controller,
-    required this.status,
-    required this.highlight,
-  });
+const _teamA = Color(0xFF64B5F6);
+const _teamB = Color(0xFFFFB74D);
 
-  final ObserveController controller;
-  final String status;
+Color _teamColor(final int seat) => seat.isEven ? _teamA : _teamB;
 
-  /// A move is staged (status shown in amber).
-  final bool highlight;
+String _teamName(final int seat) => seat.isEven ? 'Team A' : 'Team B';
+
+/// Centre panel plus one row per seat (all hands face up).
+class _ObserveTable extends StatelessWidget {
+  const _ObserveTable({required this.snapshot, required this.record});
+
+  final GameSnapshot snapshot;
+  final GameRecord record;
 
   @override
   Widget build(final BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final step = controller.step;
-    final error = controller.error;
-    const shape = StadiumBorder();
-    const minSize = Size(40, 40);
-    final roundButtonStyle = IconButton.styleFrom(
-      foregroundColor: Colors.white,
-      backgroundColor: Colors.black.withValues(alpha: 0.28),
-      side: const BorderSide(color: Colors.white24),
-      fixedSize: minSize,
-      minimumSize: minSize,
-      padding: EdgeInsets.zero,
-    );
+    final players = [...snapshot.players]
+      ..sort((final a, final b) => a.seat.compareTo(b.seat));
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-      child: LayoutBuilder(
-        builder: (final context, final constraints) {
-          final narrow = constraints.maxWidth < 380;
-          final stepLabel = switch (step) {
-            ObserveStep.roundOver => narrow ? 'Next' : 'Next round',
-            ObserveStep.gameOver => 'Over',
-            _ => 'Step',
-          };
-          return Row(
-            children: [
-              Expanded(
-                child: Text(
-                  error == null ? status : '$status · error: $error',
-                  key: const Key('observe-status'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: error != null
-                        ? Colors.redAccent
-                        : highlight
-                        ? Colors.amberAccent
-                        : Colors.white70,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                  ),
-                ),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _TrickPanel(snapshot: snapshot, record: record),
+          const SizedBox(height: 6),
+          for (final player in players)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _SeatPanel(snapshot: snapshot, player: player),
               ),
-              const SizedBox(width: 6),
-              TextButton(
-                key: const Key('observe-speed'),
-                onPressed: controller.cycleSpeed,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.black.withValues(alpha: 0.28),
-                  side: const BorderSide(color: Colors.white24),
-                  shape: shape,
-                  minimumSize: const Size(44, 40),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  controller.speedLabel,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(width: 6),
-              IconButton(
-                key: const Key('observe-autoplay'),
-                tooltip: controller.autoPlay ? 'Pause' : 'Play',
-                onPressed: () => controller.setAutoPlay(!controller.autoPlay),
-                style: roundButtonStyle,
-                icon: Icon(
-                  controller.autoPlay ? Icons.pause : Icons.play_arrow,
-                ),
-              ),
-              const SizedBox(width: 6),
-              FilledButton.icon(
-                key: const Key('observe-step'),
-                onPressed: controller.canContinue
-                    ? () => unawaited(controller.continueGame())
-                    : null,
-                icon: Icon(
-                  step == ObserveStep.roundOver
-                      ? Icons.skip_next
-                      : Icons.redo_rounded,
-                  size: 18,
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: colorScheme.secondary,
-                  foregroundColor: Colors.black87,
-                  disabledBackgroundColor: Colors.black.withValues(alpha: 0.28),
-                  disabledForegroundColor: Colors.white38,
-                  shape: shape,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  minimumSize: minSize,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                label: Text(stepLabel),
-              ),
-            ],
-          );
-        },
+            ),
+        ],
       ),
     );
   }
 }
 
-/// Bottom sheet with every hand face up (seat order from the followed bot).
-/// Tap a row to follow that bot.
-class _AllHandsSheet extends StatelessWidget {
-  const _AllHandsSheet({required this.controller});
+class _TrickPanel extends StatelessWidget {
+  const _TrickPanel({required this.snapshot, required this.record});
 
-  final ObserveController controller;
+  final GameSnapshot snapshot;
+  final GameRecord record;
 
   @override
-  Widget build(final BuildContext context) => ListenableBuilder(
-    listenable: controller,
-    builder: (final context, _) {
-      final snapshot = controller.snapshot;
-      if (snapshot == null) return const SizedBox.shrink();
-      final players = [
-        for (var offset = 0; offset < 4; offset++)
-          ?playerAtRelativeSeat(
-            snapshot.players,
-            controller.followedSeat,
-            offset,
-          ),
-      ];
-      return SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-          child: Column(
-            children: [
-              for (final player in players)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: SizedBox(
-                    height: 68,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => controller.follow(player.seat),
-                      child: _SeatPanel(
-                        snapshot: snapshot,
-                        player: player,
-                        followed: player.seat == controller.followedSeat,
-                      ),
+  Widget build(final BuildContext context) {
+    final theme = Theme.of(context);
+    // deck.turn is reset when a trick is won; lastPlayedTurn is not.
+    final turn = snapshot.deck.turn;
+    final onTable = snapshot.lastPlayedBy != null && turn.cards.isNotEmpty;
+    final pendingId = snapshot.opponentAwaitingConfirmation
+        ? snapshot.pendingOpponentPlayerId
+        : null;
+    final next = pendingId == null
+        ? null
+        : '#${record.events.length + 1}  '
+              '${record.nameOf(pendingId)} → ${_pendingText(snapshot)}';
+    final wish = snapshot.activeWish;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 16,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  onTable
+                      ? 'On table: ${record.nameOf(snapshot.lastPlayedBy)}'
+                      : 'Table empty (lead)',
+                  style: theme.textTheme.titleSmall,
+                ),
+                if (onTable)
+                  Text(
+                    cardLabels(turn.cards).join(' '),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-            ],
-          ),
+                if (snapshot.trickPoints != 0)
+                  Text('Trick: ${snapshot.trickPoints} pts'),
+                if (wish != CardFace.none)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text('Wish: ${faceLabel(wish)}'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              next ?? _phaseText(snapshot),
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: next == null ? Colors.white70 : Colors.amberAccent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
-      );
-    },
-  );
+      ),
+    );
+  }
+}
+
+String _pendingText(final GameSnapshot s) {
+  if (s.pendingOpponentPass) return 'passes';
+  if (s.pendingOpponentCards.isEmpty) return 'calls TICHU';
+  return 'plays ${cardLabels(s.pendingOpponentCards).join(' ')}';
+}
+
+String _phaseText(final GameSnapshot s) {
+  if (s.scoreState.gameComplete) return 'Game over';
+  if (s.scoreState.roundComplete) return 'Round over';
+  return switch (s.phase) {
+    GamePhase.grandTichu => 'Dealing — Grand Tichu decisions…',
+    GamePhase.schupf => 'Schupf — bots pass cards…',
+    GamePhase.play => 'Bots are thinking…',
+  };
 }
 
 class _SeatPanel extends StatelessWidget {
-  const _SeatPanel({
-    required this.snapshot,
-    required this.player,
-    required this.followed,
-  });
+  const _SeatPanel({required this.snapshot, required this.player});
 
   final GameSnapshot snapshot;
   final GamePlayer player;
-  final bool followed;
 
   @override
   Widget build(final BuildContext context) {
@@ -189,12 +139,16 @@ class _SeatPanel extends StatelessWidget {
     final pending =
         snapshot.opponentAwaitingConfirmation &&
         snapshot.pendingOpponentPlayerId == player.id;
+    final isCurrent =
+        snapshot.phase == GamePhase.play &&
+        !snapshot.scoreState.roundComplete &&
+        snapshot.currentPlayerId == player.id;
     final call = snapshot.scoreState.tichuCalls[player.id] ?? TichuCall.none;
     final place = snapshot.scoreState.finishOrder.indexOf(player.id);
     final pendingCards = pending ? snapshot.pendingOpponentCards : <Card>[];
     final borderColor = pending
         ? Colors.amberAccent
-        : followed
+        : isCurrent
         ? Colors.white54
         : Colors.white12;
 
@@ -209,37 +163,37 @@ class _SeatPanel extends StatelessWidget {
         child: Row(
           children: [
             SizedBox(
-              width: 96,
+              width: 112,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     player.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      color: Colors.white,
+                      color: _teamColor(player.seat),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   Text(
-                    place >= 0
-                        ? 'Out #${place + 1}'
-                        : call == TichuCall.grandTichu
-                        ? 'GRAND TICHU'
-                        : call == TichuCall.tichu
-                        ? 'TICHU'
-                        : '${hand.length} cards',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: place >= 0
-                          ? Colors.lightGreenAccent
-                          : call != TichuCall.none
-                          ? Colors.orange
-                          : Colors.white60,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    '${_teamName(player.seat)} · ${hand.length} cards',
+                    style: theme.textTheme.labelSmall,
                   ),
+                  if (call != TichuCall.none)
+                    Text(
+                      call == TichuCall.grandTichu ? 'GRAND TICHU' : 'TICHU',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.redAccent,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  if (place >= 0)
+                    Text(
+                      'Out #${place + 1}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: Colors.lightGreenAccent,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -273,6 +227,68 @@ class _SeatPanel extends StatelessWidget {
                   );
                 },
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ControlBar extends StatelessWidget {
+  const _ControlBar({required this.controller});
+
+  final ObserveController controller;
+
+  @override
+  Widget build(final BuildContext context) {
+    final step = controller.step;
+    final label = switch (step) {
+      ObserveStep.move => 'Continue',
+      ObserveStep.roundOver => 'Next round',
+      ObserveStep.gameOver => 'Game over',
+      ObserveStep.working => 'Bots are thinking…',
+    };
+    final error = controller.error;
+    return Material(
+      color: Colors.black.withValues(alpha: 0.35),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: controller.canContinue
+                    ? () => unawaited(controller.continueGame())
+                    : null,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                  textStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                icon: Icon(
+                  step == ObserveStep.roundOver
+                      ? Icons.skip_next
+                      : Icons.play_arrow,
+                ),
+                label: Text(
+                  error == null ? label : '$label (error: $error)',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Switch(
+                  value: controller.autoPlay,
+                  onChanged: controller.setAutoPlay,
+                ),
+                Text('Auto', style: Theme.of(context).textTheme.labelSmall),
+              ],
             ),
           ],
         ),

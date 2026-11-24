@@ -374,7 +374,10 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     ema = torch.optim.swa_utils.AveragedModel(
         model, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(args.ema)
     ) if args.ema > 0 else None
-    best_state, best_gain, metrics = None, float("-inf"), m0
+    # The starting net counts as epoch 0: training never exports a net
+    # that is worse on the held-out decisions than the one it started from.
+    init_state = {k: v.clone() for k, v in model.state_dict().items()}
+    best_state, best_gain, metrics = None, m0["vs_uniform_pts"], m0
     for epoch in range(args.epochs):
         model.train()
         order = tr[torch.randperm(tr.numel())]
@@ -403,10 +406,8 @@ def train(args: argparse.Namespace) -> dict[str, float]:
             # Keep the best epoch on disk, so a job stopped mid-run keeps it.
             _export(final, Path(args.output), d)
     model = final
-    if best_state is not None:
-        model.load_state_dict(best_state)
-    else:
-        metrics = m
+    # No epoch beat the starting net: export the starting net.
+    model.load_state_dict(best_state if best_state is not None else init_state)
 
     _export(model, Path(args.output), d)
     print(f"Saved {args.output}  " + "  ".join(f"{k}={v:.3f}" for k, v in metrics.items()))

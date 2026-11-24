@@ -458,6 +458,15 @@ in three iterations), so three single changes were tested against controls.
 Also: training on the 426k fresh decisions alone makes the net worse than
 v8 (25.03 -> 24.70): one iteration's data cannot move a net trained on 3M.
 
+**Update (2026-11-24): with all data rebuilt, B works.** The beatability
+features are a function of features every cache has, so `rl/rebuild_v9.py`
+filled them into all v8 / v9 caches (checked equal to the Dart encoder on
+206k action rows). Trained on the 4.65M rebuilt decisions (3 epochs from
+v8; best epoch 1: held-out 24.22 vs 24.12 for v8 and for the zeroed
+control), the net beats v8 **52.4 % ± 1.0, +32 ± 10 per match** (800 deals
+x 2, no search). On 426k decisions alone the same inputs gave nothing: the
+inputs needed the data, not the other way round.
+
 **Reading.** None of capacity, these inputs or 30x cheaper labels moves the
 play net. Capacity is not the limit (a 3x wider net learns the same). The
 graded beatability adds nothing the net could not already compute from

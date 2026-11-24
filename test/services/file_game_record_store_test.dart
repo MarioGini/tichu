@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/record/game_record.dart';
+import 'package:tichu/game/record/round_log.dart';
 import 'package:tichu/services/records/file_game_record_store.dart';
 
 void main() {
@@ -16,7 +17,8 @@ void main() {
         GamePlayer(id: 'a', name: 'A', seat: 0, type: PlayerType.human),
       ],
       targetScore: 1000,
-    )..add(round: 1, kind: 'deal', text: 'dealt');
+    );
+    record.roundLogs.add(RoundLog(round: 1)..actions.add('0-'));
 
     await store.save(record);
 
@@ -24,7 +26,8 @@ void main() {
     final loaded = await store.load(record.id);
     expect(loaded!['id'], record.id);
     expect(loaded['mode'], 'play');
-    expect((loaded['events']! as List).single, containsPair('text', 'dealt'));
+    expect(loaded['format'], 2);
+    expect((loaded['log']! as List).single, containsPair('m', '0-'));
     expect(await store.load('missing'), isNull);
   });
 

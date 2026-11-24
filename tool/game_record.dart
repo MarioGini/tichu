@@ -12,6 +12,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:tichu/game/record/round_log.dart';
 import 'package:tichu/services/records/file_game_record_store.dart';
 
 Future<void> main(final List<String> args) async {
@@ -81,6 +82,46 @@ Future<void> main(final List<String> args) async {
     'score ${record['teamOneTotal']}:${record['teamTwoTotal']}'
     '${record['complete'] == true ? ' (complete)' : ''}',
   );
+  if (record['log'] case final List<Object?> log) {
+    // Format 2: compact round logs, replayed into a timeline.
+    final players = (record['players']! as List).cast<Map<String, Object?>>();
+    final seatNames = [
+      for (var seat = 0; seat < 4; seat++)
+        players.firstWhere((final p) => p['seat'] == seat)['name']! as String,
+    ];
+    var seq = 0;
+    for (final r in log.cast<Map<String, Object?>>()) {
+      final n = r['n']! as int;
+      final steps = describeRoundLog(r, seatNames);
+      if (round == null || round == n) {
+        stdout.writeln('── Round $n (${r['t']}), result ${r['r'] ?? '-'}');
+        if (showHands) {
+          final deal = splitCardCodes(r['d']! as String);
+          for (var seat = 0; seat < 4; seat++) {
+            final hand = deal.sublist(seat * 14, seat * 14 + 14);
+            stdout.writeln(
+              '      ${seatNames[seat]}: '
+              '${hand.map(cardCodeLabel).join(' ')}',
+            );
+          }
+        }
+      }
+      for (final step in steps) {
+        seq++;
+        if (round != null && round != n) continue;
+        if (seq < from || seq > to) continue;
+        stdout.writeln('#$seq r$n ${step.text}');
+        if (showHands) {
+          stdout.writeln(
+            '      hand: ${step.hands[step.seat].map(cardCodeLabel).join(' ')}',
+          );
+        }
+      }
+    }
+    return;
+  }
+
+  // Format 1: the full event list.
   for (final e in (record['events']! as List).cast<Map<String, Object?>>()) {
     final seq = e['seq']! as int;
     if (round != null && e['round'] != round) continue;

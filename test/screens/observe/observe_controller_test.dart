@@ -50,7 +50,8 @@ void main() {
     await controller.flushRecord();
     final stored = await store.load(record.id);
     expect(stored, isNotNull);
-    expect((stored!['events']! as List).length, record.events.length);
+    expect(stored!['format'], 2);
+    expect((stored['log']! as List).length, 1);
     expect(stored['mode'], 'observe');
 
     // The next round starts on Continue.

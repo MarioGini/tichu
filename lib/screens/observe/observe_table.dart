@@ -212,7 +212,7 @@ class _ObserveTable extends StatelessWidget {
   String _statusText() {
     final pendingId = _pendingId;
     if (pendingId != null) {
-      return '#${record.events.length + 1}  '
+      return '#${record.actionCount + 1}  '
           '${record.nameOf(pendingId)} ${_pendingText(snapshot)}';
     }
     if (_score.gameComplete) return 'Game over';

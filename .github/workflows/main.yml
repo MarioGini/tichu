@@ -15,16 +15,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  analyze_test:
-    name: Analyze & Test
+  analyze:
+    name: Format & Analyze
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-flutter
       - run: dart format --output=none --set-exit-if-changed .
+      # --fatal-infos fails on every lint, so this also covers `dart fix`.
       - run: flutter analyze --fatal-infos --fatal-warnings
-      - run: dart fix --dry-run
-      - run: flutter test
+
+  test:
+    name: Test (${{ matrix.shard }}/2)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-flutter
+      - run: flutter test --total-shards=2 --shard-index=$(( ${{ matrix.shard }} - 1 ))
 
   build:
     name: Build (${{ matrix.target }})
@@ -38,7 +49,7 @@ jobs:
       - if: matrix.target == 'linux'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y ninja-build libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+          sudo apt-get install -y --no-install-recommends ninja-build libgtk-3-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
       - uses: ./.github/actions/setup-flutter
       - if: matrix.target == 'linux'
         run: flutter build linux
@@ -52,8 +63,11 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://fujbfizzxdxufetszvbe.supabase.co' }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'sb_publishable__pP-bB_x1sOf_wwsr0m-Qw_GJA9freO' }}
+        # --no-wasm-dry-run: the default extra wasm compile only prints
+        # compatibility warnings (~12 s of a ~55 s build).
         run: >-
           flutter build web --base-href "/${{ github.event.repository.name }}/"
+          --no-wasm-dry-run
           --dart-define=SUPABASE_URL="$SUPABASE_URL"
           --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
       - if: matrix.target == 'web'
@@ -65,7 +79,7 @@ jobs:
     name: Deploy Pages
     # Only deploy develop, and only after analyze, tests and builds passed.
     if: github.ref == 'refs/heads/develop' && github.event_name != 'pull_request'
-    needs: [analyze_test, build]
+    needs: [analyze, test, build]
     runs-on: ubuntu-latest
     permissions:
       pages: write

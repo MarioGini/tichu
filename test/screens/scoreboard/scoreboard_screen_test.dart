@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tichu/scoreboard/scoreboard_model.dart';
 import 'package:tichu/scoreboard/scoreboard_store.dart';
+import 'package:tichu/screens/scoreboard/round_entry_screen.dart';
 import 'package:tichu/screens/scoreboard/scoreboard_screen.dart';
 import 'package:tichu/theme/app_theme.dart';
 
@@ -77,5 +78,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Us win!'), findsOneWidget);
     expect(find.text('500'), findsWidgets);
+  });
+
+  testWidgets('both partners can call; only one call can be made', (
+    final tester,
+  ) async {
+    tester.view
+      ..physicalSize = const Size(412, 915) * 2
+      ..devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: const RoundEntryScreen(teamNames: ['Us', 'Them'], roundNumber: 1),
+      ),
+    );
+    // Team A: Grand Tichu (made), then Tichu (failed, partner went out).
+    await tester.tap(find.text('Grand').first);
+    await tester.pump();
+    await tester.tap(find.text('Tichu').first);
+    await tester.pumpAndSettle();
+
+    // 50 + 200 - 100; team A has no add buttons left, team B still has.
+    expect(find.text('+150'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Tichu'), findsOneWidget);
+
+    // Making the Tichu fails the Grand Tichu: 50 - 200 + 100.
+    await tester.tap(find.byTooltip('Made').last);
+    await tester.pumpAndSettle();
+    expect(find.text('\u221250'), findsOneWidget);
   });
 }

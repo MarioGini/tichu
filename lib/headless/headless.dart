@@ -6,6 +6,7 @@ import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
+import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
@@ -159,7 +160,13 @@ Future<void> main(final List<String> args) async {
     pimcWorlds: config.pimcWorlds,
     endgameSearcher:
         config.endgameSearch != null || config.opponentEndgameSearch != null
-        ? EndgameSearcher(rolloutAgent: plainFactory)
+        ? EndgameSearcher(
+            rolloutAgent: plainFactory,
+            belief: switch (await _loadNet(config.beliefNetPath)) {
+              final LoadedNet net => BeliefModel(net.network),
+              null => null,
+            },
+          )
         : null,
   );
 

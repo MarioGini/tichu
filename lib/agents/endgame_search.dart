@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/endgame_solver.dart';
+import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/agent_decisions.dart';
@@ -41,6 +42,10 @@ class EndgameSearch {
   final bool pimcSolve;
   final int pimcMaxCards;
 
+  /// Re-deal the worlds with the searcher's card-location model
+  /// ([EndgameSearcher.belief]) instead of uniformly.
+  final bool beliefWorlds;
+
   const EndgameSearch({
     this.worlds = 8,
     this.maxCards = 5,
@@ -51,6 +56,7 @@ class EndgameSearch {
     this.solveMaxCards = 10,
     this.pimcSolve = false,
     this.pimcMaxCards = 12,
+    this.beliefWorlds = false,
   });
 
   @override
@@ -108,11 +114,17 @@ int pickEndgameAction(
 /// With [canonicalPool] the unseen cards are put in a fixed order before
 /// shuffling, so the world depends only on [random] and what the actor
 /// knows (not on where the cards really are).
+///
+/// With [holders] (`holders[slot][k]`, k = 0 left opponent, 1 partner,
+/// 2 right opponent, from [BeliefModel]) each card goes to a player in
+/// proportion to that probability times the room left in their hand,
+/// instead of uniformly: the world reflects what the play revealed.
 GameEngineState redealWorld(
   final GameEngineState state,
   final String actorId,
   final Random random, {
   final bool canonicalPool = true,
+  final List<List<double>>? holders,
 }) {
   final world = state.copy();
   final actor = world.players.firstWhere((final p) => p.id == actorId);
@@ -150,6 +162,44 @@ GameEngineState redealWorld(
     pool.sort((final a, final b) => cardSlot(a).compareTo(cardSlot(b)));
   }
   pool.shuffle(random);
+  if (holders != null) {
+    final room = <String, int>{
+      for (final id in others)
+        id: world.hands[id]!.length - (pinned[id]?.length ?? 0),
+    };
+    final rel = <String, int>{idAt(1): 0, idAt(2): 1, idAt(3): 2};
+    final dealt = <String, List<Card>>{
+      for (final id in others) id: [...?pinned[id]],
+    };
+    for (final card in pool) {
+      final slot = cardSlot(card);
+      var total = 0.0;
+      final w = <String, double>{};
+      for (final id in others) {
+        final r = room[id]!;
+        if (r <= 0) continue;
+        final p = slot >= 0 ? holders[slot][rel[id]!] : 1.0;
+        // Room in the hand keeps the deal feasible; the belief tilts it.
+        w[id] = (p + 1e-3) * r;
+        total += w[id]!;
+      }
+      var x = random.nextDouble() * total;
+      var pick = w.keys.last;
+      for (final e in w.entries) {
+        x -= e.value;
+        if (x <= 0) {
+          pick = e.key;
+          break;
+        }
+      }
+      dealt[pick]!.add(card);
+      room[pick] = room[pick]! - 1;
+    }
+    for (final id in others) {
+      world.hands[id] = dealt[id]!;
+    }
+    return world;
+  }
   var next = 0;
   for (final id in others) {
     final size = world.hands[id]!.length;
@@ -235,9 +285,13 @@ class EndgameSearcher {
   int pimcGiveUps = 0;
   final Stopwatch stopwatch = Stopwatch();
 
+  /// Card-location model for [EndgameSearch.beliefWorlds].
+  final BeliefModel? belief;
+
   EndgameSearcher({
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
+    this.belief,
   });
 
   /// The action to play instead of [chosen] (which [agent] picked in
@@ -335,8 +389,11 @@ class EndgameSearcher {
           config.pimcSolve &&
           totalCards <= config.pimcMaxCards &&
           state.hands.values.where((final h) => h.isNotEmpty).length >= 3;
+      final holders = config.beliefWorlds && belief != null
+          ? belief!.holderProbabilities(snapshot, playerId)
+          : null;
       for (var w = 0; w < config.worlds; w++) {
-        final world = redealWorld(state, playerId, random);
+        final world = redealWorld(state, playerId, random, holders: holders);
         final row = List<double?>.filled(count, null);
         if (pimc) {
           final exact = await OneOnOneSolver(

@@ -33,6 +33,7 @@ class _HeadlessConfig {
   final bool schupfExtended;
   final bool opponentSchupfExtended;
   final bool schupfLabelExtended;
+  final String? beliefNetPath;
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
@@ -91,6 +92,7 @@ class _HeadlessConfig {
     required this.schupfExtended,
     required this.opponentSchupfExtended,
     required this.schupfLabelExtended,
+    required this.beliefNetPath,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
@@ -180,6 +182,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var solveMaxCards = 10;
   var pimcSolve = false;
   var opponentPimcSolve = false;
+  String? beliefNetPath;
+  var endgameBelief = false;
+  var opponentEndgameBelief = false;
   var pimcMaxCards = 12;
   const defaults = EndgameSearch();
   var endgameWorlds = defaults.worlds;
@@ -370,6 +375,18 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       pimcSolve = true;
       continue;
     }
+    if (arg.startsWith('--belief-net=')) {
+      beliefNetPath = arg.substring('--belief-net='.length);
+      continue;
+    }
+    if (arg == '--endgame-belief') {
+      endgameBelief = true;
+      continue;
+    }
+    if (arg == '--opponent-endgame-belief') {
+      opponentEndgameBelief = true;
+      continue;
+    }
     if (arg == '--opponent-pimc-solve') {
       opponentPimcSolve = true;
       continue;
@@ -504,24 +521,32 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     outputPath = 'game.jsonl';
   }
 
-  EndgameSearch search({required final bool solve, required final bool pimc}) =>
-      EndgameSearch(
-        worlds: endgameWorlds,
-        maxCards: endgameMaxCards,
-        margin: endgameMargin,
-        maxActions: endgameMaxActions,
-        solveOneOnOne: solve,
-        solveBudget: solveBudget,
-        solveMaxCards: solveMaxCards,
-        pimcSolve: pimc && solve,
-        pimcMaxCards: pimcMaxCards,
-      );
+  EndgameSearch search({
+    required final bool solve,
+    required final bool pimc,
+    required final bool belief,
+  }) => EndgameSearch(
+    beliefWorlds: belief,
+    worlds: endgameWorlds,
+    maxCards: endgameMaxCards,
+    margin: endgameMargin,
+    maxActions: endgameMaxActions,
+    solveOneOnOne: solve,
+    solveBudget: solveBudget,
+    solveMaxCards: solveMaxCards,
+    pimcSolve: pimc && solve,
+    pimcMaxCards: pimcMaxCards,
+  );
   return _HeadlessConfig(
     endgameSearch: endgameSearch
-        ? search(solve: endgameSolve, pimc: pimcSolve)
+        ? search(solve: endgameSolve, pimc: pimcSolve, belief: endgameBelief)
         : null,
     opponentEndgameSearch: opponentEndgameSearch
-        ? search(solve: opponentEndgameSolve, pimc: opponentPimcSolve)
+        ? search(
+            solve: opponentEndgameSolve,
+            pimc: opponentPimcSolve,
+            belief: opponentEndgameBelief,
+          )
         : null,
     seed: seed,
     targetScore: targetScore,
@@ -555,6 +580,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     schupfExtended: schupfExtended,
     opponentSchupfExtended: opponentSchupfExtended,
     schupfLabelExtended: schupfLabelExtended,
+    beliefNetPath: beliefNetPath,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
@@ -616,6 +642,10 @@ void _printUsage() {
   );
   stdout.writeln(
     '       [--schupf-label-extended]  (only the schupf labels use them)',
+  );
+  stdout.writeln(
+    '       [--belief-net=..] [--endgame-belief] [--opponent-endgame-belief]  '
+    '(search worlds from the card-location model)',
   );
   stdout.writeln(
     '       [--lead-rollout-rate=p] [--lead-worlds=K]  (leads: own rate / worlds)',

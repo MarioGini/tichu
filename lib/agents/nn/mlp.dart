@@ -131,6 +131,13 @@ class Mlp {
     return _forwardTyped(typed)[0];
   }
 
+  /// Every output unit (for nets with several outputs, e.g. the
+  /// card-location model). A new list; [input] has [inputSize] values.
+  Float64List predictAll(final List<double> input) {
+    final typed = input is Float64List ? input : Float64List.fromList(input);
+    return Float64List.fromList(_forwardTyped(typed));
+  }
+
   /// Predict directly from a pre-filled [Float64List]. The caller is
   /// responsible for sizing the buffer to [inputSize] and filling it on
   /// every call; this entry point skips both the type check and the

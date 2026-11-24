@@ -44,12 +44,14 @@ jobs:
         run: flutter build linux
       # The web build doubles as the GitHub Pages bundle, so it is built with
       # the Pages base href and uploaded for the deploy job.
-      # SUPABASE_URL / SUPABASE_ANON_KEY (repository secrets) let "Watch AI
-      # play" upload game records; without them the build keeps them local.
+      # The Supabase project (accounts, game records). The URL and the
+      # publishable key are public by design (they ship in the web bundle;
+      # row-level security guards the data), so they are set here; the
+      # SUPABASE_URL / SUPABASE_ANON_KEY repository secrets override them.
       - if: matrix.target == 'web'
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://fujbfizzxdxufetszvbe.supabase.co' }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'sb_publishable__pP-bB_x1sOf_wwsr0m-Qw_GJA9freO' }}
         run: >-
           flutter build web --base-href "/${{ github.event.repository.name }}/"
           --dart-define=SUPABASE_URL="$SUPABASE_URL"

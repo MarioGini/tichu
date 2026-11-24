@@ -16,7 +16,7 @@ import 'package:tichu/game/turn/tichu_data.dart';
 class CardKnowledge {
   final String playerId;
 
-  /// False outside the play phase: then [isPlayed] is always false and
+  /// False outside the play phase: then [isSlotPlayed] is always false and
   /// [canBeBeaten] always true.
   final bool isTracking;
 
@@ -68,9 +68,6 @@ class CardKnowledge {
 
   // ── Basic queries ────────────────────────────────────────────────────────
 
-  /// Already played this round (false when not tracking).
-  bool isPlayed(final Card card) => isTracking && _slotIs(card, 0);
-
   /// Held by one of the other three players (false when not tracking).
   bool isUnseen(final Card card) => isTracking && _slotIs(card, 2);
 
@@ -96,9 +93,6 @@ class CardKnowledge {
   bool get phoenixUnseen => unseenCount(CardFace.phoenix) == 1;
   bool get dragonUnseen => unseenCount(CardFace.dragon) == 1;
   bool get dogUnseen => unseenCount(CardFace.dog) == 1;
-
-  /// Dragon is out of the game (played, not in my hand).
-  bool get dragonPlayed => isSlotPlayed(dragonSlot);
 
   // ── Beatability ──────────────────────────────────────────────────────────
 

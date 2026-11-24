@@ -108,7 +108,7 @@ def widen_first_layer(w, input_size: int):
     return new
 
 
-def pad_state(s, xp=None):
+def pad_state(s):
     """Pad state-feature rows of an older layout (fewer columns) with zeros
     for the missing trailing groups (e.g. ``off_turn`` = 0: data recorded
     before out-of-turn bombs existed; the v7 claim / received groups).

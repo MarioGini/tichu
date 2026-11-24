@@ -36,7 +36,7 @@ def partner_called(r: dict) -> bool:
     return f[158 + 5] > 0.5 or f[158 + 6] > 0.5
 
 
-def report(name: str, cf: np.ndarray, mask: np.ndarray, current: np.ndarray | None = None) -> None:
+def report(name: str, cf: np.ndarray, mask: np.ndarray) -> None:
     v = cf * mask
     per_call = cf[mask].mean() if mask.any() else 0.0
     succ = ""

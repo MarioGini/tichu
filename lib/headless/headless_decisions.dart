@@ -149,42 +149,38 @@ extension _Decisions on _HeadlessSimulator {
       }
     }
 
-    try {
-      final tichuKey = '${snapshot.scoreState.roundNumber}:$playerId';
-      final canCall =
-          (snapshot.canCallTichuByPlayer[playerId] ?? false) &&
-          (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
-              TichuCall.none &&
-          !_tichuDecided.contains(tichuKey);
-      // The bot decides when it plays its first card; a pass keeps the
-      // option (see SmartAiAgent.selectAction).
-      GameAction? turn;
-      if (canCall && agent is SmartAiAgent) {
-        turn = await agent.selectTurn(snapshot);
-        if (turn is PassAction) return turn;
-      }
-      if (canCall && _tichuDecided.add(tichuKey)) {
-        // The Tichu decision of this round: explore + log it.
-        var shouldCall = await agent.shouldCallTichu(snapshot);
-        final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
-        if (explored) shouldCall = !shouldCall;
-        _bcWriter?.emitCallDecision(
-          kind: 'tichu',
-          snapshot: snapshot,
-          playerId: playerId,
-          called: shouldCall,
-          explored: explored,
-          counterfactual: _labelCounterfactual()
-              ? await _counterfactualCall(state, playerId, 'tichu')
-              : null,
-          cfDetails: _lastCallDetails,
-        );
-        if (shouldCall) return CallTichuAction(playerId: playerId);
-        return turn ?? await agent.selectTurn(snapshot);
-      }
-      return await agent.selectAction(snapshot);
-    } on NoLegalActionException {
-      return null;
+    final tichuKey = '${snapshot.scoreState.roundNumber}:$playerId';
+    final canCall =
+        (snapshot.canCallTichuByPlayer[playerId] ?? false) &&
+        (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
+            TichuCall.none &&
+        !_tichuDecided.contains(tichuKey);
+    // The bot decides when it plays its first card; a pass keeps the
+    // option (see SmartAiAgent.selectAction).
+    GameAction? turn;
+    if (canCall && agent is SmartAiAgent) {
+      turn = await agent.selectTurn(snapshot);
+      if (turn is PassAction) return turn;
     }
+    if (canCall && _tichuDecided.add(tichuKey)) {
+      // The Tichu decision of this round: explore + log it.
+      var shouldCall = await agent.shouldCallTichu(snapshot);
+      final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
+      if (explored) shouldCall = !shouldCall;
+      _bcWriter?.emitCallDecision(
+        kind: 'tichu',
+        snapshot: snapshot,
+        playerId: playerId,
+        called: shouldCall,
+        explored: explored,
+        counterfactual: _labelCounterfactual()
+            ? await _counterfactualCall(state, playerId, 'tichu')
+            : null,
+        cfDetails: _lastCallDetails,
+      );
+      if (shouldCall) return CallTichuAction(playerId: playerId);
+      return turn ?? await agent.selectTurn(snapshot);
+    }
+    return await agent.selectAction(snapshot);
   }
 }

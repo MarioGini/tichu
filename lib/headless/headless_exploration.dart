@@ -56,19 +56,14 @@ extension _Exploration on _HeadlessSimulator {
         if (request is PreSchupfTichuRequest) preDecided.add(request.playerId);
         final agent = forkAgents[request.playerId]!;
         final snap = simulationEngine.buildSnapshot(fork);
-        GameAction? action;
-        try {
-          // The decider keeps the counterfactual: no Tichu in the
-          // no-call branch (selectTurn never calls).
-          action =
-              kind == 'tichu' &&
-                  request is TurnRequest &&
-                  request.playerId == playerId
-              ? await agent.selectTurn(snap)
-              : await AgentDecisions.resolve(request, agent, snap, fork);
-        } on NoLegalActionException {
-          return null;
-        }
+        // The decider keeps the counterfactual: no Tichu in the
+        // no-call branch (selectTurn never calls).
+        final action =
+            kind == 'tichu' &&
+                request is TurnRequest &&
+                request.playerId == playerId
+            ? await agent.selectTurn(snap)
+            : await AgentDecisions.resolve(request, agent, snap, fork);
         if (action == null) continue;
         simulationEngine.applyAction(fork, action);
       }

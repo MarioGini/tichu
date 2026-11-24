@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/game_actions.dart';
-import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -141,10 +140,7 @@ void main() {
         Card(CardFace.three, CardColor.blue),
       ];
       final snapshot = aiSnapshot(myHand: hand);
-      expect(
-        () => agent.selectSchupfCards(snapshot),
-        throwsA(isA<NoLegalActionException>()),
-      );
+      expect(() => agent.selectSchupfCards(snapshot), throwsStateError);
     });
 
     test('gives best card to partner on grand tichu', () async {

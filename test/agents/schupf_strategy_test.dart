@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
-import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -20,7 +19,7 @@ void main() {
 
       expect(
         () => strategy.selectSchupfCards(snapshot, aiTestSelfId),
-        throwsA(isA<NoLegalActionException>()),
+        throwsStateError,
       );
     });
 

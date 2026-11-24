@@ -70,9 +70,7 @@ void main() {
         for (final t in options.turns) SmartAiAgent(me).playActionFor(snap, t),
         if (options.canPass) PassAction(playerId: me),
       ];
-      final values = await OneOnOneSolver(
-        agentFor: bot,
-      ).values(s, me, actions);
+      final values = await OneOnOneSolver(agentFor: bot).values(s, me, actions);
       final best = values.whereType<int>().fold<int>(
         -1 << 30,
         (a, b) => a > b ? a : b,
@@ -86,9 +84,7 @@ void main() {
     expect(states, isNotEmpty);
     for (final s in states) {
       final me = s.players[s.currentPlayerIndex].id;
-      final a = await OneOnOneSolver(
-        agentFor: bot,
-      ).solve(s, me);
+      final a = await OneOnOneSolver(agentFor: bot).solve(s, me);
       final b = await OneOnOneSolver(
         agentFor: bot,
         memoize: false,

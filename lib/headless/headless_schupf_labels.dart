@@ -65,12 +65,7 @@ extension _SchupfLabels on _HeadlessSimulator {
       final agents = {
         for (final p in fork.players) p.id: agentFactory(p.id, p.seat),
       };
-      try {
-        simulationEngine.applyAction(fork, candidate);
-      } on IllegalActionException {
-        outcomes.add(null);
-        continue;
-      }
+      simulationEngine.applyAction(fork, candidate);
       final diff = await playOutRound(fork, agents);
       if (diff == null) {
         outcomes.add(null);

@@ -84,8 +84,7 @@ abstract base class _SupabaseServiceBase {
       Object? error,
     )?
     onStatus,
-    final Future<void> Function(void Function(T value) emit)?
-    onProjectionMiss,
+    final Future<void> Function(void Function(T value) emit)? onProjectionMiss,
   }) {
     final controller = StreamController<T>();
     RealtimeChannel? channel;

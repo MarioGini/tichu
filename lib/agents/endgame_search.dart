@@ -7,7 +7,6 @@ import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
-import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/simulation.dart';
@@ -348,11 +347,7 @@ class EndgameSearcher {
             for (final p in fork.players) p.id: rolloutAgent(p.id, p.seat),
           };
           final action = actions[i]!;
-          try {
-            simulationEngine.applyAction(fork, _copyAction(action));
-          } on IllegalActionException {
-            continue;
-          }
+          simulationEngine.applyAction(fork, _copyAction(action));
           rollouts++;
           final diff = await playOutRound(fork, agents);
           if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();

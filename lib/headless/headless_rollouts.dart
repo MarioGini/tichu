@@ -67,11 +67,7 @@ extension _Rollouts on _HeadlessSimulator {
                 cards: List<Card>.from(legalTurns[i].cards),
               );
       }
-      try {
-        simulationEngine.applyAction(fork, action);
-      } on IllegalActionException {
-        continue;
-      }
+      simulationEngine.applyAction(fork, action);
       final diff = await playOutRound(fork, forkAgents);
       if (diff != null) {
         values[i] = (team == 0 ? diff : -diff).toDouble();

@@ -5,7 +5,6 @@ import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
-import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
@@ -100,9 +99,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     }
 
     if (legalPlays.isEmpty) {
-      throw const NoLegalActionException(
-        'No legal plays available for NN policy selection.',
-      );
+      throw StateError('No legal plays available for NN policy selection.');
     }
 
     if (legalPlays.length == 1) {
@@ -122,7 +119,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   }) {
     if (legalTurns.isEmpty) {
       if (canPass) return null;
-      throw const NoLegalActionException('No legal plays and pass is illegal.');
+      throw StateError('No legal plays and pass is illegal.');
     }
     if (legalTurns.length == 1 && !canPass) return legalTurns.first;
     return _argmax(snapshot, legalTurns, canPass: canPass);

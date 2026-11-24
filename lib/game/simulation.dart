@@ -1,7 +1,5 @@
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
-import 'package:tichu/game/game_actions.dart';
-import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 
@@ -27,17 +25,12 @@ Future<int?> playOutRound(
     final request = AgentDecisions.next(simulationEngine, fork);
     if (request == null) return null;
     final snap = simulationEngine.buildSnapshot(fork);
-    GameAction? action;
-    try {
-      action = await AgentDecisions.resolve(
-        request,
-        agents[request.playerId]!,
-        snap,
-        fork,
-      );
-    } on NoLegalActionException {
-      return null;
-    }
+    final action = await AgentDecisions.resolve(
+      request,
+      agents[request.playerId]!,
+      snap,
+      fork,
+    );
     if (action == null) continue;
     simulationEngine.applyAction(fork, action);
   }

@@ -57,12 +57,7 @@ extension _SideLabels on _HeadlessSimulator {
       final forkAgents = {
         for (final p in fork.players) p.id: agentFactory(p.id, p.seat),
       };
-      try {
-        simulationEngine.applyAction(fork, option);
-      } on IllegalActionException {
-        values.add(null);
-        continue;
-      }
+      simulationEngine.applyAction(fork, option);
       final diff = await playOutRound(fork, forkAgents);
       values.add(diff == null ? null : (team == 0 ? diff : -diff).toDouble());
     }

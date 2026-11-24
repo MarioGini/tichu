@@ -5,7 +5,6 @@ import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_actions.dart';
-import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -164,7 +163,7 @@ class NnSchupfStrategy implements SchupfStrategy {
   ) async {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     if (hand.length < 3) {
-      throw const NoLegalActionException('Not enough cards to schupf.');
+      throw StateError('Not enough cards to schupf.');
     }
 
     final base = Float64List(SchupfFeatures.size);

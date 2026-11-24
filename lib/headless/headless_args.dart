@@ -28,6 +28,11 @@ class _HeadlessConfig {
   final HeuristicOptions opponentHeuristic;
   final StyleBias style;
   final StyleBias opponentStyle;
+  final bool schupfExtended;
+  final bool opponentSchupfExtended;
+  final bool schupfLabelExtended;
+  final String? beliefNetPath;
+  final bool recordGames;
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
@@ -79,6 +84,11 @@ class _HeadlessConfig {
     required this.opponentHeuristic,
     required this.style,
     required this.opponentStyle,
+    required this.schupfExtended,
+    required this.opponentSchupfExtended,
+    required this.schupfLabelExtended,
+    required this.beliefNetPath,
+    required this.recordGames,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
@@ -133,6 +143,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var opponentHeuristic = HeuristicOptions.latest;
   var style = StyleBias.none;
   var opponentStyle = StyleBias.none;
+  var schupfExtended = false;
+  var opponentSchupfExtended = false;
+  var schupfLabelExtended = false;
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
   var skipPlayRows = false;
@@ -153,9 +166,18 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var pimcWorlds = 0;
   var endgameSearch = false;
   var opponentEndgameSearch = false;
+  var endgameSolve = false;
+  var opponentEndgameSolve = false;
+  var solveBudget = 20000;
+  var solveMaxCards = 10;
+  String? beliefNetPath;
+  var recordGames = false;
+  var endgameBelief = false;
+  var opponentEndgameBelief = false;
   const defaults = EndgameSearch();
   var endgameWorlds = defaults.worlds;
   var endgameMaxCards = defaults.maxCards;
+  int? opponentEndgameMaxCards;
   var endgameMargin = defaults.margin;
   var endgameMaxActions = defaults.maxActions;
 
@@ -320,6 +342,40 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       endgameSearch = true;
       continue;
     }
+    if (arg == '--endgame-solve') {
+      endgameSolve = true;
+      continue;
+    }
+    if (arg == '--opponent-endgame-solve') {
+      opponentEndgameSolve = true;
+      continue;
+    }
+    if (arg.startsWith('--belief-net=')) {
+      beliefNetPath = arg.substring('--belief-net='.length);
+      continue;
+    }
+    if (arg == '--record-games') {
+      recordGames = true;
+      continue;
+    }
+    if (arg == '--endgame-belief') {
+      endgameBelief = true;
+      continue;
+    }
+    if (arg == '--opponent-endgame-belief') {
+      opponentEndgameBelief = true;
+      continue;
+    }
+    if (arg.startsWith('--solve-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 2) solveMaxCards = k;
+      continue;
+    }
+    if (arg.startsWith('--solve-budget=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) solveBudget = k;
+      continue;
+    }
     if (arg == '--opponent-endgame-search') {
       opponentEndgameSearch = true;
       continue;
@@ -327,6 +383,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     if (arg.startsWith('--endgame-worlds=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 1) endgameWorlds = k;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-max-cards=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) opponentEndgameMaxCards = k;
       continue;
     }
     if (arg.startsWith('--endgame-max-cards=')) {
@@ -366,6 +427,18 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     }
     if (arg.startsWith('--heuristic=')) {
       heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
+      continue;
+    }
+    if (arg == '--schupf-extended') {
+      schupfExtended = true;
+      continue;
+    }
+    if (arg == '--schupf-label-extended') {
+      schupfLabelExtended = true;
+      continue;
+    }
+    if (arg == '--opponent-schupf-extended') {
+      opponentSchupfExtended = true;
       continue;
     }
     if (arg.startsWith('--style=')) {
@@ -415,15 +488,31 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     outputPath = 'game.jsonl';
   }
 
-  final search = EndgameSearch(
+  EndgameSearch search({
+    required final bool solve,
+    required final bool belief,
+    final int? maxCards,
+  }) => EndgameSearch(
+    beliefWorlds: belief,
     worlds: endgameWorlds,
-    maxCards: endgameMaxCards,
+    maxCards: maxCards ?? endgameMaxCards,
     margin: endgameMargin,
     maxActions: endgameMaxActions,
+    solveOneOnOne: solve,
+    solveBudget: solveBudget,
+    solveMaxCards: solveMaxCards,
   );
   return _HeadlessConfig(
-    endgameSearch: endgameSearch ? search : null,
-    opponentEndgameSearch: opponentEndgameSearch ? search : null,
+    endgameSearch: endgameSearch
+        ? search(solve: endgameSolve, belief: endgameBelief)
+        : null,
+    opponentEndgameSearch: opponentEndgameSearch
+        ? search(
+            solve: opponentEndgameSolve,
+            belief: opponentEndgameBelief,
+            maxCards: opponentEndgameMaxCards,
+          )
+        : null,
     seed: seed,
     targetScore: targetScore,
     rounds: rounds,
@@ -451,6 +540,11 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     opponentHeuristic: opponentHeuristic,
     style: style,
     opponentStyle: opponentStyle,
+    schupfExtended: schupfExtended,
+    opponentSchupfExtended: opponentSchupfExtended,
+    schupfLabelExtended: schupfLabelExtended,
+    beliefNetPath: beliefNetPath,
+    recordGames: recordGames,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
@@ -496,6 +590,24 @@ void _printUsage() {
   stdout.writeln('       [--rollout-rate=p] [--rollout-max-actions=N]');
   stdout.writeln('       [--rollout-worlds=K] [--worlds-min-cards=N]');
   stdout.writeln('       [--label-max-cards=N]  (label only small hands)');
+  stdout.writeln(
+    '       [--endgame-solve] [--opponent-endgame-solve] [--solve-budget=N]  '
+    '(exact one-on-one endgames, with --endgame-search)',
+  );
+  stdout.writeln(
+    '       [--schupf-extended] [--opponent-schupf-extended]  '
+    '(schupf candidates: partner may get a weak card)',
+  );
+  stdout.writeln(
+    '       [--schupf-label-extended]  (only the schupf labels use them)',
+  );
+  stdout.writeln(
+    '       [--belief-net=..] [--endgame-belief] [--opponent-endgame-belief]  '
+    '(search worlds from the card-location model)',
+  );
+  stdout.writeln(
+    '       [--record-games]  (bc-jsonl: a replayable record of every round)',
+  );
   stdout.writeln('       [--side-rollout-rate=p]  (Dragon gift / wish labels)');
   stdout.writeln('       [--label-seats=policy|opponent|all] [--describe]');
   stdout.writeln('       [--shadow-heuristics=spec|spec|...] [--no-simd]');

@@ -25,6 +25,20 @@ earlier best nets are added to the fixed opponents, so the learner keeps
 training against several policies instead of overfitting the last one
 (v6 beat v5 60 % but its last iteration only 51.7 % in a row).
 
+Panel gate (``--gate=panel``): one duel against the best net is noisy and
+blind to what the candidate does to other opponents (v8 iterations 5 and 6
+lost 49.8 % / 51.4 % against iteration 4 but beat every other opponent by
+more). The panel gate promotes on the mean, over {best} + fixed nets +
+league, of (candidate vs X) - (best vs X) (for X = best: candidate vs best
+- 50), each pair on the same deals; best-vs-X results are cached per best
+net. No confirmation duel is needed (``--confirm-deals`` is ignored).
+
+Schupf retraining (``--schupf-episodes=N``): after a promotion the new best
+plays N self-play matches with exact schupf candidate labels (in chunks of
+``--schupf-chunk``, restart-safe), ``schupf_cf_train.py`` fits a new schupf
+net on the labels of the last two promotions, and it replaces the learner's
+schupf net if it wins a duel (same play net both sides) by ``--promote-z``.
+
 ``--upload-run=NAME`` stores every new data file in Supabase Storage
 (``training_data_store.py``); a failed upload only warns.
 
@@ -47,7 +61,25 @@ import sys
 import time
 from pathlib import Path
 
-from duel import duel
+from duel import duel as _duel
+
+# Finished duels, by (A, B, deals, seed): a restarted loop (e.g. after a
+# 2-hour job limit) does not replay them. Set by main() to out/duel_cache.json.
+_DUEL_CACHE: list[Path] = []
+
+
+def duel(a: list[str], b: list[str], *, deals: int, seed: int, shards: int) -> dict:
+    key = json.dumps([a, b, deals, seed])
+    path = _DUEL_CACHE[0] if _DUEL_CACHE else None
+    cache = json.loads(path.read_text()) if path and path.exists() else {}
+    if key in cache:
+        return cache[key]
+    r = _duel(a, b, deals=deals, seed=seed, shards=shards)
+    if path:
+        cache = json.loads(path.read_text()) if path.exists() else {}
+        cache[key] = r
+        path.write_text(json.dumps(cache, indent=1))
+    return r
 from headless_runner import run_headless_sharded
 
 RL = Path(__file__).resolve().parent
@@ -66,7 +98,7 @@ def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str
     jsonl = out.with_suffix(".jsonl")
     t0 = time.time()
     run_headless_sharded(
-        base_args=["--format=bc-jsonl", *args],
+        base_args=["--format=bc-jsonl", "--record-games", *args],
         seed=seed,
         episodes=episodes,
         output_path=jsonl,
@@ -77,6 +109,16 @@ def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str
     data = load([jsonl])
     tmp = out.with_suffix(".tmp.npz")
     save_npz(data, tmp)
+    # The replayable game records (deal + every action of every round) go
+    # next to the cache: any future feature can be rebuilt from them.
+    import lzma
+
+    games = out.with_suffix(".games.jsonl.xz")
+    with jsonl.open("r", encoding="utf-8") as fh, lzma.open(games.with_suffix(".tmp"), "wt") as gz:
+        for line in fh:
+            if '"game_record"' in line:
+                gz.write(line)
+    games.with_suffix(".tmp").rename(games)
     tmp.rename(out)
     jsonl.unlink()
     last_generated[0] = out
@@ -90,8 +132,85 @@ def upload(path: Path | None, run: str, policy: Path) -> None:
         from training_data_store import upload_file
 
         upload_file(path, run=run, policy=policy)
+        games = path.with_suffix(".games.jsonl.xz")  # replayable game records
+        if games.exists():
+            upload_file(games, run=run)
     except Exception as e:  # noqa: BLE001 - storage must never stop training
         print(f"   upload of {path.name} failed: {e}", flush=True)
+
+
+def _net_key(path: Path) -> str:
+    import hashlib
+
+    return hashlib.sha1(Path(path).read_bytes()).hexdigest()[:12]
+
+
+def panel_gate(args, entry, cand, best, vs_best, opponent_nets, own_schupf, opp_schupf, out: Path) -> bool:
+    """Mean gain over the panel {best} + opponent nets, each pair on the same deals."""
+    cache_path = out / "best_panel.json"
+    cache = json.loads(cache_path.read_text()) if cache_path.exists() else {}
+    bkey = _net_key(best) + ":" + _net_key(Path(args.schupf_net)) if args.schupf_net else _net_key(best)
+    gains = [(vs_best["win_rate"] - 50, vs_best["win_rate_se"])]
+    for net in opponent_nets:
+        r = duel([f"--nn-policy={cand}", *own_schupf], [f"--opponent-policy={net}", *opp_schupf],
+                 deals=args.duel_deals, seed=4242, shards=args.shards)
+        entry[f"vs_net[{Path(net).stem}]"] = r
+        k = bkey + "|" + _net_key(Path(net))
+        if k not in cache:
+            cache[k] = duel([f"--nn-policy={best}", *own_schupf], [f"--opponent-policy={net}", *opp_schupf],
+                            deals=args.duel_deals, seed=4242, shards=args.shards)
+            cache_path.write_text(json.dumps(cache, indent=2))
+        b = cache[k]
+        gains.append((r["win_rate"] - b["win_rate"], (r["win_rate_se"] ** 2 + b["win_rate_se"] ** 2) ** 0.5))
+        print(f"   vs {Path(net).stem}: {r['win_rate']:.1f}% (best {b['win_rate']:.1f}%)", flush=True)
+    mean = sum(g for g, _ in gains) / len(gains)
+    se = sum(s * s for _, s in gains) ** 0.5 / len(gains)
+    entry["panel"] = {"gain": mean, "se": se, "n": len(gains)}
+    print(f"   panel gain {mean:+.2f} pp ± {se:.2f} over {len(gains)} opponents", flush=True)
+    return mean > args.promote_z * se
+
+
+def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Path) -> dict:
+    """Exact schupf labels from the new best's self-play, new schupf net, keep it if it wins."""
+    sdir = data_dir.parent / "schupf"
+    sdir.mkdir(exist_ok=True)
+    chunks = max(1, args.schupf_episodes // args.schupf_chunk)
+    for k in range(chunks):
+        f = sdir / f"it{it:02d}_cf{k:02d}.jsonl"
+        if f.exists():
+            continue
+        tmp = f.with_suffix(".tmp")
+        run_headless_sharded(
+            base_args=["--format=bc-jsonl", "--skip-play-rows", "--schupf-rollout-rate=1",
+                       f"--target-score={args.target_score}", "--epsilon=0",
+                       f"--nn-policy={play_net}", f"--schupf-net={cur_schupf}"],
+            seed=args.seed + 10_000 * it + 7000 + 10 * k,
+            episodes=args.schupf_chunk,
+            output_path=tmp,
+            shards=args.shards,
+        )
+        tmp.rename(f)
+        print(f"   schupf labels {f.name}", flush=True)
+    files = sorted(sdir.glob("*_cf*.jsonl"))
+    its = sorted({x.name[:4] for x in files})[-2:]
+    files = [x for x in files if x.name[:4] in its]
+    new = sdir / f"it{it:02d}_schupf.safetensors"
+    if not new.exists():
+        res = subprocess.run([sys.executable, str(RL / "schupf_cf_train.py"),
+                              "--jsonl=" + ",".join(str(x) for x in files), f"--output={new}"],
+                             cwd=RL.parent, capture_output=True, text=True)
+        if res.returncode != 0:
+            raise RuntimeError(res.stdout + res.stderr)
+    r = duel([f"--nn-policy={play_net}", f"--schupf-net={new}"],
+             [f"--opponent-policy={play_net}", f"--opponent-schupf-net={cur_schupf}"],
+             deals=args.duel_deals, seed=5151 + it, shards=args.shards)
+    adopted = r["win_rate"] - 50 > args.promote_z * r["win_rate_se"]
+    print(f"   new schupf vs current: {r['win_rate']:.1f}% ± {r['win_rate_se']:.1f} -> "
+          f"{'ADOPTED' if adopted else 'kept current'}", flush=True)
+    if adopted:
+        shutil.copy2(cur_schupf, sdir / f"before_it{it:02d}.safetensors")
+        shutil.copy2(new, cur_schupf)
+    return {"vs_current": r, "adopted": adopted}
 
 
 def main() -> None:
@@ -148,6 +267,9 @@ def main() -> None:
     p.add_argument("--window", type=int, default=0, help="train on the last N iterations (0 = all)")
     p.add_argument("--duel-deals", type=int, default=1000)
     p.add_argument("--promote-z", type=float, default=2.0)
+    p.add_argument("--gate", choices=["best", "panel"], default="best")
+    p.add_argument("--schupf-episodes", type=int, default=0, help="schupf retrain after a promotion (0 = off)")
+    p.add_argument("--schupf-chunk", type=int, default=250)
     p.add_argument(
         "--confirm-deals",
         type=int,
@@ -166,6 +288,7 @@ def main() -> None:
     args = p.parse_args()
 
     out = Path(args.out_dir)
+    _DUEL_CACHE.append(out / "duel_cache.json")
     data_dir, nets = out / "data", out / "nets"
     data_dir.mkdir(parents=True, exist_ok=True)
     nets.mkdir(parents=True, exist_ok=True)
@@ -179,6 +302,12 @@ def main() -> None:
     fixed_nets = [o for o in args.opponent_nets.split(";") if o]
     pool_dir = out / "pool"
     pool_dir.mkdir(exist_ok=True)
+    # The learner's schupf net may be replaced by the retrain step.
+    cur_schupf = out / "schupf.safetensors"
+    if args.schupf_net and not cur_schupf.exists():
+        shutil.copy2(args.schupf_net, cur_schupf)
+    if args.schupf_net:
+        args.schupf_net = str(cur_schupf)
     own_schupf = [f"--schupf-net={args.schupf_net}"] if args.schupf_net else []
     opp_schupf = [f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else []
     # The candidate and the best net play the duel with the same schupf.
@@ -253,6 +382,7 @@ def main() -> None:
                 f"--output={cand}",
                 f"--epochs={args.epochs}",
                 f"--lr={args.lr}",
+                "--allow-worse",
                 *shlex.split(args.train_args),
             ],
             cwd=RL.parent,
@@ -278,7 +408,9 @@ def main() -> None:
         promoted = vs_best["win_rate"] - 50 > args.promote_z * vs_best["win_rate_se"]
         print(f"   vs best: {vs_best['win_rate']:.1f}% ± {vs_best['win_rate_se']:.1f}", flush=True)
         entry = {"iter": it, "vs_best": vs_best, "data_files": len(files)}
-        if promoted and args.confirm_deals > 0:
+        if args.gate == "panel":
+            promoted = panel_gate(args, entry, cand, best, vs_best, opponent_nets, own_schupf, opp_schupf, out)
+        elif promoted and args.confirm_deals > 0:
             confirm = duel(
                 [f"--nn-policy={cand}", *own_schupf],
                 [f"--opponent-policy={best}", *best_schupf],
@@ -314,7 +446,7 @@ def main() -> None:
                 f"margin {r['margin']:+.0f}",
                 flush=True,
             )
-        for net in opponent_nets:
+        for net in opponent_nets if args.gate != "panel" else []:
             r = duel(
                 [f"--nn-policy={cand}", *own_schupf],
                 [f"--opponent-policy={net}", *opp_schupf],
@@ -328,6 +460,8 @@ def main() -> None:
                 f"margin {r['margin']:+.0f}",
                 flush=True,
             )
+        if promoted and args.schupf_net and args.schupf_episodes > 0:
+            entry["schupf"] = retrain_schupf(args, it, cand, cur_schupf, data_dir)
         if promoted:
             if args.league > 0:
                 # The net being replaced joins the league pool.

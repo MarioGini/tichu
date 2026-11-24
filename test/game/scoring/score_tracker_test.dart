@@ -200,6 +200,44 @@ void main() {
       expect(winTracker.state.winningTeam, 0);
     });
 
+    void playRound(
+      final LocalScoreTracker t, {
+      required final int teamOnePoints,
+      required final int teamTwoPoints,
+    }) {
+      t.startNewRound(players);
+      List<Card> tens(final int points) => [
+        for (var i = 0; i < points ~/ 10; i++)
+          fxCard(CardFace.ten, CardColor.values[i % 4]),
+      ];
+      t.recordTrick(playerOneId, tens(teamOnePoints));
+      t.recordTrick(playerTwoId, tens(teamTwoPoints));
+      t.recordPlayerFinished(playerOneId, const <Card>[]);
+      t.recordPlayerFinished(playerTwoId, const <Card>[]);
+      t.recordPlayerFinished(playerThreeId, const <Card>[]);
+      t.recordPlayerFinished(playerFourId, const <Card>[]);
+      t.finalizeRound(handsWithLast(playerFourId, const <Card>[]));
+    }
+
+    test('both teams over the target in one round: the higher total wins', () {
+      final t = LocalScoreTracker(targetScore: 40);
+      playRound(t, teamOnePoints: 40, teamTwoPoints: 60);
+      expect(t.state.gameComplete, isTrue);
+      expect(t.state.winningTeam, 1);
+    });
+
+    test('a tie at or over the target is played on until one team leads', () {
+      final t = LocalScoreTracker(targetScore: 40);
+      playRound(t, teamOnePoints: 50, teamTwoPoints: 50);
+      expect(t.state.gameComplete, isFalse);
+      expect(t.state.winningTeam, isNull);
+      playRound(t, teamOnePoints: 60, teamTwoPoints: 40);
+      expect(t.state.teamOneTotal, 110);
+      expect(t.state.teamTwoTotal, 90);
+      expect(t.state.gameComplete, isTrue);
+      expect(t.state.winningTeam, 0);
+    });
+
     test('losing tichu call applies negative bonus to caller team', () {
       tracker.recordPlayerFinished(playerTwoId, const <Card>[]);
       tracker.recordPlayerFinished(playerOneId, const <Card>[]);

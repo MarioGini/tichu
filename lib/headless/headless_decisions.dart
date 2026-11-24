@@ -121,9 +121,22 @@ extension _Decisions on _HeadlessSimulator {
           agent: agent,
           chosen: turn,
         );
-      case SchupfReceiptRequest() ||
-          DragonGiveRequest() ||
-          PreSchupfTichuRequest():
+      case DragonGiveRequest():
+        final gift = await AgentDecisions.resolve(
+          request,
+          agent,
+          snapshot,
+          state,
+        );
+        final searcher = endgameSearcher;
+        if (gift is! GiveDragonAction || searcher == null) return gift;
+        return searcher.refineDragonGift(
+          engine: engine,
+          state: state,
+          agent: agent,
+          chosen: gift,
+        );
+      case SchupfReceiptRequest() || PreSchupfTichuRequest():
         return AgentDecisions.resolve(request, agent, snapshot, state);
     }
   }

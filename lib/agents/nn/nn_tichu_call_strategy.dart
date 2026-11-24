@@ -116,7 +116,7 @@ class NnTichuCallStrategy implements TichuCallStrategy {
   }
 
   /// Whether [network] says call. Two kinds of nets:
-  ///  * success nets (`rl/call_success_train.py`, input [callFeatureCount]):
+  ///  * success nets (input [callFeatureCount]):
   ///    the logit of P(go out first | call) minus the logit of the tuned
   ///    threshold; call when positive;
   ///  * call-value nets (`rl/call_train.py`, input [callNetInputSize]):

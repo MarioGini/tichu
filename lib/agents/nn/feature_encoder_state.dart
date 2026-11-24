@@ -55,6 +55,7 @@ extension _StateEncoding on FeatureEncoder {
       ClaimResult.writeScore(_handClaim, f, claimOffset);
     }
     _encodeReceived(f);
+    _encodePassed(f);
     return f;
   }
 
@@ -78,6 +79,26 @@ extension _StateEncoding on FeatureEncoder {
       };
       final h = _histIndex(card);
       if (h >= 0) f[receivedOffset + (rel - 1) * 17 + h] = 1.0;
+    }
+  }
+
+  /// The card I passed in this round's schupf to the left opponent, the
+  /// partner and the right opponent, one-hot over the 17 rank classes, as
+  /// long as that player still holds it (e.g. "my partner has the Dragon I
+  /// passed": my Aces are safe from it). Only in the play phase.
+  void _encodePassed(final Float64List f) {
+    if (snapshot.phase != GamePhase.play) return;
+    final pass = snapshot.schupfSelections[playerId];
+    if (pass == null) return;
+    for (var rel = 1; rel <= 3; rel++) {
+      final card = switch (rel) {
+        1 => pass.toLeft,
+        2 => pass.toPartner,
+        _ => pass.toRight,
+      };
+      if (!_k.isUnseen(card)) continue;
+      final h = _histIndex(card);
+      if (h >= 0) f[passedOffset + (rel - 1) * 17 + h] = 1.0;
     }
   }
 

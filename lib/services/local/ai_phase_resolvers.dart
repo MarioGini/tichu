@@ -143,12 +143,20 @@ extension _PhaseResolvers on AiTurnRunner {
     final agent = _automatedAgents[winnerId];
     if (agent == null) return;
 
-    final action = await AgentDecisions.resolve(
+    var action = await AgentDecisions.resolve(
       DragonGiveRequest(winnerId, opponentIds),
       agent,
       buildSnapshot(),
       state.engineState,
     );
+    if (action is GiveDragonAction) {
+      action = await _endgameSearcher.refineDragonGift(
+        engine: _engine,
+        state: state.engineState,
+        agent: agent,
+        chosen: action,
+      );
+    }
     _engine.applyAction(state.engineState, action!);
   }
 }

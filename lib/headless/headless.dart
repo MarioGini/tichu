@@ -6,6 +6,7 @@ import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
+import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
@@ -34,6 +35,7 @@ part 'headless_args.dart';
 part 'csv_event_writer.dart';
 part 'headless_decisions.dart';
 part 'headless_exploration.dart';
+part 'headless_game_records.dart';
 part 'headless_legality.dart';
 part 'headless_rollouts.dart';
 part 'headless_schupf_labels.dart';
@@ -71,6 +73,7 @@ Future<void> main(final List<String> args) async {
     heuristicOptions: config.heuristic,
     simdInference: config.simd,
     style: config.style,
+    schupfExtended: config.schupfExtended,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig
@@ -85,6 +88,7 @@ Future<void> main(final List<String> args) async {
     heuristicOptions: config.opponentHeuristic,
     simdInference: config.simd,
     style: config.opponentStyle,
+    schupfExtended: config.opponentSchupfExtended,
   );
   final opponentFactory = opponentConfig
       .withEndgameSearch(config.opponentEndgameSearch)
@@ -149,10 +153,18 @@ Future<void> main(final List<String> args) async {
     shadowVariants: config.shadowVariants,
     schupfRolloutRate: config.schupfRolloutRate,
     schupfCandidates: config.schupfCandidates,
+    recordGames: config.recordGames,
+    schupfExtended: config.schupfExtended || config.schupfLabelExtended,
     pimcWorlds: config.pimcWorlds,
     endgameSearcher:
         config.endgameSearch != null || config.opponentEndgameSearch != null
-        ? EndgameSearcher(rolloutAgent: plainFactory)
+        ? EndgameSearcher(
+            rolloutAgent: plainFactory,
+            belief: switch (await _loadNet(config.beliefNetPath)) {
+              final LoadedNet net => BeliefModel(net.network),
+              null => null,
+            },
+          )
         : null,
   );
 

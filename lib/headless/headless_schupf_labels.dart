@@ -26,7 +26,10 @@ extension _SchupfLabels on _HeadlessSimulator {
         _sameCard(hand[p], chosen.toPartner) &&
         _sameCard(hand[r], chosen.toRight);
     final all = [
-      for (final (l, p, r) in SchupfFeatures.candidates(hand))
+      for (final (l, p, r) in SchupfFeatures.candidates(
+        hand,
+        extended: schupfExtended,
+      ))
         if (!isChosen(l, p, r))
           SchupfAction(
             playerId: playerId,

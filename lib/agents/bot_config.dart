@@ -34,7 +34,7 @@ class LoadedNet {
 /// agent factory) and by the headless training runner — so a policy that is
 /// trained and evaluated headlessly behaves the same in the app.
 class BotConfig {
-  /// Play/pass policy (Q(s, a), `rl/bc_pretrain.py` / `rl/rollout_loop.py`).
+  /// Play/pass policy (Q(s, a), `rl/rollout_loop.py`).
   final LoadedNet? play;
 
   /// Tichu call-value net (`rl/call_train.py`).
@@ -48,6 +48,10 @@ class BotConfig {
 
   /// Schupf value net (`rl/schupf_train.py`).
   final LoadedNet? schupf;
+
+  /// The schupf net scores the extended candidate set (see
+  /// [SchupfFeatures.candidates]).
+  final bool schupfExtended;
 
   /// Heuristic rules used for everything not covered by a learned net.
   final HeuristicOptions heuristicOptions;
@@ -72,6 +76,7 @@ class BotConfig {
     this.grandTichu,
     this.preSchupfTichu,
     this.schupf,
+    this.schupfExtended = false,
     this.callMargin = 0,
     this.simdInference = false,
     this.style = StyleBias.none,
@@ -86,6 +91,7 @@ class BotConfig {
     grandTichu: grandTichu,
     preSchupfTichu: preSchupfTichu,
     schupf: schupf,
+    schupfExtended: schupfExtended,
     callMargin: callMargin,
     simdInference: simdInference,
     style: style,
@@ -128,7 +134,7 @@ class BotConfig {
             ),
       schupfStrategy: schupf == null
           ? null
-          : NnSchupfStrategy(network: schupf.network),
+          : NnSchupfStrategy(network: schupf.network, extended: schupfExtended),
     );
   }
 }

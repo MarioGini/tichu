@@ -39,7 +39,8 @@ from qnet import (
     load_qnetwork_from_safetensors,
     select_device,
 )
-from schema import LEGACY_ACTION_FEATURE_COUNT, TOTAL_FEATURE_COUNT, pad_action, pad_state
+from data_upgrade import upgrade
+from schema import SPEC, ACTION_FEATURE_COUNT, ACTION_OFFSET, LEGACY_ACTION_FEATURE_COUNT, TOTAL_FEATURE_COUNT, pad_action, pad_state
 
 SCALE = 100.0
 HAND_OFFSET = 0
@@ -59,7 +60,7 @@ class RolloutData:
     row per action, so millions of decisions fit in memory.
     """
 
-    def __init__(self, s, a, q, starts, chosen, explore, game, weight):
+    def __init__(self, s, a, q, starts, chosen, explore, game, weight, pos=None):
         self.s = s  # (D, ACTION_OFFSET) float16
         self.a = a  # (rows, ACTION_FEATURE_COUNT) float16
         self.q = q  # (rows,) round point difference / SCALE
@@ -68,6 +69,10 @@ class RolloutData:
         self.explore = explore  # (D,) bool
         self.game = game  # (D,) long, match id (unique across files)
         self.weight = weight  # (D,) float32 loss weight (recency of the data)
+        # (D, 2) int32 (round, step) of each decision in its match's game
+        # record (--record-games), -1 when the data has none: the position
+        # can be rebuilt by replay (lib/headless/replay_game_records.dart).
+        self.pos = pos
 
     @property
     def num_decisions(self) -> int:
@@ -78,24 +83,34 @@ class RolloutData:
 
 
 def _parse_jsonl(path: Path, max_decisions: int):
-    ss, aa, qs, lens, chosen, explore, games = [], [], [], [], [], [], []
+    ss, aa, qs, lens, chosen, explore, games, pos = [], [], [], [], [], [], [], []
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
             if '"q_rollout"' not in line:
                 continue
             row = json.loads(line)
             q = row["q_rollout"]
+            worlds = row.get("q_rollout_worlds")
+            if worlds:
+                # --rollout-worlds: the label is the mean over the real deal
+                # and the re-dealt worlds (what the endgame search computes).
+                q = [
+                    None if v is None else (v + sum(w[i] for w in worlds if w[i] is not None))
+                    / (1 + sum(1 for w in worlds if w[i] is not None))
+                    for i, v in enumerate(q)
+                ]
             keep = [i for i, v in enumerate(q) if v is not None]
             if len(keep) < 2:
                 continue
             ss.append(np.asarray(row["state_features"], dtype=np.float16))
             # Rows of an older layout (51 action features): padded below.
-            aa.append(pad_action(np.asarray(row["legal_play_action_features"], dtype=np.float16)[keep]))
+            aa.append(np.asarray(row["legal_play_action_features"], dtype=np.float16)[keep])
             qs.append(np.asarray([q[i] for i in keep], dtype=np.float32) / SCALE)
             c = int(row["legal_play_chosen_index"])
             chosen.append(keep.index(c) if c in keep else -1)
             explore.append(bool(row.get("explore")))
             games.append(int(row.get("episode", 0)))
+            pos.append((int(row.get("round", -1)), int(row.get("step", -1))))
             lens.append(len(keep))
             if max_decisions and len(lens) >= max_decisions:
                 break
@@ -103,15 +118,24 @@ def _parse_jsonl(path: Path, max_decisions: int):
     np.cumsum(lens, out=starts[1:])
     ch = np.asarray(chosen, dtype=np.int64)
     ch = np.where(ch >= 0, starts[:-1] + ch, -1)
-    return {
-        "s": pad_state(np.stack(ss)),
+    d = {
+        "s": np.stack(ss),
         "a": np.concatenate(aa),
         "q": np.concatenate(qs),
         "starts": starts,
         "chosen": ch,
         "explore": np.asarray(explore, dtype=bool),
         "game": np.asarray(games, dtype=np.int64),
+        "pos": np.asarray(pos, dtype=np.int32).reshape(-1, 2),
     }
+    d, notes = upgrade(d)
+    for n in notes:
+        _MISSING.setdefault(n, []).append(path.name)
+    return d
+
+
+# Unrecoverable feature groups seen while loading -> file names (reported once).
+_MISSING: dict[str, list[str]] = {}
 
 
 def _read_npz(path: Path) -> dict:
@@ -130,8 +154,9 @@ def _read_npz(path: Path) -> dict:
             "chosen": d["chosen"],
             "explore": d["explore"],
         }
-    d["s"] = pad_state(d["s"])
-    d["a"] = pad_action(d["a"])
+    d, notes = upgrade(d)
+    for n in notes:
+        _MISSING.setdefault(n, []).append(path.name)
     if "game" not in d:
         d["game"] = np.arange(len(d["chosen"]), dtype=np.int64) // OLD_CACHE_GAME_BLOCK
     return d
@@ -149,32 +174,70 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
     ``recency`` < 1 down-weights older rollout_loop iterations: a file of
     iteration k gets loss weight ``recency ** (newest - k)``. Their labels
     are values under the policy of their own iteration, not the current one.
+
+    Memory: the big arrays are allocated once at their final size and each
+    file is copied in and released, so the peak is the data plus one file
+    (concatenating all parts at the end needed twice the data: 5M decisions
+    were ~14 GB).
     """
-    parts = [
-        _read_npz(p) if p.suffix == ".npz" else _parse_jsonl(p, max_decisions) for p in paths
-    ]
     its = [file_iteration(p) for p in paths]
     newest = max((i for i in its if i is not None), default=0)
-    starts, chosen, games, weights, cursor, game_cursor = [np.zeros(1, dtype=np.int64)], [], [], [], 0, 0
-    for d, it in zip(parts, its):
+    # Pass 1: sizes (and the small per-decision columns).
+    meta = []
+    for p in paths:
+        if p.suffix == ".npz":
+            with np.load(p) as z:
+                if "x" in z.files:  # old full-row cache: convert in memory
+                    d = _read_npz(p)
+                    meta.append(("mem", d))
+                    continue
+                starts = z["starts"]
+                meta.append(("npz", {"starts": starts, "chosen": z["chosen"], "explore": z["explore"],
+                                      "game": z["game"] if "game" in z.files else None,
+                                      "rows": int(starts[-1])}))
+        else:
+            meta.append(("mem", _parse_jsonl(p, max_decisions)))
+    n_dec = sum(len(m[1]["chosen"]) for m in meta)
+    n_rows = sum(int(m[1]["starts"][-1]) for m in meta)
+    s_all = np.empty((n_dec, ACTION_OFFSET), np.float16)
+    a_all = np.empty((n_rows, ACTION_FEATURE_COUNT), np.float16)
+    q_all = np.empty(n_rows, np.float32)
+    starts, chosen, games, weights, explore, pos = [np.zeros(1, dtype=np.int64)], [], [], [], [], []
+    cursor = game_cursor = dec = 0
+    for (kind, m), p, it in zip(meta, paths, its):
+        if kind == "npz":
+            d = _read_npz(p)
+        else:
+            d = m
+        k, r = len(d["chosen"]), int(d["starts"][-1])
+        s_all[dec : dec + k] = d["s"]
+        a_all[cursor : cursor + r] = d["a"]
+        q_all[cursor : cursor + r] = d["q"]
         starts.append(d["starts"][1:] + cursor)
         chosen.append(np.where(d["chosen"] >= 0, d["chosen"] + cursor, -1))
-        cursor += int(d["starts"][-1])
+        explore.append(d["explore"])
+        pos.append(d["pos"] if "pos" in d else np.full((k, 2), -1, np.int32))
         g = np.unique(d["game"], return_inverse=True)[1].astype(np.int64)
         games.append(g + game_cursor)
         game_cursor += int(g.max()) + 1 if g.size else 0
         w = 1.0 if it is None else recency ** (newest - it)
-        weights.append(np.full(len(d["chosen"]), w, dtype=np.float32))
-    cat = lambda k: torch.from_numpy(np.concatenate([d[k] for d in parts]))  # noqa: E731
+        weights.append(np.full(k, w, dtype=np.float32))
+        cursor += r
+        dec += k
+        del d
+    for what, names in _MISSING.items():
+        print(f"  note: {len(names)} file(s) predate the features '{what}' (zeros)", flush=True)
+    _MISSING.clear()
     return RolloutData(
-        cat("s"),
-        cat("a"),
-        cat("q"),
+        torch.from_numpy(s_all),
+        torch.from_numpy(a_all),
+        torch.from_numpy(q_all),
         torch.from_numpy(np.concatenate(starts)),
         torch.from_numpy(np.concatenate(chosen)),
-        cat("explore"),
+        torch.from_numpy(np.concatenate(explore)),
         torch.from_numpy(np.concatenate(games)),
         torch.from_numpy(np.concatenate(weights)),
+        torch.from_numpy(np.concatenate(pos)) if pos else None,
     )
 
 
@@ -193,6 +256,8 @@ def save_npz(data: RolloutData, path: Path) -> None:
         chosen=data.chosen.numpy(),
         explore=data.explore.numpy(),
         game=data.game.numpy().astype(np.int32),
+        schema_version=np.int16(SPEC.version),
+        **({"pos": data.pos.numpy().astype(np.int32)} if data.pos is not None else {}),
     )
 
 
@@ -334,6 +399,11 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     data = load([Path(p) for p in args.jsonl.split(",") if p], recency=args.recency)
     if args.save_cache:
         save_npz(data, Path(args.save_cache))
+    if args.zero_action_features:
+        # Control runs: these action inputs are always 0, so (starting from a
+        # net whose weights for them are zero) the net never uses them.
+        lo, hi = (int(x) for x in args.zero_action_features.split(":"))
+        data.a[:, lo:hi] = 0
     d = data.num_decisions
     print(f"rollout data: decisions={d} rows={data.a.shape[0]} ({time.time()-t0:.0f}s)", flush=True)
     if args.hidden:
@@ -360,7 +430,14 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     ema = torch.optim.swa_utils.AveragedModel(
         model, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(args.ema)
     ) if args.ema > 0 else None
-    best_state, best_gain, metrics = None, float("-inf"), m0
+    # The starting net counts as epoch 0: training never exports a net
+    # that is worse on the held-out decisions than the one it started from.
+    init_state = {k: v.clone() for k, v in model.state_dict().items()}
+    # (--allow-worse: when the starting net was trained on these same
+    # decisions its held-out score is in-sample, and a duel gate judges.)
+    best_state = None
+    best_gain = float("-inf") if args.allow_worse else m0["vs_uniform_pts"]
+    metrics = m0
     for epoch in range(args.epochs):
         model.train()
         order = tr[torch.randperm(tr.numel())]
@@ -386,11 +463,11 @@ def train(args: argparse.Namespace) -> dict[str, float]:
         if m["vs_uniform_pts"] > best_gain:
             best_gain, metrics = m["vs_uniform_pts"], m
             best_state = {k: v.clone() for k, v in final.state_dict().items()}
+            # Keep the best epoch on disk, so a job stopped mid-run keeps it.
+            _export(final, Path(args.output), d)
     model = final
-    if best_state is not None:
-        model.load_state_dict(best_state)
-    else:
-        metrics = m
+    # No epoch beat the starting net: export the starting net.
+    model.load_state_dict(best_state if best_state is not None else init_state)
 
     _export(model, Path(args.output), d)
     print(f"Saved {args.output}  " + "  ".join(f"{k}={v:.3f}" for k, v in metrics.items()))
@@ -408,6 +485,16 @@ def main() -> None:
         help="grow --init-from's hidden layers to these sizes (same play at the start)",
     )
     p.add_argument("--output", required=True)
+    p.add_argument(
+        "--allow-worse",
+        action="store_true",
+        help="export the best epoch even if the starting net scores higher (rollout_loop: its duels gate)",
+    )
+    p.add_argument(
+        "--zero-action-features",
+        default="",
+        help="lo:hi action-feature columns set to 0 (ablation control, e.g. 54:58)",
+    )
     p.add_argument("--epochs", type=int, default=4, help="held-out gain peaks after 3-4 epochs")
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--weight-decay", type=float, default=1e-4)

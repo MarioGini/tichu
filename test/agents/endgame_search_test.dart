@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/bot_config.dart';
+import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/agent_decisions.dart';
@@ -242,6 +243,46 @@ void main() {
         }
         expect(redealt..sort(), unseen..sort());
       }
+    });
+
+    test('belief re-deals keep the hand sizes and follow the holders', () {
+      var withBelief = 0;
+      var uniform = 0;
+      var trials = 0;
+      for (final state in states) {
+        final id = state.players[state.currentPlayerIndex].id;
+        final me = state.players.firstWhere((final p) => p.id == id);
+        final partner = state.players
+            .firstWhere((final p) => p.seat == (me.seat + 2) % 4)
+            .id;
+        if (state.hands[partner]!.isEmpty) continue;
+        // One unseen card the partner does not hold; the belief says he does.
+        final others = [
+          for (final p in state.players)
+            if (p.id != id && p.id != partner) ...state.hands[p.id]!,
+        ];
+        if (others.isEmpty) continue;
+        final card = others.first;
+        final holders = List.generate(56, (final _) => [1 / 3, 1 / 3, 1 / 3]);
+        holders[cardSlot(card)] = [0.01, 0.98, 0.01];
+        for (var k = 0; k < 20; k++) {
+          final world = redealWorld(state, id, Random(k), holders: holders);
+          expect(world.hands[id], state.hands[id]);
+          for (final p in state.players) {
+            expect(world.hands[p.id]!.length, state.hands[p.id]!.length);
+          }
+          if (world.hands[partner]!.any((final c) => _card(c) == _card(card))) {
+            withBelief++;
+          }
+          final flat = redealWorld(state, id, Random(k));
+          if (flat.hands[partner]!.any((final c) => _card(c) == _card(card))) {
+            uniform++;
+          }
+          trials++;
+        }
+      }
+      expect(trials, greaterThan(0));
+      expect(withBelief, greaterThan(uniform + trials ~/ 5));
     });
 
     test('skips decisions outside the endgame', () async {

@@ -22,6 +22,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from qnet import QNetwork, export_safetensors, load_qnetwork_from_safetensors  # noqa: E402
+from data_upgrade import BEAT  # noqa: E402
 from rollout_train import evaluate, load, save_npz  # noqa: E402
 from schema import (  # noqa: E402
     ACTION_FEATURE_COUNT,
@@ -113,13 +114,14 @@ def check_legacy_layouts() -> None:
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         for size, prefix in sorted(LEGACY_STATE_PREFIX.items()):
+            na = size - prefix  # action features of this layout (51, or 54 for v7)
             rng = np.random.default_rng(size)
             rows = []
             for ep in range(3):
                 rows.append({
                     "episode": ep,
                     "state_features": rng.random(prefix).round(3).tolist(),
-                    "legal_play_action_features": rng.random((2, LEGACY_ACTION_FEATURE_COUNT)).round(3).tolist(),
+                    "legal_play_action_features": rng.random((2, na)).round(3).tolist(),
                     "legal_play_chosen_index": 0,
                     "q_rollout": [10.0, -10.0],
                 })
@@ -129,22 +131,25 @@ def check_legacy_layouts() -> None:
             assert data.s.shape == (3, STATE_FEATURE_COUNT), data.s.shape
             assert data.a.shape == (6, ACTION_FEATURE_COUNT), data.a.shape
             assert float(data.s[:, prefix:].abs().sum()) == 0.0
-            assert float(data.a[:, LEGACY_ACTION_FEATURE_COUNT:].abs().sum()) == 0.0
+            # Groups the layout lacks are 0, except those data_upgrade can
+            # compute from the old features (v9 beatability, columns 54..57).
+            assert float(data.a[:, na:BEAT].abs().sum()) == 0.0 if na < BEAT else True
             s0 = torch.tensor(rows[0]["state_features"], dtype=torch.float16)
             assert torch.equal(data.s[0, :prefix], s0)
 
-            # Old "x" cache (one full input row per action) of this layout.
+            # Old "x" cache (layouts up to v6 only) (one full input row per action) of this layout.
             x = np.concatenate([
                 np.repeat(np.asarray([r["state_features"] for r in rows], dtype=np.float16), 2, 0),
                 np.asarray([a for r in rows for a in r["legal_play_action_features"]], dtype=np.float16),
             ], 1)
-            cache = td / f"x{size}.npz"
-            np.savez_compressed(
-                cache, x=x, q=np.zeros(6, np.float32), starts=np.arange(0, 7, 2),
-                chosen=np.zeros(3, np.int64), explore=np.zeros(3, bool),
-            )
-            back = load([cache])
-            assert torch.equal(back.s, data.s) and torch.equal(back.a, data.a)
+            if na == LEGACY_ACTION_FEATURE_COUNT:
+                cache = td / f"x{size}.npz"
+                np.savez_compressed(
+                    cache, x=x, q=np.zeros(6, np.float32), starts=np.arange(0, 7, 2),
+                    chosen=np.zeros(3, np.int64), explore=np.zeros(3, bool),
+                )
+                back = load([cache])
+                assert torch.equal(back.s, data.s) and torch.equal(back.a, data.a)
 
             # A net of this layout, widened on load, computes the same values.
             torch.manual_seed(size)
@@ -155,11 +160,11 @@ def check_legacy_layouts() -> None:
             xs = torch.rand(5, size)
             padded = torch.zeros(5, TOTAL_FEATURE_COUNT)
             padded[:, :prefix] = xs[:, :prefix]
-            padded[:, ACTION_OFFSET : ACTION_OFFSET + LEGACY_ACTION_FEATURE_COUNT] = xs[:, prefix:]
+            padded[:, ACTION_OFFSET : ACTION_OFFSET + na] = xs[:, prefix:]
             # New inputs must not matter: fill them with noise.
             noisy = padded.clone()
             noisy[:, prefix:ACTION_OFFSET] = torch.rand(5, ACTION_OFFSET - prefix)
-            noisy[:, ACTION_OFFSET + LEGACY_ACTION_FEATURE_COUNT :] = 1.0
+            noisy[:, ACTION_OFFSET + na :] = 1.0
             with torch.no_grad():
                 assert torch.allclose(old(xs), new(padded), atol=1e-6)
                 assert torch.allclose(old(xs), new(noisy), atol=1e-6)

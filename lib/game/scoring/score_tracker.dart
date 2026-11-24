@@ -118,9 +118,13 @@ class LocalScoreTracker {
 
     final newTeamOneTotal = _state.teamOneTotal + teamOneRound;
     final newTeamTwoTotal = _state.teamTwoTotal + teamTwoRound;
+    // The match ends when a team reaches the target; if both do in the same
+    // round the higher total wins, and on a tie play goes on until one team
+    // is ahead.
     final gameComplete =
-        newTeamOneTotal >= _state.targetScore ||
-        newTeamTwoTotal >= _state.targetScore;
+        (newTeamOneTotal >= _state.targetScore ||
+            newTeamTwoTotal >= _state.targetScore) &&
+        newTeamOneTotal != newTeamTwoTotal;
 
     _state = _state.copyWith(
       teamOneRound: teamOneRound,

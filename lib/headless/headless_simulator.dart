@@ -32,7 +32,7 @@ class _HeadlessSimulator {
   final double callEpsilon;
 
   /// Log, for every play/pass decision, what the heuristic would have done
-  /// (`shadow_index` in bc-jsonl) — used by `rl/analyze_games.py`.
+  /// (`shadow_index` in bc-jsonl).
   final bool shadowHeuristic;
 
   /// Label each logged Tichu decision with its exact counterfactual value
@@ -93,6 +93,13 @@ class _HeadlessSimulator {
   /// Share of schupf decisions labelled with exact candidate values.
   final double schupfRolloutRate;
   final int schupfCandidates;
+
+  /// Write a compact record of every round (`--record-games`, bc-jsonl).
+  final bool recordGames;
+  _GameRecorder? _recorder;
+
+  /// Schupf labels draw candidates from the extended set.
+  final bool schupfExtended;
   late final List<Map<String, SmartAiAgent>> _variantAgents = [
     for (final _ in shadowVariants) <String, SmartAiAgent>{},
   ];
@@ -142,6 +149,8 @@ class _HeadlessSimulator {
     this.shadowVariants = const [],
     this.schupfRolloutRate = 0,
     this.schupfCandidates = 16,
+    this.recordGames = false,
+    this.schupfExtended = false,
     this.pimcWorlds = 0,
     this.endgameSearcher,
   });
@@ -204,6 +213,9 @@ class _HeadlessSimulator {
           'searches': searcher.searches,
           'switches': searcher.switches,
           'rollouts': searcher.rollouts,
+          'solves': searcher.solves,
+          'solve_switches': searcher.solveSwitches,
+          'solve_give_ups': searcher.solveGiveUps,
           'search_ms': ms.round(),
           'ms_per_search': searcher.searches == 0 ? 0 : ms / searcher.searches,
         }),
@@ -231,6 +243,9 @@ class _HeadlessSimulator {
       targetScore: targetScore,
     );
     engine.startGame(state);
+    _recorder = recordGames && outputFormat == _HeadlessOutputFormat.bcJsonl
+        ? (_GameRecorder()..startRound(state))
+        : null;
 
     final csvWriter =
         outputFormat == _HeadlessOutputFormat.csv && output != null
@@ -263,6 +278,7 @@ class _HeadlessSimulator {
 
       if (snapshot.scoreState.roundComplete) {
         engine.startNewRound(state);
+        _recorder?.startRound(state);
         snapshot = engine.buildSnapshot(state);
         csvWriter?.processSnapshot(snapshot);
         continue;
@@ -334,6 +350,7 @@ class _HeadlessSimulator {
       final variants = rollouts != null && shadowVariants.isNotEmpty
           ? await _variantTurns(snapshot, action.playerId)
           : null;
+      bcWriter?.step = _recorder?.step;
       final appliedAction = _applyActionWithRecovery(
         engine: engine,
         state: state,
@@ -341,6 +358,7 @@ class _HeadlessSimulator {
         selectedAction: action,
       );
       steps++;
+      _recorder?.add(state, appliedAction);
 
       if (appliedAction is PlayTurnAction || appliedAction is PassAction) {
         csvWriter?.emitOpponentAction(snapshot: before, action: appliedAction);
@@ -365,6 +383,12 @@ class _HeadlessSimulator {
       if (!before.scoreState.roundComplete &&
           snapshot.scoreState.roundComplete) {
         completedRounds++;
+        final recorder = _recorder;
+        if (recorder != null) {
+          bcWriter?.output.writeln(
+            jsonEncode(recorder.record(episodeNumber, snapshot)),
+          );
+        }
         bcWriter?.emitRoundEnd(snapshot, cardsLeftAtFirstOut: _cardsAtFirstOut);
         _cardsAtFirstOut = null;
       } else if (_cardsAtFirstOut == null &&

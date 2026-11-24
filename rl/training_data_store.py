@@ -2,7 +2,10 @@
 """Keep rollout training data in Supabase Storage (free tier, 1 GB).
 
 Files go to the private bucket ``rl-training-data`` under ``<run>/<name>``;
-one row per file in ``public.rl_training_files`` (migration
+stored LZMA-compressed (``meta.codec = "xz"``: the npz caches are only
+zlib-compressed; xz makes them ~2.3x smaller, ~50 bytes per labelled
+decision) and decompressed on download; one row per file in
+``public.rl_training_files`` (migration
 ``supabase/migrations/20261119000000_rl_training_data.sql``) records run,
 iteration, size, decision count and checksums. Files above the free plan's
 50 MB upload limit are stored as ``<name>.partNN`` chunks and joined again on
@@ -28,6 +31,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import lzma
 import os
 import re
 import sys
@@ -92,20 +96,54 @@ def _npz_counts(path: Path) -> tuple[int, int]:
         return 0, 0
 
 
-def upload_file(path: Path, *, run: str, policy: Path | None = None, skip_existing: bool = True) -> bool:
-    """Upload one file (chunked if needed) and upsert its manifest row.
+def upload_file(
+    path: Path,
+    *,
+    run: str,
+    policy: Path | None = None,
+    skip_existing: bool = True,
+    xz: bool = True,
+) -> bool:
+    """Upload one file (xz-compressed, chunked if needed) and upsert its
+    manifest row. ``sha256`` is the checksum of the original file.
 
     Returns False when an identical file is already stored.
     """
-    data = path.read_bytes()
-    digest = _sha256(data)
+    original = path.read_bytes()
+    xz = xz and not path.name.endswith((".gz", ".xz"))  # already compressed
+    digest = _sha256(original)
     obj = f"{run}/{path.name}"
-    if skip_existing:
-        rows = json.loads(
-            _request("GET", f"{_base()}/rest/v1/{TABLE}?select=sha256&path=eq.{urllib.parse.quote(obj)}")
+    old = json.loads(
+        _request("GET", f"{_base()}/rest/v1/{TABLE}?select=sha256,meta&path=eq.{urllib.parse.quote(obj)}")
+    )
+    if skip_existing and old and digest in (
+        old[0]["sha256"],
+        (old[0].get("meta") or {}).get("file_sha256"),
+    ) and ((old[0].get("meta") or {}).get("codec") == ("xz" if xz else None)):
+        return False
+    if old:  # replacing: remove the old pieces first (their count may differ)
+        n_old = int((old[0].get("meta") or {}).get("parts", 1))
+        _request(
+            "DELETE",
+            f"{_base()}/storage/v1/object/{BUCKET}",
+            json.dumps({"prefixes": [obj] if n_old == 1 else [f"{obj}.part{i:02d}" for i in range(n_old)]}).encode(),
+            {"Content-Type": "application/json"},
         )
-        if rows and rows[0]["sha256"] == digest:
-            return False
+    file_digest = digest
+    if xz and path.suffix == ".npz":
+        # The npz cache is zlib-compressed inside, which xz cannot shrink:
+        # store the arrays uncompressed under xz (~2.3x smaller than the
+        # cache) and rebuild the compressed cache on download.
+        import io
+
+        import numpy as np
+
+        buf = io.BytesIO()
+        with np.load(path) as d:
+            np.savez(buf, **{k: d[k] for k in d.files})
+        original = buf.getvalue()
+        digest = _sha256(original)
+    data = lzma.compress(original, preset=6) if xz else original
     parts = [data[i : i + PART_BYTES] for i in range(0, len(data), PART_BYTES)] or [b""]
     names = [obj] if len(parts) == 1 else [f"{obj}.part{i:02d}" for i in range(len(parts))]
     for name, chunk in zip(names, parts):
@@ -127,7 +165,10 @@ def upload_file(path: Path, *, run: str, policy: Path | None = None, skip_existi
         "bytes": len(data),
         "sha256": digest,
         "policy_sha256": _sha256(policy.read_bytes()) if policy and policy.exists() else None,
-        "meta": {"parts": len(names)} if len(names) > 1 else {},
+        "meta": {
+            **({"parts": len(names)} if len(names) > 1 else {}),
+            **({"codec": "xz", "original_bytes": len(original), "file_sha256": file_digest} if xz else {}),
+        },
     }
     _request(
         "POST",
@@ -135,8 +176,32 @@ def upload_file(path: Path, *, run: str, policy: Path | None = None, skip_existi
         json.dumps(row).encode(),
         {"Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
     )
-    print(f"   uploaded {obj} ({len(data) / 1e6:.1f} MB, {decisions} decisions)", flush=True)
+    print(
+        f"   uploaded {obj} ({len(data) / 1e6:.1f} MB stored, {len(original) / 1e6:.1f} MB original, "
+        f"{decisions} decisions)",
+        flush=True,
+    )
     return True
+
+
+def delete_run(run: str) -> int:
+    """Delete every stored object of ``run`` (incl. multi-part pieces) and
+    its manifest rows. Returns the number of manifest rows removed."""
+    rows = manifest(run)
+    names = []
+    for r in rows:
+        parts = int((r.get("meta") or {}).get("parts", 1))
+        names += [r["path"]] if parts == 1 else [f"{r['path']}.part{i:02d}" for i in range(parts)]
+    for i in range(0, len(names), 100):
+        _request(
+            "DELETE",
+            f"{_base()}/storage/v1/object/{BUCKET}",
+            json.dumps({"prefixes": names[i : i + 100]}).encode(),
+            {"Content-Type": "application/json"},
+        )
+    _request("DELETE", f"{_base()}/rest/v1/{TABLE}?run=eq.{urllib.parse.quote(run)}")
+    print(f"deleted run {run}: {len(rows)} files ({len(names)} objects)")
+    return len(rows)
 
 
 def download(run: str, dest: Path, *, overwrite: bool = False) -> list[Path]:
@@ -145,15 +210,30 @@ def download(run: str, dest: Path, *, overwrite: bool = False) -> list[Path]:
     for row in manifest(run):
         target = dest / Path(row["path"]).name
         out.append(target)
-        if target.exists() and not overwrite and _sha256(target.read_bytes()) == row["sha256"]:
+        if target.exists() and not overwrite and (
+            (row.get("meta") or {}).get("codec") == "xz"
+            or _sha256(target.read_bytes()) == row["sha256"]
+        ):
             continue
         n = int((row.get("meta") or {}).get("parts", 1))
         names = [row["path"]] if n == 1 else [f"{row['path']}.part{i:02d}" for i in range(n)]
         data = b"".join(_request("GET", _object_url(name)) for name in names)
+        meta = row.get("meta") or {}
+        if meta.get("codec") == "xz":
+            data = lzma.decompress(data)
         if _sha256(data) != row["sha256"]:
             raise RuntimeError(f"checksum mismatch for {row['path']}")
         tmp = target.with_suffix(target.suffix + ".tmp")
-        tmp.write_bytes(data)
+        if meta.get("codec") == "xz" and target.suffix == ".npz":
+            import io
+
+            import numpy as np
+
+            with np.load(io.BytesIO(data)) as d:
+                with tmp.open("wb") as fh:
+                    np.savez_compressed(fh, **{k: d[k] for k in d.files})
+        else:
+            tmp.write_bytes(data)
         tmp.rename(target)
         print(f"   downloaded {target} ({len(data) / 1e6:.1f} MB)", flush=True)
     return out
@@ -169,6 +249,8 @@ def main() -> None:
     up.add_argument("files", nargs="+")
     ls = sub.add_parser("list")
     ls.add_argument("--run", default="")
+    rm = sub.add_parser("delete", help="delete every file of a run")
+    rm.add_argument("--run", required=True)
     dl = sub.add_parser("download")
     dl.add_argument("--run", required=True)
     dl.add_argument("--dest", required=True)
@@ -180,6 +262,8 @@ def main() -> None:
         for f in args.files:
             if not upload_file(Path(f), run=args.run, policy=policy, skip_existing=not args.force):
                 print(f"   {f}: already stored", flush=True)
+    elif args.cmd == "delete":
+        delete_run(args.run)
     elif args.cmd == "list":
         rows = manifest(args.run)
         total = sum(r["bytes"] for r in rows)

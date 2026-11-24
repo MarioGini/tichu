@@ -175,6 +175,81 @@ class CardKnowledge {
     }
   }
 
+  /// How many distinct non-bomb plays of the unseen cards beat [play]: for
+  /// a single the unseen higher cards (Phoenix and Dragon included), for
+  /// other types the higher ranks (pairs, triplets, full houses by triplet
+  /// rank) or tops (straights, pair straights) the unseen cards can form.
+  /// A graded [canBeBeaten] (0 = unbeatable).
+  int beaterCount(final TichuTurn play) {
+    if (!isTracking || play.cards.isEmpty) return 0;
+    final u = _unseenRank;
+    final phx = phoenixUnseen;
+    final v = play.value;
+    final n = play.cards.length;
+    var count = 0;
+    switch (play.type) {
+      case TurnType.single:
+        final face = play.cards.first.face;
+        if (face == CardFace.dragon || face == CardFace.dog) return 0;
+        for (var r = 2; r <= 14; r++) {
+          if (r > v) count += u[r];
+        }
+        if (phx) count++;
+        if (dragonUnseen) count++;
+      case TurnType.pair || TurnType.triplet:
+        final k = play.type == TurnType.pair ? 2 : 3;
+        for (var r = 2; r <= 14; r++) {
+          if (r > v && (u[r] >= k || (phx && u[r] == k - 1))) count++;
+        }
+      case TurnType.fullHouse:
+        for (var t = 2; t <= 14; t++) {
+          if (t > v && (u[t] >= 3 || (phx && u[t] == 2))) count++;
+        }
+      case TurnType.straight:
+        for (var top = v.floor() + 1; top <= 14; top++) {
+          final low = top - n + 1;
+          if (low < 1) continue;
+          var missing = 0;
+          var missingIsMahJong = false;
+          for (var r = low; r <= top; r++) {
+            if (u[r] < 1) {
+              missing++;
+              if (r == 1) missingIsMahJong = true;
+            }
+          }
+          if (missing == 0 || (missing == 1 && phx && !missingIsMahJong)) {
+            count++;
+          }
+        }
+      case TurnType.pairStraight:
+        final pairs = n ~/ 2;
+        for (var top = v.floor() + 1; top <= 14; top++) {
+          final low = top - pairs + 1;
+          if (low < 2) continue;
+          var missing = 0;
+          for (var r = low; r <= top; r++) {
+            missing += u[r] >= 2 ? 0 : 2 - u[r];
+          }
+          if (missing == 0 || (missing == 1 && phx)) count++;
+        }
+      case TurnType.bomb || TurnType.dog || TurnType.none || TurnType.empty:
+        return 0;
+    }
+    return count;
+  }
+
+  /// Unseen cards in total (the other players' hands).
+  int get unseenTotal {
+    var n = 0;
+    for (var r = 1; r <= 14; r++) {
+      n += _unseenRank[r];
+    }
+    if (phoenixUnseen) n++;
+    if (dragonUnseen) n++;
+    if (dogUnseen) n++;
+    return n;
+  }
+
   /// `!canBeBeaten(play)`: wins the trick unless someone bombs.
   bool isUnbeatable(final TichuTurn play) => !canBeBeaten(play);
 

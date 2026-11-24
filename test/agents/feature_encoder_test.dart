@@ -154,6 +154,36 @@ void main() {
     expect(jack[21], 0.0); // king of left beats it
   });
 
+  test('graded beatability of an action (v9)', () {
+    final mine = [
+      c(CardFace.ace, CardColor.red),
+      c(CardFace.jack),
+      c(CardFace.three),
+    ];
+    final snap = fxSnapshot(
+      mine: mine,
+      others: {
+        aiTestLeftId: [c(CardFace.king, CardColor.red), c(CardFace.two)],
+        aiTestPartnerId: [c(CardFace.two, CardColor.red)],
+        aiTestRightId: [c(CardFace.four, CardColor.red)],
+      },
+    );
+    final enc = FeatureEncoder(snapshot: snap, playerId: aiTestSelfId);
+    // Unseen: K, 2, 2, 4. Only the king beats the jack.
+    final jack = enc.actionFeatures(TichuTurn(TurnType.single, [mine[1]]));
+    expect(jack[actionBeatOffset], closeTo(1 / 16, 1e-9));
+    expect(jack[actionBeatOffset + 1], closeTo(1 / 4, 1e-9));
+    expect(jack[actionBeatOffset + 2], 1.0); // left holds 2 cards
+    expect(jack[actionBeatOffset + 3], 1.0); // right holds 1 card
+    // K, 4 beat the three (the twos do not).
+    final three = enc.actionFeatures(TichuTurn(TurnType.single, [mine[2]]));
+    expect(three[actionBeatOffset], closeTo(2 / 16, 1e-9));
+    expect(three[actionBeatOffset + 1], closeTo(2 / 4, 1e-9));
+    // Nothing beats the ace: all four zero.
+    final ace = enc.actionFeatures(TichuTurn(TurnType.single, [mine[0]]));
+    expect(ace.sublist(actionBeatOffset), [0.0, 0.0, 0.0, 0.0]);
+  });
+
   test('known schupf cards still held', () {
     final passed = c(CardFace.dog, CardColor.special);
     final snap = fxSnapshot(
@@ -404,6 +434,41 @@ void main() {
     }
   });
 
+  test('passed: my schupf card per receiver while it is still held', () {
+    final dragon = c(CardFace.dragon, CardColor.special);
+    final eight = c(CardFace.eight);
+    final three = c(CardFace.three, CardColor.red);
+    SchupfAction mine(final Card toLeft, final Card toPartner) => SchupfAction(
+      playerId: aiTestSelfId,
+      toLeft: toLeft,
+      toPartner: toPartner,
+      toRight: three,
+    );
+    final snap = fxSnapshot(
+      mine: [c(CardFace.two), c(CardFace.ace, CardColor.red)],
+      others: {
+        aiTestLeftId: [eight, c(CardFace.nine)],
+        aiTestPartnerId: [dragon, c(CardFace.four)],
+        // The three I passed to the right has been played.
+        aiTestRightId: [c(CardFace.five)],
+      },
+      schupfSelections: {aiTestSelfId: mine(eight, dragon)},
+    );
+    final f = encodeStateFeatures(snapshot: snap, playerId: aiTestSelfId);
+    final got = [
+      for (var i = 0; i < passedRankFeatureCount; i++)
+        if (f[slot('passed', i)] != 0) (i, f[slot('passed', i)]),
+    ];
+    // Left: rank 8 (class 6); partner: Dragon (class 16); right: played.
+    expect(got, [(6, 1.0), (17 + 16, 1.0)]);
+
+    final none = fxSnapshot(mine: [c(CardFace.two)], others: const {});
+    final g = encodeStateFeatures(snapshot: none, playerId: aiTestSelfId);
+    for (var i = 0; i < passedRankFeatureCount; i++) {
+      expect(g[slot('passed', i)], 0.0);
+    }
+  });
+
   test('claim: state and after-action features', () {
     // Pair of kings + a five; no ace / Phoenix unseen except one ace.
     final kings = [c(CardFace.king), c(CardFace.king, CardColor.red)];
@@ -447,7 +512,9 @@ void main() {
     );
     expect(legacy.stateFeatures[slot('claim', 2)], 0.0);
     expect(
-      legacy.actionFeatures(TichuTurn(TurnType.single, [five])).sublist(o),
+      legacy
+          .actionFeatures(TichuTurn(TurnType.single, [five]))
+          .sublist(o, o + 3),
       [0.0, 0.0, 0.0],
     );
     // Everything else is identical.

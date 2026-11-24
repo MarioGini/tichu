@@ -24,6 +24,24 @@
 
 - Flutter 3.50.x (Dart 3.14). `pubspec.lock` is resolved with this version.
 - Check before committing: `flutter analyze` (0 errors/warnings) and `flutter test`.
+- Never silence lints: no `// ignore:` / `// ignore_for_file:` in Dart, no
+  `# noqa` / `# type: ignore` / `# pylint: disable` in Python, no rules set to
+  `ignore` in `analysis_options.yaml`. A lint that fires points at code to
+  change: fix the design (e.g. throw a typed `Exception` instead of catching
+  `StateError`, inject a dependency instead of a write-only setter). If a
+  rule is wrong for the whole project, propose turning it off in
+  `analysis_options.yaml` and say why. `test/no_lint_suppressions_test.dart`
+  enforces this.
+
+## Architecture rules
+
+- Simulations (endgame search, solver, rollouts, training labels) play out
+  forks on `simulationEngine` (`lib/game/simulation.dart`), never on the
+  engine of the game being played, which may record or publish moves.
+- Expected failures are typed exceptions: `IllegalActionException` (engine:
+  move not allowed), `NoLegalActionException` (agent has no move),
+  `RequestRejectedException` (lobby/match request refused). `Error`s are
+  bugs and are never caught.
 
 ## RL
 

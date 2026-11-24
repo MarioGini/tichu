@@ -179,6 +179,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var solveBudget = 20000;
   var solveMaxCards = 10;
   var pimcSolve = false;
+  var opponentPimcSolve = false;
   var pimcMaxCards = 12;
   const defaults = EndgameSearch();
   var endgameWorlds = defaults.worlds;
@@ -369,6 +370,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
       pimcSolve = true;
       continue;
     }
+    if (arg == '--opponent-pimc-solve') {
+      opponentPimcSolve = true;
+      continue;
+    }
     if (arg.startsWith('--pimc-max-cards=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 3) pimcMaxCards = k;
@@ -499,21 +504,24 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     outputPath = 'game.jsonl';
   }
 
-  EndgameSearch search({required final bool solve}) => EndgameSearch(
-    worlds: endgameWorlds,
-    maxCards: endgameMaxCards,
-    margin: endgameMargin,
-    maxActions: endgameMaxActions,
-    solveOneOnOne: solve,
-    solveBudget: solveBudget,
-    solveMaxCards: solveMaxCards,
-    pimcSolve: pimcSolve && solve,
-    pimcMaxCards: pimcMaxCards,
-  );
+  EndgameSearch search({required final bool solve, required final bool pimc}) =>
+      EndgameSearch(
+        worlds: endgameWorlds,
+        maxCards: endgameMaxCards,
+        margin: endgameMargin,
+        maxActions: endgameMaxActions,
+        solveOneOnOne: solve,
+        solveBudget: solveBudget,
+        solveMaxCards: solveMaxCards,
+        pimcSolve: pimc && solve,
+        pimcMaxCards: pimcMaxCards,
+      );
   return _HeadlessConfig(
-    endgameSearch: endgameSearch ? search(solve: endgameSolve) : null,
+    endgameSearch: endgameSearch
+        ? search(solve: endgameSolve, pimc: pimcSolve)
+        : null,
     opponentEndgameSearch: opponentEndgameSearch
-        ? search(solve: opponentEndgameSolve)
+        ? search(solve: opponentEndgameSolve, pimc: opponentPimcSolve)
         : null,
     seed: seed,
     targetScore: targetScore,

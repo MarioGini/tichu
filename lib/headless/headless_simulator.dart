@@ -102,6 +102,10 @@ class _HeadlessSimulator {
   final double schupfRolloutRate;
   final int schupfCandidates;
 
+  /// Write a compact record of every round (`--record-games`, bc-jsonl).
+  final bool recordGames;
+  _GameRecorder? _recorder;
+
   /// Schupf labels draw candidates from the extended set.
   final bool schupfExtended;
   late final List<Map<String, SmartAiAgent>> _variantAgents = [
@@ -155,6 +159,7 @@ class _HeadlessSimulator {
     this.shadowVariants = const [],
     this.schupfRolloutRate = 0,
     this.schupfCandidates = 16,
+    this.recordGames = false,
     this.schupfExtended = false,
     this.pimcWorlds = 0,
     this.endgameSearcher,
@@ -250,6 +255,9 @@ class _HeadlessSimulator {
       targetScore: targetScore,
     );
     engine.startGame(state);
+    _recorder = recordGames && outputFormat == _HeadlessOutputFormat.bcJsonl
+        ? (_GameRecorder()..startRound(state))
+        : null;
 
     final csvWriter =
         outputFormat == _HeadlessOutputFormat.csv && output != null
@@ -282,6 +290,7 @@ class _HeadlessSimulator {
 
       if (snapshot.scoreState.roundComplete) {
         engine.startNewRound(state);
+        _recorder?.startRound(state);
         snapshot = engine.buildSnapshot(state);
         csvWriter?.processSnapshot(snapshot);
         continue;
@@ -361,6 +370,7 @@ class _HeadlessSimulator {
       final variants = rollouts != null && shadowVariants.isNotEmpty
           ? await _variantTurns(snapshot, action.playerId)
           : null;
+      bcWriter?.step = _recorder?.step;
       final appliedAction = _applyActionWithRecovery(
         engine: engine,
         state: state,
@@ -368,6 +378,7 @@ class _HeadlessSimulator {
         selectedAction: action,
       );
       steps++;
+      _recorder?.add(state, appliedAction);
 
       if (appliedAction is PlayTurnAction || appliedAction is PassAction) {
         csvWriter?.emitOpponentAction(snapshot: before, action: appliedAction);
@@ -392,6 +403,12 @@ class _HeadlessSimulator {
       if (!before.scoreState.roundComplete &&
           snapshot.scoreState.roundComplete) {
         completedRounds++;
+        final recorder = _recorder;
+        if (recorder != null) {
+          bcWriter?.output.writeln(
+            jsonEncode(recorder.record(episodeNumber, snapshot)),
+          );
+        }
         bcWriter?.emitRoundEnd(snapshot, cardsLeftAtFirstOut: _cardsAtFirstOut);
         _cardsAtFirstOut = null;
       } else if (_cardsAtFirstOut == null &&

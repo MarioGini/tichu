@@ -34,6 +34,7 @@ class _HeadlessConfig {
   final bool opponentSchupfExtended;
   final bool schupfLabelExtended;
   final String? beliefNetPath;
+  final bool recordGames;
   final double schupfEpsilon;
   final bool shadowHeuristic;
   final bool skipPlayRows;
@@ -93,6 +94,7 @@ class _HeadlessConfig {
     required this.opponentSchupfExtended,
     required this.schupfLabelExtended,
     required this.beliefNetPath,
+    required this.recordGames,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
     required this.skipPlayRows,
@@ -183,6 +185,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   var pimcSolve = false;
   var opponentPimcSolve = false;
   String? beliefNetPath;
+  var recordGames = false;
   var endgameBelief = false;
   var opponentEndgameBelief = false;
   var pimcMaxCards = 12;
@@ -378,6 +381,10 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     }
     if (arg.startsWith('--belief-net=')) {
       beliefNetPath = arg.substring('--belief-net='.length);
+      continue;
+    }
+    if (arg == '--record-games') {
+      recordGames = true;
       continue;
     }
     if (arg == '--endgame-belief') {
@@ -589,6 +596,7 @@ _HeadlessConfig _parseArgs(final List<String> args) {
     opponentSchupfExtended: opponentSchupfExtended,
     schupfLabelExtended: schupfLabelExtended,
     beliefNetPath: beliefNetPath,
+    recordGames: recordGames,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
     skipPlayRows: skipPlayRows,
@@ -654,6 +662,9 @@ void _printUsage() {
   stdout.writeln(
     '       [--belief-net=..] [--endgame-belief] [--opponent-endgame-belief]  '
     '(search worlds from the card-location model)',
+  );
+  stdout.writeln(
+    '       [--record-games]  (bc-jsonl: a replayable record of every round)',
   );
   stdout.writeln(
     '       [--lead-rollout-rate=p] [--lead-worlds=K]  (leads: own rate / worlds)',

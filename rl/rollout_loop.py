@@ -98,7 +98,7 @@ def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str
     jsonl = out.with_suffix(".jsonl")
     t0 = time.time()
     run_headless_sharded(
-        base_args=["--format=bc-jsonl", *args],
+        base_args=["--format=bc-jsonl", "--record-games", *args],
         seed=seed,
         episodes=episodes,
         output_path=jsonl,
@@ -109,6 +109,16 @@ def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str
     data = load([jsonl])
     tmp = out.with_suffix(".tmp.npz")
     save_npz(data, tmp)
+    # The replayable game records (deal + every action of every round) go
+    # next to the cache: any future feature can be rebuilt from them.
+    import lzma
+
+    games = out.with_suffix(".games.jsonl.xz")
+    with jsonl.open("r", encoding="utf-8") as fh, lzma.open(games.with_suffix(".tmp"), "wt") as gz:
+        for line in fh:
+            if '"game_record"' in line:
+                gz.write(line)
+    games.with_suffix(".tmp").rename(games)
     tmp.rename(out)
     jsonl.unlink()
     last_generated[0] = out
@@ -122,6 +132,9 @@ def upload(path: Path | None, run: str, policy: Path) -> None:
         from training_data_store import upload_file
 
         upload_file(path, run=run, policy=policy)
+        games = path.with_suffix(".games.jsonl.xz")  # replayable game records
+        if games.exists():
+            upload_file(games, run=run)
     except Exception as e:  # noqa: BLE001 - storage must never stop training
         print(f"   upload of {path.name} failed: {e}", flush=True)
 

@@ -60,7 +60,7 @@ class RolloutData:
     row per action, so millions of decisions fit in memory.
     """
 
-    def __init__(self, s, a, q, starts, chosen, explore, game, weight):
+    def __init__(self, s, a, q, starts, chosen, explore, game, weight, pos=None):
         self.s = s  # (D, ACTION_OFFSET) float16
         self.a = a  # (rows, ACTION_FEATURE_COUNT) float16
         self.q = q  # (rows,) round point difference / SCALE
@@ -69,6 +69,10 @@ class RolloutData:
         self.explore = explore  # (D,) bool
         self.game = game  # (D,) long, match id (unique across files)
         self.weight = weight  # (D,) float32 loss weight (recency of the data)
+        # (D, 2) int32 (round, step) of each decision in its match's game
+        # record (--record-games), -1 when the data has none: the position
+        # can be rebuilt by replay (lib/headless/replay_game_records.dart).
+        self.pos = pos
 
     @property
     def num_decisions(self) -> int:
@@ -79,7 +83,7 @@ class RolloutData:
 
 
 def _parse_jsonl(path: Path, max_decisions: int):
-    ss, aa, qs, lens, chosen, explore, games = [], [], [], [], [], [], []
+    ss, aa, qs, lens, chosen, explore, games, pos = [], [], [], [], [], [], [], []
     with path.open("r", encoding="utf-8") as fh:
         for line in fh:
             if '"q_rollout"' not in line:
@@ -106,6 +110,7 @@ def _parse_jsonl(path: Path, max_decisions: int):
             chosen.append(keep.index(c) if c in keep else -1)
             explore.append(bool(row.get("explore")))
             games.append(int(row.get("episode", 0)))
+            pos.append((int(row.get("round", -1)), int(row.get("step", -1))))
             lens.append(len(keep))
             if max_decisions and len(lens) >= max_decisions:
                 break
@@ -121,6 +126,7 @@ def _parse_jsonl(path: Path, max_decisions: int):
         "chosen": ch,
         "explore": np.asarray(explore, dtype=bool),
         "game": np.asarray(games, dtype=np.int64),
+        "pos": np.asarray(pos, dtype=np.int32).reshape(-1, 2),
     }
     d, notes = upgrade(d)
     for n in notes:
@@ -196,7 +202,7 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
     s_all = np.empty((n_dec, ACTION_OFFSET), np.float16)
     a_all = np.empty((n_rows, ACTION_FEATURE_COUNT), np.float16)
     q_all = np.empty(n_rows, np.float32)
-    starts, chosen, games, weights, explore = [np.zeros(1, dtype=np.int64)], [], [], [], []
+    starts, chosen, games, weights, explore, pos = [np.zeros(1, dtype=np.int64)], [], [], [], [], []
     cursor = game_cursor = dec = 0
     for (kind, m), p, it in zip(meta, paths, its):
         if kind == "npz":
@@ -210,6 +216,7 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
         starts.append(d["starts"][1:] + cursor)
         chosen.append(np.where(d["chosen"] >= 0, d["chosen"] + cursor, -1))
         explore.append(d["explore"])
+        pos.append(d["pos"] if "pos" in d else np.full((k, 2), -1, np.int32))
         g = np.unique(d["game"], return_inverse=True)[1].astype(np.int64)
         games.append(g + game_cursor)
         game_cursor += int(g.max()) + 1 if g.size else 0
@@ -230,6 +237,7 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
         torch.from_numpy(np.concatenate(explore)),
         torch.from_numpy(np.concatenate(games)),
         torch.from_numpy(np.concatenate(weights)),
+        torch.from_numpy(np.concatenate(pos)) if pos else None,
     )
 
 
@@ -249,6 +257,7 @@ def save_npz(data: RolloutData, path: Path) -> None:
         explore=data.explore.numpy(),
         game=data.game.numpy().astype(np.int32),
         schema_version=np.int16(SPEC.version),
+        **({"pos": data.pos.numpy().astype(np.int32)} if data.pos is not None else {}),
     )
 
 

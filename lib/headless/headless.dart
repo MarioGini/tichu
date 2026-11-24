@@ -35,6 +35,7 @@ part 'headless_args.dart';
 part 'csv_event_writer.dart';
 part 'headless_decisions.dart';
 part 'headless_exploration.dart';
+part 'headless_game_records.dart';
 part 'headless_legality.dart';
 part 'headless_rollouts.dart';
 part 'headless_schupf_labels.dart';
@@ -156,6 +157,7 @@ Future<void> main(final List<String> args) async {
     shadowVariants: config.shadowVariants,
     schupfRolloutRate: config.schupfRolloutRate,
     schupfCandidates: config.schupfCandidates,
+    recordGames: config.recordGames,
     schupfExtended: config.schupfExtended || config.schupfLabelExtended,
     pimcWorlds: config.pimcWorlds,
     endgameSearcher:

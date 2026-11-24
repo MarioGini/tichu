@@ -28,6 +28,10 @@ class _BcTransitionWriter {
   final IOSink output;
   final int episode;
 
+  /// Index of the next action in this round's game record
+  /// (`--record-games`); written on play rows as `step`.
+  int? step;
+
   _BcTransitionWriter({required this.output, required this.episode});
 
   /// One row per explored/logged Tichu or Grand Tichu decision:
@@ -310,6 +314,7 @@ class _BcTransitionWriter {
     final record = <String, Object?>{
       'episode': episode,
       'round': before.scoreState.roundNumber,
+      'step': ?step,
       'team': actorTeam,
       if (explored) 'explore': true,
       'state_features': stateFeatures,

@@ -966,6 +966,30 @@ Against the previous shipped bot (v7 + schupf v3), duplicate, fresh deals:
 | v8 it5 + schupf v4 | none | 63.6 % ± 0.9 |
 | v8 it4 + schupf v4 | both sides | 58.6 % ± 1.0 |
 
+## Data format: always the latest layout, never missing information
+
+Rules (2026-11-24, after v9 stalled on its own small data and v10 took off
+once all old data was rebuilt):
+
+* **Every cache is loaded in the current feature layout.** Caches record
+  `schema_version`; `rl/data_upgrade.py` pads missing groups and computes
+  the ones that are a function of older features (`UPGRADES`, e.g. the v9
+  beatability). Groups that cannot be recovered are listed in
+  `UNRECOVERABLE` and reported on load (today: the v8 `passed` group for
+  pre-v8 data). `rl/rebuild_v9.py` rewrites caches on disk the same way.
+* **When you add features**, add an upgrade function if they follow from
+  existing features, or list them as unrecoverable. Never train new inputs
+  on fresh data alone: one iteration (~0.4M decisions) cannot move a net
+  trained on millions.
+* **Every new data run records its games.** `headless --record-games`
+  writes one bc-jsonl row per round with the deal (all 14 cards per seat)
+  and every action; play rows carry `round` / `step`, kept in the caches as
+  `pos`. `rollout_loop.py` stores them as `<file>.games.jsonl.xz` next to
+  each cache and uploads both. `lib/headless/replay_game_records.dart`
+  replays them in the engine: identical state features for every logged
+  decision and the recorded round results (checked on 372 decisions / 28
+  rounds), so any future feature can be computed for this data.
+
 ## Next steps
 
 The review of 2026-11-20 (`rl/REVIEW.md`) measures the label noise, lists

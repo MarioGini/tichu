@@ -6,6 +6,7 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/record/game_record.dart';
 import 'package:tichu/game/record/game_record_store.dart';
+import 'package:tichu/game/record/round_log.dart';
 import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -138,6 +139,15 @@ class RecordingGameEngine implements GameEngine {
     if (record == null) return;
     final round = state.scoreTracker.state.roundNumber;
     record.roundsPlayed = round;
+    final log = RoundLog(round: round);
+    for (final p in state.players) {
+      final seat = _seatOf(record, p.id);
+      log.firstCards[seat].addAll(state.hands[p.id] ?? const <Card>[]);
+      if (state.phase != GamePhase.grandTichu) {
+        log.fullHands[seat].addAll(state.hands[p.id] ?? const <Card>[]);
+      }
+    }
+    record.roundLogs.add(log);
     record.add(
       round: round,
       kind: 'deal',
@@ -158,9 +168,12 @@ class RecordingGameEngine implements GameEngine {
     final round = before.round;
     final who = record.nameOf(action.playerId);
     final hand = before.actorHand;
+    final seat = _seatOf(record, action.playerId);
+    final log = record.roundLogs.isNotEmpty ? record.roundLogs.last : null;
 
     switch (action) {
       case GrandTichuDecisionAction(:final call):
+        if (call) log?.addGrandTichu(seat);
         record.add(
           round: round,
           kind: 'grandTichu',
@@ -169,6 +182,7 @@ class RecordingGameEngine implements GameEngine {
           data: {'call': call, 'hand': cardLabels(hand)},
         );
       case CallGrandTichuAction():
+        log?.addGrandTichu(seat);
         record.add(
           round: round,
           kind: 'grandTichu',
@@ -179,6 +193,11 @@ class RecordingGameEngine implements GameEngine {
       case CallTichuAction():
         if (before.tichuCalls[action.playerId] !=
             state.scoreTracker.state.tichuCalls[action.playerId]) {
+          if (before.phase == GamePhase.play) {
+            log?.addTichuDuringPlay(seat);
+          } else {
+            log?.addCall(seat, grand: false);
+          }
           record.add(
             round: round,
             kind: 'tichu',
@@ -194,7 +213,12 @@ class RecordingGameEngine implements GameEngine {
             state.schupfSelections[action.playerId] ??
             state.completedSchupfSelections[action.playerId] ??
             action;
-        final seat = _seatOf(record, action.playerId);
+        log?.addSchupf(
+          seat,
+          selection.toLeft,
+          selection.toPartner,
+          selection.toRight,
+        );
         final left = record.playerAtSeat((seat + 1) % 4);
         final partner = record.playerAtSeat((seat + 2) % 4);
         final right = record.playerAtSeat((seat + 3) % 4);
@@ -224,6 +248,16 @@ class RecordingGameEngine implements GameEngine {
             ? state.lastPlayedTurn
             : null;
         final type = turn?.type ?? before.onTableType;
+        // The engine's copy of the play carries the Phoenix's value.
+        final played = turn != null && turn.cards.length == cards.length
+            ? turn.cards
+            : cards;
+        log?.addPlay(
+          seat,
+          played,
+          wish: inputWish,
+          outOfTurn: before.currentSeat != seat,
+        );
         final lead = before.onTableBy == null;
         final hasMahJong = cards.any((final c) => c.face == CardFace.mahJong);
         final wish = inputWish != CardFace.none
@@ -236,9 +270,7 @@ class RecordingGameEngine implements GameEngine {
             : "plays on ${record.nameOf(before.onTableBy)}'s "
                   '${before.onTableText}';
         final isDog = cards.length == 1 && cards.first.face == CardFace.dog;
-        final partner = record.playerAtSeat(
-          (_seatOf(record, action.playerId) + 2) % 4,
-        );
+        final partner = record.playerAtSeat((seat + 2) % 4);
         record.add(
           round: round,
           kind: 'play',
@@ -260,6 +292,7 @@ class RecordingGameEngine implements GameEngine {
           },
         );
       case PassAction():
+        log?.addPass(seat);
         record.add(
           round: round,
           kind: 'pass',
@@ -276,6 +309,10 @@ class RecordingGameEngine implements GameEngine {
           },
         );
       case GiveDragonAction(:final targetPlayerId):
+        log?.addDragonGift(
+          seat,
+          toLeft: _seatOf(record, targetPlayerId) == (seat + 1) % 4,
+        );
         record.add(
           round: round,
           kind: 'dragon',
@@ -347,6 +384,17 @@ class RecordingGameEngine implements GameEngine {
       );
     }
 
+    if (before.phase != state.phase &&
+        state.phase == GamePhase.schupf &&
+        record.roundLogs.isNotEmpty) {
+      final log = record.roundLogs.last;
+      for (final p in state.players) {
+        final seat = _seatOf(record, p.id);
+        log.fullHands[seat]
+          ..clear()
+          ..addAll(state.hands[p.id] ?? const <Card>[]);
+      }
+    }
     if (before.phase != state.phase) {
       final label = switch (state.phase) {
         GamePhase.schupf => 'Full hands (14 cards), before the schupf',
@@ -493,6 +541,7 @@ class _Before {
     required this.cardCounts,
     required this.pendingDragonGiveBy,
     required this.pendingDragonPoints,
+    required this.currentSeat,
   });
 
   factory _Before.capture(final GameEngineState state, final String actorId) {
@@ -520,6 +569,7 @@ class _Before {
       },
       pendingDragonGiveBy: state.pendingDragonGiveBy,
       pendingDragonPoints: pointsForCards(state.pendingDragonTrickCards),
+      currentSeat: state.players[state.currentPlayerIndex].seat,
     );
   }
 
@@ -537,6 +587,9 @@ class _Before {
   final Map<String, int> cardCounts;
   final String? pendingDragonGiveBy;
   final int pendingDragonPoints;
+
+  /// Seat whose turn it was (a bomb by another seat is out of turn).
+  final int currentSeat;
 
   String get onTableText =>
       '${_typeLabel(onTableType)} ${cardLabels(onTableCards).join(' ')}';

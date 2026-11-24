@@ -1,10 +1,13 @@
 import 'dart:math';
 
 import 'package:tichu/game/game_types.dart';
+import 'package:tichu/game/record/round_log.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-/// Version of the JSON layout written by [GameRecord.toJson].
-const int gameRecordFormatVersion = 1;
+/// Version of the JSON layout written by [GameRecord.toJson]: 3 stores one
+/// [RoundLog] string per round (initial cards and move order); 1 stored
+/// the full event list.
+const int gameRecordFormatVersion = 3;
 
 /// Random (version 4) UUID, used as game id and record id.
 String generateUuidV4([final Random? random]) {
@@ -146,7 +149,17 @@ class GameRecord {
   final String? botDescription;
   final DateTime createdAt;
   DateTime updatedAt;
+
+  /// Detailed timeline, kept in memory for the app (observe mode, tests);
+  /// not stored.
   final List<GameRecordEvent> events = [];
+
+  /// Compact per-round logs: the stored form of the game.
+  final List<RoundLog> roundLogs = [];
+
+  /// Actions recorded so far; numbers moves as the viewer tool does.
+  int get actionCount =>
+      roundLogs.fold(0, (final n, final r) => n + r.actionCount);
 
   int teamOneTotal = 0;
   int teamTwoTotal = 0;
@@ -211,9 +224,7 @@ class GameRecord {
     ...summaryJson(),
     'targetScore': targetScore,
     'bots': ?botDescription,
-    'cardNotation':
-        'rank + colour letter (g=green, b=blue, k=black, r=red); '
-        'specials: Dragon, Phoenix, Dog, MahJong',
+    'notation': 'lib/game/record/round_log.dart',
     'teams': {
       'teamOne': [
         for (final p in players)
@@ -228,6 +239,6 @@ class GameRecord {
       for (final p in players)
         {'id': p.id, 'name': p.name, 'seat': p.seat, 'type': p.type.name},
     ],
-    'events': [for (final e in events) e.toJson()],
+    'log': [for (final r in roundLogs) r.encode()],
   };
 }

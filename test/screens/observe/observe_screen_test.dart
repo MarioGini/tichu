@@ -103,7 +103,7 @@ void main() {
   ) async {
     final controller = await _pumpObserve(tester, const Size(1280, 800));
     expect(
-      find.textContaining('#${controller.record!.events.length + 1}'),
+      find.textContaining('#${controller.record!.actionCount + 1}'),
       findsOneWidget,
     );
 

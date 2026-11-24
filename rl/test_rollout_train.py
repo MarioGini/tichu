@@ -22,6 +22,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from qnet import QNetwork, export_safetensors, load_qnetwork_from_safetensors  # noqa: E402
+from data_upgrade import BEAT  # noqa: E402
 from rollout_train import evaluate, load, save_npz  # noqa: E402
 from schema import (  # noqa: E402
     ACTION_FEATURE_COUNT,
@@ -130,7 +131,9 @@ def check_legacy_layouts() -> None:
             assert data.s.shape == (3, STATE_FEATURE_COUNT), data.s.shape
             assert data.a.shape == (6, ACTION_FEATURE_COUNT), data.a.shape
             assert float(data.s[:, prefix:].abs().sum()) == 0.0
-            assert float(data.a[:, na:].abs().sum()) == 0.0
+            # Groups the layout lacks are 0, except those data_upgrade can
+            # compute from the old features (v9 beatability, columns 54..57).
+            assert float(data.a[:, na:BEAT].abs().sum()) == 0.0 if na < BEAT else True
             s0 = torch.tensor(rows[0]["state_features"], dtype=torch.float16)
             assert torch.equal(data.s[0, :prefix], s0)
 

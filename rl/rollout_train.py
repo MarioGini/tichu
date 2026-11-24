@@ -39,7 +39,8 @@ from qnet import (
     load_qnetwork_from_safetensors,
     select_device,
 )
-from schema import ACTION_FEATURE_COUNT, ACTION_OFFSET, LEGACY_ACTION_FEATURE_COUNT, TOTAL_FEATURE_COUNT, pad_action, pad_state
+from data_upgrade import upgrade
+from schema import SPEC, ACTION_FEATURE_COUNT, ACTION_OFFSET, LEGACY_ACTION_FEATURE_COUNT, TOTAL_FEATURE_COUNT, pad_action, pad_state
 
 SCALE = 100.0
 HAND_OFFSET = 0
@@ -99,7 +100,7 @@ def _parse_jsonl(path: Path, max_decisions: int):
                 continue
             ss.append(np.asarray(row["state_features"], dtype=np.float16))
             # Rows of an older layout (51 action features): padded below.
-            aa.append(pad_action(np.asarray(row["legal_play_action_features"], dtype=np.float16)[keep]))
+            aa.append(np.asarray(row["legal_play_action_features"], dtype=np.float16)[keep])
             qs.append(np.asarray([q[i] for i in keep], dtype=np.float32) / SCALE)
             c = int(row["legal_play_chosen_index"])
             chosen.append(keep.index(c) if c in keep else -1)
@@ -112,8 +113,8 @@ def _parse_jsonl(path: Path, max_decisions: int):
     np.cumsum(lens, out=starts[1:])
     ch = np.asarray(chosen, dtype=np.int64)
     ch = np.where(ch >= 0, starts[:-1] + ch, -1)
-    return {
-        "s": pad_state(np.stack(ss)),
+    d = {
+        "s": np.stack(ss),
         "a": np.concatenate(aa),
         "q": np.concatenate(qs),
         "starts": starts,
@@ -121,6 +122,14 @@ def _parse_jsonl(path: Path, max_decisions: int):
         "explore": np.asarray(explore, dtype=bool),
         "game": np.asarray(games, dtype=np.int64),
     }
+    d, notes = upgrade(d)
+    for n in notes:
+        _MISSING.setdefault(n, []).append(path.name)
+    return d
+
+
+# Unrecoverable feature groups seen while loading -> file names (reported once).
+_MISSING: dict[str, list[str]] = {}
 
 
 def _read_npz(path: Path) -> dict:
@@ -139,8 +148,9 @@ def _read_npz(path: Path) -> dict:
             "chosen": d["chosen"],
             "explore": d["explore"],
         }
-    d["s"] = pad_state(d["s"])
-    d["a"] = pad_action(d["a"])
+    d, notes = upgrade(d)
+    for n in notes:
+        _MISSING.setdefault(n, []).append(path.name)
     if "game" not in d:
         d["game"] = np.arange(len(d["chosen"]), dtype=np.int64) // OLD_CACHE_GAME_BLOCK
     return d
@@ -208,6 +218,9 @@ def load(paths: list[Path], *, max_decisions: int = 0, recency: float = 1.0) -> 
         cursor += r
         dec += k
         del d
+    for what, names in _MISSING.items():
+        print(f"  note: {len(names)} file(s) predate the features '{what}' (zeros)", flush=True)
+    _MISSING.clear()
     return RolloutData(
         torch.from_numpy(s_all),
         torch.from_numpy(a_all),
@@ -235,6 +248,7 @@ def save_npz(data: RolloutData, path: Path) -> None:
         chosen=data.chosen.numpy(),
         explore=data.explore.numpy(),
         game=data.game.numpy().astype(np.int32),
+        schema_version=np.int16(SPEC.version),
     )
 
 

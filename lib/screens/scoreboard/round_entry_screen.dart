@@ -308,7 +308,6 @@ class _CardPointsSection extends StatelessWidget {
                   (ScoreboardRound.maxCardPoints -
                       ScoreboardRound.minCardPoints) ~/
                   5,
-              label: '$a : ${100 - a}',
               activeColor: scoreboardTeamColors[0],
               inactiveColor: scoreboardTeamColors[1].withValues(alpha: 0.6),
               onChanged: (final v) => onChanged(v.round()),

@@ -367,20 +367,27 @@ class _ScoreSheet extends StatelessWidget {
                 ),
               ),
             )
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              itemCount: game.rounds.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 6),
-              itemBuilder: (_, final i) {
-                // Newest round first.
-                final index = game.rounds.length - 1 - i;
-                return _RoundRow(
-                  number: index + 1,
-                  round: game.rounds[index],
-                  totals: totals[index],
-                  onTap: () => onEditRound(index),
-                );
-              },
+          // Oldest round on top, newest at the bottom. Reversed and
+          // shrink-wrapped so a long sheet stays scrolled to the newest
+          // round while a short one still starts at the top.
+          : Align(
+              alignment: Alignment.topCenter,
+              child: ListView.separated(
+                reverse: true,
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                itemCount: game.rounds.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 6),
+                itemBuilder: (_, final i) {
+                  final index = game.rounds.length - 1 - i;
+                  return _RoundRow(
+                    number: index + 1,
+                    round: game.rounds[index],
+                    totals: totals[index],
+                    onTap: () => onEditRound(index),
+                  );
+                },
+              ),
             ),
     );
     final addButton = Padding(

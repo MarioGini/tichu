@@ -28,7 +28,7 @@ class PendingPlaySlot extends StatelessWidget {
   final String? label;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     if (cards.isEmpty || isPassed) {
       return const SizedBox.expand();
     }
@@ -41,10 +41,8 @@ class PendingPlaySlot extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Colors.white70,
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: Colors.white70, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 2),
           Expanded(
@@ -59,7 +57,7 @@ class PendingPlaySlot extends StatelessWidget {
     }
 
     return LayoutBuilder(
-      builder: (final context, final constraints) {
+      builder: (context, constraints) {
         final maxHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : CardWidget.normalHeight;
@@ -102,7 +100,7 @@ class PendingPlaySlot extends StatelessWidget {
                 spacing: spacing,
                 minVisible: minVisible,
                 height: rowHeight,
-                itemBuilder: (final context, final index) => CardWidget(
+                itemBuilder: (context, index) => CardWidget(
                   card: cards[index],
                   isSelected: false,
                   scale: scale,

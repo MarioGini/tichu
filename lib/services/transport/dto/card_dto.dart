@@ -17,20 +17,19 @@ class GamePlayerDto {
     required this.type,
   });
 
-  factory GamePlayerDto.fromDomain(final GamePlayer player) => GamePlayerDto(
+  factory GamePlayerDto.fromDomain(GamePlayer player) => GamePlayerDto(
     id: player.id,
     name: player.name,
     seat: player.seat,
     type: player.type.name,
   );
 
-  factory GamePlayerDto.fromJson(final Map<String, dynamic> json) =>
-      GamePlayerDto(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        seat: (json['seat'] as num).toInt(),
-        type: json['type'] as String,
-      );
+  factory GamePlayerDto.fromJson(Map<String, dynamic> json) => GamePlayerDto(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    seat: (json['seat'] as num).toInt(),
+    type: json['type'] as String,
+  );
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -59,14 +58,14 @@ class SchupfReceiptDto {
     required this.direction,
   });
 
-  factory SchupfReceiptDto.fromDomain(final SchupfReceipt receipt) =>
+  factory SchupfReceiptDto.fromDomain(SchupfReceipt receipt) =>
       SchupfReceiptDto(
         card: CardDto.fromDomain(receipt.card),
         fromPlayerId: receipt.fromPlayerId,
         direction: receipt.direction.name,
       );
 
-  factory SchupfReceiptDto.fromJson(final Map<String, dynamic> json) =>
+  factory SchupfReceiptDto.fromJson(Map<String, dynamic> json) =>
       SchupfReceiptDto(
         card: CardDto.fromJson(Map<String, dynamic>.from(json['card'] as Map)),
         fromPlayerId: json['fromPlayerId'] as String,
@@ -94,10 +93,10 @@ class CardDto {
 
   const CardDto({required this.face, required this.color, required this.value});
 
-  factory CardDto.fromDomain(final Card card) =>
+  factory CardDto.fromDomain(Card card) =>
       CardDto(face: card.face.name, color: card.color.name, value: card.value);
 
-  factory CardDto.fromJson(final Map<String, dynamic> json) => CardDto(
+  factory CardDto.fromJson(Map<String, dynamic> json) => CardDto(
     face: json['face'] as String,
     color: json['color'] as String,
     value: (json['value'] as num).toDouble(),
@@ -126,16 +125,15 @@ class TichuTurnDto {
 
   const TichuTurnDto({required this.type, required this.cards});
 
-  factory TichuTurnDto.fromDomain(final TichuTurn turn) => TichuTurnDto(
+  factory TichuTurnDto.fromDomain(TichuTurn turn) => TichuTurnDto(
     type: turn.type.name,
     cards: [for (final card in turn.cards) CardDto.fromDomain(card)],
   );
 
-  factory TichuTurnDto.fromJson(final Map<String, dynamic> json) =>
-      TichuTurnDto(
-        type: json['type'] as String,
-        cards: decodeMapList(json['cards']).map(CardDto.fromJson).toList(),
-      );
+  factory TichuTurnDto.fromJson(Map<String, dynamic> json) => TichuTurnDto(
+    type: json['type'] as String,
+    cards: decodeMapList(json['cards']).map(CardDto.fromJson).toList(),
+  );
 
   Map<String, dynamic> toJson() => {
     'type': type,
@@ -161,16 +159,14 @@ class DeckStateDto {
     required this.cardStack,
   });
 
-  factory DeckStateDto.fromDomain(final DeckState state) => DeckStateDto(
+  factory DeckStateDto.fromDomain(DeckState state) => DeckStateDto(
     turn: TichuTurnDto.fromDomain(state.turn),
     wish: state.wish.name,
     currentWinner: state.currentWinner,
     cardStack: [for (final card in state.cardStack) CardDto.fromDomain(card)],
   );
 
-  factory DeckStateDto.fromJson(
-    final Map<String, dynamic> json,
-  ) => DeckStateDto(
+  factory DeckStateDto.fromJson(Map<String, dynamic> json) => DeckStateDto(
     turn: TichuTurnDto.fromJson(Map<String, dynamic>.from(json['turn'] as Map)),
     wish: json['wish'] as String,
     currentWinner: json['currentWinner'] as String? ?? '',

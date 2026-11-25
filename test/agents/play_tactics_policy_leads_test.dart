@@ -46,38 +46,35 @@ void main() {
       },
     );
 
-    test(
-      'selectPartnerSupportPass returns null when partner call owner is already finished',
-      () {
-        final deckTurn = TichuTurn(TurnType.single, [
-          Card(CardFace.five, CardColor.red),
-        ]);
-        final deck = DeckState(deckTurn, CardFace.none)
-          ..currentWinner = aiTestLeftId;
-        final snapshot = aiSnapshot(
-          myHand: [Card(CardFace.six, CardColor.blue)],
-          deck: deck,
-          tichuCalls: {aiTestPartnerId: TichuCall.tichu},
-          otherHands: {
-            aiTestLeftId: aiDefaultHand(),
-            aiTestPartnerId: const <Card>[],
-            aiTestRightId: aiDefaultHand(),
-          },
-          lastPlayedBy: aiTestLeftId,
-          lastPlayedTurn: deckTurn,
-        );
+    test('selectPartnerSupportPass returns null when partner call owner is already finished', () {
+      final deckTurn = TichuTurn(TurnType.single, [
+        Card(CardFace.five, CardColor.red),
+      ]);
+      final deck = DeckState(deckTurn, CardFace.none)
+        ..currentWinner = aiTestLeftId;
+      final snapshot = aiSnapshot(
+        myHand: [Card(CardFace.six, CardColor.blue)],
+        deck: deck,
+        tichuCalls: {aiTestPartnerId: TichuCall.tichu},
+        otherHands: {
+          aiTestLeftId: aiDefaultHand(),
+          aiTestPartnerId: const <Card>[],
+          aiTestRightId: aiDefaultHand(),
+        },
+        lastPlayedBy: aiTestLeftId,
+        lastPlayedTurn: deckTurn,
+      );
 
-        final pass = policy.selectPartnerSupportPass(
-          playerId: aiTestSelfId,
-          snapshot: snapshot,
-          deck: deck,
-          hand: snapshot.hands[aiTestSelfId]!,
-          table: TableRelationships(snapshot, aiTestSelfId),
-        );
+      final pass = policy.selectPartnerSupportPass(
+        playerId: aiTestSelfId,
+        snapshot: snapshot,
+        deck: deck,
+        hand: snapshot.hands[aiTestSelfId]!,
+        table: TableRelationships(snapshot, aiTestSelfId),
+      );
 
-        expect(pass, isNull);
-      },
-    );
+      expect(pass, isNull);
+    });
 
     test(
       'selectPartnerGrandTichuDogLead returns dog when leading after own win',

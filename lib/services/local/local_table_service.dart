@@ -48,12 +48,12 @@ class LocalGameTableService extends _LocalTableBase
   });
 
   @override
-  Future<GameSessionHandle> createLobby(final CreateGameLobbyRequest request) =>
+  Future<GameSessionHandle> createLobby(CreateGameLobbyRequest request) =>
       createLobbyForAuthUser(request);
 
   Future<GameSessionHandle> createLobbyForAuthUser(
-    final CreateGameLobbyRequest request, {
-    final String? authUserId,
+    CreateGameLobbyRequest request, {
+    String? authUserId,
   }) async {
     final decodedRequest = _roundTripCreateLobbyRequest(request);
     final lobbyId = 'local-lobby-${_nextLobbyId++}';
@@ -73,7 +73,7 @@ class LocalGameTableService extends _LocalTableBase
       participantsByPlayerId: {participant.playerId: participant},
       seats: List<_LocalSeatState>.generate(
         4,
-        (final index) => _LocalSeatState(seat: index),
+        (index) => _LocalSeatState(seat: index),
       ),
     );
 
@@ -104,12 +104,12 @@ class LocalGameTableService extends _LocalTableBase
   }
 
   @override
-  Future<GameSessionHandle> joinLobby(final JoinGameLobbyRequest request) =>
+  Future<GameSessionHandle> joinLobby(JoinGameLobbyRequest request) =>
       joinLobbyForAuthUser(request);
 
   Future<GameSessionHandle> joinLobbyForAuthUser(
-    final JoinGameLobbyRequest request, {
-    final String? authUserId,
+    JoinGameLobbyRequest request, {
+    String? authUserId,
   }) async {
     final decodedRequest = _roundTripJoinLobbyRequest(request);
     final lobbyId =
@@ -188,10 +188,7 @@ class LocalGameTableService extends _LocalTableBase
   }
 
   @override
-  Future<void> leaveLobby(
-    final String lobbyId, {
-    required final String accessToken,
-  }) async {
+  Future<void> leaveLobby(String lobbyId, {required String accessToken}) async {
     final lobby = _requireLobby(lobbyId);
     final participant = _requireParticipant(lobby, accessToken);
     if (lobby.matchId != null) {
@@ -213,8 +210,8 @@ class LocalGameTableService extends _LocalTableBase
 
   @override
   Future<void> sendHeartbeat(
-    final String lobbyId, {
-    required final String accessToken,
+    String lobbyId, {
+    required String accessToken,
   }) async {
     final lobby = _requireLobby(lobbyId);
     final participant = _requireParticipant(lobby, accessToken);

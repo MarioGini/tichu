@@ -6,9 +6,7 @@ void main() {
   // Regression: opening the on-screen keyboard shrinks the body below the
   // short-screen breakpoint, which switched layouts and rebuilt the name
   // field, dropping focus and closing the keyboard again.
-  testWidgets('name field keeps focus when the keyboard opens', (
-    final tester,
-  ) async {
+  testWidgets('name field keeps focus when the keyboard opens', (tester) async {
     tester.view
       ..physicalSize = const Size(412, 839) * 2
       ..devicePixelRatio = 2;

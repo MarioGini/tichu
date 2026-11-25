@@ -16,8 +16,8 @@ final GameEngine simulationEngine = GameEngineImpl();
 /// [agents]; returns team one's round points minus team two's, or null when
 /// the playout got stuck.
 Future<int?> playOutRound(
-  final GameEngineState fork,
-  final Map<String, PlayerAgent> agents,
+  GameEngineState fork,
+  Map<String, PlayerAgent> agents,
 ) async {
   for (var steps = 0; steps < 5000; steps++) {
     final score = fork.scoreTracker.state;

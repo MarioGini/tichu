@@ -6,15 +6,14 @@ import 'package:tichu/services/multiplayer/authority_state_store.dart';
 /// Postgres-backed [AuthorityStateStore] that persists lobby metadata and match
 /// action logs so the authority can recover active lobbies after a restart.
 class PostgresAuthorityStateStore implements AuthorityStateStore {
-  PostgresAuthorityStateStore({required final String databaseUrl})
-    : _databaseUrl = databaseUrl;
+  PostgresAuthorityStateStore({required this._databaseUrl});
 
   final String _databaseUrl;
 
   @override
   Future<void> saveLobbyState(
-    final String lobbyId,
-    final Map<String, dynamic> state,
+    String lobbyId,
+    Map<String, dynamic> state,
   ) async {
     final connection = await Connection.openFromUrl(_databaseUrl);
     try {
@@ -58,7 +57,7 @@ set state = excluded.state, updated_at = excluded.updated_at
   }
 
   @override
-  Future<void> deleteLobbyState(final String lobbyId) async {
+  Future<void> deleteLobbyState(String lobbyId) async {
     final connection = await Connection.openFromUrl(_databaseUrl);
     try {
       await connection.execute(
@@ -74,9 +73,9 @@ set state = excluded.state, updated_at = excluded.updated_at
 
   @override
   Future<void> appendAction(
-    final String matchId,
-    final String lobbyId,
-    final Map<String, dynamic> action,
+    String matchId,
+    String lobbyId,
+    Map<String, dynamic> action,
   ) async {
     final connection = await Connection.openFromUrl(_databaseUrl);
     try {
@@ -105,7 +104,7 @@ values (
   }
 
   @override
-  Future<List<Map<String, dynamic>>> loadActions(final String matchId) async {
+  Future<List<Map<String, dynamic>>> loadActions(String matchId) async {
     final connection = await Connection.openFromUrl(_databaseUrl);
     try {
       final result = await connection.execute(

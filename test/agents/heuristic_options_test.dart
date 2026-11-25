@@ -30,7 +30,7 @@ void main() {
 
   group('cheap_combos', () {
     // Opponent leads 4-4-T-T-T; we hold Q-Q-Q, A-A-A and 6-6.
-    Card c(final CardFace f, final CardColor color) => Card(f, color);
+    Card c(CardFace f, CardColor color) => Card(f, color);
     final hand = [
       c(CardFace.two, CardColor.red),
       c(CardFace.six, CardColor.red),
@@ -54,14 +54,14 @@ void main() {
       CardFace.none,
     )..currentWinner = leftId;
 
-    Future<List<CardFace>> played(final HeuristicOptions options) async {
+    Future<List<CardFace>> played(HeuristicOptions options) async {
       final action = await SmartAiAgent(
         aiId,
         options: options,
       ).selectTurn(aiSnapshot(myHand: hand, deck: trick()));
       expect(action, isA<PlayTurnAction>());
       return [for (final card in (action as PlayTurnAction).cards) card.face]
-        ..sort((final a, final b) => a.index.compareTo(b.index));
+        ..sort((a, b) => a.index.compareTo(b.index));
     }
 
     test('latest beats a full house with the cheapest full house', () async {
@@ -88,13 +88,13 @@ void main() {
         c(CardFace.jack, CardColor.blue),
         c(CardFace.ace, CardColor.red),
       ];
-      Future<List<CardFace>> lead(final HeuristicOptions options) async {
+      Future<List<CardFace>> lead(HeuristicOptions options) async {
         final action = await SmartAiAgent(
           aiId,
           options: options,
         ).selectTurn(aiSnapshot(myHand: leadHand));
         return [for (final card in (action as PlayTurnAction).cards) card.face]
-          ..sort((final a, final b) => a.index.compareTo(b.index));
+          ..sort((a, b) => a.index.compareTo(b.index));
       }
 
       expect(await lead(HeuristicOptions.latest), [

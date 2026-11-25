@@ -6,7 +6,7 @@ import 'package:tichu/widgets/overlapping_card_row.dart';
 
 void main() {
   testWidgets('single card scales down in narrow width without overflow', (
-    final tester,
+    tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -19,7 +19,7 @@ void main() {
               cardWidth: CardWidget.compactWidth,
               cardHeight: CardWidget.compactHeight,
               height: 70,
-              itemBuilder: (final context, final index) => CardWidget(
+              itemBuilder: (context, index) => CardWidget(
                 card: Card(CardFace.ace, CardColor.blue),
                 isSelected: false,
                 compact: true,

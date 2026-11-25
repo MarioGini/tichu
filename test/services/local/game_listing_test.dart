@@ -30,7 +30,7 @@ void main() {
       expect(games, hasLength(2));
 
       final publicGame = games.firstWhere(
-        (final g) => g.visibility == GameLobbyVisibility.public,
+        (g) => g.visibility == GameLobbyVisibility.public,
       );
       expect(publicGame.gameName, 'Fun Game');
       expect(publicGame.hostDisplayName, 'Host A');
@@ -38,7 +38,7 @@ void main() {
       expect(publicGame.totalSeats, 4);
 
       final privateGame = games.firstWhere(
-        (final g) => g.visibility == GameLobbyVisibility.private,
+        (g) => g.visibility == GameLobbyVisibility.private,
       );
       expect(privateGame.gameName, 'Secret Game');
     });

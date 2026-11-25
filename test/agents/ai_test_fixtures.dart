@@ -47,16 +47,16 @@ List<Card> aiDefaultHand() => [
 ];
 
 GameSnapshot aiSnapshot({
-  required final List<Card> myHand,
-  final DeckState? deck,
-  final Map<String, List<Card>>? otherHands,
-  final Map<String, TichuCall>? tichuCalls,
-  final Map<String, bool>? canCallTichuByPlayer,
-  final String? currentPlayerId,
-  final String? lastPlayedBy,
-  final TichuTurn? lastPlayedTurn,
-  final Map<String, List<SchupfReceipt>>? schupfReceipts,
-  final int roundNumber = 1,
+  required List<Card> myHand,
+  DeckState? deck,
+  Map<String, List<Card>>? otherHands,
+  Map<String, TichuCall>? tichuCalls,
+  Map<String, bool>? canCallTichuByPlayer,
+  String? currentPlayerId,
+  String? lastPlayedBy,
+  TichuTurn? lastPlayedTurn,
+  Map<String, List<SchupfReceipt>>? schupfReceipts,
+  int roundNumber = 1,
 }) {
   final hands = <String, List<Card>>{
     aiTestSelfId: myHand,

@@ -3,10 +3,10 @@ part of 'headless.dart';
 /// Applies actions and asserts they are legal (bots must never cheat).
 extension _Legality on _HeadlessSimulator {
   GameAction _applyActionWithRecovery({
-    required final GameEngine engine,
-    required final GameEngineState state,
-    required final GameSnapshot snapshot,
-    required final GameAction selectedAction,
+    required GameEngine engine,
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required GameAction selectedAction,
   }) {
     final normalizedSelectedAction = _normalizeActionForEngine(selectedAction);
     _assertActionLegal(snapshot: snapshot, action: normalizedSelectedAction);
@@ -14,7 +14,7 @@ extension _Legality on _HeadlessSimulator {
     return normalizedSelectedAction;
   }
 
-  GameAction _normalizeActionForEngine(final GameAction action) {
+  GameAction _normalizeActionForEngine(GameAction action) {
     if (action is PlayTurnAction) {
       return PlayTurnAction(
         playerId: action.playerId,
@@ -26,8 +26,8 @@ extension _Legality on _HeadlessSimulator {
   }
 
   void _assertActionLegal({
-    required final GameSnapshot snapshot,
-    required final GameAction action,
+    required GameSnapshot snapshot,
+    required GameAction action,
   }) {
     if (action is PlayTurnAction) {
       _assertPlayActionLegal(snapshot: snapshot, action: action);
@@ -39,8 +39,8 @@ extension _Legality on _HeadlessSimulator {
   }
 
   void _assertPlayActionLegal({
-    required final GameSnapshot snapshot,
-    required final PlayTurnAction action,
+    required GameSnapshot snapshot,
+    required PlayTurnAction action,
   }) {
     if (snapshot.phase != GamePhase.play) {
       throw StateError('Illegal play action outside play phase.');
@@ -74,8 +74,8 @@ extension _Legality on _HeadlessSimulator {
   }
 
   void _assertPassActionLegal({
-    required final GameSnapshot snapshot,
-    required final PassAction action,
+    required GameSnapshot snapshot,
+    required PassAction action,
   }) {
     if (snapshot.phase != GamePhase.play) {
       throw StateError('Illegal pass action outside play phase.');
@@ -93,12 +93,12 @@ extension _Legality on _HeadlessSimulator {
   }
 
   bool _handContainsAllCards({
-    required final List<Card> hand,
-    required final List<Card> cards,
+    required List<Card> hand,
+    required List<Card> cards,
   }) {
     final temp = List<Card>.from(hand);
     for (final card in cards) {
-      final index = temp.indexWhere((final candidate) {
+      final index = temp.indexWhere((candidate) {
         if (card.face == CardFace.phoenix) {
           return candidate.face == CardFace.phoenix;
         }
@@ -110,10 +110,7 @@ extension _Legality on _HeadlessSimulator {
     return true;
   }
 
-  bool _canPass({
-    required final GameSnapshot snapshot,
-    required final List<Card> hand,
-  }) {
+  bool _canPass({required GameSnapshot snapshot, required List<Card> hand}) {
     if (snapshot.deck.turn.type == TurnType.empty ||
         snapshot.deck.turn.type == TurnType.none) {
       return false;

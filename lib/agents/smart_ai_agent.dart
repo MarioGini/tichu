@@ -48,12 +48,12 @@ class SmartAiAgent extends PlayerAgent {
     this.playerId, {
     this.options = HeuristicOptions.latest,
     this.endgameSearch,
-    final TichuCallStrategy? tichuCallStrategy,
-    final SchupfStrategy? schupfStrategy,
-    final PlaySelectionStrategy? playSelectionStrategy,
-    final PlayTacticsPolicy? playTacticsPolicy,
-    final WishStrategy? wishStrategy,
-    final DragonGiveStrategy? dragonGiveStrategy,
+    TichuCallStrategy? tichuCallStrategy,
+    SchupfStrategy? schupfStrategy,
+    PlaySelectionStrategy? playSelectionStrategy,
+    PlayTacticsPolicy? playTacticsPolicy,
+    WishStrategy? wishStrategy,
+    DragonGiveStrategy? dragonGiveStrategy,
   }) : tichuCallStrategy =
            tichuCallStrategy ?? const DefaultTichuCallStrategy(),
        schupfStrategy = schupfStrategy ?? const DefaultSchupfStrategy(),
@@ -75,19 +75,19 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async {
+  Future<bool> shouldCallGrandTichu(GameSnapshot snapshot) async {
     if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallGrandTichu(snapshot, playerId);
   }
 
   @override
-  Future<bool> shouldCallTichu(final GameSnapshot snapshot) async {
+  Future<bool> shouldCallTichu(GameSnapshot snapshot) async {
     if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallTichu(snapshot, playerId);
   }
 
   @override
-  Future<bool> shouldCallTichuBeforeSchupf(final GameSnapshot snapshot) async {
+  Future<bool> shouldCallTichuBeforeSchupf(GameSnapshot snapshot) async {
     if (_partnerAlreadyCalled(snapshot)) return false;
     return tichuCallStrategy.shouldCallTichuBeforeSchupf(snapshot, playerId);
   }
@@ -96,7 +96,7 @@ class SmartAiAgent extends PlayerAgent {
   /// for the turn in which the bot plays its first card (while it passes it
   /// keeps the option and sees more of the round).
   @override
-  Future<GameAction> selectAction(final GameSnapshot snapshot) async {
+  Future<GameAction> selectAction(GameSnapshot snapshot) async {
     if (!canStillCallTichu(snapshot)) return selectTurn(snapshot);
     final turn = await selectTurn(snapshot);
     if (turn is PassAction) return turn;
@@ -107,12 +107,12 @@ class SmartAiAgent extends PlayerAgent {
   }
 
   /// No call yet and no card played yet this round.
-  bool canStillCallTichu(final GameSnapshot snapshot) =>
+  bool canStillCallTichu(GameSnapshot snapshot) =>
       (snapshot.canCallTichuByPlayer[playerId] ?? false) &&
       (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
           TichuCall.none;
 
-  bool _partnerAlreadyCalled(final GameSnapshot snapshot) {
+  bool _partnerAlreadyCalled(GameSnapshot snapshot) {
     final table = TableRelationships(snapshot, playerId);
     final partnerId = table.partnerId;
     if (partnerId == null) return false;
@@ -126,7 +126,7 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<SchupfAction> selectSchupfCards(final GameSnapshot snapshot) async {
+  Future<SchupfAction> selectSchupfCards(GameSnapshot snapshot) async {
     _syncRound(snapshot);
     final action = await schupfStrategy.selectSchupfCards(snapshot, playerId);
     _lastSchupfedNextFace = action.toLeft.face;
@@ -138,7 +138,7 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  Future<GameAction> selectTurn(final GameSnapshot snapshot) async {
+  Future<GameAction> selectTurn(GameSnapshot snapshot) async {
     _syncRound(snapshot);
     final hand = List<Card>.from(snapshot.hands[playerId] ?? []);
     final deck = snapshot.deck;
@@ -148,7 +148,7 @@ class SmartAiAgent extends PlayerAgent {
     final legalTurns = turnOptions.turns;
 
     final finishingTurns = legalTurns
-        .where((final turn) => turn.cards.length == hand.length)
+        .where((turn) => turn.cards.length == hand.length)
         .toList();
     if (finishingTurns.isNotEmpty) {
       final selected = playSelectionStrategy.selectPlay(
@@ -179,9 +179,9 @@ class SmartAiAgent extends PlayerAgent {
   /// is set when there is nothing to choose (empty hand, nothing beats the
   /// trick, or the guard passes).
   ({List<TichuTurn> turns, bool canPass, GameAction? forced}) _turnOptions(
-    final GameSnapshot snapshot,
-    final List<Card> hand,
-    final TableRelationships table,
+    GameSnapshot snapshot,
+    List<Card> hand,
+    TableRelationships table,
   ) {
     final deck = snapshot.deck;
     final pass = PassAction(playerId: playerId);
@@ -223,11 +223,11 @@ class SmartAiAgent extends PlayerAgent {
     // first). When leading, play anything but the last cards.
     if (_holdBackForPartnerTichu(snapshot, table)) {
       if (canPass &&
-          legalTurns.every((final turn) => turn.cards.length == hand.length)) {
+          legalTurns.every((turn) => turn.cards.length == hand.length)) {
         return (turns: const [], canPass: true, forced: pass);
       }
       final nonFinishing = legalTurns
-          .where((final turn) => turn.cards.length != hand.length)
+          .where((turn) => turn.cards.length != hand.length)
           .toList();
       if (nonFinishing.isNotEmpty) legalTurns = nonFinishing;
     }
@@ -239,7 +239,7 @@ class SmartAiAgent extends PlayerAgent {
   /// is nothing to search: a forced move, or a finishing move (going out is
   /// a hard rule).
   ({List<TichuTurn> turns, bool canPass})? searchableActions(
-    final GameSnapshot snapshot,
+    GameSnapshot snapshot,
   ) {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     final turnOptions = _turnOptions(
@@ -248,7 +248,7 @@ class SmartAiAgent extends PlayerAgent {
       TableRelationships(snapshot, playerId),
     );
     if (turnOptions.forced != null) return null;
-    if (turnOptions.turns.any((final t) => t.cards.length == hand.length)) {
+    if (turnOptions.turns.any((t) => t.cards.length == hand.length)) {
       return null;
     }
     return (turns: turnOptions.turns, canPass: turnOptions.canPass);
@@ -257,10 +257,7 @@ class SmartAiAgent extends PlayerAgent {
   /// The action this agent would submit for playing [turn] (adds the wish
   /// when the Mah Jong is played). Used by training rollouts to try every
   /// legal turn.
-  PlayTurnAction playActionFor(
-    final GameSnapshot snapshot,
-    final TichuTurn turn,
-  ) {
+  PlayTurnAction playActionFor(GameSnapshot snapshot, TichuTurn turn) {
     _syncRound(snapshot);
     return _buildPlayAction(
       snapshot,
@@ -273,15 +270,15 @@ class SmartAiAgent extends PlayerAgent {
   /// Build a [PlayTurnAction] from the selected turn, adding wish/phoenix
   /// metadata as needed.
   PlayTurnAction _buildPlayAction(
-    final GameSnapshot snapshot,
-    final TichuTurn turn,
-    final DeckState deck,
-    final List<Card> hand, {
-    final bool suppressWish = false,
+    GameSnapshot snapshot,
+    TichuTurn turn,
+    DeckState deck,
+    List<Card> hand, {
+    bool suppressWish = false,
   }) {
     // Determine wish if we're playing the Mah Jong.
     var wish = CardFace.none;
-    if (turn.cards.any((final c) => c.face == CardFace.mahJong)) {
+    if (turn.cards.any((c) => c.face == CardFace.mahJong)) {
       if (!suppressWish) {
         wish = _selectMahjongWish(snapshot, hand, deck);
       }
@@ -300,13 +297,13 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  int selectDragonGive(final GameSnapshot snapshot) =>
+  int selectDragonGive(GameSnapshot snapshot) =>
       dragonGiveStrategy.selectDragonGive(snapshot, playerId);
 
   CardFace _selectMahjongWish(
-    final GameSnapshot snapshot,
-    final List<Card> hand,
-    final DeckState deck,
+    GameSnapshot snapshot,
+    List<Card> hand,
+    DeckState deck,
   ) {
     final preferredWish = _lastSchupfedNextFace;
 
@@ -318,7 +315,7 @@ class SmartAiAgent extends PlayerAgent {
     );
   }
 
-  void _syncRound(final GameSnapshot snapshot) {
+  void _syncRound(GameSnapshot snapshot) {
     if (_lastSchupfRoundNumber != snapshot.scoreState.roundNumber) {
       _lastSchupfRoundNumber = snapshot.scoreState.roundNumber;
       _lastSchupfedNextFace = null;

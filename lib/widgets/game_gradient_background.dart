@@ -7,7 +7,7 @@ class GameGradientBackground extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     // Card-table felt: lighter in the middle, darker towards the edges.
     final surface = Theme.of(context).colorScheme.surface;
     return DecoratedBox(

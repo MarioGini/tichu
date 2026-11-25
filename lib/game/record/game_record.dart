@@ -10,14 +10,13 @@ import 'package:tichu/game/turn/tichu_data.dart';
 const int gameRecordFormatVersion = 3;
 
 /// Random (version 4) UUID, used as game id and record id.
-String generateUuidV4([final Random? random]) {
+String generateUuidV4([Random? random]) {
   final rng = random ?? Random.secure();
   final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  final hex = [
-    for (final b in bytes) b.toRadixString(16).padLeft(2, '0'),
-  ].join();
+  final hex = [for (final b in bytes) b.toRadixString(16).padLeft(2, '0')]
+      .join();
   return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
       '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
 }
@@ -26,7 +25,7 @@ String generateUuidV4([final Random? random]) {
 /// green/blue/black/red), or the name of a special card.
 ///
 /// Examples: `Ag`, `10r`, `2k`, `Dragon`, `Phoenix`, `Dog`, `MahJong`.
-String cardLabel(final Card card) {
+String cardLabel(Card card) {
   switch (card.face) {
     case CardFace.dragon:
       return 'Dragon';
@@ -56,7 +55,7 @@ String cardLabel(final Card card) {
 }
 
 /// Rank label of a face (`2`..`10`, `J`, `Q`, `K`, `A`) or the special name.
-String faceLabel(final CardFace face) => switch (face) {
+String faceLabel(CardFace face) => switch (face) {
   CardFace.two => '2',
   CardFace.three => '3',
   CardFace.four => '4',
@@ -77,7 +76,7 @@ String faceLabel(final CardFace face) => switch (face) {
   CardFace.none => '-',
 };
 
-String _colorLetter(final CardColor color) => switch (color) {
+String _colorLetter(CardColor color) => switch (color) {
   CardColor.green => 'g',
   CardColor.blue => 'b',
   CardColor.black => 'k',
@@ -86,7 +85,7 @@ String _colorLetter(final CardColor color) => switch (color) {
 };
 
 /// Labels of [cards], highest first (display order).
-List<String> cardLabels(final Iterable<Card> cards) {
+List<String> cardLabels(Iterable<Card> cards) {
   final sorted = [...cards]..sort(compareCardsForDisplay);
   return [for (final c in sorted) cardLabel(c)];
 }
@@ -101,7 +100,7 @@ class GameRecordEvent {
     required this.text,
     this.playerId,
     this.data = const <String, Object?>{},
-    final DateTime? at,
+    DateTime? at,
   }) : at = at ?? DateTime.now().toUtc();
 
   final int seq;
@@ -139,7 +138,7 @@ class GameRecord {
     required this.players,
     required this.targetScore,
     this.botDescription,
-    final DateTime? createdAt,
+    DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now().toUtc(),
        updatedAt = createdAt ?? DateTime.now().toUtc();
 
@@ -158,8 +157,7 @@ class GameRecord {
   final List<RoundLog> roundLogs = [];
 
   /// Actions recorded so far; numbers moves as the viewer tool does.
-  int get actionCount =>
-      roundLogs.fold(0, (final n, final r) => n + r.actionCount);
+  int get actionCount => roundLogs.fold(0, (n, r) => n + r.actionCount);
 
   int teamOneTotal = 0;
   int teamTwoTotal = 0;
@@ -168,11 +166,10 @@ class GameRecord {
   int? winningTeam;
 
   /// `observe` when every seat is a bot, otherwise `play`.
-  String get mode => players.every((final p) => p.type == PlayerType.automated)
-      ? 'observe'
-      : 'play';
+  String get mode =>
+      players.every((p) => p.type == PlayerType.automated) ? 'observe' : 'play';
 
-  String nameOf(final String? playerId) {
+  String nameOf(String? playerId) {
     if (playerId == null) return '?';
     for (final p in players) {
       if (p.id == playerId) return p.name;
@@ -180,7 +177,7 @@ class GameRecord {
     return playerId;
   }
 
-  GamePlayer? playerAtSeat(final int seat) {
+  GamePlayer? playerAtSeat(int seat) {
     for (final p in players) {
       if (p.seat == seat) return p;
     }
@@ -188,11 +185,11 @@ class GameRecord {
   }
 
   GameRecordEvent add({
-    required final int round,
-    required final String kind,
-    required final String text,
-    final String? playerId,
-    final Map<String, Object?> data = const <String, Object?>{},
+    required int round,
+    required String kind,
+    required String text,
+    String? playerId,
+    Map<String, Object?> data = const <String, Object?>{},
   }) {
     final event = GameRecordEvent(
       seq: events.length + 1,

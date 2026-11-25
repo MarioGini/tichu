@@ -21,7 +21,7 @@ class LoadedNet {
 
   const LoadedNet(this.network, this.targetMean, this.targetStd);
 
-  factory LoadedNet.fromBytes(final Uint8List bytes) {
+  factory LoadedNet.fromBytes(Uint8List bytes) {
     final (net, mean, std) = Mlp.fromSafetensorsBytes(bytes);
     return LoadedNet(net, mean, std);
   }
@@ -85,7 +85,7 @@ class BotConfig {
   });
 
   /// This config with [search] as its endgame search (null = off).
-  BotConfig withEndgameSearch(final EndgameSearch? search) => BotConfig(
+  BotConfig withEndgameSearch(EndgameSearch? search) => BotConfig(
     play: play,
     tichu: tichu,
     grandTichu: grandTichu,
@@ -103,7 +103,7 @@ class BotConfig {
   static const heuristic = BotConfig();
 
   /// Build the agent for [playerId].
-  PlayerAgent build(final String playerId) {
+  PlayerAgent build(String playerId) {
     final play = this.play;
     final schupf = this.schupf;
     return SmartAiAgent(

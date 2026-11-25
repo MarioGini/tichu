@@ -6,14 +6,14 @@ import 'package:tichu/screens/scoreboard/round_entry_screen.dart';
 import 'package:tichu/screens/scoreboard/scoreboard_screen.dart';
 import 'package:tichu/theme/app_theme.dart';
 
-Widget _app(final ScoreboardStore store) => MaterialApp(
+Widget _app(ScoreboardStore store) => MaterialApp(
   theme: AppTheme.darkTheme,
   home: ScoreboardScreen(store: store),
 );
 
 void main() {
   testWidgets('start a match, add a round with a Tichu, totals update', (
-    final tester,
+    tester,
   ) async {
     tester.view
       ..physicalSize = const Size(412, 915) * 2
@@ -58,9 +58,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('shows the winner once the target is reached', (
-    final tester,
-  ) async {
+  testWidgets('shows the winner once the target is reached', (tester) async {
     final store = InMemoryScoreboardStore(
       ScoreboardGame.start(
         teamNames: const ['Us', 'Them'],
@@ -81,7 +79,7 @@ void main() {
   });
 
   testWidgets('both partners can call; only one call can be made', (
-    final tester,
+    tester,
   ) async {
     tester.view
       ..physicalSize = const Size(412, 915) * 2
@@ -122,7 +120,7 @@ void main() {
       );
 
   testWidgets('undo re-inserts the deleted round and keeps later rounds', (
-    final tester,
+    tester,
   ) async {
     final store = InMemoryScoreboardStore(twoRounds());
     await tester.pumpWidget(_app(store));
@@ -151,12 +149,10 @@ void main() {
     await tester.tap(find.text('Undo'));
     await tester.pumpAndSettle();
     final rounds = (await store.loadCurrent())!.rounds;
-    expect(rounds.map((final r) => r.cardPointsTeamA), [70, 50]);
+    expect(rounds.map((r) => r.cardPointsTeamA), [70, 50]);
   });
 
-  testWidgets('confirmed new match is not restored on reopen', (
-    final tester,
-  ) async {
+  testWidgets('confirmed new match is not restored on reopen', (tester) async {
     final store = InMemoryScoreboardStore(twoRounds());
     await tester.pumpWidget(_app(store));
     await tester.pumpAndSettle();
@@ -173,7 +169,7 @@ void main() {
     expect(saved.teamNames, ['Us', 'Them']);
   });
 
-  testWidgets('rounds run top to bottom, newest last', (final tester) async {
+  testWidgets('rounds run top to bottom, newest last', (tester) async {
     await tester.pumpWidget(_app(InMemoryScoreboardStore(twoRounds())));
     await tester.pumpAndSettle();
     final first = tester.getTopLeft(find.text('+70'));

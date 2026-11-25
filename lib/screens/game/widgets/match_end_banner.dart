@@ -13,7 +13,7 @@ class MatchEndBanner extends StatelessWidget {
   final VoidCallback? onContinue;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final won = winningTeam == 0;
     final color = won ? Colors.amber : Colors.orangeAccent;
     return Center(
@@ -36,9 +36,8 @@ class MatchEndBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 won ? 'Your team wins!' : 'Other team wins!',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(color: Colors.white),
               ),
               const SizedBox(width: 14),
               FilledButton(

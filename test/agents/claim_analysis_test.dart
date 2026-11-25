@@ -17,16 +17,16 @@ const List<CardColor> _suits = [
 ];
 
 /// Unseen counts per rank (index 1 = Mah Jong, 2..14) from (rank, count).
-List<int> unseen(final Map<int, int> counts) {
+List<int> unseen(Map<int, int> counts) {
   final u = List<int>.filled(15, 0);
-  counts.forEach((final r, final n) => u[r] = n);
+  counts.forEach((r, n) => u[r] = n);
   return u;
 }
 
 /// Every rank fully unseen (start of a round).
 List<int> allUnseen() => [0, 1, for (var r = 2; r <= 14; r++) 4];
 
-int s(final CardFace face, [final CardColor color = CardColor.black]) =>
+int s(CardFace face, [CardColor color = CardColor.black]) =>
     cardSlot(c(face, color));
 
 const int phoenix = CardKnowledge.phoenixSlot;
@@ -39,16 +39,16 @@ const int mahJong = CardKnowledge.mahJongSlot;
 /// last) is one of the move generator's leads of the remaining cards;
 /// [CardKnowledge]'s beatability. (min beatable, max unbeatable); the Dog
 /// counts as beatable.
-(int, int) referenceClaim(final List<Card> hand, final CardKnowledge k) {
+(int, int) referenceClaim(List<Card> hand, CardKnowledge k) {
   final memo = <String, int>{};
   final deck = DeckState(TichuTurn(TurnType.empty, const []), CardFace.none);
-  int order(final Card card) => switch (card.face) {
+  int order(Card card) => switch (card.face) {
     CardFace.phoenix => 99,
     CardFace.dragon => 50,
     CardFace.dog => 0,
     _ => faceRank(card.face),
   };
-  int solve(final List<Card> rest) {
+  int solve(List<Card> rest) {
     if (rest.isEmpty) return 0;
     final key = (rest.map(cardSlot).toList()..sort()).join(',');
     final hit = memo[key];
@@ -68,7 +68,7 @@ const int mahJong = CardKnowledge.mahJongSlot;
       // Generator quirk: Phoenix padding below a pair of twos makes a
       // "pair" of Mah Jong + Phoenix; not a legal Tichu combination.
       if (turn.type == TurnType.pairStraight &&
-          turn.cards.any((final x) => x.face == CardFace.mahJong)) {
+          turn.cards.any((x) => x.face == CardFace.mahJong)) {
         continue;
       }
       final remaining = [
@@ -91,14 +91,14 @@ const int mahJong = CardKnowledge.mahJongSlot;
 
 /// Every run of >= 5 consecutive cards of one colour in [cards], as bombs
 /// (the generator lists only the longest run per colour).
-List<TichuTurn> straightFlushRuns(final List<Card> cards) => [
+List<TichuTurn> straightFlushRuns(List<Card> cards) => [
   for (final color in _suits)
     for (var lo = 2; lo <= 10; lo++)
       for (var hi = lo + 4; hi <= 14; hi++)
         if ([
           for (var r = lo; r <= hi; r++)
-            cards.any((final x) => x.color == color && faceRank(x.face) == r),
-        ].every((final held) => held))
+            cards.any((x) => x.color == color && faceRank(x.face) == r),
+        ].every((held) => held))
           TichuTurn(TurnType.bomb, [
             for (final x in cards)
               if (x.color == color &&
@@ -184,8 +184,8 @@ void main() {
       expect(
         solver.ofSlots([s(CardFace.ace), phoenix]),
         isA<ClaimResult>()
-            .having((final r) => r.minBeatable, 'minBeatable', 0)
-            .having((final r) => r.unbeatable, 'unbeatable', 1),
+            .having((r) => r.minBeatable, 'minBeatable', 0)
+            .having((r) => r.unbeatable, 'unbeatable', 1),
       );
       // 10 J Q K + Phoenix = a straight to the ace, unbeatable; + a 4.
       final straight = solver.ofSlots([
@@ -327,13 +327,12 @@ void main() {
       expect(
         capped,
         exact,
-        reason:
-            'capped features ${mine.map((final x) => x.face.name).join(' ')}',
+        reason: 'capped features ${mine.map((x) => x.face.name).join(' ')}',
       );
       expect(
         (got.minBeatable, got.unbeatable),
         (b, u),
-        reason: 'hand ${mine.map((final x) => x.face.name).join(' ')}',
+        reason: 'hand ${mine.map((x) => x.face.name).join(' ')}',
       );
       // Sub-hands after each lead, from the memo or searched, match a
       // fresh analysis of the remaining cards.

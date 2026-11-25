@@ -8,8 +8,7 @@ import 'package:tichu/game/record/game_record_store.dart';
 /// the whole record as jsonb). Used by the Supabase authority; the table
 /// and its row-level security come from `supabase/migrations`.
 class PostgresGameRecordStore implements GameRecordStore {
-  PostgresGameRecordStore({required final String databaseUrl})
-    : _databaseUrl = databaseUrl;
+  PostgresGameRecordStore({required this._databaseUrl});
 
   final String _databaseUrl;
   bool _tableReady = false;
@@ -28,7 +27,7 @@ create table if not exists public.tichu_game_records (
 ''';
 
   Future<T> _withConnection<T>(
-    final Future<T> Function(Connection connection) body,
+    Future<T> Function(Connection connection) body,
   ) async {
     final connection = await Connection.openFromUrl(_databaseUrl);
     try {
@@ -43,8 +42,8 @@ create table if not exists public.tichu_game_records (
   }
 
   @override
-  Future<void> save(final GameRecord record) => _withConnection(
-    (final connection) => connection.execute(
+  Future<void> save(GameRecord record) => _withConnection(
+    (connection) => connection.execute(
       Sql.named('''
 insert into public.tichu_game_records
     (id, mode, complete, summary, record, created_at, updated_at)
@@ -66,8 +65,8 @@ set complete = excluded.complete, summary = excluded.summary,
   );
 
   @override
-  Future<Map<String, Object?>?> load(final String id) => _withConnection((
-    final connection,
+  Future<Map<String, Object?>?> load(String id) => _withConnection((
+    connection,
   ) async {
     final result = await connection.execute(
       Sql.named('select record from public.tichu_game_records where id = @id'),
@@ -81,6 +80,6 @@ set complete = excluded.complete, summary = excluded.summary,
   });
 
   @override
-  String describeLocation(final String id) =>
+  String describeLocation(String id) =>
       "public.tichu_game_records where id = '$id'";
 }

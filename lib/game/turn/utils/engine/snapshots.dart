@@ -10,11 +10,11 @@ import 'package:tichu/game/turn/utils/bomb_utils.dart';
 
 /// Full-information snapshot of [state] (all hands).
 GameSnapshot buildGameSnapshot(
-  final GameEngineState state, {
-  final String? pendingOpponentPlayerId,
-  final List<Card>? pendingOpponentCards,
-  final bool pendingOpponentPass = false,
-  final bool opponentAwaitingConfirmation = false,
+  GameEngineState state, {
+  String? pendingOpponentPlayerId,
+  List<Card>? pendingOpponentCards,
+  bool pendingOpponentPass = false,
+  bool opponentAwaitingConfirmation = false,
 }) {
   final currentPlayer = state.players[state.currentPlayerIndex];
   final hasBombByPlayer = {
@@ -86,10 +86,7 @@ GameSnapshot buildGameSnapshot(
 }
 
 /// [snapshot] as seen by [playerId]: own hand, card counts for the others.
-PlayerSnapshot buildPlayerView(
-  final GameSnapshot snapshot,
-  final String playerId,
-) {
+PlayerSnapshot buildPlayerView(GameSnapshot snapshot, String playerId) {
   final hand = snapshot.hands[playerId] ?? <Card>[];
   final opponentCardCounts = <String, int>{};
   for (final entry in snapshot.hands.entries) {
@@ -133,7 +130,7 @@ PlayerSnapshot buildPlayerView(
 }
 
 /// Tichu is callable until the player has played their first card.
-bool canPlayerCallTichu(final GameEngineState state, final String playerId) {
+bool canPlayerCallTichu(GameEngineState state, String playerId) {
   if (state.phase != GamePhase.play &&
       state.phase != GamePhase.schupf &&
       state.phase != GamePhase.grandTichu) {
@@ -149,7 +146,7 @@ bool canPlayerCallTichu(final GameEngineState state, final String playerId) {
 }
 
 /// Whether a player who holds a bomb may play it now.
-bool _canPlayerBombNow(final GameEngineState state, final String playerId) {
+bool _canPlayerBombNow(GameEngineState state, String playerId) {
   if (state.phase != GamePhase.play) return false;
   if (state.pendingDragonGiveBy == playerId) return false;
 
@@ -163,5 +160,5 @@ bool _canPlayerBombNow(final GameEngineState state, final String playerId) {
   return true;
 }
 
-bool _trickActive(final DeckState deck) =>
+bool _trickActive(DeckState deck) =>
     deck.turn.type != TurnType.empty && deck.turn.type != TurnType.none;

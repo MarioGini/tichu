@@ -20,15 +20,15 @@ class GameEngineImpl implements GameEngine {
   final TurnHandler _turnHandler;
   final Random _random;
 
-  GameEngineImpl({final TurnHandler? turnHandler, final Random? random})
+  GameEngineImpl({TurnHandler? turnHandler, Random? random})
     : _turnHandler = turnHandler ?? TurnHandler(),
       _random = random ?? Random();
 
   @override
   GameEngineState createGame({
-    required final String gameId,
-    required final List<GamePlayer> players,
-    final int targetScore = 1000,
+    required String gameId,
+    required List<GamePlayer> players,
+    int targetScore = 1000,
   }) {
     if (players.length != 4) {
       throw ArgumentError('Local mode currently supports exactly 4 players.');
@@ -58,7 +58,7 @@ class GameEngineImpl implements GameEngine {
   }
 
   @override
-  void startNewRound(final GameEngineState state) {
+  void startNewRound(GameEngineState state) {
     if (state.scoreTracker.state.gameComplete) {
       throw const IllegalActionException(
         'Game has ended. Start a new game to play again.',
@@ -96,7 +96,7 @@ class GameEngineImpl implements GameEngine {
   }
 
   @override
-  void startGame(final GameEngineState state) {
+  void startGame(GameEngineState state) {
     state.grandTichuDecisions.clear();
     state.schupfSelections.clear();
     state.completedSchupfSelections.clear();
@@ -109,7 +109,7 @@ class GameEngineImpl implements GameEngine {
   }
 
   @override
-  void applyAction(final GameEngineState state, final GameAction action) {
+  void applyAction(GameEngineState state, GameAction action) {
     if (action is ConfirmOpponentTurnAction) {
       return;
     }
@@ -238,11 +238,11 @@ class GameEngineImpl implements GameEngine {
 
   @override
   GameSnapshot buildSnapshot(
-    final GameEngineState state, {
-    final String? pendingOpponentPlayerId,
-    final List<Card>? pendingOpponentCards,
-    final bool pendingOpponentPass = false,
-    final bool opponentAwaitingConfirmation = false,
+    GameEngineState state, {
+    String? pendingOpponentPlayerId,
+    List<Card>? pendingOpponentCards,
+    bool pendingOpponentPass = false,
+    bool opponentAwaitingConfirmation = false,
   }) => buildGameSnapshot(
     state,
     pendingOpponentPlayerId: pendingOpponentPlayerId,
@@ -252,37 +252,28 @@ class GameEngineImpl implements GameEngine {
   );
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) => buildPlayerView(snapshot, playerId);
+  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId) =>
+      buildPlayerView(snapshot, playerId);
 
   @override
-  bool hasPendingHumanSchupfReceipts(final GameEngineState state) =>
+  bool hasPendingHumanSchupfReceipts(GameEngineState state) =>
       schupf_utils.hasPendingHumanSchupfReceipts(state);
 
   @override
-  bool shouldPauseForAutomatedOpponent(
-    final GameEngineState state,
-    final String actorId,
-  ) {
-    final actor = state.players.firstWhere(
-      (final player) => player.id == actorId,
-    );
+  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId) {
+    final actor = state.players.firstWhere((player) => player.id == actorId);
     if (actor.type != PlayerType.automated) return false;
     if (state.scoreTracker.state.roundComplete) return false;
     if (state.scoreTracker.state.gameComplete) return false;
     final anyHumanOut = state.players
-        .where((final player) => player.type == PlayerType.human)
-        .any((final player) => (state.hands[player.id] ?? const []).isEmpty);
+        .where((player) => player.type == PlayerType.human)
+        .any((player) => (state.hands[player.id] ?? const []).isEmpty);
     if (anyHumanOut) return false;
     final nextPlayer = state.players[state.currentPlayerIndex];
     return nextPlayer.type == PlayerType.automated;
   }
 
   @override
-  List<String> opponentIds(
-    final GameEngineState state,
-    final String playerId,
-  ) => opponentIdsForPlayer(state, playerId);
+  List<String> opponentIds(GameEngineState state, String playerId) =>
+      opponentIdsForPlayer(state, playerId);
 }

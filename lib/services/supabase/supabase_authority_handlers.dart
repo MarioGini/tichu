@@ -3,8 +3,8 @@ part of 'supabase_authority_server.dart';
 /// One handler per Edge Function action; see [SupabaseAuthorityServer].
 extension _AuthorityHandlers on SupabaseAuthorityServer {
   Future<Map<String, dynamic>> _createLobby(
-    final Map<String, dynamic> body, {
-    final String? authUserId,
+    Map<String, dynamic> body, {
+    String? authUserId,
   }) async {
     final resolvedAuthUserId = _requireAuthUserId(authUserId);
     final request = session_dto.CreateGameLobbyRequestDto.fromJson(
@@ -18,8 +18,8 @@ extension _AuthorityHandlers on SupabaseAuthorityServer {
   }
 
   Future<Map<String, dynamic>> _joinLobby(
-    final Map<String, dynamic> body, {
-    final String? authUserId,
+    Map<String, dynamic> body, {
+    String? authUserId,
   }) async {
     final resolvedAuthUserId = _requireAuthUserId(authUserId);
     final request = session_dto.JoinGameLobbyRequestDto.fromJson(
@@ -42,9 +42,7 @@ extension _AuthorityHandlers on SupabaseAuthorityServer {
     };
   }
 
-  Future<Map<String, dynamic>> _getLobby(
-    final Map<String, dynamic> body,
-  ) async {
+  Future<Map<String, dynamic>> _getLobby(Map<String, dynamic> body) async {
     final snapshot = await _tableService
         .watchLobby(
           _requireString(body, 'lobbyId'),
@@ -54,7 +52,7 @@ extension _AuthorityHandlers on SupabaseAuthorityServer {
     return session_dto.GameLobbySnapshotDto.fromDomain(snapshot).toJson();
   }
 
-  Future<void> _claimSeat(final Map<String, dynamic> body) {
+  Future<void> _claimSeat(Map<String, dynamic> body) {
     final typeName = (body['type'] as String?) ?? PlayerType.human.name;
     return _tableService.claimSeat(
       _requireString(body, 'lobbyId'),
@@ -65,28 +63,26 @@ extension _AuthorityHandlers on SupabaseAuthorityServer {
     );
   }
 
-  Future<void> _setReadyState(final Map<String, dynamic> body) =>
+  Future<void> _setReadyState(Map<String, dynamic> body) =>
       _tableService.setReadyState(
         _requireString(body, 'lobbyId'),
         accessToken: _requireString(body, 'accessToken'),
         isReady: _requireBool(body, 'isReady'),
       );
 
-  Future<void> _startMatch(final Map<String, dynamic> body) =>
+  Future<void> _startMatch(Map<String, dynamic> body) =>
       _tableService.startMatch(
         _requireString(body, 'lobbyId'),
         accessToken: _requireString(body, 'accessToken'),
       );
 
-  Future<void> _leaveLobby(final Map<String, dynamic> body) =>
+  Future<void> _leaveLobby(Map<String, dynamic> body) =>
       _tableService.leaveLobby(
         _requireString(body, 'lobbyId'),
         accessToken: _requireString(body, 'accessToken'),
       );
 
-  Future<Map<String, dynamic>> _getMatchView(
-    final Map<String, dynamic> body,
-  ) async {
+  Future<Map<String, dynamic>> _getMatchView(Map<String, dynamic> body) async {
     final view = await _tableService
         .watchMatch(
           _requireString(body, 'matchId'),
@@ -97,7 +93,7 @@ extension _AuthorityHandlers on SupabaseAuthorityServer {
   }
 
   Future<Map<String, dynamic>> _getMatchConnection(
-    final Map<String, dynamic> body,
+    Map<String, dynamic> body,
   ) async {
     final snapshot = await _tableService
         .watchConnection(
@@ -105,12 +101,11 @@ extension _AuthorityHandlers on SupabaseAuthorityServer {
           accessToken: _requireString(body, 'accessToken'),
         )
         .first;
-    return match_dto.GameMatchConnectionSnapshotDto.fromDomain(
-      snapshot,
-    ).toJson();
+    return match_dto.GameMatchConnectionSnapshotDto.fromDomain(snapshot)
+        .toJson();
   }
 
-  Future<void> _submitAction(final Map<String, dynamic> body) {
+  Future<void> _submitAction(Map<String, dynamic> body) {
     final submission = match_dto.GameActionSubmissionDto.fromJson(
       _requireMap(body, 'submission'),
     ).toDomain();
@@ -121,7 +116,7 @@ extension _AuthorityHandlers on SupabaseAuthorityServer {
     );
   }
 
-  Future<void> _acknowledgeRoundSummary(final Map<String, dynamic> body) {
+  Future<void> _acknowledgeRoundSummary(Map<String, dynamic> body) {
     final acknowledgement = match_dto.RoundSummaryAcknowledgementDto.fromJson(
       _requireMap(body, 'acknowledgement'),
     ).toDomain();
@@ -132,13 +127,13 @@ extension _AuthorityHandlers on SupabaseAuthorityServer {
     );
   }
 
-  Future<void> _leaveMatch(final Map<String, dynamic> body) =>
+  Future<void> _leaveMatch(Map<String, dynamic> body) =>
       _tableService.leaveMatch(
         _requireString(body, 'matchId'),
         accessToken: _requireString(body, 'accessToken'),
       );
 
-  Future<void> _heartbeat(final Map<String, dynamic> body) {
+  Future<void> _heartbeat(Map<String, dynamic> body) {
     final accessToken = _requireString(body, 'accessToken');
     final lobbyId = body['lobbyId'] as String?;
     final matchId = body['matchId'] as String?;

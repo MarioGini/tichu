@@ -22,6 +22,6 @@ void main() {
     final action = await agent.selectTurn(aiSnapshot(myHand: hand));
     expect(action, isA<PlayTurnAction>());
     final played = (action as PlayTurnAction).cards.single;
-    expect(hand.any((final c) => c.face == played.face), isTrue);
+    expect(hand.any((c) => c.face == played.face), isTrue);
   });
 }

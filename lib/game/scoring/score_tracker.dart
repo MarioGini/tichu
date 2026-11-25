@@ -14,7 +14,7 @@ class LocalScoreTracker {
   final Map<String, TichuCall> _tichuCalls = {};
   final Map<String, int> _playerSeats = {};
 
-  LocalScoreTracker({final int targetScore = 1000})
+  LocalScoreTracker({int targetScore = 1000})
     : _state = ScoreState.initial(targetScore: targetScore);
 
   /// Independent deep copy (for forking a round, e.g. counterfactual
@@ -35,16 +35,16 @@ class LocalScoreTracker {
 
   ScoreState get state => _state;
 
-  void startNewRound(final List<GamePlayer> players) {
+  void startNewRound(List<GamePlayer> players) {
     _capturedCards
       ..clear()
-      ..addEntries(players.map((final p) => MapEntry(p.id, <Card>[])));
+      ..addEntries(players.map((p) => MapEntry(p.id, <Card>[])));
     _remainingHands.clear();
     _finishOrder.clear();
     _tichuCalls.clear();
     _playerSeats
       ..clear()
-      ..addEntries(players.map((final p) => MapEntry(p.id, p.seat)));
+      ..addEntries(players.map((p) => MapEntry(p.id, p.seat)));
 
     _state = _state.copyWith(
       roundNumber: _state.roundComplete
@@ -61,7 +61,7 @@ class LocalScoreTracker {
     );
   }
 
-  void recordTrick(final String winnerId, final List<Card> cards) {
+  void recordTrick(String winnerId, List<Card> cards) {
     if (cards.isEmpty) return;
     final captured = _capturedCards[winnerId];
     if (captured == null) return;
@@ -76,29 +76,26 @@ class LocalScoreTracker {
     );
   }
 
-  void recordPlayerFinished(
-    final String playerId,
-    final List<Card> remainingHand,
-  ) {
+  void recordPlayerFinished(String playerId, List<Card> remainingHand) {
     if (_finishOrder.contains(playerId)) return;
     _finishOrder.add(playerId);
     _remainingHands[playerId] = List<Card>.from(remainingHand);
     _state = _state.copyWith(finishOrder: List<String>.from(_finishOrder));
   }
 
-  void recordTichuCall(final String playerId, {required final bool isGrand}) {
+  void recordTichuCall(String playerId, {required bool isGrand}) {
     _tichuCalls[playerId] = isGrand ? TichuCall.grandTichu : TichuCall.tichu;
     _state = _state.copyWith(
       tichuCalls: Map<String, TichuCall>.from(_tichuCalls),
     );
   }
 
-  void finalizeRound(final Map<String, List<Card>> hands) {
+  void finalizeRound(Map<String, List<Card>> hands) {
     if (_state.roundComplete) return;
 
     // Fill in any unfinished players at the end.
     _finishOrder.addAll(
-      _playerSeats.keys.where((final id) => !_finishOrder.contains(id)),
+      _playerSeats.keys.where((id) => !_finishOrder.contains(id)),
     );
 
     final isMatch =
@@ -159,7 +156,7 @@ class LocalScoreTracker {
   /// Sums card points per team for a normal (non-match) round: the last
   /// finisher's tricks go to the first finisher, the cards left in the last
   /// finisher's hand go to the opposing team.
-  (int, int) _computeNormalCardPoints(final Map<String, List<Card>> hands) {
+  (int, int) _computeNormalCardPoints(Map<String, List<Card>> hands) {
     final first = _finishOrder.first;
     final last = _finishOrder.last;
     var t1 = 0;
@@ -197,7 +194,7 @@ class LocalScoreTracker {
     return (t1, t2);
   }
 
-  bool _isTeamOne(final String playerId) {
+  bool _isTeamOne(String playerId) {
     final seat = _playerSeats[playerId] ?? 0;
     return seat.isEven;
   }

@@ -17,7 +17,7 @@ mixin _GameScreenSync on _GameScreenStateBase {
     });
   }
 
-  void _handleMatchView(final GameMatchView view) {
+  void _handleMatchView(GameMatchView view) {
     _matchRevision = view.revision;
     _selfSeat = view.selfSeat;
     if (!view.roundAcknowledgementRequired) {
@@ -28,7 +28,7 @@ mixin _GameScreenSync on _GameScreenStateBase {
     _handleSnapshot(view.snapshot);
   }
 
-  void _handleSnapshot(final PlayerSnapshot snapshot) {
+  void _handleSnapshot(PlayerSnapshot snapshot) {
     final previousTurn = _snapshot?.lastPlayedTurn;
     final wasShowingGrandTichuDecision =
         _snapshot != null && _shouldShowGrandTichuDecision(_snapshot!);
@@ -122,7 +122,7 @@ mixin _GameScreenSync on _GameScreenStateBase {
     });
   }
 
-  PlayerControlMode _controlModeFromSnapshot(final PlayerSnapshot snapshot) {
+  PlayerControlMode _controlModeFromSnapshot(PlayerSnapshot snapshot) {
     for (final player in snapshot.players) {
       if (player.id != _humanId) continue;
       return player.type == PlayerType.automated
@@ -133,7 +133,7 @@ mixin _GameScreenSync on _GameScreenStateBase {
   }
 
   @override
-  Future<void> _submitGameAction(final GameAction action) async {
+  Future<void> _submitGameAction(GameAction action) async {
     final matchService = _matchService;
     final gameId = _gameId;
     if (gameId == null) {
@@ -168,7 +168,7 @@ mixin _GameScreenSync on _GameScreenStateBase {
   }
 
   @override
-  Future<void> _setAutomatedActionDelay(final Duration delay) async {
+  Future<void> _setAutomatedActionDelay(Duration delay) async {
     final gameId = _gameId;
     if (gameId != null && _matchService is AdjustableAutomatedActionDelay) {
       final delayService = _matchService as AdjustableAutomatedActionDelay;
@@ -184,7 +184,7 @@ mixin _GameScreenSync on _GameScreenStateBase {
       '$_humanId-${++_clientActionCounter}-$_matchRevision';
 
   @override
-  int? _resolveSelfSeat(final PlayerSnapshot? snapshot) {
+  int? _resolveSelfSeat(PlayerSnapshot? snapshot) {
     final currentSeat = _selfSeat;
     if (currentSeat != null) return currentSeat;
     if (snapshot == null) return null;
@@ -197,10 +197,7 @@ mixin _GameScreenSync on _GameScreenStateBase {
   }
 
   @override
-  GamePlayer? _playerForRelativeSeat(
-    final PlayerSnapshot? snapshot,
-    final int seatOffset,
-  ) {
+  GamePlayer? _playerForRelativeSeat(PlayerSnapshot? snapshot, int seatOffset) {
     if (snapshot == null) return null;
     return playerAtRelativeSeat(
       snapshot.players,

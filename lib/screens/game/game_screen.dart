@@ -50,12 +50,10 @@ part 'parts/game_screen_view.dart';
 class GameScreen extends StatefulWidget {
   const GameScreen({
     super.key,
-    required GameMatchService matchService,
-    required GameSessionHandle sessionHandle,
-    double initialOpponentDelaySeconds = 1.0,
-  }) : _matchService = matchService,
-       _sessionHandle = sessionHandle,
-       _initialOpponentDelaySeconds = initialOpponentDelaySeconds;
+    required this._matchService,
+    required this._sessionHandle,
+    this._initialOpponentDelaySeconds = 1.0,
+  });
   final GameMatchService _matchService;
   final GameSessionHandle _sessionHandle;
   final double _initialOpponentDelaySeconds;
@@ -93,7 +91,7 @@ class _GameScreenState extends _GameScreenStateBase
     _bombScale = Tween<double>(begin: 0.85, end: 1).animate(
       CurvedAnimation(parent: _bombController, curve: Curves.easeOutBack),
     );
-    _bombController.addStatusListener((final status) {
+    _bombController.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         Future.delayed(const Duration(milliseconds: 280), () {
           if (!mounted) return;
@@ -110,5 +108,5 @@ class _GameScreenState extends _GameScreenStateBase
   }
 
   @override
-  Widget build(final BuildContext context) => _buildTable(context);
+  Widget build(BuildContext context) => _buildTable(context);
 }

@@ -82,33 +82,30 @@ class _RecordingProjectionStore implements GameTableProjectionStore {
 
   @override
   Future<void> replaceLobbyViews(
-    final String lobbyId,
-    final List<ProjectedLobbyView> views,
+    String lobbyId,
+    List<ProjectedLobbyView> views,
   ) async {
     lastLobbyViews = List<ProjectedLobbyView>.from(views);
   }
 
   @override
   Future<void> replaceMatchViews(
-    final String matchId,
-    final List<ProjectedMatchView> views,
+    String matchId,
+    List<ProjectedMatchView> views,
   ) async {
     lastMatchViews = List<ProjectedMatchView>.from(views);
   }
 
   @override
   Future<void> replaceConnectionViews(
-    final String matchId,
-    final List<ProjectedConnectionView> views,
+    String matchId,
+    List<ProjectedConnectionView> views,
   ) async {
     lastConnectionViews = List<ProjectedConnectionView>.from(views);
   }
 
   @override
-  Future<void> deleteLobbyState(
-    final String lobbyId, {
-    final String? matchId,
-  }) async {
+  Future<void> deleteLobbyState(String lobbyId, {String? matchId}) async {
     deletedLobbies.add(lobbyId);
   }
 }

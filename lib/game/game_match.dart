@@ -78,37 +78,34 @@ class RoundSummaryAcknowledgement {
 /// loops do not double-apply turns.
 abstract interface class GameMatchService {
   Stream<GameMatchView> watchMatch(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   });
 
   Stream<GameMatchConnectionSnapshot> watchConnection(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   });
 
   Future<void> submitAction(
-    final String matchId,
-    final GameActionSubmission submission, {
-    required final String accessToken,
+    String matchId,
+    GameActionSubmission submission, {
+    required String accessToken,
   });
 
   Future<void> acknowledgeRoundSummary(
-    final String matchId,
-    final RoundSummaryAcknowledgement acknowledgement, {
-    required final String accessToken,
+    String matchId,
+    RoundSummaryAcknowledgement acknowledgement, {
+    required String accessToken,
   });
 
-  Future<void> leaveMatch(
-    final String matchId, {
-    required final String accessToken,
-  });
+  Future<void> leaveMatch(String matchId, {required String accessToken});
 }
 
 abstract interface class AdjustableAutomatedActionDelay {
   Future<void> setMatchAutomatedActionDelay(
-    final String matchId, {
-    required final String accessToken,
-    required final Duration delay,
+    String matchId, {
+    required String accessToken,
+    required Duration delay,
   });
 }

@@ -13,10 +13,9 @@ part 'supabase_authority_handlers.dart';
 
 class SupabaseAuthorityServer {
   SupabaseAuthorityServer({
-    final LocalGameTableService? tableService,
-    final String? proxySecret,
-  }) : _tableService = tableService ?? LocalGameTableService(),
-       _proxySecret = proxySecret;
+    LocalGameTableService? tableService,
+    this._proxySecret,
+  }) : _tableService = tableService ?? LocalGameTableService();
 
   final LocalGameTableService _tableService;
   final String? _proxySecret;
@@ -24,8 +23,8 @@ class SupabaseAuthorityServer {
   HttpServer? _server;
 
   Future<HttpServer> listen({
-    final Object address = '127.0.0.1',
-    final int port = 8081,
+    Object address = '127.0.0.1',
+    int port = 8081,
   }) async {
     final server = await HttpServer.bind(address, port);
     _server = server;
@@ -33,18 +32,18 @@ class SupabaseAuthorityServer {
     return server;
   }
 
-  Future<void> close({final bool force = false}) async {
+  Future<void> close({bool force = false}) async {
     await _server?.close(force: force);
     _server = null;
   }
 
-  Future<void> _serve(final HttpServer server) async {
+  Future<void> _serve(HttpServer server) async {
     await for (final request in server) {
       unawaited(_handleRequest(request));
     }
   }
 
-  Future<void> _handleRequest(final HttpRequest request) async {
+  Future<void> _handleRequest(HttpRequest request) async {
     try {
       _applyCorsHeaders(request.response);
       if (request.method == 'OPTIONS') {
@@ -102,7 +101,7 @@ class SupabaseAuthorityServer {
     }
   }
 
-  bool _isAuthorized(final HttpRequest request) {
+  bool _isAuthorized(HttpRequest request) {
     final proxySecret = _proxySecret;
     if (proxySecret == null || proxySecret.isEmpty) {
       return true;
@@ -111,9 +110,9 @@ class SupabaseAuthorityServer {
   }
 
   Future<Map<String, dynamic>> _dispatch(
-    final String action,
-    final Map<String, dynamic> body, {
-    final String? authUserId,
+    String action,
+    Map<String, dynamic> body, {
+    String? authUserId,
   }) async {
     switch (action) {
       case 'create-lobby':
@@ -160,7 +159,7 @@ class SupabaseAuthorityServer {
     }
   }
 
-  Future<Map<String, dynamic>> _readJsonBody(final HttpRequest request) async {
+  Future<Map<String, dynamic>> _readJsonBody(HttpRequest request) async {
     final rawBody = await utf8.decoder.bind(request).join();
     if (rawBody.trim().isEmpty) {
       return <String, dynamic>{};
@@ -175,10 +174,7 @@ class SupabaseAuthorityServer {
     return Map<String, dynamic>.from(decoded);
   }
 
-  Map<String, dynamic> _requireMap(
-    final Map<String, dynamic> body,
-    final String key,
-  ) {
+  Map<String, dynamic> _requireMap(Map<String, dynamic> body, String key) {
     final value = body[key];
     if (value is Map) {
       return Map<String, dynamic>.from(value);
@@ -189,7 +185,7 @@ class SupabaseAuthorityServer {
     );
   }
 
-  String _requireString(final Map<String, dynamic> body, final String key) {
+  String _requireString(Map<String, dynamic> body, String key) {
     final value = body[key];
     if (value is String && value.isNotEmpty) {
       return value;
@@ -200,7 +196,7 @@ class SupabaseAuthorityServer {
     );
   }
 
-  int _requireInt(final Map<String, dynamic> body, final String key) {
+  int _requireInt(Map<String, dynamic> body, String key) {
     final value = body[key];
     if (value is num) {
       return value.toInt();
@@ -211,7 +207,7 @@ class SupabaseAuthorityServer {
     );
   }
 
-  bool _requireBool(final Map<String, dynamic> body, final String key) {
+  bool _requireBool(Map<String, dynamic> body, String key) {
     final value = body[key];
     if (value is bool) {
       return value;
@@ -222,7 +218,7 @@ class SupabaseAuthorityServer {
     );
   }
 
-  String _requireAuthUserId(final String? authUserId) {
+  String _requireAuthUserId(String? authUserId) {
     if (authUserId != null && authUserId.isNotEmpty) {
       return authUserId;
     }
@@ -232,7 +228,7 @@ class SupabaseAuthorityServer {
     );
   }
 
-  void _applyCorsHeaders(final HttpResponse response) {
+  void _applyCorsHeaders(HttpResponse response) {
     response.headers
       ..set(HttpHeaders.accessControlAllowOriginHeader, '*')
       ..set(HttpHeaders.accessControlAllowHeadersHeader, '*')
@@ -240,8 +236,8 @@ class SupabaseAuthorityServer {
   }
 
   Future<void> _writeJson(
-    final HttpResponse response,
-    final Map<String, dynamic> payload,
+    HttpResponse response,
+    Map<String, dynamic> payload,
   ) async {
     response.statusCode = HttpStatus.ok;
     response.headers.contentType = ContentType.json;
@@ -250,9 +246,9 @@ class SupabaseAuthorityServer {
   }
 
   Future<void> _writeError(
-    final HttpResponse response,
-    final int statusCode,
-    final String message,
+    HttpResponse response,
+    int statusCode,
+    String message,
   ) async {
     if (response.headers.value(HttpHeaders.contentTypeHeader) == null) {
       response.headers.contentType = ContentType.json;

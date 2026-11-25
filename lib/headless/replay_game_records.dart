@@ -31,7 +31,7 @@ final Map<int, Card> _bySlot = {
   for (final c in cardIdentifiers.values) cardSlot(c): c,
 };
 
-GameAction _decode(final List<dynamic> a) {
+GameAction _decode(List<dynamic> a) {
   final id = _players[a[0] as int].id;
   return switch (a[1] as String) {
     'g' => GrandTichuDecisionAction(playerId: id, call: a[2] == 1),
@@ -59,7 +59,7 @@ GameAction _decode(final List<dynamic> a) {
   };
 }
 
-Future<void> main(final List<String> args) async {
+Future<void> main(List<String> args) async {
   final byEpisode = <int, List<Map<String, dynamic>>>{};
   for (final line in File(args.single).readAsLinesSync()) {
     if (!line.contains('"game_record"') && !line.contains('"step"')) continue;

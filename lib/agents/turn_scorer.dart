@@ -62,7 +62,7 @@ class PolicyWeights {
 
   /// These weights with the named [overrides] applied (A/B testing; names
   /// are the field names).
-  PolicyWeights withOverrides(final Map<String, double> overrides) {
+  PolicyWeights withOverrides(Map<String, double> overrides) {
     if (overrides.isEmpty) return this;
     final v = <String, double>{
       'lowLeadPreference': lowLeadPreference,
@@ -103,11 +103,11 @@ class TurnScorer {
   const TurnScorer({this.weights = const PolicyWeights()});
 
   double scoreTurn(
-    final GameSnapshot snapshot,
-    final String playerId,
-    final TichuTurn play,
-    final DeckState deck,
-    final List<Card> hand,
+    GameSnapshot snapshot,
+    String playerId,
+    TichuTurn play,
+    DeckState deck,
+    List<Card> hand,
   ) {
     if (play.cards.length == hand.length) {
       return 1000;
@@ -152,7 +152,7 @@ class TurnScorer {
     };
 
     final controlCount = play.cards
-        .where((final card) => controlCards.contains(card.face))
+        .where((card) => controlCards.contains(card.face))
         .length;
     final table = TableRelationships(snapshot, playerId);
     final winnerId = deck.currentWinner.isNotEmpty
@@ -169,7 +169,7 @@ class TurnScorer {
     if (isEarly && !sureCapture) {
       final pointFactor = (trickPoints / 25).clamp(0, 1).toDouble();
       final highCount = play.cards
-          .where((final card) => highCards.contains(card.face))
+          .where((card) => highCards.contains(card.face))
           .length;
       if (highCount > 0) {
         score -= weights.avoidHighBurn * highCount * (1 - pointFactor);

@@ -2,7 +2,7 @@ part of 'turn_scorer.dart';
 
 /// Table predicates and hand helpers used by [TurnScorer].
 extension _ScorerHelpers on TurnScorer {
-  bool _opponentLow(final GameSnapshot snapshot, final String playerId) {
+  bool _opponentLow(GameSnapshot snapshot, String playerId) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
       final count = (snapshot.hands[player.id] ?? const <Card>[]).length;
@@ -13,7 +13,7 @@ extension _ScorerHelpers on TurnScorer {
     return false;
   }
 
-  bool _opponentAtOne(final GameSnapshot snapshot, final String playerId) {
+  bool _opponentAtOne(GameSnapshot snapshot, String playerId) {
     final table = TableRelationships(snapshot, playerId);
     for (final player in table.opponents) {
       final count = (snapshot.hands[player.id] ?? const <Card>[]).length;
@@ -25,9 +25,9 @@ extension _ScorerHelpers on TurnScorer {
   }
 
   bool _opponentTichuNearFinishWinningTrick(
-    final GameSnapshot snapshot,
-    final String playerId,
-    final DeckState deck,
+    GameSnapshot snapshot,
+    String playerId,
+    DeckState deck,
   ) {
     final table = TableRelationships(snapshot, playerId);
     final winnerId = deck.currentWinner.isNotEmpty
@@ -50,13 +50,13 @@ extension _ScorerHelpers on TurnScorer {
   }
 
   /// Bombs, plus anything the unseen cards provably cannot beat.
-  bool _isUnbeatableLine(final TichuTurn play, final CardKnowledge knowledge) =>
+  bool _isUnbeatableLine(TichuTurn play, CardKnowledge knowledge) =>
       play.type == TurnType.bomb || knowledge.isUnbeatable(play);
 
-  int _countLowSingletons(final List<Card> hand) {
+  int _countLowSingletons(List<Card> hand) {
     final normalCards = hand
         .where(
-          (final c) =>
+          (c) =>
               c.face != CardFace.phoenix &&
               c.face != CardFace.dog &&
               c.face != CardFace.dragon,
@@ -74,22 +74,17 @@ extension _ScorerHelpers on TurnScorer {
     return count;
   }
 
-  List<Card> _removePlayedCards(
-    final List<Card> hand,
-    final List<Card> played,
-  ) {
+  List<Card> _removePlayedCards(List<Card> hand, List<Card> played) {
     final remaining = List<Card>.from(hand);
     for (final card in played) {
       if (card.face == CardFace.phoenix) {
-        final index = remaining.indexWhere(
-          (final c) => c.face == CardFace.phoenix,
-        );
+        final index = remaining.indexWhere((c) => c.face == CardFace.phoenix);
         if (index != -1) {
           remaining.removeAt(index);
         }
         continue;
       }
-      final index = remaining.indexWhere((final c) => c == card);
+      final index = remaining.indexWhere((c) => c == card);
       if (index != -1) {
         remaining.removeAt(index);
       }

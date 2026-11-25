@@ -6,11 +6,11 @@ extension _HeuristicTurn on SmartAiAgent {
   /// then [playSelectionStrategy] (TurnScorer) and the cheapest equivalent
   /// combination.
   GameAction _heuristicTurn(
-    final GameSnapshot snapshot,
-    final DeckState deck,
-    final List<Card> hand,
-    final TableRelationships table,
-    final List<TichuTurn> legal,
+    GameSnapshot snapshot,
+    DeckState deck,
+    List<Card> hand,
+    TableRelationships table,
+    List<TichuTurn> legal,
   ) {
     final legalTurns = legal;
     final isLeading =
@@ -38,7 +38,7 @@ extension _HeuristicTurn on SmartAiAgent {
       deck: deck,
       hand: hand,
       isLeading: isLeading && isGameOpeningLead,
-      selectPlay: (final options) =>
+      selectPlay: (options) =>
           playSelectionStrategy.selectPlay(snapshot, options, deck, hand),
     );
     if (mahjongLead != null) {

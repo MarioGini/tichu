@@ -7,8 +7,8 @@ import 'package:tichu/game/turn/utils/bomb_utils.dart';
 
 abstract class SchupfStrategy {
   Future<SchupfAction> selectSchupfCards(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   );
 }
 
@@ -17,8 +17,8 @@ class DefaultSchupfStrategy implements SchupfStrategy {
 
   @override
   Future<SchupfAction> selectSchupfCards(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     if (hand.length < 3) {
@@ -40,16 +40,16 @@ class DefaultSchupfStrategy implements SchupfStrategy {
   }
 
   (Card toLeft, Card toPartner, Card toRight) _selectSchupfCards(
-    final GameSnapshot snapshot,
-    final String playerId,
-    final List<Card> hand,
+    GameSnapshot snapshot,
+    String playerId,
+    List<Card> hand,
   ) {
     final remaining = List<Card>.from(hand)
-      ..sort((final a, final b) => a.value.compareTo(b.value));
+      ..sort((a, b) => a.value.compareTo(b.value));
 
     final (leftId, partnerId, rightId) = _seatIds(snapshot, playerId);
     final tichuCalls = snapshot.scoreState.tichuCalls;
-    bool called(final String? id) =>
+    bool called(String? id) =>
         id != null && (tichuCalls[id] ?? TichuCall.none) != TichuCall.none;
     // "Going out first" intent: an actual (Grand) Tichu call, or — for me —
     // a hand the heuristic would call Tichu with after the exchange.
@@ -66,10 +66,8 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     // If partner called, keep Dog for support plays.
     if (!partnerGrand &&
         (leftGrand || rightGrand) &&
-        remaining.any((final c) => c.face == CardFace.dog)) {
-      final dogIndex = remaining.indexWhere(
-        (final c) => c.face == CardFace.dog,
-      );
+        remaining.any((c) => c.face == CardFace.dog)) {
+      final dogIndex = remaining.indexWhere((c) => c.face == CardFace.dog);
       if (dogIndex != -1) {
         final dogCard = remaining.removeAt(dogIndex);
         if (leftGrand) {
@@ -88,13 +86,10 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     final bombCards = <Card>{
       for (final bomb in getBombs(List<Card>.from(hand))) ...bomb.cards,
     };
-    List<Card> safe(final List<Card> pool) {
+    List<Card> safe(List<Card> pool) {
       final kept = [
         for (final c in pool)
-          if (!bombCards.any(
-            (final b) => b.face == c.face && b.color == c.color,
-          ))
-            c,
+          if (!bombCards.any((b) => b.face == c.face && b.color == c.color)) c,
       ];
       return kept.isEmpty ? pool : kept;
     }
@@ -122,14 +117,14 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     // - Otherwise: give strongest regular card (support the partner).
     Card toPartner;
     if (partnerGrand) {
-      final nonDog = safe(
-        remaining,
-      ).where((final c) => c.face != CardFace.dog).toList();
+      final nonDog = safe(remaining)
+          .where((c) => c.face != CardFace.dog)
+          .toList();
       if (nonDog.isNotEmpty) {
-        nonDog.sort((final a, final b) => b.value.compareTo(a.value));
+        nonDog.sort((a, b) => b.value.compareTo(a.value));
         toPartner = nonDog.first;
       } else {
-        remaining.sort((final a, final b) => b.value.compareTo(a.value));
+        remaining.sort((a, b) => b.value.compareTo(a.value));
         toPartner = remaining.first;
       }
     } else if (selfGoing) {
@@ -138,10 +133,10 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     } else {
       final partnerPool = safe(_normalCandidates(remaining));
       if (partnerPool.isNotEmpty) {
-        partnerPool.sort((final a, final b) => b.value.compareTo(a.value));
+        partnerPool.sort((a, b) => b.value.compareTo(a.value));
         toPartner = partnerPool.first;
       } else {
-        remaining.sort((final a, final b) => b.value.compareTo(a.value));
+        remaining.sort((a, b) => b.value.compareTo(a.value));
         toPartner = remaining.first;
       }
     }
@@ -150,12 +145,10 @@ class DefaultSchupfStrategy implements SchupfStrategy {
   }
 
   (String? leftId, String? partnerId, String? rightId) _seatIds(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) {
-    final mySeat = snapshot.players
-        .firstWhere((final p) => p.id == playerId)
-        .seat;
+    final mySeat = snapshot.players.firstWhere((p) => p.id == playerId).seat;
     final leftSeat = (mySeat + 1) % 4;
     final rightSeat = (mySeat + 3) % 4;
     String? leftId;
@@ -171,9 +164,9 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     return (leftId, partnerId, rightId);
   }
 
-  List<Card> _normalCandidates(final List<Card> hand) => hand
+  List<Card> _normalCandidates(List<Card> hand) => hand
       .where(
-        (final c) =>
+        (c) =>
             c.face != CardFace.dragon &&
             c.face != CardFace.phoenix &&
             c.face != CardFace.dog &&
@@ -181,32 +174,28 @@ class DefaultSchupfStrategy implements SchupfStrategy {
       )
       .toList();
 
-  Card _pickLowest(final List<Card> pool, {final bool avoidDog = false}) {
+  Card _pickLowest(List<Card> pool, {bool avoidDog = false}) {
     final candidates = avoidDog
-        ? pool.where((final card) => card.face != CardFace.dog).toList()
+        ? pool.where((card) => card.face != CardFace.dog).toList()
         : List<Card>.from(pool);
     if (candidates.isEmpty) {
       candidates.addAll(pool);
     }
-    candidates.sort((final a, final b) => a.value.compareTo(b.value));
+    candidates.sort((a, b) => a.value.compareTo(b.value));
     return candidates.first;
   }
 
   static const double _maxParityValue = 10;
 
-  Card? _pickLowestByParity(
-    final List<Card> pool, {
-    required final bool isEven,
-  }) {
+  Card? _pickLowestByParity(List<Card> pool, {required bool isEven}) {
     // Only low cards: never hand an opponent a high card just for parity.
     final candidates = pool
         .where(
-          (final c) =>
-              c.value.toInt().isEven == isEven && c.value <= _maxParityValue,
+          (c) => c.value.toInt().isEven == isEven && c.value <= _maxParityValue,
         )
         .toList();
     if (candidates.isEmpty) return null;
-    candidates.sort((final a, final b) => a.value.compareTo(b.value));
+    candidates.sort((a, b) => a.value.compareTo(b.value));
     return candidates.first;
   }
 }

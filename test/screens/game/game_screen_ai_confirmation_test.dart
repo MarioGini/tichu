@@ -9,7 +9,7 @@ import '../../utils/test_game_match_service.dart';
 
 void main() {
   testWidgets('shows pending opponent cards before confirmation', (
-    final tester,
+    tester,
   ) async {
     final backend = FakeGameMatchService();
 
@@ -53,7 +53,7 @@ void main() {
   });
 
   testWidgets('auto-confirms repeated identical pending passes', (
-    final tester,
+    tester,
   ) async {
     final backend = FakeGameMatchService();
 

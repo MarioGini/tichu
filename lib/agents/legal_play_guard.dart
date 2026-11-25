@@ -18,13 +18,11 @@ class LegalPlayGuard {
   /// re-normalisation and hand-containment check (they are guaranteed by
   /// construction). That fast-path is ~3-4× cheaper per decision.
   static List<TichuTurn> strictLegalTurnsFromCandidates({
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final Iterable<TichuTurn> candidates,
+    required DeckState deck,
+    required List<Card> hand,
+    required Iterable<TichuTurn> candidates,
   }) => candidates
-      .where(
-        (final turn) => isStrictlyLegalTurn(deck: deck, hand: hand, turn: turn),
-      )
+      .where((turn) => isStrictlyLegalTurn(deck: deck, hand: hand, turn: turn))
       .toList(growable: false);
 
   /// Fast-path filter for turns produced by `generateLegalTurns`. Skips the
@@ -32,9 +30,9 @@ class LegalPlayGuard {
   /// [strictLegalTurnsFromCandidates] performs, keeping only the wish
   /// enforcement check (`mahJong`) which the move generator does not apply.
   static List<TichuTurn> filterMoveGeneratorTurns({
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final List<TichuTurn> moveGeneratorTurns,
+    required DeckState deck,
+    required List<Card> hand,
+    required List<TichuTurn> moveGeneratorTurns,
   }) {
     if (moveGeneratorTurns.isEmpty) return moveGeneratorTurns;
     // Wish enforcement only matters when there is an active wish on the deck.
@@ -44,14 +42,14 @@ class LegalPlayGuard {
       return moveGeneratorTurns;
     }
     return moveGeneratorTurns
-        .where((final turn) => !mahJong(deck, turn, hand))
+        .where((turn) => !mahJong(deck, turn, hand))
         .toList(growable: false);
   }
 
   static bool isStrictlyLegalTurn({
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final TichuTurn turn,
+    required DeckState deck,
+    required List<Card> hand,
+    required TichuTurn turn,
   }) {
     if (turn.cards.isEmpty) {
       return false;
@@ -77,10 +75,7 @@ class LegalPlayGuard {
     return validTurn(deck.turn, normalized);
   }
 
-  static bool canPass({
-    required final DeckState deck,
-    required final List<Card> hand,
-  }) {
+  static bool canPass({required DeckState deck, required List<Card> hand}) {
     if (deck.turn.type == TurnType.empty || deck.turn.type == TurnType.none) {
       return false;
     }
@@ -88,8 +83,8 @@ class LegalPlayGuard {
   }
 
   static TichuTurn? firstLegalTurnBruteForce({
-    required final DeckState deck,
-    required final List<Card> hand,
+    required DeckState deck,
+    required List<Card> hand,
   }) {
     if (hand.isEmpty) {
       return null;
@@ -114,13 +109,13 @@ class LegalPlayGuard {
   }
 
   static List<Card>? _findPlayableOfSize({
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final int size,
+    required DeckState deck,
+    required List<Card> hand,
+    required int size,
   }) {
     final chosen = <Card>[];
 
-    List<Card>? search(final int startIndex) {
+    List<Card>? search(int startIndex) {
       if (chosen.length == size) {
         final candidate = List<Card>.from(chosen);
         late final TichuTurn turn;
@@ -158,10 +153,10 @@ class LegalPlayGuard {
     return search(0);
   }
 
-  static bool _handContainsAll(final List<Card> hand, final List<Card> cards) {
+  static bool _handContainsAll(List<Card> hand, List<Card> cards) {
     final temp = List<Card>.from(hand);
     for (final card in cards) {
-      final index = temp.indexWhere((final candidate) {
+      final index = temp.indexWhere((candidate) {
         if (card.face == CardFace.phoenix) {
           return candidate.face == CardFace.phoenix;
         }

@@ -15,7 +15,7 @@ class CardValueChip extends StatelessWidget {
   final Color textColor;
 
   @override
-  Widget build(final BuildContext context) => Container(
+  Widget build(BuildContext context) => Container(
     padding: EdgeInsets.symmetric(horizontal: 6 * scale, vertical: 2 * scale),
     decoration: BoxDecoration(
       color: Colors.black.withValues(alpha: 0.7),
@@ -49,7 +49,7 @@ class CardWidget extends StatelessWidget {
   static const double compactHeight = 120;
   static bool _assetsPrecached = false;
 
-  static Future<void> precacheCardAssets(final BuildContext context) async {
+  static Future<void> precacheCardAssets(BuildContext context) async {
     if (_assetsPrecached) return;
     _assetsPrecached = true;
 
@@ -96,7 +96,7 @@ class CardWidget extends StatelessWidget {
   final String? overlayChipText;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final label = _cardLabel(card);
     final background = card.color == CardColor.special
         ? Colors.grey.shade800
@@ -171,19 +171,18 @@ class CardWidget extends StatelessWidget {
                     alignment: Alignment.topCenter,
                     gaplessPlayback: true,
                     filterQuality: FilterQuality.low,
-                    errorBuilder:
-                        (final context, final error, final stackTrace) => Align(
-                          alignment: Alignment.topCenter,
-                          child: Text(
-                            label,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: fontSize,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
+                    errorBuilder: (context, error, stackTrace) => Align(
+                      alignment: Alignment.topCenter,
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: fontSize,
                         ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   ),
                 if (_showOverlayChip)
                   Positioned(
@@ -222,7 +221,7 @@ class CardWidget extends StatelessWidget {
     return _rankLabel(v.round());
   }
 
-  String _rankLabel(final int value) => switch (value) {
+  String _rankLabel(int value) => switch (value) {
     11 => 'J',
     12 => 'Q',
     13 => 'K',
@@ -230,7 +229,7 @@ class CardWidget extends StatelessWidget {
     _ => value.toString(),
   };
 
-  String _cardLabel(final Card card) => switch (card.face) {
+  String _cardLabel(Card card) => switch (card.face) {
     CardFace.mahJong => 'MJ',
     CardFace.dragon => 'DR',
     CardFace.phoenix => 'PH',
@@ -251,7 +250,7 @@ class CardWidget extends StatelessWidget {
     CardFace.none => '?',
   };
 
-  String? _cardAssetPath(final Card card) {
+  String? _cardAssetPath(Card card) {
     if (card.face == CardFace.none) {
       return null;
     }
@@ -274,7 +273,7 @@ class CardWidget extends StatelessWidget {
     return 'assets/cards/${card.color.name}_$faceName.png';
   }
 
-  String? _cardFaceName(final CardFace face) => switch (face) {
+  String? _cardFaceName(CardFace face) => switch (face) {
     CardFace.two => '02',
     CardFace.three => '03',
     CardFace.four => '04',

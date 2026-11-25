@@ -9,15 +9,15 @@ part of 'headless.dart';
 extension _Worlds on _HeadlessSimulator {
   /// The labelling worlds keep the pre-search re-deal (pool in hand
   /// order), so labels stay reproducible with earlier runs.
-  GameEngineState _redeal(final GameEngineState state, final String actorId) =>
+  GameEngineState _redeal(GameEngineState state, String actorId) =>
       redealWorld(state, actorId, random, canonicalPool: false);
 
   /// Rollout values of every legal action in [rolloutWorlds] - 1 re-dealt
   /// worlds (the real deal is the caller's first world). Null entries: not
   /// rolled out (cap) or the world got stuck.
   Future<List<List<double?>>> _worldRollouts({
-    required final GameEngineState state,
-    required final GameAction chosen,
+    required GameEngineState state,
+    required GameAction chosen,
   }) async {
     final out = <List<double?>>[];
     for (var w = 1; w < rolloutWorlds; w++) {

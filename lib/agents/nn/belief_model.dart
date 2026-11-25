@@ -24,8 +24,8 @@ class BeliefModel {
   /// `p[slot][k]` for card slot 0..55 and k = 0 left opponent, 1 partner,
   /// 2 right opponent (softmax of the net's 56 x 3 logits).
   List<List<double>> holderProbabilities(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) {
     final out = network.predictAll(
       encodeStateFeatures(snapshot: snapshot, playerId: playerId),
@@ -36,7 +36,7 @@ class BeliefModel {
     ];
   }
 
-  static List<double> _softmax(final double a, final double b, final double c) {
+  static List<double> _softmax(double a, double b, double c) {
     final m = max(a, max(b, c));
     final ea = exp(a - m);
     final eb = exp(b - m);

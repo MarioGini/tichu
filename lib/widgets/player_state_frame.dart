@@ -1,10 +1,10 @@
 import 'package:material_ui/material_ui.dart';
 
 BoxDecoration buildPlayerStateFrameDecoration({
-  required final bool isActive,
-  required final bool isFinished,
-  required final double borderRadius,
-  final double idleAlpha = 0.2,
+  required bool isActive,
+  required bool isFinished,
+  required double borderRadius,
+  double idleAlpha = 0.2,
 }) {
   final Color borderColor;
   final double borderWidth;
@@ -26,15 +26,11 @@ BoxDecoration buildPlayerStateFrameDecoration({
   );
 }
 
-Widget buildPlayerOutLabel(
-  final BuildContext context,
-  final int finishPosition,
-) => Padding(
+Widget buildPlayerOutLabel(BuildContext context, int finishPosition) => Padding(
   padding: const EdgeInsets.only(top: 6),
   child: Text(
     'Out #$finishPosition',
-    style: Theme.of(
-      context,
-    ).textTheme.bodySmall?.copyWith(color: Colors.greenAccent),
+    style: Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: Colors.greenAccent),
   ),
 );

@@ -9,9 +9,9 @@ const Map<CardFace, int> cardPoints = {
   CardFace.phoenix: -25,
 };
 
-int pointsForCard(final Card card) => cardPoints[card.face] ?? 0;
+int pointsForCard(Card card) => cardPoints[card.face] ?? 0;
 
-int pointsForCards(final Iterable<Card> cards) {
+int pointsForCards(Iterable<Card> cards) {
   var total = 0;
   for (final c in cards) {
     total += cardPoints[c.face] ?? 0;

@@ -8,19 +8,18 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'ai_test_fixtures.dart';
 
-Card c(final CardFace face, [final CardColor color = CardColor.black]) =>
-    Card(face, color);
+Card c(CardFace face, [CardColor color = CardColor.black]) => Card(face, color);
 
 GameSnapshot fxSnapshot({
-  required final List<Card> mine,
-  required final Map<String, List<Card>> others,
-  final DeckState? deck,
-  final int trickPoints = 0,
-  final List<String> finishOrder = const [],
-  final Map<String, TichuCall> calls = const {},
-  final Map<String, List<SchupfReceipt>> receipts = const {},
-  final List<RoundLogEntry> roundLog = const [],
-  final Map<String, SchupfAction> schupfSelections = const {},
+  required List<Card> mine,
+  required Map<String, List<Card>> others,
+  DeckState? deck,
+  int trickPoints = 0,
+  List<String> finishOrder = const [],
+  Map<String, TichuCall> calls = const {},
+  Map<String, List<SchupfReceipt>> receipts = const {},
+  List<RoundLogEntry> roundLog = const [],
+  Map<String, SchupfAction> schupfSelections = const {},
 }) {
   final base = aiSnapshot(
     myHand: mine,
@@ -58,7 +57,7 @@ GameSnapshot fxSnapshot({
   );
 }
 
-int slot(final String group, final int i) => switch (group) {
+int slot(String group, int i) => switch (group) {
   'hand' => handOffset + i,
   'played' => playedOffset + i,
   'unseen' => unseenOffset + i,

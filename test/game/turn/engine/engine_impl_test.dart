@@ -123,9 +123,7 @@ void main() {
       final engine = GameEngineImpl();
       final state = fxState(phase: GamePhase.play);
       final notCurrent = state.players
-          .firstWhere(
-            (final p) => p.id != state.players[state.currentPlayerIndex].id,
-          )
+          .firstWhere((p) => p.id != state.players[state.currentPlayerIndex].id)
           .id;
 
       engine.applyAction(state, CallTichuAction(playerId: notCurrent));

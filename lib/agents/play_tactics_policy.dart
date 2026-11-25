@@ -13,11 +13,11 @@ class PlayTacticsPolicy {
   const PlayTacticsPolicy();
 
   PassAction? selectPartnerSupportPass({
-    required final String playerId,
-    required final GameSnapshot snapshot,
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final TableRelationships table,
+    required String playerId,
+    required GameSnapshot snapshot,
+    required DeckState deck,
+    required List<Card> hand,
+    required TableRelationships table,
   }) {
     final partnerId = table.partnerId;
     if (partnerId == null) {
@@ -84,10 +84,7 @@ class PlayTacticsPolicy {
     return PassAction(playerId: playerId);
   }
 
-  bool _isPartnerSupportPassTurn(
-    final TichuTurn turn,
-    final CardKnowledge knowledge,
-  ) {
+  bool _isPartnerSupportPassTurn(TichuTurn turn, CardKnowledge knowledge) {
     if (turn.type == TurnType.single) {
       // High single, or one nothing unseen can beat (e.g. a queen once all
       // kings, aces, dragon and phoenix are gone).
@@ -104,10 +101,10 @@ class PlayTacticsPolicy {
   }
 
   TichuTurn? selectPartnerFinishLead({
-    required final GameSnapshot snapshot,
-    required final List<TichuTurn> legalTurns,
-    required final bool isLeading,
-    required final TableRelationships table,
+    required GameSnapshot snapshot,
+    required List<TichuTurn> legalTurns,
+    required bool isLeading,
+    required TableRelationships table,
   }) {
     if (!isLeading) {
       return null;
@@ -126,51 +123,48 @@ class PlayTacticsPolicy {
     }
 
     final singles = legalTurns
-        .where((final turn) => turn.type == TurnType.single)
+        .where((turn) => turn.type == TurnType.single)
         .toList();
     if (singles.isEmpty) {
       return null;
     }
 
-    singles.sort((final a, final b) => a.value.compareTo(b.value));
+    singles.sort((a, b) => a.value.compareTo(b.value));
     final nonDragon = singles.where(
-      (final turn) => !turn.cards.any((final c) => c.face == CardFace.dragon),
+      (turn) => !turn.cards.any((c) => c.face == CardFace.dragon),
     );
     return nonDragon.isNotEmpty ? nonDragon.first : singles.first;
   }
 
   List<TichuTurn> filterWishValidPlays({
-    required final DeckState deck,
-    required final List<TichuTurn> legalTurns,
-    required final List<Card> hand,
-  }) => legalTurns.where((final turn) => !mahJong(deck, turn, hand)).toList();
+    required DeckState deck,
+    required List<TichuTurn> legalTurns,
+    required List<Card> hand,
+  }) => legalTurns.where((turn) => !mahJong(deck, turn, hand)).toList();
 
   TichuTurn? selectMahjongLeadTurn({
-    required final List<TichuTurn> legalTurns,
-    required final DeckState deck,
-    required final List<Card> hand,
-    required final bool isLeading,
-    required final TichuTurn Function(List<TichuTurn>) selectPlay,
+    required List<TichuTurn> legalTurns,
+    required DeckState deck,
+    required List<Card> hand,
+    required bool isLeading,
+    required TichuTurn Function(List<TichuTurn>) selectPlay,
   }) {
     if (!isLeading || deck.wish != CardFace.none) {
       return null;
     }
-    if (!hand.any((final c) => c.face == CardFace.mahJong)) {
+    if (!hand.any((c) => c.face == CardFace.mahJong)) {
       return null;
     }
 
     final mahjongTurns = legalTurns
-        .where(
-          (final turn) =>
-              turn.cards.any((final c) => c.face == CardFace.mahJong),
-        )
+        .where((turn) => turn.cards.any((c) => c.face == CardFace.mahJong))
         .toList();
     if (mahjongTurns.isEmpty) {
       return null;
     }
 
     final mahjongStraights = mahjongTurns
-        .where((final turn) => turn.type == TurnType.straight)
+        .where((turn) => turn.type == TurnType.straight)
         .toList();
     if (mahjongStraights.isNotEmpty) {
       return selectPlay(mahjongStraights);

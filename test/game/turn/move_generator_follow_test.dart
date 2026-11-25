@@ -16,7 +16,7 @@ void main() {
       final deck = pairDeck(CardFace.five);
       final turns = generateLegalTurns(deck, hand);
 
-      final pairs = turns.where((final t) => t.type == TurnType.pair).toList();
+      final pairs = turns.where((t) => t.type == TurnType.pair).toList();
       // Pair of 3s doesn't beat pair of 5s. Only kings should show.
       expect(pairs.length, 1);
       expect(pairs.first.cards.first.face, CardFace.king);
@@ -31,7 +31,7 @@ void main() {
       final deck = pairDeck(CardFace.two);
       final turns = generateLegalTurns(deck, hand);
 
-      final pairs = turns.where((final t) => t.type == TurnType.pair).toList();
+      final pairs = turns.where((t) => t.type == TurnType.pair).toList();
       expect(pairs.length, 3);
     });
 
@@ -44,10 +44,10 @@ void main() {
 
       final turns = generateLegalTurns(deck, hand);
       final dragonPairs = turns.where(
-        (final t) =>
+        (t) =>
             t.type == TurnType.pair &&
-            t.cards.any((final c) => c.face == CardFace.dragon) &&
-            t.cards.any((final c) => c.face == CardFace.phoenix),
+            t.cards.any((c) => c.face == CardFace.dragon) &&
+            t.cards.any((c) => c.face == CardFace.phoenix),
       );
 
       expect(dragonPairs, isEmpty);
@@ -63,10 +63,10 @@ void main() {
 
       final turns = generateLegalTurns(deck, hand);
       final mahjongPairs = turns.where(
-        (final t) =>
+        (t) =>
             t.type == TurnType.pair &&
-            t.cards.any((final c) => c.face == CardFace.mahJong) &&
-            t.cards.any((final c) => c.face == CardFace.phoenix),
+            t.cards.any((c) => c.face == CardFace.mahJong) &&
+            t.cards.any((c) => c.face == CardFace.phoenix),
       );
 
       expect(mahjongPairs, isEmpty);
@@ -114,9 +114,7 @@ void main() {
 
       final turns = generateLegalTurns(deck, hand);
       expect(
-        turns.any(
-          (final t) => t.type == TurnType.straight && t.cards.length == 5,
-        ),
+        turns.any((t) => t.type == TurnType.straight && t.cards.length == 5),
         isTrue,
       );
     });
@@ -141,7 +139,7 @@ void main() {
       );
 
       final turns = generateLegalTurns(deck, hand);
-      expect(turns.any((final t) => t.type == TurnType.pairStraight), isTrue);
+      expect(turns.any((t) => t.type == TurnType.pairStraight), isTrue);
     });
 
     test('full-house deck generates valid full-house responses', () {
@@ -164,7 +162,7 @@ void main() {
       );
 
       final turns = generateLegalTurns(deck, hand);
-      expect(turns.any((final t) => t.type == TurnType.fullHouse), isTrue);
+      expect(turns.any((t) => t.type == TurnType.fullHouse), isTrue);
     });
 
     test('bomb deck only allows stronger bombs', () {
@@ -200,7 +198,7 @@ void main() {
       );
 
       final turns = generateLegalTurns(deck, hand);
-      expect(turns.where((final t) => t.type == TurnType.single), isEmpty);
+      expect(turns.where((t) => t.type == TurnType.single), isEmpty);
     });
   });
 }

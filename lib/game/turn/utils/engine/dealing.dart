@@ -5,7 +5,7 @@ import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 (Map<String, List<Card>> hands, Map<String, List<Card>> reserved)
-dealInitialHands(final List<GamePlayer> players, final Random random) {
+dealInitialHands(List<GamePlayer> players, Random random) {
   final deckCards = cardIdentifiers.values.toList();
   deckCards.shuffle(random);
 

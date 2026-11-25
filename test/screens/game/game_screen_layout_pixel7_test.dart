@@ -41,10 +41,7 @@ void main() {
     Size(915, 412),
   ];
 
-  Future<FakeGameMatchService> pumpAt(
-    final WidgetTester tester,
-    final Size size,
-  ) async {
+  Future<FakeGameMatchService> pumpAt(WidgetTester tester, Size size) async {
     tester.view
       ..physicalSize = size * 2.625
       ..devicePixelRatio = 2.625;
@@ -64,7 +61,7 @@ void main() {
   for (final size in sizes) {
     final label = '${size.width.toInt()}x${size.height.toInt()}';
 
-    testWidgets('play phase fits on screen at $label', (final tester) async {
+    testWidgets('play phase fits on screen at $label', (tester) async {
       final backend = await pumpAt(tester, size);
       backend.emit(
         buildPlayerSnapshot(
@@ -89,9 +86,7 @@ void main() {
       }
     });
 
-    testWidgets('busy play phase fits on screen at $label', (
-      final tester,
-    ) async {
+    testWidgets('busy play phase fits on screen at $label', (tester) async {
       final backend = await pumpAt(tester, size);
       final trick = [
         for (final face in [CardFace.five, CardFace.six, CardFace.seven])
@@ -159,7 +154,7 @@ void main() {
       }
     });
 
-    testWidgets('match end fits at $label', (final tester) async {
+    testWidgets('match end fits at $label', (tester) async {
       final backend = await pumpAt(tester, size);
       backend.emit(
         buildPlayerSnapshot(
@@ -189,7 +184,7 @@ void main() {
       expect(find.text('PLAY'), findsNothing);
     });
 
-    testWidgets('schupf phase fits on screen at $label', (final tester) async {
+    testWidgets('schupf phase fits on screen at $label', (tester) async {
       final backend = await pumpAt(tester, size);
       backend.emit(
         buildPlayerSnapshot(

@@ -5,7 +5,7 @@ import 'package:tichu/screens/observe/observe_controller.dart';
 import 'package:tichu/screens/observe/observe_screen.dart';
 
 void main() {
-  testWidgets('shows all hands and steps on Continue', (final tester) async {
+  testWidgets('shows all hands and steps on Continue', (tester) async {
     tester.view
       ..physicalSize = const Size(1280, 800)
       ..devicePixelRatio = 1;

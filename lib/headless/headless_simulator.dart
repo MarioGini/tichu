@@ -155,11 +155,11 @@ class _HeadlessSimulator {
     this.endgameSearcher,
   });
 
-  static bool _everySeat(final int _) => true;
+  static bool _everySeat(int _) => true;
 
   Future<GameAction?> _shadowHeuristicTurn(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async {
     final agent = _shadowAgents.putIfAbsent(
       playerId,
@@ -170,8 +170,8 @@ class _HeadlessSimulator {
 
   /// What each shadow variant would play in [snapshot] (null = no move).
   Future<List<GameAction?>> _variantTurns(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async {
     final turns = <GameAction?>[];
     for (var i = 0; i < shadowVariants.length; i++) {
@@ -214,7 +214,7 @@ class _HeadlessSimulator {
   /// Rollout labelling is on (only labelled play rows are written).
   bool get _rolloutLabelling => rolloutRate > 0;
 
-  Future<void> _runEpisode(final int episodeNumber) async {
+  Future<void> _runEpisode(int episodeNumber) async {
     final players = _buildAutomatedPlayers();
     final agents = {
       for (final player in players)
@@ -307,7 +307,7 @@ class _HeadlessSimulator {
           bcWriter != null &&
           (action is PlayTurnAction || action is PassAction) &&
           isLearnerSeat(
-            state.players.firstWhere((final p) => p.id == action.playerId).seat,
+            state.players.firstWhere((p) => p.id == action.playerId).seat,
           )) {
         if (random.nextDouble() < rolloutRate &&
             (snapshot.hands[action.playerId]?.length ?? 0) <= labelMaxCards) {
@@ -385,7 +385,7 @@ class _HeadlessSimulator {
   }
 
   /// SplitMix-style mix of (seed, episode) into a 32-bit Random seed.
-  static int _mixSeed(final int seed, final int episode) {
+  static int _mixSeed(int seed, int episode) {
     var z = (seed * 0x9E3779B1 + episode * 0x85EBCA77) & 0xFFFFFFFF;
     z = ((z ^ (z >> 16)) * 0x7FEB352D) & 0xFFFFFFFF;
     z = ((z ^ (z >> 15)) * 0x846CA68B) & 0xFFFFFFFF;

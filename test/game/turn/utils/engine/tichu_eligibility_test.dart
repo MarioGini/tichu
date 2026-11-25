@@ -11,11 +11,11 @@ import '../../../../utils/test_game_fixtures.dart';
 
 void main() {
   GameEngineState buildState({
-    final DeckState? deck,
-    final int currentPlayerIndex = 0,
-    final String? lastPlayedBy,
-    final List<Card>? currentTrickCards,
-    final List<Card>? humanHand,
+    DeckState? deck,
+    int currentPlayerIndex = 0,
+    String? lastPlayedBy,
+    List<Card>? currentTrickCards,
+    List<Card>? humanHand,
   }) {
     final state = GameEngineState(
       gameId: 'test-game',

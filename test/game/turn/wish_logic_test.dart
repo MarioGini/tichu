@@ -143,7 +143,7 @@ void main() {
       final deck = DeckState(turn, wish);
 
       // The wish is lower than currently played card.
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), false);
     });
     test('canPlayTest', () {
@@ -151,7 +151,7 @@ void main() {
       final deck = DeckState(turn, wish);
 
       // The wish is higher than deck value and can be played.
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
   });
@@ -164,7 +164,7 @@ void main() {
       ]);
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), false);
     });
     test('playWishOnDogTest', () {
@@ -173,7 +173,7 @@ void main() {
       ]);
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
   });
@@ -196,7 +196,7 @@ void main() {
       const wish = CardFace.five;
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), false);
     });
     test('canPlayTest', () {
@@ -204,7 +204,7 @@ void main() {
       const wish = CardFace.king;
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
     test('canPlayWithPhoenixTest', () {
@@ -212,7 +212,7 @@ void main() {
       const wish = CardFace.seven;
       final deck = DeckState(turn, wish);
 
-      expect(cards.any((final element) => element.face == wish), true);
+      expect(cards.any((element) => element.face == wish), true);
       expect(canPlayWish(deck, cards), true);
     });
   });

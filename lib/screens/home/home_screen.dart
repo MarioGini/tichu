@@ -15,11 +15,7 @@ import 'package:tichu/services/multiplayer/multiplayer_backend.dart';
 import 'package:tichu/services/multiplayer/solo_match.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({
-    super.key,
-    final MultiplayerBackend? multiplayerBackend,
-    this.accountService,
-  }) : _multiplayerBackend = multiplayerBackend;
+  const HomeScreen({super.key, this._multiplayerBackend, this.accountService});
 
   final MultiplayerBackend? _multiplayerBackend;
 
@@ -93,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _onNameChanged(final String _) {
+  void _onNameChanged(String _) {
     _nameEdited = true;
     setState(() {});
     _saveNameTimer?.cancel();
@@ -124,7 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final result = await showDialog<CreateGameResult>(
       context: context,
-      builder: (final context) => CreateGameDialog(displayName: _displayName),
+      builder: (context) => CreateGameDialog(displayName: _displayName),
     );
     if (result == null || !mounted) return;
 
@@ -147,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final code = await showDialog<String>(
       context: context,
-      builder: (final context) => const JoinPrivateDialog(),
+      builder: (context) => const JoinPrivateDialog(),
     );
     if (code == null || code.isEmpty || !mounted) return;
 
@@ -159,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _joinGame(final GameLobbyListEntry entry) async {
+  Future<void> _joinGame(GameLobbyListEntry entry) async {
     if (!_canAct) return;
     await _runBusyAction(() async {
       final handle = await _multiplayerBackend.sessionService.joinLobby(
@@ -191,7 +187,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _openLobby(final GameSessionHandle sessionHandle) async {
+  Future<void> _openLobby(GameSessionHandle sessionHandle) async {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -204,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> {
     unawaited(_refreshGames());
   }
 
-  Future<void> _runBusyAction(final Future<void> Function() action) async {
+  Future<void> _runBusyAction(Future<void> Function() action) async {
     setState(() {
       _isBusy = true;
     });
@@ -212,9 +208,8 @@ class _HomeScreenState extends State<HomeScreen> {
       await action();
     } on Object catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$error')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('$error')));
     } finally {
       if (mounted) {
         setState(() {
@@ -225,9 +220,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final publicGames = _games
-        .where((final g) => g.visibility == GameLobbyVisibility.public)
+        .where((g) => g.visibility == GameLobbyVisibility.public)
         .toList();
 
     return Scaffold(
@@ -242,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: SafeArea(
           child: LayoutBuilder(
-            builder: (final context, final constraints) {
+            builder: (context, constraints) {
               final wide =
                   constraints.maxWidth > constraints.maxHeight &&
                   constraints.maxWidth >= 640;
@@ -273,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 publicGames: publicGames,
                 canJoin: _canAct,
                 onRefresh: () => unawaited(_refreshGames()),
-                onJoin: (final entry) => unawaited(_joinGame(entry)),
+                onJoin: (entry) => unawaited(_joinGame(entry)),
               );
               if (wide) {
                 // Landscape: start actions left, open games right.

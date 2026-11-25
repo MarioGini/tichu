@@ -33,7 +33,7 @@ class Mlp {
 
   // ── Random init (for tests) ─────────────────────────────────────────────
 
-  factory Mlp({required final List<int> layerSizes, final int? seed}) {
+  factory Mlp({required List<int> layerSizes, int? seed}) {
     if (layerSizes.length < 2) {
       throw ArgumentError('Need at least input and output layer sizes.');
     }
@@ -59,12 +59,10 @@ class Mlp {
   }
 
   Mlp._({
-    required final List<Float64List> weights,
-    required final List<Float64List> biases,
+    required this._weights,
+    required this._biases,
     required this.layerSizes,
-  }) : _weights = weights,
-       _biases = biases,
-       _buffers = [
+  }) : _buffers = [
          for (var l = 1; l < layerSizes.length; l++) Float64List(layerSizes[l]),
        ];
 
@@ -74,7 +72,7 @@ class Mlp {
   /// The same net for a wider input: input `i` moves to column
   /// `column(i)`, the other [inputSize] columns get zero weights, so the
   /// output is unchanged (the Dart side of `rl/widen_net.py`).
-  Mlp widenInputs(final int inputSize, final int Function(int) column) {
+  Mlp widenInputs(int inputSize, int Function(int) column) {
     final oldIn = layerSizes.first;
     final out = layerSizes[1];
     final w = Float64List(out * inputSize);
@@ -98,7 +96,7 @@ class Mlp {
   /// indexing for the first layer (subsequent layers already use the
   /// pre-allocated typed buffers). Callers that already have a typed input
   /// (e.g. via [predictBuffer]) avoid an allocation/copy.
-  Float64List _forwardTyped(final Float64List input) {
+  Float64List _forwardTyped(Float64List input) {
     var inBuf = input;
     var inLen = input.length;
 
@@ -126,14 +124,14 @@ class Mlp {
   }
 
   /// Compute Q-value for a single state-action pair (output size == 1).
-  double predict(final List<double> input) {
+  double predict(List<double> input) {
     final typed = input is Float64List ? input : Float64List.fromList(input);
     return _forwardTyped(typed)[0];
   }
 
   /// Every output unit (for nets with several outputs, e.g. the
   /// card-location model). A new list; [input] has [inputSize] values.
-  Float64List predictAll(final List<double> input) {
+  Float64List predictAll(List<double> input) {
     final typed = input is Float64List ? input : Float64List.fromList(input);
     return Float64List.fromList(_forwardTyped(typed));
   }
@@ -142,7 +140,7 @@ class Mlp {
   /// responsible for sizing the buffer to [inputSize] and filling it on
   /// every call; this entry point skips both the type check and the
   /// allocation in [predict].
-  double predictBuffer(final Float64List input) => _forwardTyped(input)[0];
+  double predictBuffer(Float64List input) => _forwardTyped(input)[0];
 
   // ── Incremental first layer ─────────────────────────────────────────────
   //
@@ -151,7 +149,7 @@ class Mlp {
   // first layer's pre-activation once and add weight columns per candidate.
 
   /// `W0 · input + b0` (first layer, before ReLU) as a new buffer.
-  Float64List firstLayerPreActivation(final Float64List input) {
+  Float64List firstLayerPreActivation(Float64List input) {
     final w = _weights[0];
     final b = _biases[0];
     final inLen = inputSize;
@@ -170,9 +168,9 @@ class Mlp {
 
   /// Adds `scale * W0[:, inputIndex]` to [pre].
   void addFirstLayerColumn(
-    final Float64List pre,
-    final int inputIndex, [
-    final double scale = 1.0,
+    Float64List pre,
+    int inputIndex, [
+    double scale = 1.0,
   ]) {
     final w = _weights[0];
     final inLen = inputSize;
@@ -182,7 +180,7 @@ class Mlp {
   }
 
   /// Output (first unit) given the first layer's pre-activation [pre].
-  double predictFromFirstLayer(final Float64List pre) {
+  double predictFromFirstLayer(Float64List pre) {
     if (numLayers == 1) return pre[0];
     var inBuf = _buffers[0];
     for (var j = 0; j < pre.length; j++) {
@@ -217,7 +215,7 @@ class Mlp {
     for (var l = 0; l < numLayers; l++) _transpose(l),
   ];
 
-  Float64List _transpose(final int l) {
+  Float64List _transpose(int l) {
     final inLen = layerSizes[l];
     final outLen = layerSizes[l + 1];
     final w = _weights[l];
@@ -232,7 +230,7 @@ class Mlp {
 
   /// Fast scorer for many inputs that share their first [prefixLength]
   /// entries (state features) and differ in the rest (action features).
-  MlpPrefixScorer prefixScorer(final int prefixLength) {
+  MlpPrefixScorer prefixScorer(int prefixLength) {
     if (prefixLength < 0 || prefixLength > inputSize) {
       throw ArgumentError.value(prefixLength, 'prefixLength');
     }
@@ -242,7 +240,7 @@ class Mlp {
   /// [prefixScorer] with 4-wide float32 SIMD. About 3x faster when compiled
   /// ahead of time (headless training runs); results differ from the
   /// float64 scorer only by float32 rounding (~1e-6 relative).
-  MlpSimdPrefixScorer simdPrefixScorer(final int prefixLength) {
+  MlpSimdPrefixScorer simdPrefixScorer(int prefixLength) {
     if (prefixLength < 0 || prefixLength > inputSize) {
       throw ArgumentError.value(prefixLength, 'prefixLength');
     }
@@ -259,9 +257,9 @@ class Mlp {
     for (var l = 0; l < numLayers; l++) _simdBias(l),
   ];
 
-  int _vecLen(final int l) => (layerSizes[l + 1] + 3) ~/ 4;
+  int _vecLen(int l) => (layerSizes[l + 1] + 3) ~/ 4;
 
-  Float32x4List _simdTranspose(final int l) {
+  Float32x4List _simdTranspose(int l) {
     final inLen = layerSizes[l];
     final outLen = layerSizes[l + 1];
     final vecLen = _vecLen(l);
@@ -275,7 +273,7 @@ class Mlp {
     return Float32x4List.view(flat.buffer);
   }
 
-  Float32x4List _simdBias(final int l) {
+  Float32x4List _simdBias(int l) {
     final flat = Float32List(_vecLen(l) * 4);
     final b = _biases[l];
     for (var j = 0; j < b.length; j++) {
@@ -294,7 +292,7 @@ class Mlp {
   ///   - remaining: raw tensor data
   ///
   /// Returns `(mlp, targetMean, targetStd)`.
-  static (Mlp, double, double) fromSafetensorsBytes(final Uint8List bytes) {
+  static (Mlp, double, double) fromSafetensorsBytes(Uint8List bytes) {
     // Read header length (LE uint64) as two uint32 halves: dart2js (the web
     // build) has no 64-bit accessors.
     final lengthBytes = ByteData.sublistView(bytes, 0, 8);
@@ -307,9 +305,9 @@ class Mlp {
 
     // Extract metadata.
     final meta = header['__metadata__'] as Map<String, dynamic>? ?? {};
-    final layerSizes =
-        (jsonDecode(meta['layer_sizes'] as String? ?? '[]') as List)
-            .cast<int>();
+    final layerSizes = (jsonDecode(
+      meta['layer_sizes'] as String? ?? '[]',
+    ) as List).cast<int>();
     final targetMean =
         double.tryParse(meta['target_mean']?.toString() ?? '') ?? 0.0;
     final targetStd =
@@ -404,7 +402,7 @@ class MlpPrefixScorer implements PrefixScorer {
 
   /// Set the shared prefix (the first [prefixLength] inputs).
   @override
-  void setPrefix(final List<double> prefix) {
+  void setPrefix(List<double> prefix) {
     final bias = _net._biases[0];
     final wt = _net._transposed[0];
     final outLen = bias.length;
@@ -425,7 +423,7 @@ class MlpPrefixScorer implements PrefixScorer {
   /// Network output for the current prefix followed by [suffix]
   /// (read from [offset], [suffixLength] entries).
   @override
-  double score(final List<double> suffix, [final int offset = 0]) {
+  double score(List<double> suffix, [int offset = 0]) {
     final net = _net;
     var cur = _acts[0];
     var curLen = cur.length;
@@ -505,7 +503,7 @@ class MlpSimdPrefixScorer implements PrefixScorer {
   int get suffixLength => _net.inputSize - prefixLength;
 
   @override
-  void setPrefix(final List<double> prefix) {
+  void setPrefix(List<double> prefix) {
     final vecLen = _base.length;
     final rows = _rows;
     final xs = _xs;
@@ -532,7 +530,7 @@ class MlpSimdPrefixScorer implements PrefixScorer {
   }
 
   @override
-  double score(final List<double> suffix, [final int offset = 0]) {
+  double score(List<double> suffix, [int offset = 0]) {
     final net = _net;
     final rows = _rows;
     final xs = _xs;
@@ -579,10 +577,10 @@ class MlpSimdPrefixScorer implements PrefixScorer {
   /// vectors stay in registers while the [n] inputs are added.
   @pragma('vm:unsafe:no-bounds-checks')
   void _accumulate(
-    final Float32x4List out,
-    final Float32x4List init,
-    final Float32x4List w,
-    final int n,
+    Float32x4List out,
+    Float32x4List init,
+    Float32x4List w,
+    int n,
   ) {
     final rows = _rows;
     final xs = _xs;
@@ -635,7 +633,7 @@ class MlpSimdPrefixScorer implements PrefixScorer {
   }
 }
 
-double _gaussian(final Random rng) {
+double _gaussian(Random rng) {
   final u1 = rng.nextDouble();
   final u2 = rng.nextDouble();
   return sqrt(-2 * log(u1)) * cos(2 * pi * u2);

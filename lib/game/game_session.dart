@@ -61,11 +61,11 @@ class GameSessionHandle {
   });
 
   GameSessionHandle copyWith({
-    final String? lobbyId,
-    final String? playerId,
-    final String? accessToken,
-    final int? seat,
-    final String? matchId,
+    String? lobbyId,
+    String? playerId,
+    String? accessToken,
+    int? seat,
+    String? matchId,
   }) => GameSessionHandle(
     lobbyId: lobbyId ?? this.lobbyId,
     playerId: playerId ?? this.playerId,
@@ -153,43 +153,34 @@ class GameLobbyListEntry {
 /// This sits above live gameplay. A cloud implementation should use this for
 /// table creation, seat claims, readiness, reconnect, and match start.
 abstract interface class GameSessionService {
-  Future<GameSessionHandle> createLobby(final CreateGameLobbyRequest request);
+  Future<GameSessionHandle> createLobby(CreateGameLobbyRequest request);
 
-  Future<GameSessionHandle> joinLobby(final JoinGameLobbyRequest request);
+  Future<GameSessionHandle> joinLobby(JoinGameLobbyRequest request);
 
   Future<List<GameLobbyListEntry>> listGames();
 
   Stream<GameLobbySnapshot> watchLobby(
-    final String lobbyId, {
-    required final String accessToken,
+    String lobbyId, {
+    required String accessToken,
   });
 
   Future<void> claimSeat(
-    final String lobbyId, {
-    required final String accessToken,
-    required final int seat,
-    final PlayerType type = PlayerType.human,
-    final String? automatedDisplayName,
+    String lobbyId, {
+    required String accessToken,
+    required int seat,
+    PlayerType type = PlayerType.human,
+    String? automatedDisplayName,
   });
 
   Future<void> setReadyState(
-    final String lobbyId, {
-    required final String accessToken,
-    required final bool isReady,
+    String lobbyId, {
+    required String accessToken,
+    required bool isReady,
   });
 
-  Future<void> startMatch(
-    final String lobbyId, {
-    required final String accessToken,
-  });
+  Future<void> startMatch(String lobbyId, {required String accessToken});
 
-  Future<void> leaveLobby(
-    final String lobbyId, {
-    required final String accessToken,
-  });
+  Future<void> leaveLobby(String lobbyId, {required String accessToken});
 
-  Future<void> sendHeartbeat(
-    final String lobbyId, {
-    required final String accessToken,
-  });
+  Future<void> sendHeartbeat(String lobbyId, {required String accessToken});
 }

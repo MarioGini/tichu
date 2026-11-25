@@ -21,10 +21,7 @@ const int callFeatureCount = stateFeatureCount + receivedFeatureCount;
 const int callNetInputSize = 2 * callFeatureCount + 1;
 
 /// Received schupf cards of [playerId] as [receivedFeatureCount] values.
-List<double> receivedSchupfFeatures(
-  final GameSnapshot snapshot,
-  final String playerId,
-) {
+List<double> receivedSchupfFeatures(GameSnapshot snapshot, String playerId) {
   final out = List<double>.filled(receivedFeatureCount, 0);
   for (final (block, card) in receivedSchupfCards(snapshot, playerId)) {
     if (card != null) out[block * 56 + cardSlot(card)] = 1;
@@ -33,10 +30,7 @@ List<double> receivedSchupfFeatures(
 }
 
 /// `(block, card)` for left opponent (0), partner (1), right opponent (2).
-List<(int, Card?)> receivedSchupfCards(
-  final GameSnapshot snapshot,
-  final String playerId,
-) {
+List<(int, Card?)> receivedSchupfCards(GameSnapshot snapshot, String playerId) {
   final table = TableRelationships(snapshot, playerId);
   final left = table.playerBySeat(table.leftSeat()).id;
   final right = table.playerBySeat(table.rightSeat()).id;
@@ -52,17 +46,16 @@ List<(int, Card?)> receivedSchupfCards(
 }
 
 /// Builds the call-network input for call features [x] and [call].
-List<double> callNetInput(final List<double> x, {required final bool call}) {
+List<double> callNetInput(List<double> x, {required bool call}) {
   final f = call ? 1.0 : 0.0;
   return [...x, f, for (final v in x) v * f];
 }
 
 /// Call features (state + received cards) of [playerId].
-List<double> callFeatures(final GameSnapshot snapshot, final String playerId) =>
-    [
-      ...encodeStateFeatures(snapshot: snapshot, playerId: playerId),
-      ...receivedSchupfFeatures(snapshot, playerId),
-    ];
+List<double> callFeatures(GameSnapshot snapshot, String playerId) => [
+  ...encodeStateFeatures(snapshot: snapshot, playerId: playerId),
+  ...receivedSchupfFeatures(snapshot, playerId),
+];
 
 /// Tichu / Grand Tichu decisions from learned call-value networks.
 ///
@@ -122,10 +115,10 @@ class NnTichuCallStrategy implements TichuCallStrategy {
   ///  * call-value nets (`rl/call_train.py`, input [callNetInputSize]):
   ///    call when Q(s, call) - Q(s, no call) exceeds [margin].
   bool _calls(
-    final Mlp network,
-    final double scale,
-    final GameSnapshot snapshot,
-    final String playerId,
+    Mlp network,
+    double scale,
+    GameSnapshot snapshot,
+    String playerId,
   ) {
     if (network.inputSize == callFeatureCount) {
       return network.predict(callFeatures(snapshot, playerId)) > 0;
@@ -135,10 +128,10 @@ class NnTichuCallStrategy implements TichuCallStrategy {
 
   /// Q(s, call) - Q(s, no call) in round points.
   static double callAdvantage(
-    final Mlp network,
-    final double scale,
-    final GameSnapshot snapshot,
-    final String playerId,
+    Mlp network,
+    double scale,
+    GameSnapshot snapshot,
+    String playerId,
   ) {
     final x = callFeatures(snapshot, playerId);
     final qCall = network.predict(callNetInput(x, call: true));
@@ -148,8 +141,8 @@ class NnTichuCallStrategy implements TichuCallStrategy {
 
   @override
   Future<bool> shouldCallGrandTichu(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async {
     final net = grandTichuNetwork;
     if (net == null) return fallback.shouldCallGrandTichu(snapshot, playerId);
@@ -158,8 +151,8 @@ class NnTichuCallStrategy implements TichuCallStrategy {
 
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async {
     final net = preSchupfTichuNetwork;
     if (net == null) {
@@ -169,10 +162,7 @@ class NnTichuCallStrategy implements TichuCallStrategy {
   }
 
   @override
-  Future<bool> shouldCallTichu(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) async {
+  Future<bool> shouldCallTichu(GameSnapshot snapshot, String playerId) async {
     final net = tichuNetwork;
     if (net == null) return fallback.shouldCallTichu(snapshot, playerId);
     return _calls(net, tichuScale, snapshot, playerId);

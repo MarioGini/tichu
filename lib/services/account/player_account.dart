@@ -14,7 +14,7 @@ class PlayerAccount {
     this.isAnonymous = true,
   });
 
-  factory PlayerAccount.fromJson(final Map<String, Object?> json) {
+  factory PlayerAccount.fromJson(Map<String, Object?> json) {
     final id = json['id']! as String;
     if (id.replaceAll('-', '').length < 4) {
       throw FormatException('account id too short: $id');
@@ -40,7 +40,7 @@ class PlayerAccount {
     return '#${hex.substring(0, hex.length < 4 ? hex.length : 4).toUpperCase()}';
   }
 
-  PlayerAccount copyWith({final String? displayName}) => PlayerAccount(
+  PlayerAccount copyWith({String? displayName}) => PlayerAccount(
     id: id,
     displayName: displayName ?? this.displayName,
     createdAt: createdAt,
@@ -55,7 +55,7 @@ class PlayerAccount {
   };
 
   @override
-  bool operator ==(final Object other) =>
+  bool operator ==(Object other) =>
       other is PlayerAccount &&
       other.id == id &&
       other.displayName == displayName &&
@@ -67,19 +67,19 @@ class PlayerAccount {
 }
 
 /// Random (version 4) UUID.
-String newAccountId([final Random? random]) {
+String newAccountId([Random? random]) {
   final r = random ?? Random.secure();
   final b = List<int>.generate(16, (_) => r.nextInt(256));
   b[6] = (b[6] & 0x0f) | 0x40;
   b[8] = (b[8] & 0x3f) | 0x80;
-  final hex = b.map((final x) => x.toRadixString(16).padLeft(2, '0')).join();
+  final hex = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
   return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
       '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
 }
 
 /// Trims a display name and limits it to [maxLength] characters; empty
 /// names fall back to [PlayerAccount.defaultDisplayName].
-String normalizeDisplayName(final String name, {final int maxLength = 24}) {
+String normalizeDisplayName(String name, {int maxLength = 24}) {
   final trimmed = name.trim().replaceAll(RegExp(r'\s+'), ' ');
   if (trimmed.isEmpty) return PlayerAccount.defaultDisplayName;
   // Count code points, like Postgres char_length, so an emoji is never

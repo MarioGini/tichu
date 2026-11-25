@@ -3,7 +3,7 @@ part of '../game_screen.dart';
 /// Pre-selects the bot's suggested play in the human's hand.
 mixin _GameScreenSuggestion on _GameScreenStateBase {
   @override
-  Future<void> _maybeApplyAiSuggestion(final PlayerSnapshot snapshot) async {
+  Future<void> _maybeApplyAiSuggestion(PlayerSnapshot snapshot) async {
     if (!_isSelfManual || !_aiSuggestionEnabled) {
       _clearAiSuggestionSelection();
       return;
@@ -84,7 +84,7 @@ mixin _GameScreenSuggestion on _GameScreenStateBase {
     });
   }
 
-  GameSnapshot _buildAiSuggestionSnapshot(final PlayerSnapshot snapshot) {
+  GameSnapshot _buildAiSuggestionSnapshot(PlayerSnapshot snapshot) {
     final hands = <String, List<Card>>{};
     for (final player in snapshot.players) {
       if (player.id == _humanId) {

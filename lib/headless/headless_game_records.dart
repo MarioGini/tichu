@@ -18,12 +18,10 @@ class _GameRecorder {
 
   int get step => actions.length;
 
-  void startRound(final GameEngineState state) {
+  void startRound(GameEngineState state) {
     actions.clear();
     _deal = [
-      for (final p in [
-        ...state.players,
-      ]..sort((final a, final b) => a.seat - b.seat))
+      for (final p in [...state.players]..sort((a, b) => a.seat - b.seat))
         [
           for (final c in [
             ...state.hands[p.id] ?? const <Card>[],
@@ -34,9 +32,8 @@ class _GameRecorder {
     ];
   }
 
-  void add(final GameEngineState state, final GameAction action) {
-    int seatOf(final String id) =>
-        state.players.firstWhere((final p) => p.id == id).seat;
+  void add(GameEngineState state, GameAction action) {
+    int seatOf(String id) => state.players.firstWhere((p) => p.id == id).seat;
     final seat = seatOf(action.playerId);
     actions.add(switch (action) {
       GrandTichuDecisionAction(:final call) => [seat, 'g', if (call) 1 else 0],
@@ -67,7 +64,7 @@ class _GameRecorder {
     });
   }
 
-  Map<String, Object?> record(final int episode, final GameSnapshot end) => {
+  Map<String, Object?> record(int episode, GameSnapshot end) => {
     'episode': episode,
     'round': end.scoreState.roundNumber,
     'game_record': true,

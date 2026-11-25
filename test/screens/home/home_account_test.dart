@@ -7,9 +7,7 @@ import 'package:tichu/services/account/account_service.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('home screen restores and saves the device name', (
-    final tester,
-  ) async {
+  testWidgets('home screen restores and saves the device name', (tester) async {
     tester.view
       ..physicalSize = const Size(412, 839) * 2
       ..devicePixelRatio = 2;

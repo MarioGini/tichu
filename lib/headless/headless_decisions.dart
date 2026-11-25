@@ -3,10 +3,10 @@ part of 'headless.dart';
 /// Asks the bots for each pending decision, with exploration on top.
 extension _Decisions on _HeadlessSimulator {
   Future<GameAction?> _selectAction({
-    required final GameEngine engine,
-    required final GameEngineState state,
-    required final GameSnapshot snapshot,
-    required final Map<String, PlayerAgent> agents,
+    required GameEngine engine,
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required Map<String, PlayerAgent> agents,
   }) async {
     _lastActionExplored = false;
     final round = state.scoreTracker.state.roundNumber;
@@ -135,11 +135,11 @@ extension _Decisions on _HeadlessSimulator {
   }
 
   Future<GameAction?> _selectTurn({
-    required final GameEngine engine,
-    required final GameEngineState state,
-    required final GameSnapshot snapshot,
-    required final String playerId,
-    required final PlayerAgent agent,
+    required GameEngine engine,
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required String playerId,
+    required PlayerAgent agent,
   }) async {
     if (epsilon > 0 && random.nextDouble() < epsilon) {
       final randomAction = _pickRandomLegalAction(snapshot, playerId);

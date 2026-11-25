@@ -33,12 +33,9 @@ final players = <GamePlayer>[
   ),
 ];
 
-Card fxCard(final CardFace face, final CardColor color) => Card(face, color);
+Card fxCard(CardFace face, CardColor color) => Card(face, color);
 
-Map<String, List<Card>> handsWithLast(
-  final String lastId,
-  final List<Card> lastHand,
-) => {
+Map<String, List<Card>> handsWithLast(String lastId, List<Card> lastHand) => {
   playerOneId: const <Card>[],
   playerTwoId: const <Card>[],
   playerThreeId: const <Card>[],

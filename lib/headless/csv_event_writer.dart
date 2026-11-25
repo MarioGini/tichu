@@ -10,7 +10,7 @@ class _CsvEventWriter {
 
   _CsvEventWriter({required this.output, required this.includeTimestamps});
 
-  void processSnapshot(final GameSnapshot snapshot) {
+  void processSnapshot(GameSnapshot snapshot) {
     if (!_headerWritten) {
       _writeHeader();
       _headerWritten = true;
@@ -34,8 +34,8 @@ class _CsvEventWriter {
   }
 
   void emitOpponentAction({
-    required final GameSnapshot snapshot,
-    required final GameAction action,
+    required GameSnapshot snapshot,
+    required GameAction action,
   }) {
     if (action is PlayTurnAction) {
       _writeRow(
@@ -58,14 +58,14 @@ class _CsvEventWriter {
     }
   }
 
-  void _emitGameStart(final GameSnapshot snapshot) {
+  void _emitGameStart(GameSnapshot snapshot) {
     final players = snapshot.players
-        .map((final p) => '${p.id}:${p.seat}:${p.type.name}')
+        .map((p) => '${p.id}:${p.seat}:${p.type.name}')
         .join('|');
     _writeRow(event: 'game_start', snapshot: snapshot, note: players);
   }
 
-  void _emitRoundStart(final GameSnapshot snapshot) {
+  void _emitRoundStart(GameSnapshot snapshot) {
     _writeRow(event: 'round_start', snapshot: snapshot);
     for (final entry in snapshot.hands.entries) {
       _writeRow(
@@ -77,10 +77,7 @@ class _CsvEventWriter {
     }
   }
 
-  void _emitGrandTichuDecisions(
-    final GameSnapshot snapshot,
-    final GameSnapshot previous,
-  ) {
+  void _emitGrandTichuDecisions(GameSnapshot snapshot, GameSnapshot previous) {
     for (final entry in snapshot.grandTichuDecisions.entries) {
       if (previous.grandTichuDecisions.containsKey(entry.key)) continue;
       _writeRow(
@@ -96,10 +93,7 @@ class _CsvEventWriter {
     }
   }
 
-  void _emitSchupfReceipts(
-    final GameSnapshot snapshot,
-    final GameSnapshot previous,
-  ) {
+  void _emitSchupfReceipts(GameSnapshot snapshot, GameSnapshot previous) {
     if (previous.phase == GamePhase.schupf &&
         snapshot.phase == GamePhase.play) {
       for (final entry in snapshot.schupfReceipts.entries) {
@@ -118,10 +112,7 @@ class _CsvEventWriter {
     }
   }
 
-  void _emitTurnResolution(
-    final GameSnapshot snapshot,
-    final GameSnapshot previous,
-  ) {
+  void _emitTurnResolution(GameSnapshot snapshot, GameSnapshot previous) {
     if (snapshot.lastPlayedTurn == null) return;
     if (previous.lastPlayedTurn == snapshot.lastPlayedTurn &&
         previous.lastPlayedBy == snapshot.lastPlayedBy) {
@@ -137,10 +128,7 @@ class _CsvEventWriter {
     );
   }
 
-  void _emitDragonGive(
-    final GameSnapshot snapshot,
-    final GameSnapshot previous,
-  ) {
+  void _emitDragonGive(GameSnapshot snapshot, GameSnapshot previous) {
     if (snapshot.lastDragonGiveBy == null ||
         snapshot.lastDragonGiveTo == null) {
       return;
@@ -158,7 +146,7 @@ class _CsvEventWriter {
     );
   }
 
-  void _emitRoundEnd(final GameSnapshot snapshot, final GameSnapshot previous) {
+  void _emitRoundEnd(GameSnapshot snapshot, GameSnapshot previous) {
     if (!snapshot.scoreState.roundComplete ||
         previous.scoreState.roundComplete) {
       return;
@@ -171,7 +159,7 @@ class _CsvEventWriter {
     );
   }
 
-  void _emitGameEnd(final GameSnapshot snapshot, final GameSnapshot previous) {
+  void _emitGameEnd(GameSnapshot snapshot, GameSnapshot previous) {
     if (!snapshot.scoreState.gameComplete || previous.scoreState.gameComplete) {
       return;
     }
@@ -193,12 +181,12 @@ class _CsvEventWriter {
   }
 
   void _writeRow({
-    required final String event,
-    required final GameSnapshot snapshot,
-    final String? playerId,
-    final String? action,
-    final List<Card>? cards,
-    final String? note,
+    required String event,
+    required GameSnapshot snapshot,
+    String? playerId,
+    String? action,
+    List<Card>? cards,
+    String? note,
   }) {
     final sequence = _sequence++;
     final ts = includeTimestamps ? DateTime.now().millisecondsSinceEpoch : 0;
@@ -228,14 +216,14 @@ class _CsvEventWriter {
     output.writeln(row.map(_csvEscape).join(','));
   }
 
-  String _csvEscape(final String value) {
+  String _csvEscape(String value) {
     if (value.contains(',') || value.contains('"') || value.contains('\n')) {
       return '"${value.replaceAll('"', '""')}"';
     }
     return value;
   }
 
-  String _formatCards(final List<Card>? cards) {
+  String _formatCards(List<Card>? cards) {
     if (cards == null || cards.isEmpty) return '';
     return cards.map(_cardToken).join('|');
   }

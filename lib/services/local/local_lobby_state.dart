@@ -88,17 +88,17 @@ class _LocalSeatState {
   bool isConnected = false;
   bool isBot = false;
 
-  bool isOccupiedByDifferentParticipant(final String targetPlayerId) =>
+  bool isOccupiedByDifferentParticipant(String targetPlayerId) =>
       state == GameLobbySeatState.occupied &&
       playerId != null &&
       playerId != targetPlayerId;
 
   void assignParticipant({
-    required final String playerId,
-    required final String displayName,
-    required final PlayerType type,
-    required final bool isReady,
-    required final bool isConnected,
+    required String playerId,
+    required String displayName,
+    required PlayerType type,
+    required bool isReady,
+    required bool isConnected,
   }) {
     state = GameLobbySeatState.occupied;
     this.playerId = playerId;
@@ -109,10 +109,7 @@ class _LocalSeatState {
     isBot = false;
   }
 
-  void assignBot({
-    required final String playerId,
-    required final String displayName,
-  }) {
+  void assignBot({required String playerId, required String displayName}) {
     state = GameLobbySeatState.occupied;
     this.playerId = playerId;
     this.displayName = displayName;

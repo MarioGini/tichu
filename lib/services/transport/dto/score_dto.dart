@@ -34,7 +34,7 @@ class ScoreStateDto {
     required this.tichuCalls,
   });
 
-  factory ScoreStateDto.fromDomain(final ScoreState state) => ScoreStateDto(
+  factory ScoreStateDto.fromDomain(ScoreState state) => ScoreStateDto(
     roundNumber: state.roundNumber,
     teamOneTotal: state.teamOneTotal,
     teamTwoTotal: state.teamTwoTotal,
@@ -47,29 +47,24 @@ class ScoreStateDto {
     winningTeam: state.winningTeam,
     finishOrder: state.finishOrder,
     rounds: [for (final round in state.rounds) RoundScoreDto.fromDomain(round)],
-    tichuCalls: state.tichuCalls.map(
-      (final key, final value) => MapEntry(key, value.name),
-    ),
+    tichuCalls: state.tichuCalls.map((key, value) => MapEntry(key, value.name)),
   );
 
-  factory ScoreStateDto.fromJson(final Map<String, dynamic> json) =>
-      ScoreStateDto(
-        roundNumber: (json['roundNumber'] as num).toInt(),
-        teamOneTotal: (json['teamOneTotal'] as num).toInt(),
-        teamTwoTotal: (json['teamTwoTotal'] as num).toInt(),
-        teamOneRound: (json['teamOneRound'] as num).toInt(),
-        teamTwoRound: (json['teamTwoRound'] as num).toInt(),
-        playerRoundPoints: decodeIntMap(json['playerRoundPoints']),
-        roundComplete: json['roundComplete'] as bool? ?? false,
-        targetScore: (json['targetScore'] as num).toInt(),
-        gameComplete: json['gameComplete'] as bool? ?? false,
-        winningTeam: (json['winningTeam'] as num?)?.toInt(),
-        finishOrder: decodeStringList(json['finishOrder']),
-        rounds: decodeMapList(
-          json['rounds'],
-        ).map(RoundScoreDto.fromJson).toList(),
-        tichuCalls: decodeStringMap(json['tichuCalls']),
-      );
+  factory ScoreStateDto.fromJson(Map<String, dynamic> json) => ScoreStateDto(
+    roundNumber: (json['roundNumber'] as num).toInt(),
+    teamOneTotal: (json['teamOneTotal'] as num).toInt(),
+    teamTwoTotal: (json['teamTwoTotal'] as num).toInt(),
+    teamOneRound: (json['teamOneRound'] as num).toInt(),
+    teamTwoRound: (json['teamTwoRound'] as num).toInt(),
+    playerRoundPoints: decodeIntMap(json['playerRoundPoints']),
+    roundComplete: json['roundComplete'] as bool? ?? false,
+    targetScore: (json['targetScore'] as num).toInt(),
+    gameComplete: json['gameComplete'] as bool? ?? false,
+    winningTeam: (json['winningTeam'] as num?)?.toInt(),
+    finishOrder: decodeStringList(json['finishOrder']),
+    rounds: decodeMapList(json['rounds']).map(RoundScoreDto.fromJson).toList(),
+    tichuCalls: decodeStringMap(json['tichuCalls']),
+  );
 
   Map<String, dynamic> toJson() => {
     'roundNumber': roundNumber,
@@ -101,8 +96,7 @@ class ScoreStateDto {
     finishOrder: finishOrder,
     rounds: [for (final round in rounds) round.toDomain()],
     tichuCalls: tichuCalls.map(
-      (final key, final value) =>
-          MapEntry(key, enumByName(TichuCall.values, value)),
+      (key, value) => MapEntry(key, enumByName(TichuCall.values, value)),
     ),
   );
 }
@@ -131,7 +125,7 @@ class RoundScoreDto {
     required this.roundEndType,
   });
 
-  factory RoundScoreDto.fromDomain(final RoundScore round) => RoundScoreDto(
+  factory RoundScoreDto.fromDomain(RoundScore round) => RoundScoreDto(
     roundNumber: round.roundNumber,
     teamOnePoints: round.teamOnePoints,
     teamTwoPoints: round.teamTwoPoints,
@@ -143,18 +137,17 @@ class RoundScoreDto {
     roundEndType: round.roundEndType.name,
   );
 
-  factory RoundScoreDto.fromJson(final Map<String, dynamic> json) =>
-      RoundScoreDto(
-        roundNumber: (json['roundNumber'] as num).toInt(),
-        teamOnePoints: (json['teamOnePoints'] as num).toInt(),
-        teamTwoPoints: (json['teamTwoPoints'] as num).toInt(),
-        teamOneCardPoints: (json['teamOneCardPoints'] as num).toInt(),
-        teamTwoCardPoints: (json['teamTwoCardPoints'] as num).toInt(),
-        teamOneBonusPoints: (json['teamOneBonusPoints'] as num).toInt(),
-        teamTwoBonusPoints: (json['teamTwoBonusPoints'] as num).toInt(),
-        finishOrder: decodeStringList(json['finishOrder']),
-        roundEndType: json['roundEndType'] as String,
-      );
+  factory RoundScoreDto.fromJson(Map<String, dynamic> json) => RoundScoreDto(
+    roundNumber: (json['roundNumber'] as num).toInt(),
+    teamOnePoints: (json['teamOnePoints'] as num).toInt(),
+    teamTwoPoints: (json['teamTwoPoints'] as num).toInt(),
+    teamOneCardPoints: (json['teamOneCardPoints'] as num).toInt(),
+    teamTwoCardPoints: (json['teamTwoCardPoints'] as num).toInt(),
+    teamOneBonusPoints: (json['teamOneBonusPoints'] as num).toInt(),
+    teamTwoBonusPoints: (json['teamTwoBonusPoints'] as num).toInt(),
+    finishOrder: decodeStringList(json['finishOrder']),
+    roundEndType: json['roundEndType'] as String,
+  );
 
   Map<String, dynamic> toJson() => {
     'roundNumber': roundNumber,

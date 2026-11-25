@@ -79,9 +79,7 @@ void main() {
 
         final action = await strategy.selectSchupfCards(snapshot, aiTestSelfId);
         final opponentFaces = [action.toLeft.face, action.toRight.face]
-          ..sort(
-            (final a, final b) => Card.getValue(a).compareTo(Card.getValue(b)),
-          );
+          ..sort((a, b) => Card.getValue(a).compareTo(Card.getValue(b)));
         expect(opponentFaces, [CardFace.two, CardFace.three]);
         expect(action.toPartner.face, CardFace.king);
       },
@@ -134,21 +132,18 @@ void main() {
       expect(action.toRight.face, CardFace.three);
     });
 
-    test(
-      'falls back to highest remaining card for partner when only specials remain',
-      () async {
-        final snapshot = aiSnapshot(
-          myHand: [
-            Card(CardFace.dragon, CardColor.special),
-            Card(CardFace.phoenix, CardColor.special),
-            Card(CardFace.dog, CardColor.special),
-          ],
-        );
+    test('falls back to highest remaining card for partner when only specials remain', () async {
+      final snapshot = aiSnapshot(
+        myHand: [
+          Card(CardFace.dragon, CardColor.special),
+          Card(CardFace.phoenix, CardColor.special),
+          Card(CardFace.dog, CardColor.special),
+        ],
+      );
 
-        final action = await strategy.selectSchupfCards(snapshot, aiTestSelfId);
-        expect(action.toPartner.face, CardFace.dragon);
-      },
-    );
+      final action = await strategy.selectSchupfCards(snapshot, aiTestSelfId);
+      expect(action.toPartner.face, CardFace.dragon);
+    });
 
     test(
       'keeps strength and gives partner a low card with a Tichu hand',

@@ -15,7 +15,7 @@ class LobbyHeader extends StatelessWidget {
   final VoidCallback onCopyJoinCode;
 
   @override
-  Widget build(final BuildContext context) => Wrap(
+  Widget build(BuildContext context) => Wrap(
     alignment: WrapAlignment.center,
     crossAxisAlignment: WrapCrossAlignment.center,
     spacing: 10,
@@ -48,9 +48,8 @@ class LobbyHeader extends StatelessWidget {
           final seat =>
             'You: ${seat.seat.isEven ? "Team 1" : "Team 2"}, seat ${seat.seat + 1}',
         },
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+        style: Theme.of(context).textTheme.bodyMedium
+            ?.copyWith(color: Colors.white70),
       ),
     ],
   );
@@ -82,7 +81,7 @@ class LobbyActionBar extends StatelessWidget {
   final VoidCallback onStart;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isReady = localSeat?.isReady ?? false;
     return Container(

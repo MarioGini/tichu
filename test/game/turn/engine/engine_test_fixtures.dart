@@ -5,13 +5,13 @@ import 'package:tichu/game/turn/tichu_data.dart';
 
 import '../../../utils/test_game_fixtures.dart';
 
-Card fxCard(final CardFace face, final CardColor color) => Card(face, color);
+Card fxCard(CardFace face, CardColor color) => Card(face, color);
 
 GameEngineState fxState({
-  required final GamePhase phase,
-  final int currentPlayerIndex = 0,
-  final Map<String, List<Card>>? hands,
-  final DeckState? deck,
+  required GamePhase phase,
+  int currentPlayerIndex = 0,
+  Map<String, List<Card>>? hands,
+  DeckState? deck,
 }) {
   final state = GameEngineState(
     gameId: 'g1',

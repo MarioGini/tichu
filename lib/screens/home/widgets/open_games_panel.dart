@@ -17,7 +17,7 @@ class OpenGamesPanel extends StatelessWidget {
   final ValueChanged<GameLobbyListEntry> onJoin;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -66,7 +66,7 @@ class OpenGamesPanel extends StatelessWidget {
                     itemCount: publicGames.length,
                     separatorBuilder: (_, _) =>
                         const Divider(height: 1, color: Colors.white12),
-                    itemBuilder: (final context, final index) =>
+                    itemBuilder: (context, index) =>
                         _buildGameTile(publicGames[index]),
                   ),
           ),
@@ -75,7 +75,7 @@ class OpenGamesPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildGameTile(final GameLobbyListEntry entry) {
+  Widget _buildGameTile(GameLobbyListEntry entry) {
     final title = entry.gameName.isNotEmpty
         ? entry.gameName
         : "${entry.hostDisplayName}'s Game";

@@ -18,8 +18,8 @@ class LobbySeatGrid extends StatelessWidget {
   final ValueChanged<int>? onClaim;
 
   @override
-  Widget build(final BuildContext context) => LayoutBuilder(
-    builder: (final context, final constraints) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
       final columns = constraints.maxWidth >= 560 ? 4 : 2;
       const gap = 10.0;
       final tileW = (constraints.maxWidth - gap * (columns - 1)) / columns;
@@ -61,7 +61,7 @@ class LobbySeatCard extends StatelessWidget {
   final VoidCallback? onClaim;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final isOpen = seat.state == GameLobbySeatState.open;
     final teamColor = seat.seat.isEven
         ? const Color(0xFF67D99A)
@@ -96,18 +96,15 @@ class LobbySeatCard extends StatelessWidget {
                   '${seat.seat.isEven ? "Team 1" : "Team 2"} • Seat ${seat.seat + 1}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(color: Colors.white70),
+                  style: Theme.of(context).textTheme.labelMedium
+                      ?.copyWith(color: Colors.white70),
                 ),
               ),
               if (isLocalSeat)
                 Text(
                   'YOU',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: teamColor,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: teamColor, fontWeight: FontWeight.w800),
                 ),
             ],
           ),
@@ -139,9 +136,8 @@ class LobbySeatCard extends StatelessWidget {
             _seatSecondaryLabel(seat),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.white60),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: Colors.white60),
           ),
           if (isOpen) ...[
             const SizedBox(height: 8),
@@ -158,14 +154,13 @@ class LobbySeatCard extends StatelessWidget {
     );
   }
 
-  String _seatPrimaryLabel(final GameLobbySeatSnapshot seat) =>
-      switch (seat.state) {
-        GameLobbySeatState.open => 'Open seat',
-        GameLobbySeatState.locked => 'Locked seat',
-        GameLobbySeatState.occupied => seat.displayName ?? 'Seated player',
-      };
+  String _seatPrimaryLabel(GameLobbySeatSnapshot seat) => switch (seat.state) {
+    GameLobbySeatState.open => 'Open seat',
+    GameLobbySeatState.locked => 'Locked seat',
+    GameLobbySeatState.occupied => seat.displayName ?? 'Seated player',
+  };
 
-  String _seatSecondaryLabel(final GameLobbySeatSnapshot seat) {
+  String _seatSecondaryLabel(GameLobbySeatSnapshot seat) {
     if (seat.state == GameLobbySeatState.open) {
       return 'Free seat';
     }

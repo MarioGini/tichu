@@ -3,9 +3,9 @@ part of 'observe_screen.dart';
 const _teamA = Color(0xFF64B5F6);
 const _teamB = Color(0xFFFFB74D);
 
-Color _teamColor(final int seat) => seat.isEven ? _teamA : _teamB;
+Color _teamColor(int seat) => seat.isEven ? _teamA : _teamB;
 
-String _teamName(final int seat) => seat.isEven ? 'Team A' : 'Team B';
+String _teamName(int seat) => seat.isEven ? 'Team A' : 'Team B';
 
 /// Centre panel plus one row per seat (all hands face up).
 class _ObserveTable extends StatelessWidget {
@@ -15,9 +15,9 @@ class _ObserveTable extends StatelessWidget {
   final GameRecord record;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final players = [...snapshot.players]
-      ..sort((final a, final b) => a.seat.compareTo(b.seat));
+      ..sort((a, b) => a.seat.compareTo(b.seat));
     return Padding(
       padding: const EdgeInsets.all(8),
       child: Column(
@@ -45,7 +45,7 @@ class _TrickPanel extends StatelessWidget {
   final GameRecord record;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     // deck.turn is reset when a trick is won; lastPlayedTurn is not.
     final turn = snapshot.deck.turn;
@@ -110,13 +110,13 @@ class _TrickPanel extends StatelessWidget {
   }
 }
 
-String _pendingText(final GameSnapshot s) {
+String _pendingText(GameSnapshot s) {
   if (s.pendingOpponentPass) return 'passes';
   if (s.pendingOpponentCards.isEmpty) return 'calls TICHU';
   return 'plays ${cardLabels(s.pendingOpponentCards).join(' ')}';
 }
 
-String _phaseText(final GameSnapshot s) {
+String _phaseText(GameSnapshot s) {
   if (s.scoreState.gameComplete) return 'Game over';
   if (s.scoreState.roundComplete) return 'Round over';
   return switch (s.phase) {
@@ -133,7 +133,7 @@ class _SeatPanel extends StatelessWidget {
   final GamePlayer player;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hand = [...?snapshot.hands[player.id]]..sort(compareCardsForDisplay);
     final pending =
@@ -199,7 +199,7 @@ class _SeatPanel extends StatelessWidget {
             ),
             Expanded(
               child: LayoutBuilder(
-                builder: (final context, final constraints) {
+                builder: (context, constraints) {
                   final scale =
                       ((constraints.maxHeight - 10) / CardWidget.compactHeight)
                           .clamp(0.35, 0.85);
@@ -212,15 +212,14 @@ class _SeatPanel extends StatelessWidget {
                     height: constraints.maxHeight,
                     spacing: 2,
                     center: false,
-                    itemBuilder: (final context, final index) {
+                    itemBuilder: (context, index) {
                       final card = hand[index];
                       return CardWidget(
                         card: card,
                         compact: true,
                         scale: scale,
                         isSelected: pendingCards.any(
-                          (final p) =>
-                              p.face == card.face && p.color == card.color,
+                          (p) => p.face == card.face && p.color == card.color,
                         ),
                       );
                     },
@@ -241,7 +240,7 @@ class _ControlBar extends StatelessWidget {
   final ObserveController controller;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final step = controller.step;
     final label = switch (step) {
       ObserveStep.move => 'Continue',

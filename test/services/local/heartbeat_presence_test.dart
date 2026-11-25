@@ -23,9 +23,7 @@ void main() {
       final lobby = await service
           .watchLobby(handle.lobbyId, accessToken: handle.accessToken)
           .first;
-      final seat = lobby.seats.firstWhere(
-        (final s) => s.playerId == handle.playerId,
-      );
+      final seat = lobby.seats.firstWhere((s) => s.playerId == handle.playerId);
       expect(seat.isConnected, isFalse);
     });
 
@@ -46,7 +44,7 @@ void main() {
           .first;
       expect(
         lobby.seats
-            .firstWhere((final s) => s.playerId == handle.playerId)
+            .firstWhere((s) => s.playerId == handle.playerId)
             .isConnected,
         isTrue,
       );

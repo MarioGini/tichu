@@ -10,22 +10,21 @@ part of 'headless.dart';
 /// difference for the decider's team (null = playout stuck).
 extension _SideLabels on _HeadlessSimulator {
   Future<void> _labelSideDecision({
-    required final GameEngineState state,
-    required final GameSnapshot snapshot,
-    required final GameAction action,
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required GameAction action,
   }) async {
     final writer = _bcWriter;
     if (writer == null || sideRolloutRate <= 0) return;
     final isDragon = action is GiveDragonAction;
     final isWish =
         action is PlayTurnAction &&
-        action.cards.any((final c) => c.face == CardFace.mahJong);
+        action.cards.any((c) => c.face == CardFace.mahJong);
     if (!isDragon && !isWish) return;
     if (random.nextDouble() >= sideRolloutRate) return;
 
     final playerId = action.playerId;
-    final team =
-        state.players.firstWhere((final p) => p.id == playerId).seat % 2;
+    final team = state.players.firstWhere((p) => p.id == playerId).seat % 2;
     final List<GameAction> options;
     final List<Object> optionLabels;
     if (isDragon) {
@@ -36,7 +35,7 @@ extension _SideLabels on _HeadlessSimulator {
       ];
       optionLabels = [
         for (final t in targets)
-          state.players.firstWhere((final p) => p.id == t).seat,
+          state.players.firstWhere((p) => p.id == t).seat,
       ];
     } else {
       final play = action as PlayTurnAction;
@@ -63,9 +62,7 @@ extension _SideLabels on _HeadlessSimulator {
     }
     final chosen = isDragon
         ? optionLabels.indexOf(
-            state.players
-                .firstWhere((final p) => p.id == action.targetPlayerId)
-                .seat,
+            state.players.firstWhere((p) => p.id == action.targetPlayerId).seat,
           )
         : optionLabels.indexOf((action as PlayTurnAction).inputWish.name);
     writer.emitSideDecision(

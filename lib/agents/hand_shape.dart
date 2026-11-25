@@ -30,14 +30,13 @@ class HandShape {
   });
 
   /// Shape of [cards] (e.g. a hand, or what remains after a play).
-  factory HandShape.fromCards(final Iterable<Card> cards) =>
-      HandShape.fromSlots([
-        for (final c in cards)
-          if (cardSlot(c) >= 0) cardSlot(c),
-      ]);
+  factory HandShape.fromCards(Iterable<Card> cards) => HandShape.fromSlots([
+    for (final c in cards)
+      if (cardSlot(c) >= 0) cardSlot(c),
+  ]);
 
   /// Shape from card slots (see [cardSlot]).
-  factory HandShape.fromSlots(final List<int> slots) {
+  factory HandShape.fromSlots(List<int> slots) {
     final counts = List<int>.filled(15, 0); // index = rank (1 = mahjong)
     // Per colour: bit mask of the ranks held.
     var black = 0;
@@ -170,7 +169,7 @@ class HandShape {
   }
 
   /// Write the 10 normalised shape features at [offset].
-  void writeTo(final List<double> out, final int offset) {
+  void writeTo(List<double> out, int offset) {
     out[offset + 0] = singles / 14.0;
     out[offset + 1] = pairs / 7.0;
     out[offset + 2] = triplets / 4.0;

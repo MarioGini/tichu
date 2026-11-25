@@ -1,8 +1,7 @@
 import 'package:postgres/postgres.dart';
 
 class SupabaseProjectionSchemaBootstrap {
-  SupabaseProjectionSchemaBootstrap({required final String databaseUrl})
-    : _databaseUrl = databaseUrl;
+  SupabaseProjectionSchemaBootstrap({required this._databaseUrl});
 
   final String _databaseUrl;
 
@@ -226,7 +225,7 @@ revoke all on public.tichu_authority_actions from authenticated
   Future<void> ensureReady() async {
     final connection = await Connection.openFromUrl(_databaseUrl);
     try {
-      await connection.runTx((final session) async {
+      await connection.runTx((session) async {
         for (final statement in _statements) {
           await session.execute(statement);
         }

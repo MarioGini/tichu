@@ -191,11 +191,11 @@ void main() {
   // pair straight or full house used to strip Dragon/Dog from the live hand.
   group('handleTurn does not mutate the hand', () {
     final handler = TurnHandler();
-    Card c(final CardFace face, final CardColor color) => Card(face, color);
+    Card c(CardFace face, CardColor color) => Card(face, color);
 
     void expectHandUnchanged({
-      required final TichuTurn deckTurn,
-      required final List<Card> play,
+      required TichuTurn deckTurn,
+      required List<Card> play,
     }) {
       final hand = <Card>[
         ...play,

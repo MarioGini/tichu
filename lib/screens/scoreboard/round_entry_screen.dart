@@ -43,21 +43,21 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
 
   bool get _isEdit => widget.initial != null;
 
-  void _update(final ScoreboardRound round) => setState(() => _round = round);
+  void _update(ScoreboardRound round) => setState(() => _round = round);
 
-  void _setDoubleVictory(final int? team) {
+  void _setDoubleVictory(int? team) {
     // The match team went out first, so a call by the other team
     // has failed.
     final calls = _round.calls
         .map(
-          (final c) =>
+          (c) =>
               team != null && c.team != team ? c.copyWith(success: false) : c,
         )
         .toList();
     _update(_round.copyWith(doubleVictoryTeam: () => team, calls: calls));
   }
 
-  void _setCardPoints(final int teamA) => _update(
+  void _setCardPoints(int teamA) => _update(
     _round.copyWith(
       cardPointsTeamA: teamA.clamp(
         ScoreboardRound.minCardPoints,
@@ -66,10 +66,10 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
     ),
   );
 
-  void _addCall(final int team, final TichuCallKind kind) {
+  void _addCall(int team, TichuCallKind kind) {
     final dv = _round.doubleVictoryTeam;
     final canSucceed =
-        !_round.calls.any((final c) => c.success) && (dv == null || dv == team);
+        !_round.calls.any((c) => c.success) && (dv == null || dv == team);
     _update(
       _round.copyWith(
         calls: [
@@ -80,9 +80,9 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
     );
   }
 
-  void _setCallSuccess(final int index, final bool success) {
+  void _setCallSuccess(int index, bool success) {
     // Only one player goes out first: making one call fails the others.
-    final calls = List.generate(_round.calls.length, (final i) {
+    final calls = List.generate(_round.calls.length, (i) {
       final call = _round.calls[i];
       if (i == index) return call.copyWith(success: success);
       return success ? call.copyWith(success: false) : call;
@@ -90,7 +90,7 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
     _update(_round.copyWith(calls: calls));
   }
 
-  void _removeCall(final int index) =>
+  void _removeCall(int index) =>
       _update(_round.copyWith(calls: [..._round.calls]..removeAt(index)));
 
   void _save() {
@@ -101,7 +101,7 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
   Future<void> _delete() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (final context) => AlertDialog(
+      builder: (context) => AlertDialog(
         title: Text('Delete round ${widget.roundNumber}?'),
         content: const Text('The totals are recalculated without it.'),
         actions: [
@@ -122,7 +122,7 @@ class _RoundEntryScreenState extends State<RoundEntryScreen> {
   }
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final errors = _round.validate();
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -209,7 +209,7 @@ class _MatchSection extends StatelessWidget {
   final ValueChanged<int?> onChanged;
 
   @override
-  Widget build(final BuildContext context) => ScoreboardPanel(
+  Widget build(BuildContext context) => ScoreboardPanel(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -225,8 +225,7 @@ class _MatchSection extends StatelessWidget {
               ),
           ],
           selected: {value ?? -1},
-          onSelectionChanged: (final s) =>
-              onChanged(s.first == -1 ? null : s.first),
+          onSelectionChanged: (s) => onChanged(s.first == -1 ? null : s.first),
         ),
       ],
     ),
@@ -245,11 +244,11 @@ class _CardPointsSection extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final doubleVictory = round.doubleVictoryTeam != null;
     final a = round.cardPointsFor(0);
-    Widget side(final int team, final int points) => Expanded(
+    Widget side(int team, int points) => Expanded(
       child: Column(
         children: [
           Text(
@@ -310,7 +309,7 @@ class _CardPointsSection extends StatelessWidget {
                   5,
               activeColor: scoreboardTeamColors[0],
               inactiveColor: scoreboardTeamColors[1].withValues(alpha: 0.6),
-              onChanged: (final v) => onChanged(v.round()),
+              onChanged: (v) => onChanged(v.round()),
             ),
           ],
         ],
@@ -335,9 +334,9 @@ class _CallsSection extends StatelessWidget {
   final ValueChanged<int> onRemove;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Widget column(final int team) => Expanded(
+    Widget column(int team) => Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -355,11 +354,11 @@ class _CallsSection extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 6),
                 child: _CallPill(
                   call: calls[i],
-                  onSuccessChanged: (final s) => onSuccessChanged(i, s),
+                  onSuccessChanged: (s) => onSuccessChanged(i, s),
                   onRemove: () => onRemove(i),
                 ),
               ),
-          if (calls.where((final c) => c.team == team).length < 2)
+          if (calls.where((c) => c.team == team).length < 2)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Row(
@@ -406,7 +405,7 @@ class _AddCallButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(final BuildContext context) => OutlinedButton.icon(
+  Widget build(BuildContext context) => OutlinedButton.icon(
     onPressed: onTap,
     style: OutlinedButton.styleFrom(
       foregroundColor: Colors.white,
@@ -436,12 +435,12 @@ class _CallPill extends StatelessWidget {
   final VoidCallback onRemove;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final color = call.success ? Colors.greenAccent : Colors.redAccent;
     Widget toggle({
-      required final bool value,
-      required final IconData icon,
-      required final String tooltip,
+      required bool value,
+      required IconData icon,
+      required String tooltip,
     }) {
       final selected = call.success == value;
       final c = value ? Colors.greenAccent : Colors.redAccent;
@@ -521,9 +520,9 @@ class _RoundSummaryBar extends StatelessWidget {
   final VoidCallback? onSave;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Widget total(final int team) {
+    Widget total(int team) {
       final points = round.totalFor(team);
       return Expanded(
         child: Column(

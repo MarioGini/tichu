@@ -9,7 +9,7 @@ import '../../utils/test_game_match_service.dart';
 void main() {
   testWidgets(
     'options dialog updates automated action delay through match service',
-    (final tester) async {
+    (tester) async {
       final backend = FakeGameMatchService();
 
       await tester.pumpWidget(

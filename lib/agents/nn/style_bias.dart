@@ -24,7 +24,7 @@ class StyleBias {
   bool get isNone => passBonus == 0 && spendPenalty == 0;
 
   /// Control cards a play spends: Dragon, Phoenix, Aces; a bomb counts 1.
-  static int controls(final TichuTurn play) {
+  static int controls(TichuTurn play) {
     if (play.type == TurnType.bomb) return 1;
     var n = 0;
     for (final c in play.cards) {
@@ -38,7 +38,7 @@ class StyleBias {
   }
 
   /// Parses `pass:20,spend:15,min-hand:8` (any subset; `none` = no bias).
-  factory StyleBias.parse(final String spec) {
+  factory StyleBias.parse(String spec) {
     var pass = 0.0;
     var spend = 0.0;
     var minHand = 8;

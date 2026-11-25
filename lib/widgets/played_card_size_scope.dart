@@ -9,11 +9,11 @@ class PlayedCardSizeScope extends InheritedWidget {
 
   final double cardScale;
 
-  static double? maybeOf(final BuildContext context) => context
+  static double? maybeOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<PlayedCardSizeScope>()
       ?.cardScale;
 
   @override
-  bool updateShouldNotify(final PlayedCardSizeScope oldWidget) =>
+  bool updateShouldNotify(PlayedCardSizeScope oldWidget) =>
       oldWidget.cardScale != cardScale;
 }

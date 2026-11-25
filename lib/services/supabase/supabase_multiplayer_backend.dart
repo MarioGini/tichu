@@ -60,8 +60,8 @@ class SupabaseMultiplayerConfig {
 
 class SupabaseMultiplayerBackend implements MultiplayerBackend {
   SupabaseMultiplayerBackend({
-    required final SupabaseMultiplayerConfig config,
-    final SupabaseClient? client,
+    required SupabaseMultiplayerConfig config,
+    SupabaseClient? client,
   }) : _sessionService = SupabaseGameSessionService(
          client: client ?? Supabase.instance.client,
          config: config,

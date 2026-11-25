@@ -3,7 +3,7 @@ part of 'schupf_panel.dart';
 /// Vertical padding consumed by the container in [buildSchupfPanelContainer].
 const double _containerPadding = 24; // 12 top + 12 bottom
 
-double _contentWidth(final SchupfLayout layout, final int cardCount) {
+double _contentWidth(SchupfLayout layout, int cardCount) {
   final overlapCount = cardCount > 1 ? cardCount - 1 : 0;
   final handNaturalWidth =
       layout.rowCardWidth +
@@ -14,9 +14,9 @@ double _contentWidth(final SchupfLayout layout, final int cardCount) {
 }
 
 double _panelWidth(
-  final BoxConstraints constraints,
-  final SchupfLayout layout,
-  final int cardCount,
+  BoxConstraints constraints,
+  SchupfLayout layout,
+  int cardCount,
 ) {
   final contentWidth = _contentWidth(layout, cardCount);
   return constraints.maxWidth.isFinite
@@ -24,22 +24,20 @@ double _panelWidth(
       : contentWidth + 24;
 }
 
-Widget _title(final BuildContext context, final String text) => Text(
+Widget _title(BuildContext context, String text) => Text(
   text,
-  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-    color: Colors.white,
-    fontWeight: FontWeight.w600,
-  ),
+  style: Theme.of(context).textTheme.titleMedium
+      ?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
 );
 
 /// Short screens: title and button next to the three slots.
 Widget _compactTopRow(
-  final BuildContext context, {
-  required final String title,
-  required final List<Widget> targets,
-  required final Widget button,
-  required final double maxWidth,
-  final String? hint,
+  BuildContext context, {
+  required String title,
+  required List<Widget> targets,
+  required Widget button,
+  required double maxWidth,
+  String? hint,
 }) => SizedBox(
   width: maxWidth,
   child: FittedBox(
@@ -61,9 +59,8 @@ Widget _compactTopRow(
             if (hint != null)
               Text(
                 hint,
-                style: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.copyWith(color: Colors.white60),
+                style: Theme.of(context).textTheme.labelSmall
+                    ?.copyWith(color: Colors.white60),
               ),
             const SizedBox(height: 8),
             button,
@@ -74,7 +71,7 @@ Widget _compactTopRow(
   ),
 );
 
-Widget _targetRow(final List<Widget> targets, {final double? maxWidth}) {
+Widget _targetRow(List<Widget> targets, {double? maxWidth}) {
   final row = Row(
     mainAxisAlignment: MainAxisAlignment.center,
     mainAxisSize: MainAxisSize.min,

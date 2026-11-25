@@ -17,9 +17,9 @@ const _players = [
 /// One-on-one positions (two players of different teams left, at most
 /// [maxCards] cards together) from heuristic games.
 Future<List<GameEngineState>> _oneOnOne(
-  final GameEngine engine,
-  final int n, {
-  required final int maxCards,
+  GameEngine engine,
+  int n, {
+  required int maxCards,
 }) async {
   final out = <GameEngineState>[];
   final state = engine.createGame(
@@ -53,7 +53,7 @@ Future<List<GameEngineState>> _oneOnOne(
 
 void main() {
   final engine = GameEngineImpl();
-  SmartAiAgent bot(final String id, final int _) => SmartAiAgent(id);
+  SmartAiAgent bot(String id, int _) => SmartAiAgent(id);
 
   test('the solved move has the best exact value of all moves', () async {
     final states = await _oneOnOne(engine, 12, maxCards: 8);

@@ -446,6 +446,42 @@ fn apply_without_wish(g: &mut GameState, action: Action, note: &str) -> Res<()> 
     r
 }
 
+/// Our option for their combination: exact cards first, else the same ranks
+/// (our move generator lists one suit variant), else the same type, length
+/// and rank. Bombs only match exactly.
+fn to_option(combo: &Combo, options: &[Value]) -> Res<Option<usize>> {
+    let mut exact = None;
+    let mut by_rank = None;
+    let mut by_value = None;
+    for (j, o) in options.iter().enumerate() {
+        if o["type"] != combo_type(combo) {
+            continue;
+        }
+        let oc = cards(&o["cards"])?;
+        let same_value = (o["value"].as_f64().unwrap_or(0.0) - combo.rank as f64).abs() < 0.01
+            || combo.kind == ComboKind::Single
+            || combo.cards == [DOG]
+            || combo.is_bomb();
+        if same_cards(&oc, &combo.cards) && (same_value || exact.is_none()) {
+            exact = Some(j);
+        } else if !combo.is_bomb() && same_value && by_rank.is_none() && rank_key(&oc) == rank_key(&combo.cards) {
+            by_rank = Some(j);
+        } else if !combo.is_bomb() && same_value && by_value.is_none() && oc.len() == combo.cards.len() {
+            by_value = Some(j);
+        }
+    }
+    Ok(exact.or(by_rank).or(by_value))
+}
+
+/// Appends `line` to the file named by the environment variable `var`.
+fn note(var: &str, line: &str) {
+    if let Ok(path) = std::env::var(var) {
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(f, "{line}");
+        }
+    }
+}
+
 struct Adapter {
     spec: String,
     seed: u64,
@@ -486,41 +522,31 @@ impl Adapter {
                 if !matches!(g.pending(), Pending::Turn(s) if s == me) {
                     return Err(format!("not our turn in their engine: {:?}", g.pending()));
                 }
-                let plays = g.legal_plays(me);
+                let all = g.legal_plays(me);
                 let can_pass = g.can_pass(me);
+                let options = req["options"].as_array().ok_or("no options")?;
+                // Offer only what our rules allow too (e.g. their engine lets a
+                // bomb ignore the wish, ours does not), each with its option.
+                let mut plays = Vec::new();
+                let mut index = Vec::new();
+                for combo in all.iter() {
+                    if let Some(j) = to_option(combo, options)? {
+                        plays.push(combo.clone());
+                        index.push(j);
+                    }
+                }
+                if plays.len() < all.len() {
+                    note("BRIDGE_DIFF_LOG", &format!("{} of {} plays not legal for us", all.len() - plays.len(), all.len()));
+                }
+                if plays.is_empty() && !can_pass {
+                    return Err("none of their legal plays is legal for us".into());
+                }
                 let choice = bot.play(&view, &plays, can_pass);
                 let Some(i) = choice else {
                     return Ok(json!({"option": Value::Null}));
                 };
                 let combo = &plays[i];
-                let options = req["options"].as_array().ok_or("no options")?;
-                // Exact cards first; else the same ranks (our move generator
-                // lists one suit variant of straights and pairs; suits only
-                // matter for bombs, which always match exactly).
-                let mut exact = None;
-                let mut by_rank = None;
-                let mut by_value = None;
-                for (j, o) in options.iter().enumerate() {
-                    if o["type"] != combo_type(combo) {
-                        continue;
-                    }
-                    let oc = cards(&o["cards"])?;
-                    let same_value = (o["value"].as_f64().unwrap_or(0.0) - combo.rank as f64).abs() < 0.01
-                        || combo.kind == ComboKind::Single;
-                    let same_value = same_value || combo.cards == [DOG];
-                    if same_cards(&oc, &combo.cards) && (same_value || exact.is_none()) {
-                        exact = Some(j);
-                    } else if !combo.is_bomb() && same_value && by_rank.is_none() && rank_key(&oc) == rank_key(&combo.cards) {
-                        by_rank = Some(j);
-                    } else if !combo.is_bomb() && same_value && by_value.is_none() && oc.len() == combo.cards.len() {
-                        by_value = Some(j);
-                    }
-                }
-                // Our generator lists one straight per length and top rank
-                // (without the Phoenix where it can): take that one.
-                let j = exact.or(by_rank).or(by_value).ok_or_else(|| {
-                    format!("their bot chose {:?} ({:?} {}), not among our options", combo.cards.iter().map(|&c| card_code(c)).collect::<Vec<_>>(), combo.kind, combo.rank)
-                })?;
+                let j = index[i];
                 let mut reply = json!({"option": j});
                 if combo.cards.contains(&MAH_JONG) {
                     let mut after = g.clone();

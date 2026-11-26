@@ -96,6 +96,31 @@ void main() {
       expect(pickEndgameAction([values.first], 0, 9), 1);
     });
 
+    test('needs enough worlds that are strictly better', () {
+      // Game 13cb: the policy's Dragon and the pass tie in 7 of 8 worlds;
+      // one world favours the pass by 90 (mean +11.25 > 10).
+      final values = [
+        for (var w = 0; w < 8; w++) [-100.0, -100.0],
+      ];
+      values[5] = [-100.0, -10.0];
+      expect(pickEndgameAction(values, 0, 10), 1);
+      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 0);
+      values[2] = [-100.0, -90.0];
+      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 1);
+      // Capped at the number of worlds.
+      expect(
+        pickEndgameAction(
+          [
+            [0.0, 50.0],
+          ],
+          0,
+          10,
+          minBetterWorlds: 2,
+        ),
+        1,
+      );
+    });
+
     test('picks the highest mean advantage among eligible actions', () {
       final values = [
         [5.0, 30.0, 25.0, 100.0],

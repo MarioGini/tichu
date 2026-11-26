@@ -39,6 +39,12 @@ class EndgameSearch {
   /// ([EndgameSearcher.belief]) instead of uniformly.
   final bool beliefWorlds;
 
+  /// A deviation must be strictly better than the policy's move in at
+  /// least this many worlds. With 1, a single world with a large swing
+  /// (90 points in 1 of 8 worlds is a mean of 11) could override the
+  /// policy while every other world was a tie.
+  final int minBetterWorlds;
+
   const EndgameSearch({
     this.worlds = 8,
     this.maxCards = 5,
@@ -48,31 +54,41 @@ class EndgameSearch {
     this.solveBudget = 20000,
     this.solveMaxCards = 10,
     this.beliefWorlds = false,
+    this.minBetterWorlds = 2,
   });
 
   @override
   String toString() =>
       'EndgameSearch(worlds: $worlds, maxCards: $maxCards, '
       'margin: $margin, maxActions: $maxActions, '
-      'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget)';
+      'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget, '
+      'minBetterWorlds: $minBetterWorlds)';
 }
 
 /// The decision rule: index of the action to play given rollout values
 /// `values[world][action]` and the policy's choice [chosen].
 ///
 /// Deviates only to an action that is no worse than [chosen] in every
-/// world and better on average by more than [margin]; among those the one
-/// with the highest mean advantage. Null values (not rolled out, stuck)
-/// make an action ineligible; a world where [chosen] is null keeps
-/// [chosen].
-int pickEndgameAction(List<List<double?>> values, int chosen, double margin) {
+/// world, strictly better in at least [minBetterWorlds] of them (capped at
+/// the number of worlds) and better on average by more than [margin];
+/// among those the one with the highest mean advantage. Null values (not
+/// rolled out, stuck) make an action ineligible; a world where [chosen] is
+/// null keeps [chosen].
+int pickEndgameAction(
+  List<List<double?>> values,
+  int chosen,
+  double margin, {
+  int minBetterWorlds = 1,
+}) {
   if (values.isEmpty) return chosen;
+  final needBetter = min(minBetterWorlds, values.length);
   final count = values.first.length;
   var best = chosen;
   var bestAdvantage = margin;
   for (var a = 0; a < count; a++) {
     if (a == chosen) continue;
     var sum = 0.0;
+    var better = 0;
     var ok = true;
     for (final world in values) {
       final va = world[a];
@@ -81,9 +97,10 @@ int pickEndgameAction(List<List<double?>> values, int chosen, double margin) {
         ok = false;
         break;
       }
+      if (va > vc) better++;
       sum += va - vc;
     }
-    if (!ok) continue;
+    if (!ok || better < needBetter) continue;
     final advantage = sum / values.length;
     if (advantage > bestAdvantage) {
       bestAdvantage = advantage;
@@ -350,7 +367,12 @@ class EndgameSearcher {
         }
         values.add(row);
       }
-      final pick = pickEndgameAction(values, chosenIndex, config.margin);
+      final pick = pickEndgameAction(
+        values,
+        chosenIndex,
+        config.margin,
+        minBetterWorlds: config.minBetterWorlds,
+      );
       if (pick == chosenIndex) return chosen;
       switches++;
       return actions[pick]!;

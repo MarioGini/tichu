@@ -182,6 +182,8 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var endgameMaxActions = defaults.maxActions;
   var endgameMinBetter = defaults.minBetterWorlds;
   int? opponentEndgameMinBetter;
+  var endgameBombStrata = false;
+  bool? opponentEndgameBombStrata;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -402,6 +404,14 @@ _HeadlessConfig _parseArgs(List<String> args) {
       if (m != null && m >= 0) endgameMargin = m;
       continue;
     }
+    if (arg == '--endgame-bomb-strata') {
+      endgameBombStrata = true;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-bomb-strata=')) {
+      opponentEndgameBombStrata = arg.split('=').last == 'true';
+      continue;
+    }
     if (arg.startsWith('--endgame-min-better=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 1) endgameMinBetter = k;
@@ -505,6 +515,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
     required bool belief,
     int? maxCards,
     int? minBetter,
+    bool? bombStrata,
   }) => EndgameSearch(
     beliefWorlds: belief,
     worlds: endgameWorlds,
@@ -512,6 +523,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
     margin: endgameMargin,
     maxActions: endgameMaxActions,
     minBetterWorlds: minBetter ?? endgameMinBetter,
+    bombStrata: bombStrata ?? endgameBombStrata,
     solveOneOnOne: solve,
     solveBudget: solveBudget,
     solveMaxCards: solveMaxCards,
@@ -526,6 +538,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
             belief: opponentEndgameBelief,
             maxCards: opponentEndgameMaxCards,
             minBetter: opponentEndgameMinBetter,
+            bombStrata: opponentEndgameBombStrata,
           )
         : null,
     seed: seed,
@@ -633,6 +646,10 @@ void _printUsage() {
   stdout.writeln(
     '       [--endgame-min-better=2] [--opponent-endgame-min-better=N]  '
     '(worlds a deviation must strictly win)',
+  );
+  stdout.writeln(
+    '       [--endgame-bomb-strata] [--opponent-endgame-bomb-strata=false]  '
+    '(worlds with / without a bomb, weighted by its probability)',
   );
   stdout.writeln('       [--epsilon=0.1]');
 }

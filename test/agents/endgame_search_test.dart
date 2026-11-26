@@ -121,6 +121,26 @@ void main() {
       );
     });
 
+    test('weights the mean advantage by world', () {
+      final values = [
+        [0.0, 90.0],
+        [0.0, 90.0],
+        [0.0, 0.0],
+        [0.0, 0.0],
+      ];
+      // Equal weights: +45. Bomb worlds (first two) at 17 %: +15.3.
+      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 1);
+      const w = [0.085, 0.085, 0.415, 0.415];
+      expect(
+        pickEndgameAction(values, 0, 10, minBetterWorlds: 2, weights: w),
+        1,
+      );
+      expect(
+        pickEndgameAction(values, 0, 20, minBetterWorlds: 2, weights: w),
+        0,
+      );
+    });
+
     test('picks the highest mean advantage among eligible actions', () {
       final values = [
         [5.0, 30.0, 25.0, 100.0],

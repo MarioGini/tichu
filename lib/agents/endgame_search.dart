@@ -11,6 +11,7 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/bomb_utils.dart';
 
 /// Settings of the decision-time endgame search (see [EndgameSearcher]).
 class EndgameSearch {
@@ -45,6 +46,13 @@ class EndgameSearch {
   /// policy while every other world was a tie.
   final int minBetterWorlds;
 
+  /// Sample the worlds in two strata, with and without a bomb in another
+  /// player's hand, and weight them by the bomb's probability (estimated
+  /// from [bombProbes] cheap re-deals). Without it a rare bomb shows up in
+  /// 0, 1 or 2 of the [worlds] by chance and decides on that noise.
+  final bool bombStrata;
+  final int bombProbes;
+
   const EndgameSearch({
     this.worlds = 8,
     this.maxCards = 5,
@@ -55,6 +63,8 @@ class EndgameSearch {
     this.solveMaxCards = 10,
     this.beliefWorlds = false,
     this.minBetterWorlds = 2,
+    this.bombStrata = false,
+    this.bombProbes = 256,
   });
 
   @override
@@ -62,7 +72,7 @@ class EndgameSearch {
       'EndgameSearch(worlds: $worlds, maxCards: $maxCards, '
       'margin: $margin, maxActions: $maxActions, '
       'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget, '
-      'minBetterWorlds: $minBetterWorlds)';
+      'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata)';
 }
 
 /// The decision rule: index of the action to play given rollout values
@@ -73,12 +83,14 @@ class EndgameSearch {
 /// the number of worlds) and better on average by more than [margin];
 /// among those the one with the highest mean advantage. Null values (not
 /// rolled out, stuck) make an action ineligible; a world where [chosen] is
-/// null keeps [chosen].
+/// null keeps [chosen]. [weights] (summing to 1, one per world) weight the
+/// mean; equal weights by default.
 int pickEndgameAction(
   List<List<double?>> values,
   int chosen,
   double margin, {
   int minBetterWorlds = 1,
+  List<double>? weights,
 }) {
   if (values.isEmpty) return chosen;
   final needBetter = min(minBetterWorlds, values.length);
@@ -90,18 +102,18 @@ int pickEndgameAction(
     var sum = 0.0;
     var better = 0;
     var ok = true;
-    for (final world in values) {
-      final va = world[a];
-      final vc = world[chosen];
+    for (var w = 0; w < values.length; w++) {
+      final va = values[w][a];
+      final vc = values[w][chosen];
       if (va == null || vc == null || va < vc) {
         ok = false;
         break;
       }
       if (va > vc) better++;
-      sum += va - vc;
+      sum += (va - vc) * (weights?[w] ?? 1 / values.length);
     }
     if (!ok || better < needBetter) continue;
-    final advantage = sum / values.length;
+    final advantage = sum;
     if (advantage > bestAdvantage) {
       bestAdvantage = advantage;
       best = a;
@@ -131,10 +143,29 @@ GameEngineState redealWorld(
   List<List<double>>? holders,
 }) {
   final world = state.copy();
-  final actor = world.players.firstWhere((p) => p.id == actorId);
+  dealUnseen(
+    state,
+    actorId,
+    random,
+    canonicalPool: canonicalPool,
+    holders: holders,
+  ).forEach((id, hand) => world.hands[id] = hand);
+  return world;
+}
+
+/// The hands of the other players in a re-deal of [state] as
+/// [redealWorld] makes it, without copying the state.
+Map<String, List<Card>> dealUnseen(
+  GameEngineState state,
+  String actorId,
+  Random random, {
+  bool canonicalPool = true,
+  List<List<double>>? holders,
+}) {
+  final actor = state.players.firstWhere((p) => p.id == actorId);
   String idAt(int offset) =>
-      world.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
-  final pass = world.completedSchupfSelections[actorId];
+      state.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
+  final pass = state.completedSchupfSelections[actorId];
   final pinned = <String, List<Card>>{};
   if (pass != null) {
     for (final (offset, card) in [
@@ -143,7 +174,7 @@ GameEngineState redealWorld(
       (3, pass.toRight),
     ]) {
       final id = idAt(offset);
-      final hand = world.hands[id] ?? const <Card>[];
+      final hand = state.hands[id] ?? const <Card>[];
       final i = hand.indexWhere(
         (c) => c.face == card.face && c.color == card.color,
       );
@@ -151,13 +182,13 @@ GameEngineState redealWorld(
     }
   }
   final others = [
-    for (final p in world.players)
-      if (p.id != actorId && (world.hands[p.id]?.isNotEmpty ?? false)) p.id,
+    for (final p in state.players)
+      if (p.id != actorId && (state.hands[p.id]?.isNotEmpty ?? false)) p.id,
   ];
   final pool = <Card>[];
   for (final id in others) {
     final keep = pinned[id] ?? const <Card>[];
-    for (final c in world.hands[id]!) {
+    for (final c in state.hands[id]!) {
       if (!keep.any((k) => identical(k, c))) pool.add(c);
     }
   }
@@ -168,7 +199,7 @@ GameEngineState redealWorld(
   if (holders != null) {
     final room = <String, int>{
       for (final id in others)
-        id: world.hands[id]!.length - (pinned[id]?.length ?? 0),
+        id: state.hands[id]!.length - (pinned[id]?.length ?? 0),
     };
     final rel = <String, int>{idAt(1): 0, idAt(2): 1, idAt(3): 2};
     final dealt = <String, List<Card>>{
@@ -198,22 +229,20 @@ GameEngineState redealWorld(
       dealt[pick]!.add(card);
       room[pick] = room[pick]! - 1;
     }
-    for (final id in others) {
-      world.hands[id] = dealt[id]!;
-    }
-    return world;
+    return dealt;
   }
   var next = 0;
+  final result = <String, List<Card>>{};
   for (final id in others) {
-    final size = world.hands[id]!.length;
+    final size = state.hands[id]!.length;
     final keep = pinned[id] ?? const <Card>[];
     final hand = [...keep];
     while (hand.length < size) {
       hand.add(pool[next++]);
     }
-    world.hands[id] = hand;
+    result[id] = hand;
   }
-  return world;
+  return result;
 }
 
 /// Decision-time endgame search, run by a driver that owns the game state
@@ -350,8 +379,16 @@ class EndgameSearcher {
       final holders = config.beliefWorlds && belief != null
           ? belief!.holderProbabilities(snapshot, playerId)
           : null;
-      for (var w = 0; w < config.worlds; w++) {
-        final world = redealWorld(state, playerId, random, holders: holders);
+      final (worlds, weights) = config.bombStrata
+          ? _bombStrataWorlds(state, playerId, random, holders, config)
+          : (
+              [
+                for (var w = 0; w < config.worlds; w++)
+                  redealWorld(state, playerId, random, holders: holders),
+              ],
+              null,
+            );
+      for (final world in worlds) {
         final row = List<double?>.filled(count, null);
         for (final i in indices) {
           final fork = world.copy();
@@ -372,6 +409,7 @@ class EndgameSearcher {
         chosenIndex,
         config.margin,
         minBetterWorlds: config.minBetterWorlds,
+        weights: weights,
       );
       if (pick == chosenIndex) return chosen;
       switches++;
@@ -379,6 +417,49 @@ class EndgameSearcher {
     } finally {
       stopwatch.stop();
     }
+  }
+
+  /// Worlds in two strata, with and without a bomb in another player's
+  /// hand, about half each, and their weights: the bomb probability
+  /// (share of [EndgameSearch.bombProbes] re-deals with a bomb) spread
+  /// over the bomb worlds, the rest over the others. Plain worlds with
+  /// equal weights when the probes show no bomb or only bombs.
+  static (List<GameEngineState>, List<double>?) _bombStrataWorlds(
+    GameEngineState state,
+    String playerId,
+    Random random,
+    List<List<double>>? holders,
+    EndgameSearch config,
+  ) {
+    final bomb = <Map<String, List<Card>>>[];
+    final plain = <Map<String, List<Card>>>[];
+    for (var i = 0; i < config.bombProbes; i++) {
+      final hands = dealUnseen(state, playerId, random, holders: holders);
+      (hands.values.any(hasBombInHand) ? bomb : plain).add(hands);
+    }
+    GameEngineState worldOf(Map<String, List<Card>> hands) {
+      final world = state.copy();
+      hands.forEach((id, hand) => world.hands[id] = hand);
+      return world;
+    }
+
+    if (bomb.isEmpty || plain.isEmpty) {
+      final all = bomb.isEmpty ? plain : bomb;
+      return ([for (final h in all.take(config.worlds)) worldOf(h)], null);
+    }
+    final p = bomb.length / config.bombProbes;
+    final nBomb = min(bomb.length, max(1, config.worlds ~/ 2));
+    final nPlain = min(plain.length, config.worlds - nBomb);
+    return (
+      [
+        for (final h in bomb.take(nBomb)) worldOf(h),
+        for (final h in plain.take(nPlain)) worldOf(h),
+      ],
+      [
+        for (var i = 0; i < nBomb; i++) p / nBomb,
+        for (var i = 0; i < nPlain; i++) (1 - p) / nPlain,
+      ],
+    );
   }
 
   /// Indices of the actions to roll out: all of them, or (above

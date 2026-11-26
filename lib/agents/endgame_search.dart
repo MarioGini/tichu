@@ -40,13 +40,6 @@ class EndgameSearch {
   /// ([EndgameSearcher.belief]) instead of uniformly.
   final bool beliefWorlds;
 
-  /// A deviation must be strictly better than the policy's move in at
-  /// least this many worlds. With 1 (the shipped rule) a single world with
-  /// a large swing (90 points in 1 of 8 worlds is a mean of 11) can
-  /// override the policy while every other world is a tie (game 13cb);
-  /// 2 is not yet validated in a duel.
-  final int minBetterWorlds;
-
   /// Sample the worlds in two strata, with and without a bomb in another
   /// player's hand, and weight them by the bomb's probability (estimated
   /// from [bombProbes] cheap re-deals). Without it a rare bomb shows up in
@@ -54,12 +47,10 @@ class EndgameSearch {
   final bool bombStrata;
   final int bombProbes;
 
-  /// Decide by the expected advantage alone (the weighted mean over the
-  /// worlds, see [bombStrata]): deviate to the action whose mean beats the
-  /// policy's move by more than [margin], even if it is worse in some
-  /// worlds. Otherwise the deviation must also be no worse in every world
-  /// and strictly better in [minBetterWorlds].
-  final bool expectedValue;
+  /// The probabilistic decision rule (see [pickEndgameAction]): deviate
+  /// when the expected advantage minus this many standard errors beats
+  /// [margin]. Null: the shipped rule (no worse in every world).
+  final double? confidenceZ;
 
   const EndgameSearch({
     this.worlds = 8,
@@ -70,10 +61,9 @@ class EndgameSearch {
     this.solveBudget = 20000,
     this.solveMaxCards = 10,
     this.beliefWorlds = false,
-    this.minBetterWorlds = 1,
     this.bombStrata = false,
     this.bombProbes = 256,
-    this.expectedValue = false,
+    this.confidenceZ,
   });
 
   @override
@@ -81,57 +71,107 @@ class EndgameSearch {
       'EndgameSearch(worlds: $worlds, maxCards: $maxCards, '
       'margin: $margin, maxActions: $maxActions, '
       'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget, '
-      'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata, '
-      'expectedValue: $expectedValue)';
+      'bombStrata: $bombStrata, confidenceZ: $confidenceZ)';
 }
 
 /// The decision rule: index of the action to play given rollout values
 /// `values[world][action]` and the policy's choice [chosen].
 ///
-/// Deviates only to an action that is no worse than [chosen] in every
-/// world, strictly better in at least [minBetterWorlds] of them (capped at
-/// the number of worlds) and better on average by more than [margin];
-/// among those the one with the highest mean advantage. Null values (not
-/// rolled out, stuck) make an action ineligible; a world where [chosen] is
-/// null keeps [chosen]. [weights] (summing to 1, one per world) weight the
-/// mean; equal weights by default. With [expectedValue] only the weighted
-/// mean counts (no per-world conditions).
+/// The worlds fall into strata ([strata]: the stratum of each world;
+/// [stratumWeights]: each stratum's probability, summing to 1; one stratum
+/// by default), e.g. with and without a bomb in another hand. An action's
+/// advantage is its paired difference to [chosen] per world; its expected
+/// advantage is the probability-weighted mean of the strata means.
+///
+/// * [confidenceZ] null (the shipped rule): deviate only to an action that
+///   is no worse than [chosen] in every world and whose expected advantage
+///   exceeds [margin].
+/// * Otherwise probabilistic: deviate to the action whose lower confidence
+///   bound, expected advantage minus [confidenceZ] standard errors (of the
+///   stratified mean), exceeds [margin], the highest bound among them.
+///   Eight rollouts per action are noisy: without the bound the best mean
+///   mostly picks a lucky action (picking by the mean alone won 15 % of
+///   matches against the shipped rule).
+///
+/// Null values (not rolled out, stuck) make an action ineligible.
 int pickEndgameAction(
   List<List<double?>> values,
   int chosen,
   double margin, {
-  int minBetterWorlds = 1,
-  List<double>? weights,
-  bool expectedValue = false,
+  List<int>? strata,
+  List<double> stratumWeights = const [1],
+  double? confidenceZ,
 }) {
   if (values.isEmpty) return chosen;
-  final needBetter = min(minBetterWorlds, values.length);
   final count = values.first.length;
+  int stratumOf(int w) => strata?[w] ?? 0;
   var best = chosen;
-  var bestAdvantage = margin;
+  var bestScore = margin;
   for (var a = 0; a < count; a++) {
     if (a == chosen) continue;
-    var sum = 0.0;
-    var better = 0;
+    final diffs = [for (final _ in stratumWeights) <double>[]];
     var ok = true;
     for (var w = 0; w < values.length; w++) {
       final va = values[w][a];
       final vc = values[w][chosen];
-      if (va == null || vc == null || (va < vc && !expectedValue)) {
+      if (va == null || vc == null || (confidenceZ == null && va < vc)) {
         ok = false;
         break;
       }
-      if (va > vc) better++;
-      sum += (va - vc) * (weights?[w] ?? 1 / values.length);
+      diffs[stratumOf(w)].add(va - vc);
     }
-    if (!ok || (!expectedValue && better < needBetter)) continue;
-    final advantage = sum;
-    if (advantage > bestAdvantage) {
-      bestAdvantage = advantage;
+    if (!ok) continue;
+    final score = confidenceZ == null
+        ? _stratifiedMean(diffs, stratumWeights)
+        : _lowerBound(diffs, stratumWeights, confidenceZ);
+    if (score > bestScore) {
+      bestScore = score;
       best = a;
     }
   }
   return best;
+}
+
+double _mean(List<double> xs) {
+  var sum = 0.0;
+  for (final x in xs) {
+    sum += x;
+  }
+  return sum / xs.length;
+}
+
+double _stratifiedMean(List<List<double>> diffs, List<double> weights) {
+  var mean = 0.0;
+  for (var s = 0; s < diffs.length; s++) {
+    if (diffs[s].isNotEmpty) mean += weights[s] * _mean(diffs[s]);
+  }
+  return mean;
+}
+
+/// Stratified mean minus [z] standard errors: `se^2 = sum_s W_s^2 var_s /
+/// n_s` with the sample variance of each stratum (a stratum of one world
+/// uses the variance of all worlds).
+double _lowerBound(List<List<double>> diffs, List<double> weights, double z) {
+  final all = [for (final d in diffs) ...d];
+  double variance(List<double> xs) {
+    if (xs.length < 2) return 0;
+    final m = _mean(xs);
+    var sum = 0.0;
+    for (final x in xs) {
+      sum += (x - m) * (x - m);
+    }
+    return sum / (xs.length - 1);
+  }
+
+  final pooled = variance(all);
+  var se2 = 0.0;
+  for (var s = 0; s < diffs.length; s++) {
+    final n = diffs[s].length;
+    if (n == 0) continue;
+    final v = n > 1 ? variance(diffs[s]) : pooled;
+    se2 += weights[s] * weights[s] * v / n;
+  }
+  return _stratifiedMean(diffs, weights) - z * sqrt(se2);
 }
 
 /// A copy of [state] in which the cards [actorId] cannot see are dealt
@@ -417,7 +457,7 @@ class EndgameSearcher {
       final holders = config.beliefWorlds && belief != null
           ? belief!.holderProbabilities(snapshot, playerId)
           : null;
-      final (deals, weights) = config.bombStrata
+      final (deals, strata, stratumWeights) = config.bombStrata
           ? _bombStrataDeals(state, playerId, random, holders, config)
           : (
               [
@@ -425,6 +465,7 @@ class EndgameSearcher {
                   dealUnseen(state, playerId, random, holders: holders),
               ],
               null,
+              const [1.0],
             );
       final values = await _rollOutWorlds(state, deals, actions, count, team);
       rollouts += deals.length * actions.length;
@@ -432,9 +473,9 @@ class EndgameSearcher {
         values,
         chosenIndex,
         config.margin,
-        minBetterWorlds: config.minBetterWorlds,
-        weights: weights,
-        expectedValue: config.expectedValue,
+        strata: strata,
+        stratumWeights: stratumWeights,
+        confidenceZ: config.confidenceZ,
       );
       if (pick == chosenIndex) return chosen;
       switches++;
@@ -518,11 +559,11 @@ class EndgameSearcher {
   }
 
   /// Deals in two strata, with and without a bomb in another player's
-  /// hand, about half each, and their weights: the bomb probability
-  /// (share of [EndgameSearch.bombProbes] re-deals with a bomb) spread
-  /// over the bomb deals, the rest over the others. Plain deals with
-  /// equal weights when the probes show no bomb or only bombs.
-  static (List<Deal>, List<double>?) _bombStrataDeals(
+  /// hand, about half each: the deals, the stratum of each (0 bomb,
+  /// 1 none) and the strata's probabilities (the share of
+  /// [EndgameSearch.bombProbes] re-deals with a bomb). One stratum when
+  /// the probes show no bomb or only bombs.
+  static (List<Deal>, List<int>?, List<double>) _bombStrataDeals(
     GameEngineState state,
     String playerId,
     Random random,
@@ -537,17 +578,15 @@ class EndgameSearcher {
     }
     if (bomb.isEmpty || plain.isEmpty) {
       final all = bomb.isEmpty ? plain : bomb;
-      return (all.take(config.worlds).toList(), null);
+      return (all.take(config.worlds).toList(), null, const [1.0]);
     }
     final p = bomb.length / config.bombProbes;
     final nBomb = min(bomb.length, max(1, config.worlds ~/ 2));
     final nPlain = min(plain.length, config.worlds - nBomb);
     return (
       [...bomb.take(nBomb), ...plain.take(nPlain)],
-      [
-        for (var i = 0; i < nBomb; i++) p / nBomb,
-        for (var i = 0; i < nPlain; i++) (1 - p) / nPlain,
-      ],
+      [for (var i = 0; i < nBomb; i++) 0, for (var i = 0; i < nPlain; i++) 1],
+      [p, 1 - p],
     );
   }
 

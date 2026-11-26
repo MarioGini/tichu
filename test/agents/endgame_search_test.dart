@@ -103,72 +103,54 @@ void main() {
       expect(pickEndgameAction([values.first], 0, 9), 1);
     });
 
-    test('needs enough worlds that are strictly better', () {
-      // Game 13cb: the policy's Dragon and the pass tie in 7 of 8 worlds;
-      // one world favours the pass by 90 (mean +11.25 > 10).
+    test('confidence: one lucky world does not switch (game 13cb)', () {
+      // The policy's Dragon and the pass tie in 7 of 8 worlds; one world
+      // favours the pass by 90 (mean +11.25 > 10, standard error 11.25).
       final values = [
         for (var w = 0; w < 8; w++) [-100.0, -100.0],
       ];
       values[5] = [-100.0, -10.0];
-      expect(pickEndgameAction(values, 0, 10), 1);
-      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 0);
-      values[2] = [-100.0, -90.0];
-      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 1);
-      // Capped at the number of worlds.
-      expect(
-        pickEndgameAction(
-          [
-            [0.0, 50.0],
-          ],
-          0,
-          10,
-          minBetterWorlds: 2,
-        ),
-        1,
-      );
+      expect(pickEndgameAction(values, 0, 10), 1, reason: 'shipped rule');
+      expect(pickEndgameAction(values, 0, 10, confidenceZ: 2), 0);
     });
 
-    test('weights the mean advantage by world', () {
-      final values = [
-        [0.0, 90.0],
-        [0.0, 90.0],
-        [0.0, 0.0],
-        [0.0, 0.0],
+    test('confidence: a steady advantage switches, a noisy one not', () {
+      final steady = [
+        for (var w = 0; w < 8; w++) [0.0, 30.0 + w],
       ];
-      // Equal weights: +45. Bomb worlds (first two) at 17 %: +15.3.
-      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 1);
-      const w = [0.085, 0.085, 0.415, 0.415];
-      expect(
-        pickEndgameAction(values, 0, 10, minBetterWorlds: 2, weights: w),
-        1,
-      );
-      expect(
-        pickEndgameAction(values, 0, 20, minBetterWorlds: 2, weights: w),
-        0,
-      );
+      expect(pickEndgameAction(steady, 0, 10, confidenceZ: 2), 1);
+      // Mean +40 but one world -200: no longer certain enough.
+      final noisy = [
+        for (var w = 0; w < 7; w++) [0.0, 74.0],
+        [0.0, -200.0],
+      ];
+      expect(pickEndgameAction(noisy, 0, 10, confidenceZ: 2), 0);
+      // The shipped rule needs no world worse.
+      expect(pickEndgameAction(noisy, 0, 10), 0);
     });
 
-    test('expected value ignores the per-world conditions', () {
+    test('strata weight the advantage by their probability', () {
+      // Bomb worlds (stratum 0): the pass is better by 90 in each; no-bomb
+      // worlds (stratum 1): a tie. Advantage = p(bomb) * 90.
       final values = [
-        [0.0, 200.0],
-        [0.0, -40.0],
-        [0.0, 0.0],
-        [0.0, 0.0],
+        for (var w = 0; w < 4; w++) [0.0, 90.0],
+        for (var w = 0; w < 4; w++) [0.0, 0.0],
       ];
-      // Worse in world 2: only the expected value (+40) switches.
-      expect(pickEndgameAction(values, 0, 10), 0);
-      expect(pickEndgameAction(values, 0, 10, expectedValue: true), 1);
-      // Weighted: 0.05 * 200 - 0.45 * 40 = -8.
-      expect(
-        pickEndgameAction(
-          values,
-          0,
-          10,
-          expectedValue: true,
-          weights: const [0.05, 0.45, 0.25, 0.25],
-        ),
-        0,
-      );
+      final strata = [0, 0, 0, 0, 1, 1, 1, 1];
+      for (final (p, switches) in [(0.076, false), (0.5, true)]) {
+        expect(
+          pickEndgameAction(
+            values,
+            0,
+            10,
+            strata: strata,
+            stratumWeights: [p, 1 - p],
+            confidenceZ: 2,
+          ),
+          switches ? 1 : 0,
+          reason: 'p(bomb) = $p',
+        );
+      }
     });
 
     test('picks the highest mean advantage among eligible actions', () {

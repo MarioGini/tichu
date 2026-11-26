@@ -116,7 +116,8 @@ void main() {
         Card(CardFace.queen, CardColor.black),
         Card(CardFace.king, CardColor.black),
       ];
-      expect(getBombs(cards).length, 1);
+      // 8-K, and the five-card 8-Q and 9-K inside it.
+      expect(getBombs(cards).length, 3);
     });
   });
   group('hasBombInHand', () {
@@ -225,7 +226,7 @@ void main() {
   });
 }
 
-/// getBombs as it was before the bit-mask shortcut.
+/// getBombs without the bit-mask shortcut.
 List<TichuTurn> _referenceBombs(List<Card> cards) {
   final bombTurns = <TichuTurn>[];
   final occurrenceCount = getOccurrenceCount(cards);
@@ -254,10 +255,12 @@ List<TichuTurn> _referenceBombs(List<Card> cards) {
           colorCards[end].value == colorCards[end + 1].value + 1) {
         end++;
       }
-      if (end - start + 1 >= 5) {
-        bombTurns.add(
-          TichuTurn(TurnType.bomb, colorCards.sublist(start, end + 1)),
-        );
+      for (var from = start; from + 4 <= end; from++) {
+        for (var to = from + 4; to <= end; to++) {
+          bombTurns.add(
+            TichuTurn(TurnType.bomb, colorCards.sublist(from, to + 1)),
+          );
+        }
       }
       start = end + 1;
     }

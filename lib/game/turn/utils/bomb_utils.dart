@@ -108,8 +108,12 @@ List<TichuTurn> _getStraightBombs(List<Card> cards) {
         end++;
       }
 
-      if (end - start + 1 >= 5) {
-        bombs.add(TichuTurn(TurnType.bomb, colorCards.sublist(start, end + 1)));
+      // Every run of at least five inside the longest one is a bomb too
+      // (8-K holds 8-Q and 9-K): a shorter one keeps the rest in hand.
+      for (var from = start; from + 4 <= end; from++) {
+        for (var to = from + 4; to <= end; to++) {
+          bombs.add(TichuTurn(TurnType.bomb, colorCards.sublist(from, to + 1)));
+        }
       }
 
       start = end + 1;

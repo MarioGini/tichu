@@ -71,6 +71,7 @@ class Adapter:
     def __init__(self, seed: int):
         random.seed(seed)
         torch.manual_seed(seed)
+        torch.set_num_threads(1)  # the arena runs one process per core
         self.rng = random.Random(seed)
         self.device = torch.device("cpu")
         ckpt = REPO / "checkpoints" / "tichubot-best.pt"

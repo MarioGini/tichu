@@ -21,28 +21,32 @@ List<Card> removeDuplicates(List<Card> cards) {
   return removedDuplicates;
 }
 
-// Returns all possible straights in the list with the desired length. The
-// phoenix is not used to create straights by adding at the lower end. Straight
-// bombs are not converted to bombs.
+// Returns all possible straights in the list with the desired length, one
+// per set of ranks (suits aside). Straight bombs are not converted to bombs.
 List<TichuTurn> getStraights(List<Card> input, int desiredLength) =>
     straightsOfLength(allStraightCandidates(input), desiredLength);
 
 /// The straights of [desiredLength] among [candidates] (from
-/// [allStraightCandidates]), one per value. Lets callers that need every
-/// length build the candidates once.
+/// [allStraightCandidates]), one per set of ranks: the same top card with or
+/// without the Phoenix are different plays (they keep different cards).
+/// Lets callers that need every length build the candidates once.
 List<TichuTurn> straightsOfLength(
   List<TichuTurn> candidates,
   int desiredLength,
 ) {
-  // When having combinations of "pure" straights and phoenix straights, the
-  // permutation logic will result in duplicated straights which are removed
-  // below to assure unique elements in the list.
-  final values = <double>{};
+  // Pure and Phoenix straights and their permutations repeat each other.
+  final seen = <String>{};
   return [
     for (final s in candidates)
-      if (s.cards.length == desiredLength && values.add(s.value)) s,
+      if (s.cards.length == desiredLength && seen.add(_rankKey(s.cards))) s,
   ];
 }
+
+/// The ranks of a straight, the Phoenix marked as such.
+String _rankKey(List<Card> cards) => [
+  for (final c in cards)
+    if (c.face == CardFace.phoenix) 'P${c.value}' else '${c.value}',
+].join(',');
 
 /// Every straight in [input] of any length, before the per-length filter
 /// of [getStraights] (may hold several straights of the same value).
@@ -77,27 +81,22 @@ List<TichuTurn> allStraightCandidates(List<Card> input) {
 
   if (uniqueCards.any((element) => element.face == CardFace.phoenix)) {
     final phoenixStraights = <TichuTurn>[];
-    // Phoenix is added to all segments that have length of at least four. When
-    // highest card is not an ace, phoenix is added as first card, else as last
-    // card.
+    // The Phoenix extends every segment of at least four cards, above it
+    // (up to an ace) and below it (down to a two; the Mah Jong is a 1).
     for (final sequence in connected) {
       if (sequence.endIdx - sequence.beginIdx >= 3) {
-        final phoenixCards = uniqueCards.sublist(
+        final segment = uniqueCards.sublist(
           sequence.beginIdx,
           sequence.endIdx + 1,
         );
-        if (uniqueCards[sequence.beginIdx].value !=
-            Card.getValue(CardFace.ace)) {
-          phoenixCards.add(
-            Card.phoenix(uniqueCards[sequence.beginIdx].value + 1),
-          );
-        } else {
-          phoenixCards.add(
-            Card.phoenix(uniqueCards[sequence.endIdx].value - 1),
-          );
+        final top = uniqueCards[sequence.beginIdx].value;
+        final bottom = uniqueCards[sequence.endIdx].value;
+        for (final value in [top + 1, bottom - 1]) {
+          if (value < 2 || value > Card.getValue(CardFace.ace)) continue;
+          final phoenixCards = [...segment, Card.phoenix(value)]
+            ..sort(compareCards);
+          phoenixStraights.add(TichuTurn(TurnType.straight, phoenixCards));
         }
-        phoenixCards.sort(compareCards);
-        phoenixStraights.add(TichuTurn(TurnType.straight, phoenixCards));
       }
     }
 

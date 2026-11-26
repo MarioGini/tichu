@@ -59,8 +59,8 @@ class BotConfig {
   /// Required call advantage (round points) before calling (Grand) Tichu.
   final double callMargin;
 
-  /// Float32 SIMD inference for the play net: ~2x faster simulation in the
-  /// compiled headless runner. The app keeps the float64 path.
+  /// Float32 SIMD inference for the play net: ~3x faster simulation when
+  /// compiled ahead of time (headless runner, the app outside the web).
   final bool simdInference;
 
   /// Style experiment for the play net (headless `--style=`); none in the app.
@@ -69,6 +69,10 @@ class BotConfig {
   /// Decision-time endgame search (needs a play net and a driver that runs
   /// [EndgameSearcher]); null = off.
   final EndgameSearch? endgameSearch;
+
+  /// Scorer for the play net instead of the Dart ones (the web: the wasm
+  /// SIMD kernel, `WasmMlpKernel`); null = [simdInference] decides.
+  final PrefixScorerFactory? playScorer;
 
   const BotConfig({
     this.play,
@@ -82,6 +86,7 @@ class BotConfig {
     this.style = StyleBias.none,
     this.heuristicOptions = HeuristicOptions.latest,
     this.endgameSearch,
+    this.playScorer,
   });
 
   /// This config with [search] as its endgame search (null = off).
@@ -97,6 +102,7 @@ class BotConfig {
     style: style,
     heuristicOptions: heuristicOptions,
     endgameSearch: search,
+    playScorer: playScorer,
   );
 
   /// The pure heuristic bot.
@@ -117,6 +123,7 @@ class BotConfig {
               playerId: playerId,
               network: play.network,
               simd: simdInference,
+              scorerFactory: playScorer,
               style: style,
               outputScale: play.targetStd,
             )),

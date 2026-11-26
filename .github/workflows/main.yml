@@ -63,6 +63,19 @@ jobs:
       # publishable key are public by design (they ship in the web bundle;
       # row-level security guards the data), so they are set here; the
       # SUPABASE_URL / SUPABASE_ANON_KEY repository secrets override them.
+      # The latest stable clang + wasm-ld (apt.llvm.org) for the play net's
+      # wasm SIMD kernel; web_kernel/build.sh picks the newest llvm-*.
+      - if: matrix.target == 'web'
+        run: |
+          wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash /tmp/llvm.sh
+      # The wasm kernel and the endgame search's web worker, served next to
+      # the app (web/, not committed).
+      - if: matrix.target == 'web'
+        run: tool/build_web.sh
+      # The kernels must match a plain forward pass; prints their speed.
+      - if: matrix.target == 'web'
+        run: node web_kernel/check.mjs web/mlp_kernel_relaxed.wasm web/mlp_kernel.wasm
       - if: matrix.target == 'web'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://fujbfizzxdxufetszvbe.supabase.co' }}

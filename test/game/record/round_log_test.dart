@@ -55,7 +55,15 @@ void main() {
           final id = record.playerAtSeat(seat)!.id;
           expect(steps.last.hands[seat].length, left[id] ?? 0);
         }
+        // Each round carries its own id and, once over, its points.
+        final log = record.roundLogs[i];
+        expect(log.complete, isTrue);
+        expect(log.teamOnePoints, roundEnds[i].data['teamOneRound']);
+        expect(log.teamTwoPoints, roundEnds[i].data['teamTwoRound']);
       }
+      final ids = (json['roundIds']! as List).cast<String>();
+      expect(ids, [for (final r in record.roundLogs) r.id]);
+      expect(ids.toSet(), hasLength(logs.length));
       controller.dispose();
     }
     sizes.sort();

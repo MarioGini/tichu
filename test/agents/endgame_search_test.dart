@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/services/local/search_workers_io.dart';
 
 const _search = EndgameSearch(worlds: 4, margin: 10);
 
@@ -21,6 +23,11 @@ const _players = [
   GamePlayer(id: 'p3', name: 'P3', seat: 2, type: PlayerType.automated),
   GamePlayer(id: 'p4', name: 'P4', seat: 3, type: PlayerType.automated),
 ];
+
+/// Rollout bots of [config]; top level, so the closure captures only the
+/// config (it is sent to isolates).
+PlayerAgent Function(String, int) _rolloutFactory(BotConfig config) =>
+    (id, _) => config.build(id);
 
 SmartAiAgent _searchingBot(String id) =>
     SmartAiAgent(id, endgameSearch: _search);
@@ -94,6 +101,74 @@ void main() {
       expect(pickEndgameAction(values, 0, 10), 2);
       expect(pickEndgameAction(values, 0, 20), 0);
       expect(pickEndgameAction([values.first], 0, 9), 1);
+    });
+
+    test('needs enough worlds that are strictly better', () {
+      // Game 13cb: the policy's Dragon and the pass tie in 7 of 8 worlds;
+      // one world favours the pass by 90 (mean +11.25 > 10).
+      final values = [
+        for (var w = 0; w < 8; w++) [-100.0, -100.0],
+      ];
+      values[5] = [-100.0, -10.0];
+      expect(pickEndgameAction(values, 0, 10), 1);
+      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 0);
+      values[2] = [-100.0, -90.0];
+      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 1);
+      // Capped at the number of worlds.
+      expect(
+        pickEndgameAction(
+          [
+            [0.0, 50.0],
+          ],
+          0,
+          10,
+          minBetterWorlds: 2,
+        ),
+        1,
+      );
+    });
+
+    test('weights the mean advantage by world', () {
+      final values = [
+        [0.0, 90.0],
+        [0.0, 90.0],
+        [0.0, 0.0],
+        [0.0, 0.0],
+      ];
+      // Equal weights: +45. Bomb worlds (first two) at 17 %: +15.3.
+      expect(pickEndgameAction(values, 0, 10, minBetterWorlds: 2), 1);
+      const w = [0.085, 0.085, 0.415, 0.415];
+      expect(
+        pickEndgameAction(values, 0, 10, minBetterWorlds: 2, weights: w),
+        1,
+      );
+      expect(
+        pickEndgameAction(values, 0, 20, minBetterWorlds: 2, weights: w),
+        0,
+      );
+    });
+
+    test('expected value ignores the per-world conditions', () {
+      final values = [
+        [0.0, 200.0],
+        [0.0, -40.0],
+        [0.0, 0.0],
+        [0.0, 0.0],
+      ];
+      // Worse in world 2: only the expected value (+40) switches.
+      expect(pickEndgameAction(values, 0, 10), 0);
+      expect(pickEndgameAction(values, 0, 10, expectedValue: true), 1);
+      // Weighted: 0.05 * 200 - 0.45 * 40 = -8.
+      expect(
+        pickEndgameAction(
+          values,
+          0,
+          10,
+          expectedValue: true,
+          weights: const [0.05, 0.45, 0.25, 0.25],
+        ),
+        0,
+      );
     });
 
     test('picks the highest mean advantage among eligible actions', () {
@@ -202,6 +277,40 @@ void main() {
         );
       },
     );
+
+    test('worker isolates give the same moves', () async {
+      final config = BotConfig(
+        play: LoadedNet.fromBytes(
+          File('assets/bots/tichu_q_v10.safetensors').readAsBytesSync(),
+        ),
+        simdInference: true,
+      );
+      final searching = config.withEndgameSearch(_search);
+      final serial = EndgameSearcher(rolloutAgent: _rolloutFactory(config));
+      final workers = IsolateRolloutWorkers(_rolloutFactory(config), 3);
+      addTearDown(workers.close);
+      final parallel = EndgameSearcher(
+        rolloutAgent: _rolloutFactory(config),
+        workers: workers,
+      );
+      for (final state in states.take(4)) {
+        final id = state.players[state.currentPlayerIndex].id;
+        final agent = searching.build(id);
+        final chosen = await agent.selectTurn(engine.buildSnapshot(state));
+        final a = await serial.refine(
+          state: state.copy(),
+          agent: agent,
+          chosen: chosen,
+        );
+        final b = await parallel.refine(
+          state: state.copy(),
+          agent: agent,
+          chosen: chosen,
+        );
+        expect(_key(b), _key(a));
+      }
+      expect(parallel.rollouts, serial.rollouts);
+    });
 
     test('the seed depends only on what the decider knows', () {
       final state = states.first;

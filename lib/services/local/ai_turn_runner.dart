@@ -27,6 +27,7 @@ class AiTurnRunner {
     required this._engine,
     required this._agentFactory,
     this._belief,
+    this._searchWorkers,
   });
 
   /// The engine of the games this runner plays bots in (the runtime's).
@@ -34,12 +35,17 @@ class AiTurnRunner {
   final AgentFactory _agentFactory;
   final BeliefModel? _belief;
 
+  /// Workers that roll out the search's worlds with the same bots as
+  /// [_agentFactory] (`AppBots.searchWorkers`); null = on this isolate.
+  final RolloutWorkers? _searchWorkers;
+
   /// Endgame search of bots configured with one (see `AppBots`). Rollouts
   /// use fresh bots from the factory for every seat (humans included).
   late final EndgameSearcher _endgameSearcher = EndgameSearcher(
     rolloutAgent: (playerId, _) => _agentFactory(playerId),
     yieldBetweenRollouts: true,
     belief: _belief,
+    workers: _searchWorkers,
   );
 
   final Map<String, PlayerAgent> _automatedAgents = {};

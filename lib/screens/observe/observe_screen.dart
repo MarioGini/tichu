@@ -85,6 +85,8 @@ class _ObserveScreenState extends State<ObserveScreen> {
   Future<void> _showRecordInfo() async {
     final id = _controller.gameId;
     if (id == null) return;
+    final logs = _controller.record?.roundLogs;
+    final round = logs == null || logs.isEmpty ? null : logs.last;
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -95,6 +97,14 @@ class _ObserveScreenState extends State<ObserveScreen> {
           children: [
             const Text('Game ID'),
             SelectableText(id, style: const TextStyle(fontFamily: 'monospace')),
+            if (round != null) ...[
+              const SizedBox(height: 12),
+              Text('Round ${round.round} ID'),
+              SelectableText(
+                round.id,
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
+            ],
             const SizedBox(height: 12),
             const Text('Saved to'),
             SelectableText(
@@ -112,6 +122,11 @@ class _ObserveScreenState extends State<ObserveScreen> {
             onPressed: () => unawaited(_copy(id, 'Game ID')),
             child: const Text('Copy ID'),
           ),
+          if (round != null)
+            TextButton(
+              onPressed: () => unawaited(_copy(round.id, 'Round ID')),
+              child: const Text('Copy round ID'),
+            ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Close'),

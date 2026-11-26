@@ -180,6 +180,12 @@ _HeadlessConfig _parseArgs(List<String> args) {
   int? opponentEndgameMaxCards;
   var endgameMargin = defaults.margin;
   var endgameMaxActions = defaults.maxActions;
+  var endgameMinBetter = defaults.minBetterWorlds;
+  int? opponentEndgameMinBetter;
+  var endgameBombStrata = false;
+  bool? opponentEndgameBombStrata;
+  var endgameExpectedValue = false;
+  bool? opponentEndgameExpectedValue;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -400,6 +406,32 @@ _HeadlessConfig _parseArgs(List<String> args) {
       if (m != null && m >= 0) endgameMargin = m;
       continue;
     }
+    if (arg == '--endgame-expected-value') {
+      endgameExpectedValue = true;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-expected-value=')) {
+      opponentEndgameExpectedValue = arg.split('=').last == 'true';
+      continue;
+    }
+    if (arg == '--endgame-bomb-strata') {
+      endgameBombStrata = true;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-bomb-strata=')) {
+      opponentEndgameBombStrata = arg.split('=').last == 'true';
+      continue;
+    }
+    if (arg.startsWith('--endgame-min-better=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) endgameMinBetter = k;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-min-better=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 1) opponentEndgameMinBetter = k;
+      continue;
+    }
     if (arg.startsWith('--endgame-max-actions=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 2) endgameMaxActions = k;
@@ -492,12 +524,18 @@ _HeadlessConfig _parseArgs(List<String> args) {
     required bool solve,
     required bool belief,
     int? maxCards,
+    int? minBetter,
+    bool? bombStrata,
+    bool? expectedValue,
   }) => EndgameSearch(
     beliefWorlds: belief,
     worlds: endgameWorlds,
     maxCards: maxCards ?? endgameMaxCards,
     margin: endgameMargin,
     maxActions: endgameMaxActions,
+    minBetterWorlds: minBetter ?? endgameMinBetter,
+    bombStrata: bombStrata ?? endgameBombStrata,
+    expectedValue: expectedValue ?? endgameExpectedValue,
     solveOneOnOne: solve,
     solveBudget: solveBudget,
     solveMaxCards: solveMaxCards,
@@ -511,6 +549,9 @@ _HeadlessConfig _parseArgs(List<String> args) {
             solve: opponentEndgameSolve,
             belief: opponentEndgameBelief,
             maxCards: opponentEndgameMaxCards,
+            minBetter: opponentEndgameMinBetter,
+            bombStrata: opponentEndgameBombStrata,
+            expectedValue: opponentEndgameExpectedValue,
           )
         : null,
     seed: seed,
@@ -615,5 +656,18 @@ void _printUsage() {
   stdout.writeln('       [--endgame-search] [--opponent-endgame-search]');
   stdout.writeln('       [--endgame-worlds=8] [--endgame-max-cards=5]');
   stdout.writeln('       [--endgame-margin=10] [--endgame-max-actions=7]');
+  stdout.writeln(
+    '       [--endgame-min-better=1] [--opponent-endgame-min-better=N]  '
+    '(worlds a deviation must strictly win)',
+  );
+  stdout.writeln(
+    '       [--endgame-bomb-strata] [--opponent-endgame-bomb-strata=false]  '
+    '(worlds with / without a bomb, weighted by its probability)',
+  );
+  stdout.writeln(
+    '       [--endgame-expected-value] '
+    '[--opponent-endgame-expected-value=false]  '
+    '(decide by the weighted mean advantage alone)',
+  );
   stdout.writeln('       [--epsilon=0.1]');
 }

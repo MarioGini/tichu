@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:tichu/agents/app_bots.dart';
+import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_exceptions.dart';
@@ -33,16 +34,20 @@ class LocalMatchRuntime {
          engine ?? GameEngineImpl(random: random),
          agentFactory ?? AppBots.current.build,
          automatedAgents,
+         // The workers hold AppBots' bots: only for those.
+         agentFactory == null ? AppBots.searchWorkers : null,
        );
 
   LocalMatchRuntime._(
     this._engine,
     AgentFactory agentFactory,
     Map<String, PlayerAgent>? automatedAgents,
+    RolloutWorkers? searchWorkers,
   ) : _aiRunner = AiTurnRunner(
         engine: _engine,
         agentFactory: agentFactory,
         belief: AppBots.belief,
+        searchWorkers: searchWorkers,
       ) {
     if (automatedAgents != null) {
       _aiRunner.addAgents(automatedAgents);

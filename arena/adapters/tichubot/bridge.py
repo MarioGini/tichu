@@ -224,7 +224,15 @@ class Adapter:
                 reply["wish"] = None if w is None else RANKS[w - 2]
             return reply
         if t == "dragon":
-            to = ai_select_dragon_recipient(self.policy, gs, me, self.device, self.rng, self.kind)
+            if gs.get_dragon_give_options(me):
+                to = ai_select_dragon_recipient(self.policy, gs, me, self.device, self.rng, self.kind)
+            else:
+                # Their engine did not end the trick here (it does not see the
+                # Dragon gift pending): ask the Dragon head directly.
+                logits = self.policy.get_dragon_gift_logits(
+                    _play._fused_seat_features(self.policy, gs, me, self.device))
+                choice = int(torch.distributions.Categorical(logits=logits).sample().item())
+                to = (me + (1 if choice == 0 else 3)) % 4
             if to not in req["targets"]:
                 to = req["targets"][0]
             return {"to": to}
@@ -239,7 +247,8 @@ def main() -> None:
     for line in sys.stdin:
         req = json.loads(line)
         try:
-            reply = ad.decide(req)
+            with torch.no_grad():
+                reply = ad.decide(req)
         except Exception as e:  # reported to the arena, which stops the match
             import os
             import traceback

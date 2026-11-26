@@ -254,7 +254,10 @@ def panel_gate(args, entry, cand, best, vs_best, opponent_nets, own_schupf, opp_
     se = sum(s * s for _, s in gains) ** 0.5 / len(gains)
     entry["panel"] = {"gain": mean, "se": se, "n": len(gains)}
     print(f"   panel gain {mean:+.2f} pp ± {se:.2f} over {len(gains)} opponents", flush=True)
-    return mean > args.promote_z * se
+    # A candidate must also not lose to the best net head to head: a panel
+    # gain alone can come from exploiting the older nets (v10 iterations
+    # 6-8 gained on the panel but lost 48-49 % to their predecessor).
+    return mean > args.promote_z * se and vs_best["win_rate"] >= 50
 
 
 def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Path) -> dict:

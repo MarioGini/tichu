@@ -109,6 +109,21 @@ void main() {
       expect(action, isNot(isA<CallTichuAction>()));
     });
 
+    test('does not call tichu once a player is out', () async {
+      final agent = SmartAiAgent(
+        aiTestSelfId,
+        tichuCallStrategy: const _AlwaysCallTichuStrategy(),
+      );
+      final snapshot = aiSnapshot(
+        myHand: aiDefaultHand(),
+        canCallTichuByPlayer: {aiTestSelfId: true},
+        finishOrder: [aiTestLeftId],
+      );
+
+      final action = await agent.selectAction(snapshot);
+      expect(action, isNot(isA<CallTichuAction>()));
+    });
+
     test(
       'does not call tichu when partner already called grand tichu',
       () async {

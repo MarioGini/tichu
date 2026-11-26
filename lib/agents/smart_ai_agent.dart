@@ -83,6 +83,8 @@ class SmartAiAgent extends PlayerAgent {
   @override
   Future<bool> shouldCallTichu(GameSnapshot snapshot) async {
     if (_partnerAlreadyCalled(snapshot)) return false;
+    // Someone is out: the call can only lose 100.
+    if (snapshot.scoreState.finishOrder.isNotEmpty) return false;
     return tichuCallStrategy.shouldCallTichu(snapshot, playerId);
   }
 

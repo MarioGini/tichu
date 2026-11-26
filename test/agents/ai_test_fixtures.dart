@@ -57,6 +57,7 @@ GameSnapshot aiSnapshot({
   TichuTurn? lastPlayedTurn,
   Map<String, List<SchupfReceipt>>? schupfReceipts,
   int roundNumber = 1,
+  List<String> finishOrder = const [],
 }) {
   final hands = <String, List<Card>>{
     aiTestSelfId: myHand,
@@ -68,6 +69,7 @@ GameSnapshot aiSnapshot({
   final scoreState = ScoreState.initial().copyWith(
     tichuCalls: tichuCalls ?? const {},
     roundNumber: roundNumber,
+    finishOrder: finishOrder,
   );
 
   return GameSnapshot(

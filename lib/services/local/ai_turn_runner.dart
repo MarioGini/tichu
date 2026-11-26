@@ -43,15 +43,16 @@ class AiTurnRunner {
   );
 
   /// Static, so the rollout factory captures only [factory] (the bot
-  /// config): it is sent to the background isolates.
-  static EndgameSearcher _searcher(AgentFactory factory, BeliefModel? belief) =>
-      EndgameSearcher(
-        rolloutAgent: (playerId, _) => factory(playerId),
-        yieldBetweenRollouts: true,
-        belief: belief,
-        runWorlds: searchWorldRunner,
-        parallelism: searchParallelism,
-      );
+  /// config): it is sent to the worker isolates.
+  static EndgameSearcher _searcher(AgentFactory factory, BeliefModel? belief) {
+    PlayerAgent agentFor(String playerId, int _) => factory(playerId);
+    return EndgameSearcher(
+      rolloutAgent: agentFor,
+      yieldBetweenRollouts: true,
+      belief: belief,
+      workers: createSearchWorkers(agentFor),
+    );
+  }
 
   final Map<String, PlayerAgent> _automatedAgents = {};
   final Set<String> _automatedTurnsInFlight = {};

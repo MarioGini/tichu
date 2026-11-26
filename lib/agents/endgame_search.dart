@@ -53,6 +53,13 @@ class EndgameSearch {
   final bool bombStrata;
   final int bombProbes;
 
+  /// Decide by the expected advantage alone (the weighted mean over the
+  /// worlds, see [bombStrata]): deviate to the action whose mean beats the
+  /// policy's move by more than [margin], even if it is worse in some
+  /// worlds. Otherwise the deviation must also be no worse in every world
+  /// and strictly better in [minBetterWorlds].
+  final bool expectedValue;
+
   const EndgameSearch({
     this.worlds = 8,
     this.maxCards = 5,
@@ -65,6 +72,7 @@ class EndgameSearch {
     this.minBetterWorlds = 2,
     this.bombStrata = false,
     this.bombProbes = 256,
+    this.expectedValue = false,
   });
 
   @override
@@ -72,7 +80,8 @@ class EndgameSearch {
       'EndgameSearch(worlds: $worlds, maxCards: $maxCards, '
       'margin: $margin, maxActions: $maxActions, '
       'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget, '
-      'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata)';
+      'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata, '
+      'expectedValue: $expectedValue)';
 }
 
 /// The decision rule: index of the action to play given rollout values
@@ -84,13 +93,15 @@ class EndgameSearch {
 /// among those the one with the highest mean advantage. Null values (not
 /// rolled out, stuck) make an action ineligible; a world where [chosen] is
 /// null keeps [chosen]. [weights] (summing to 1, one per world) weight the
-/// mean; equal weights by default.
+/// mean; equal weights by default. With [expectedValue] only the weighted
+/// mean counts (no per-world conditions).
 int pickEndgameAction(
   List<List<double?>> values,
   int chosen,
   double margin, {
   int minBetterWorlds = 1,
   List<double>? weights,
+  bool expectedValue = false,
 }) {
   if (values.isEmpty) return chosen;
   final needBetter = min(minBetterWorlds, values.length);
@@ -105,14 +116,14 @@ int pickEndgameAction(
     for (var w = 0; w < values.length; w++) {
       final va = values[w][a];
       final vc = values[w][chosen];
-      if (va == null || vc == null || va < vc) {
+      if (va == null || vc == null || (va < vc && !expectedValue)) {
         ok = false;
         break;
       }
       if (va > vc) better++;
       sum += (va - vc) * (weights?[w] ?? 1 / values.length);
     }
-    if (!ok || better < needBetter) continue;
+    if (!ok || (!expectedValue && better < needBetter)) continue;
     final advantage = sum;
     if (advantage > bestAdvantage) {
       bestAdvantage = advantage;
@@ -245,10 +256,21 @@ Map<String, List<Card>> dealUnseen(
   return result;
 }
 
-/// Runs [task] somewhere else, e.g. on another isolate (`Isolate.run`).
-typedef WorldTaskRunner = Future<List<List<double?>>> Function(
-  Future<List<List<double?>>> Function() task,
-);
+/// Plays worlds out somewhere else (the app: worker isolates that hold the
+/// rollout bots). [rollOut] returns what [EndgameSearcher.rollOutWorlds]
+/// returns for the same arguments.
+abstract interface class RolloutWorkers {
+  /// Number of workers: a search splits its worlds in up to this many
+  /// batches.
+  int get size;
+
+  Future<List<List<double?>>> rollOut(
+    List<GameEngineState> worlds,
+    Map<int, GameAction> actions,
+    int count,
+    int team,
+  );
+}
 
 /// Decision-time endgame search, run by a driver that owns the game state
 /// (the headless simulator, the app's `AiTurnRunner`).
@@ -290,20 +312,16 @@ class EndgameSearcher {
   /// Card-location model for [EndgameSearch.beliefWorlds].
   final BeliefModel? belief;
 
-  /// Rolls the worlds out in up to [parallelism] batches through this
-  /// runner (the app: background isolates); null = one after another here.
-  /// The worlds are dealt before, so the result does not depend on it.
-  /// [rolloutAgent] must then be sendable to another isolate (capture the
-  /// bot config, not an object holding streams or timers).
-  final WorldTaskRunner? runWorlds;
-  final int parallelism;
+  /// Rolls the worlds out in batches on these workers (the app: worker
+  /// isolates); null = one after another here. The worlds are dealt
+  /// before, so the result does not depend on it.
+  final RolloutWorkers? workers;
 
   EndgameSearcher({
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
     this.belief,
-    this.runWorlds,
-    this.parallelism = 1,
+    this.workers,
   });
 
   /// The action to play instead of [chosen] (which [agent] picked in
@@ -410,6 +428,7 @@ class EndgameSearcher {
         config.margin,
         minBetterWorlds: config.minBetterWorlds,
         weights: weights,
+        expectedValue: config.expectedValue,
       );
       if (pick == chosenIndex) return chosen;
       switches++;
@@ -427,10 +446,10 @@ class EndgameSearcher {
     int count,
     int team,
   ) async {
-    final runner = runWorlds;
-    final batches = min(parallelism, worlds.length);
-    if (runner == null || batches < 2) {
-      return _rollOut(
+    final pool = workers;
+    final batches = pool == null ? 1 : min(pool.size, worlds.length);
+    if (pool == null || batches < 2) {
+      return rollOutWorlds(
         worlds,
         actions,
         count,
@@ -439,13 +458,14 @@ class EndgameSearcher {
         yieldBetweenRollouts: yieldBetweenRollouts,
       );
     }
-    final parts = [
-      for (var b = 0; b < batches; b++)
-        [for (var w = b; w < worlds.length; w += batches) worlds[w]],
-    ];
     final results = await Future.wait([
-      for (final part in parts)
-        runner(_rollOutTask(part, actions, count, team, rolloutAgent)),
+      for (var b = 0; b < batches; b++)
+        pool.rollOut(
+          [for (var w = b; w < worlds.length; w += batches) worlds[w]],
+          actions,
+          count,
+          team,
+        ),
     ]);
     return [
       for (var w = 0; w < worlds.length; w++)
@@ -453,18 +473,10 @@ class EndgameSearcher {
     ];
   }
 
-  /// The task for one batch; static so the closure captures only its
-  /// arguments (it is sent to another isolate).
-  static Future<List<List<double?>>> Function() _rollOutTask(
-    List<GameEngineState> worlds,
-    Map<int, GameAction> actions,
-    int count,
-    int team,
-    PlayerAgent Function(String playerId, int seat) agentFor,
-  ) =>
-      () => _rollOut(worlds, actions, count, team, agentFor);
-
-  static Future<List<List<double?>>> _rollOut(
+  /// Plays each of [actions] out in each of [worlds] with fresh bots from
+  /// [agentFor]: `values[world][action]`, the round result for [team]
+  /// (null where not rolled out or stuck).
+  static Future<List<List<double?>>> rollOutWorlds(
     List<GameEngineState> worlds,
     Map<int, GameAction> actions,
     int count,

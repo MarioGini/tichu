@@ -1,5 +1,7 @@
 import 'package:tichu/agents/endgame_search.dart';
+import 'package:tichu/game/player_agent.dart';
 
-WorldTaskRunner? get searchWorldRunner => null;
-
-int get searchParallelism => 1;
+/// The web has no isolates: the search rolls out on the UI isolate.
+RolloutWorkers? createSearchWorkers(
+  PlayerAgent Function(String playerId, int seat) agentFor,
+) => null;

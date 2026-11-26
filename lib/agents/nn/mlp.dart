@@ -61,8 +61,11 @@ class Mlp {
   Mlp._({
     required this._weights,
     required this._biases,
-    required this.layerSizes,
-  }) : _buffers = [
+    required List<int> layerSizes,
+  }) : // A typed copy: the sizes come from `jsonDecode(...).cast<int>()`,
+       // whose every read goes through a cast wrapper (5 % of a search).
+       layerSizes = Int32List.fromList(layerSizes),
+       _buffers = [
          for (var l = 1; l < layerSizes.length; l++) Float64List(layerSizes[l]),
        ];
 

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +13,7 @@ import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/services/local/search_workers_io.dart';
 
 const _search = EndgameSearch(worlds: 4, margin: 10);
 
@@ -148,6 +148,29 @@ void main() {
       );
     });
 
+    test('expected value ignores the per-world conditions', () {
+      final values = [
+        [0.0, 200.0],
+        [0.0, -40.0],
+        [0.0, 0.0],
+        [0.0, 0.0],
+      ];
+      // Worse in world 2: only the expected value (+40) switches.
+      expect(pickEndgameAction(values, 0, 10), 0);
+      expect(pickEndgameAction(values, 0, 10, expectedValue: true), 1);
+      // Weighted: 0.05 * 200 - 0.45 * 40 = -8.
+      expect(
+        pickEndgameAction(
+          values,
+          0,
+          10,
+          expectedValue: true,
+          weights: const [0.05, 0.45, 0.25, 0.25],
+        ),
+        0,
+      );
+    });
+
     test('picks the highest mean advantage among eligible actions', () {
       final values = [
         [5.0, 30.0, 25.0, 100.0],
@@ -255,7 +278,7 @@ void main() {
       },
     );
 
-    test('parallel worlds on isolates give the same moves', () async {
+    test('worker isolates give the same moves', () async {
       final config = BotConfig(
         play: LoadedNet.fromBytes(
           File('assets/bots/tichu_q_v10.safetensors').readAsBytesSync(),
@@ -264,10 +287,11 @@ void main() {
       );
       final searching = config.withEndgameSearch(_search);
       final serial = EndgameSearcher(rolloutAgent: _rolloutFactory(config));
+      final workers = IsolateRolloutWorkers(_rolloutFactory(config), 3);
+      addTearDown(workers.close);
       final parallel = EndgameSearcher(
         rolloutAgent: _rolloutFactory(config),
-        runWorlds: Isolate.run,
-        parallelism: 3,
+        workers: workers,
       );
       for (final state in states.take(4)) {
         final id = state.players[state.currentPlayerIndex].id;

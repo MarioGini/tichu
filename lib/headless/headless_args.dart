@@ -184,6 +184,8 @@ _HeadlessConfig _parseArgs(List<String> args) {
   int? opponentEndgameMinBetter;
   var endgameBombStrata = false;
   bool? opponentEndgameBombStrata;
+  var endgameExpectedValue = false;
+  bool? opponentEndgameExpectedValue;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -404,6 +406,14 @@ _HeadlessConfig _parseArgs(List<String> args) {
       if (m != null && m >= 0) endgameMargin = m;
       continue;
     }
+    if (arg == '--endgame-expected-value') {
+      endgameExpectedValue = true;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-expected-value=')) {
+      opponentEndgameExpectedValue = arg.split('=').last == 'true';
+      continue;
+    }
     if (arg == '--endgame-bomb-strata') {
       endgameBombStrata = true;
       continue;
@@ -516,6 +526,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
     int? maxCards,
     int? minBetter,
     bool? bombStrata,
+    bool? expectedValue,
   }) => EndgameSearch(
     beliefWorlds: belief,
     worlds: endgameWorlds,
@@ -524,6 +535,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
     maxActions: endgameMaxActions,
     minBetterWorlds: minBetter ?? endgameMinBetter,
     bombStrata: bombStrata ?? endgameBombStrata,
+    expectedValue: expectedValue ?? endgameExpectedValue,
     solveOneOnOne: solve,
     solveBudget: solveBudget,
     solveMaxCards: solveMaxCards,
@@ -539,6 +551,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
             maxCards: opponentEndgameMaxCards,
             minBetter: opponentEndgameMinBetter,
             bombStrata: opponentEndgameBombStrata,
+            expectedValue: opponentEndgameExpectedValue,
           )
         : null,
     seed: seed,
@@ -650,6 +663,11 @@ void _printUsage() {
   stdout.writeln(
     '       [--endgame-bomb-strata] [--opponent-endgame-bomb-strata=false]  '
     '(worlds with / without a bomb, weighted by its probability)',
+  );
+  stdout.writeln(
+    '       [--endgame-expected-value] '
+    '[--opponent-endgame-expected-value=false]  '
+    '(decide by the weighted mean advantage alone)',
   );
   stdout.writeln('       [--epsilon=0.1]');
 }

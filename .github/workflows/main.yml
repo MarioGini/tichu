@@ -79,6 +79,7 @@ jobs:
       # TEMPORARY: the runner's clang 18 for comparison.
       - if: matrix.target == 'web'
         run: |
+          sudo bash /tmp/llvm.sh 18
           CLANG=/usr/lib/llvm-18/bin/clang OUT=/tmp/k18 web_kernel/build.sh
           for i in 1 2 3; do
             node web_kernel/check.mjs /tmp/k18/mlp_kernel_relaxed.wasm /tmp/k18/mlp_kernel.wasm web/mlp_kernel_relaxed.wasm web/mlp_kernel.wasm

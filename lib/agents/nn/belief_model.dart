@@ -42,6 +42,13 @@ class BeliefModel {
     final eb = exp(b - m);
     final ec = exp(c - m);
     final z = ea + eb + ec;
-    return [ea / z, eb / z, ec / z];
+    return [_grid(ea / z), _grid(eb / z), _grid(ec / z)];
   }
+
+  /// Rounded to a multiple of 2^-30: `exp` differs in the last bit
+  /// between the Dart VM and JavaScript, and the search deals its worlds
+  /// from these values, so without rounding the web's bots drifted from
+  /// the native ones (the ones the duels measure) after a few dozen moves.
+  static double _grid(double p) => (p * _scale).roundToDouble() / _scale;
+  static const double _scale = 1073741824;
 }

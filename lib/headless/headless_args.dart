@@ -657,7 +657,7 @@ void _printUsage() {
   stdout.writeln('       [--endgame-worlds=8] [--endgame-max-cards=5]');
   stdout.writeln('       [--endgame-margin=10] [--endgame-max-actions=7]');
   stdout.writeln(
-    '       [--endgame-min-better=2] [--opponent-endgame-min-better=N]  '
+    '       [--endgame-min-better=1] [--opponent-endgame-min-better=N]  '
     '(worlds a deviation must strictly win)',
   );
   stdout.writeln(

@@ -41,9 +41,10 @@ class EndgameSearch {
   final bool beliefWorlds;
 
   /// A deviation must be strictly better than the policy's move in at
-  /// least this many worlds. With 1, a single world with a large swing
-  /// (90 points in 1 of 8 worlds is a mean of 11) could override the
-  /// policy while every other world was a tie.
+  /// least this many worlds. With 1 (the shipped rule) a single world with
+  /// a large swing (90 points in 1 of 8 worlds is a mean of 11) can
+  /// override the policy while every other world is a tie (game 13cb);
+  /// 2 is not yet validated in a duel.
   final int minBetterWorlds;
 
   /// Sample the worlds in two strata, with and without a bomb in another
@@ -69,7 +70,7 @@ class EndgameSearch {
     this.solveBudget = 20000,
     this.solveMaxCards = 10,
     this.beliefWorlds = false,
-    this.minBetterWorlds = 2,
+    this.minBetterWorlds = 1,
     this.bombStrata = false,
     this.bombProbes = 256,
     this.expectedValue = false,

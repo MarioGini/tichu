@@ -150,7 +150,7 @@ abstract final class AgentDecisions {
           targetPlayerId: dragonTarget(
             state: state,
             opponentIds: opponentIds,
-            preferredSeat: agent.selectDragonGive(snapshot),
+            preferredSeat: await agent.selectDragonGive(snapshot),
           ),
         );
       case TurnRequest():

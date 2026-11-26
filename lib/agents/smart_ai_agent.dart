@@ -297,7 +297,7 @@ class SmartAiAgent extends PlayerAgent {
   // ---------------------------------------------------------------------------
 
   @override
-  int selectDragonGive(GameSnapshot snapshot) =>
+  Future<int> selectDragonGive(GameSnapshot snapshot) async =>
       dragonGiveStrategy.selectDragonGive(snapshot, playerId);
 
   CardFace _selectMahjongWish(

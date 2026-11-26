@@ -252,6 +252,10 @@ class _HeadlessSimulator {
 
     var snapshot = engine.buildSnapshot(state);
     csvWriter?.processSnapshot(snapshot);
+    final observers = agents.values.whereType<GameObserver>().toList();
+    for (final o in observers) {
+      o.roundStarted(snapshot);
+    }
 
     var completedRounds = 0;
     var steps = 0;
@@ -269,6 +273,9 @@ class _HeadlessSimulator {
         _recorder?.startRound(state);
         snapshot = engine.buildSnapshot(state);
         csvWriter?.processSnapshot(snapshot);
+        for (final o in observers) {
+          o.roundStarted(snapshot);
+        }
         continue;
       }
 
@@ -348,6 +355,9 @@ class _HeadlessSimulator {
 
       snapshot = engine.buildSnapshot(state);
       csvWriter?.processSnapshot(snapshot);
+      for (final o in observers) {
+        o.actionApplied(appliedAction, before, snapshot);
+      }
       if (!skipPlayRows && (!_rolloutLabelling || rollouts != null)) {
         bcWriter?.emitTransition(
           before: before,

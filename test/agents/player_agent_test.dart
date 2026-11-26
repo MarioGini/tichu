@@ -34,7 +34,7 @@ class _FakeAgent extends PlayerAgent {
       PassAction(playerId: playerId);
 
   @override
-  int selectDragonGive(GameSnapshot snapshot) => 1;
+  Future<int> selectDragonGive(GameSnapshot snapshot) async => 1;
 }
 
 void main() {
@@ -52,6 +52,6 @@ void main() {
     expect(await agent.shouldCallTichu(snapshot), isFalse);
     expect(await agent.selectTurn(snapshot), isA<PassAction>());
     expect((await agent.selectSchupfCards(snapshot)).toLeft.face, CardFace.two);
-    expect(agent.selectDragonGive(snapshot), 1);
+    expect(await agent.selectDragonGive(snapshot), 1);
   });
 }

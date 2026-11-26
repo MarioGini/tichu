@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
 import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/endgame_search.dart';
+import 'package:tichu/agents/external/external_bot_agent.dart';
 import 'package:tichu/agents/heuristic_options.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/nn/belief_model.dart';
@@ -17,6 +19,7 @@ import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_observer.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
@@ -33,6 +36,7 @@ import 'package:tichu/game/turn/wish_logic.dart';
 part 'bc_action_encoding.dart';
 part 'bc_transition_writer.dart';
 part 'csv_event_writer.dart';
+part 'external_bot_process.dart';
 part 'headless_args.dart';
 part 'headless_decisions.dart';
 part 'headless_exploration.dart';
@@ -95,10 +99,18 @@ Future<void> main(List<String> args) async {
       .withEndgameSearch(config.opponentEndgameSearch)
       .build;
 
+  final external = config.opponentExternal == null
+      ? null
+      : await _ExternalBotProcess.start(config.opponentExternal!);
   final PlayerAgent Function(String, int) agentFactory;
   // The bots that play the endgame-search rollouts: the same bots, plain.
   final PlayerAgent Function(String, int) plainFactory;
-  if (opponentPolicy != null || opponentSchupf != null || config.mixed) {
+  final mixed =
+      opponentPolicy != null ||
+      opponentSchupf != null ||
+      config.mixed ||
+      external != null;
+  if (mixed) {
     plainFactory = (playerId, seat) => seat.isEven != config.swapTeams
         ? policyConfig.build(playerId)
         : opponentConfig.build(playerId);
@@ -106,8 +118,12 @@ Future<void> main(List<String> args) async {
     // team1 (odd seats) plays the frozen opponent policy (or the heuristic).
     // --swap-teams flips this so duplicate evaluation can replay the same
     // deals with the policy on the other seats.
+    // An external opponent plays its own seats; the endgame-search rollouts
+    // stand in our heuristic for it (plainFactory).
     agentFactory = (playerId, seat) => seat.isEven != config.swapTeams
         ? policyFactory(playerId)
+        : external != null
+        ? ExternalBotAgent(playerId: playerId, seat: seat, channel: external)
         : opponentFactory(playerId);
   } else {
     agentFactory = (playerId, _) => policyFactory(playerId);
@@ -141,9 +157,7 @@ Future<void> main(List<String> args) async {
     labelMaxCards: config.labelMaxCards,
     // Which seats get rollout labels: by default the policy team when it
     // plays a different opponent (--mixed / --opponent-policy), else all.
-    isLearnerSeat:
-        (opponentPolicy != null || opponentSchupf != null || config.mixed) &&
-            config.labelSeats != 'all'
+    isLearnerSeat: mixed && config.labelSeats != 'all'
         ? (seat) =>
               (seat.isEven != config.swapTeams) ==
               (config.labelSeats == 'policy')
@@ -170,6 +184,7 @@ Future<void> main(List<String> args) async {
   try {
     await simulator.run();
   } finally {
+    await external?.close();
     if (outputSink != null) {
       await outputSink.flush();
       await outputSink.close();

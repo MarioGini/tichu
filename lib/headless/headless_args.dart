@@ -12,6 +12,7 @@ class _HeadlessConfig {
   final bool includeTimestamps;
   final String? nnPolicyPath;
   final String? opponentPolicyPath;
+  final String? opponentExternal;
   final String? opponentSchupfNetPath;
   final String? opponentTichuNetPath;
   final double epsilon;
@@ -68,6 +69,7 @@ class _HeadlessConfig {
     required this.includeTimestamps,
     required this.nnPolicyPath,
     required this.opponentPolicyPath,
+    required this.opponentExternal,
     required this.opponentSchupfNetPath,
     required this.opponentTichuNetPath,
     required this.epsilon,
@@ -125,6 +127,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var includeTimestamps = true;
   String? nnPolicyPath;
   String? opponentPolicyPath;
+  String? opponentExternal;
   String? opponentSchupfNetPath;
   String? opponentTichuNetPath;
   var outputProvided = false;
@@ -246,6 +249,10 @@ _HeadlessConfig _parseArgs(List<String> args) {
     }
     if (arg.startsWith('--opponent-schupf-net=')) {
       opponentSchupfNetPath = arg.split('=').last;
+      continue;
+    }
+    if (arg.startsWith('--opponent-external=')) {
+      opponentExternal = arg.substring('--opponent-external='.length);
       continue;
     }
     if (arg.startsWith('--opponent-policy=')) {
@@ -524,6 +531,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
     includeTimestamps: includeTimestamps,
     nnPolicyPath: nnPolicyPath,
     opponentPolicyPath: opponentPolicyPath,
+    opponentExternal: opponentExternal,
     opponentSchupfNetPath: opponentSchupfNetPath,
     opponentTichuNetPath: opponentTichuNetPath,
     epsilon: epsilon,
@@ -575,6 +583,10 @@ void _printUsage() {
   stdout.writeln('       [--no-timestamps]');
   stdout.writeln('       [--nn-policy=model.safetensors] [--mixed]');
   stdout.writeln('       [--opponent-policy=model.safetensors] [--swap-teams]');
+  stdout.writeln(
+    '       [--opponent-external="command"]  opponent team played by an '
+    'external bot (doc/bot_bridge.md)',
+  );
   stdout.writeln('       [--opponent-schupf-net=..] [--opponent-tichu-net=..]');
   stdout.writeln('       [--episode-offset=N] [--deal-seed=N]');
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');

@@ -27,7 +27,7 @@ class FakePlayerAgent extends PlayerAgent {
   Future<GameAction> selectAction(GameSnapshot snapshot) async => action;
 
   @override
-  int selectDragonGive(GameSnapshot snapshot) => dragonSeat;
+  Future<int> selectDragonGive(GameSnapshot snapshot) async => dragonSeat;
 
   @override
   Future<SchupfAction> selectSchupfCards(GameSnapshot snapshot) async =>

@@ -25,7 +25,7 @@ abstract class PlayerAgent {
   Future<GameAction> selectTurn(GameSnapshot snapshot);
 
   /// Selects which opponent (seat index) receives the dragon trick.
-  int selectDragonGive(GameSnapshot snapshot);
+  Future<int> selectDragonGive(GameSnapshot snapshot);
 
   /// Play-phase entry-point called by the backend.
   ///

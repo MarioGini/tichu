@@ -99,7 +99,7 @@ void main() {
   });
 
   group('selectDragonGive', () {
-    test('avoids opponent who declared tichu', () {
+    test('avoids opponent who declared tichu', () async {
       final agent = SmartAiAgent(aiId);
 
       final snapshot = aiSnapshot(
@@ -112,12 +112,12 @@ void main() {
         tichuCalls: {leftId: TichuCall.tichu},
       );
 
-      final seat = agent.selectDragonGive(snapshot);
+      final seat = await agent.selectDragonGive(snapshot);
       // Left declared Tichu → give to right opponent.
       expect(seat, 3);
     });
 
-    test('gives to opponent with more cards', () {
+    test('gives to opponent with more cards', () async {
       final agent = SmartAiAgent(aiId);
 
       // Left has 8 cards, right has 3 cards.
@@ -130,12 +130,12 @@ void main() {
         },
       );
 
-      final seat = agent.selectDragonGive(snapshot);
+      final seat = await agent.selectDragonGive(snapshot);
       // Left opponent (seat 1) has more cards → should give to seat 1.
       expect(seat, 1);
     });
 
-    test('gives to right opponent when right has more cards', () {
+    test('gives to right opponent when right has more cards', () async {
       final agent = SmartAiAgent(aiId);
 
       final snapshot = aiSnapshot(
@@ -147,7 +147,7 @@ void main() {
         },
       );
 
-      final seat = agent.selectDragonGive(snapshot);
+      final seat = await agent.selectDragonGive(snapshot);
       // Right opponent (seat 3) has more cards → should give to seat 3.
       expect(seat, 3);
     });

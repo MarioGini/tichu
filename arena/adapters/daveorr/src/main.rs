@@ -326,16 +326,27 @@ fn shadow(state: &Value, rng: &mut StdRng) -> Res<GameState> {
                 let kind = ev["type"].as_str().unwrap_or("");
                 let value = ev["value"].as_f64().unwrap_or(0.0);
                 let mut plays = g.legal_plays(s);
+                let mut suspend = false;
                 if s != me && g.wish.is_some() && find_combo(&plays, &cs, kind, value).is_none() {
                     // Not the wish: the guess must not let s fulfil it.
-                    explain_wish_pass(&mut g, s, me, &played, &my_give, rng)?;
-                    plays = g.legal_plays(s);
+                    if explain_wish_pass(&mut g, s, me, &played, &my_give, rng).is_ok() {
+                        plays = g.legal_plays(s);
+                    } else {
+                        let wish = g.wish.take();
+                        plays = g.legal_plays(s);
+                        g.wish = wish;
+                        suspend = true;
+                    }
                 }
                 let combo = find_combo(&plays, &cs, kind, value).ok_or_else(|| {
                     format!("seat {s} played {:?} ({kind}), not legal in their engine", ev["cards"])
                 })?;
                 let a = Action::Play { seat: s, cards: combo.cards.clone(), phoenix_as: combo.phoenix_as };
-                apply(&mut g, a)?;
+                if suspend {
+                    apply_without_wish(&mut g, a, &ev.to_string())?;
+                } else {
+                    apply(&mut g, a)?;
+                }
                 if matches!(g.pending(), Pending::Wish(_)) {
                     let rank = match ev.get("wish").and_then(|w| w.as_str()) {
                         Some(w) => Some(rank_of(w)?),
@@ -349,9 +360,12 @@ fn shadow(state: &Value, rng: &mut StdRng) -> Res<GameState> {
                 let pass = Action::PassTurn { seat: s };
                 if s != me && g.apply(&pass).is_err() {
                     // The guess gave s a card that fulfils the wish; it had none.
-                    explain_wish_pass(&mut g, s, me, &played, &my_give, rng)?;
-                }
-                if g.log.last() != Some(&pass) {
+                    if explain_wish_pass(&mut g, s, me, &played, &my_give, rng).is_ok() {
+                        apply(&mut g, pass)?;
+                    } else {
+                        apply_without_wish(&mut g, pass, &ev.to_string())?;
+                    }
+                } else if g.log.last() != Some(&pass) {
                     apply(&mut g, pass)?;
                 }
             }
@@ -413,6 +427,25 @@ fn explain_wish_pass(
     Err(format!("no guess lets seat {s} pass under the wish"))
 }
 
+/// Applies `action` of hidden seat `s` with the wish suspended: the real
+/// move shows that seat could not fulfil it under our rules (as their
+/// advisor does for real tables). Logged to $BRIDGE_WISH_LOG.
+fn apply_without_wish(g: &mut GameState, action: Action, note: &str) -> Res<()> {
+    let wish = g.wish.take();
+    let r = g.apply(&action).map_err(|e| format!("{action:?}: {e:?}"));
+    if g.wish.is_none() && !matches!(&action, Action::Play { cards, .. }
+        if cards.iter().any(|c| matches!(c, Card::Normal { rank, .. } if Some(*rank) == wish)))
+    {
+        g.wish = wish;
+    }
+    if let Ok(path) = std::env::var("BRIDGE_WISH_LOG") {
+        if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+            let _ = writeln!(f, "{note}");
+        }
+    }
+    r
+}
+
 struct Adapter {
     spec: String,
     seed: u64,
@@ -466,6 +499,7 @@ impl Adapter {
                 // matter for bombs, which always match exactly).
                 let mut exact = None;
                 let mut by_rank = None;
+                let mut by_value = None;
                 for (j, o) in options.iter().enumerate() {
                     if o["type"] != combo_type(combo) {
                         continue;
@@ -478,9 +512,13 @@ impl Adapter {
                         exact = Some(j);
                     } else if !combo.is_bomb() && same_value && by_rank.is_none() && rank_key(&oc) == rank_key(&combo.cards) {
                         by_rank = Some(j);
+                    } else if !combo.is_bomb() && same_value && by_value.is_none() && oc.len() == combo.cards.len() {
+                        by_value = Some(j);
                     }
                 }
-                let j = exact.or(by_rank).ok_or_else(|| {
+                // Our generator lists one straight per length and top rank
+                // (without the Phoenix where it can): take that one.
+                let j = exact.or(by_rank).or(by_value).ok_or_else(|| {
                     format!("their bot chose {:?} ({:?} {}), not among our options", combo.cards.iter().map(|&c| card_code(c)).collect::<Vec<_>>(), combo.kind, combo.rank)
                 })?;
                 let mut reply = json!({"option": j});

@@ -3,3 +3,4 @@
 results/tmp*
 results/wish_*.log
 results/fail_*.jsonl
+results/diff_*.log

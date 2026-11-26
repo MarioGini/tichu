@@ -119,3 +119,7 @@ $RECYCLE.BIN/
 rl/outputs/
 .claude/worktrees/
 tool/ui_preview/out/
+
+# Web search worker, built by tool/build_web.sh
+/web/search_worker.js
+/web/search_worker.js.*

@@ -35,6 +35,106 @@ class LocalScoreTracker {
 
   ScoreState get state => _state;
 
+  /// Plain JSON of the whole tracker (for sending a state to a web worker,
+  /// see `engine_state_codec.dart`); cards as [cardJson] writes them.
+  Map<String, Object?> toJson(Object? Function(Card) cardJson) {
+    List<Object?> cards(List<Card> list) => [for (final c in list) cardJson(c)];
+    final s = _state;
+    return {
+      'state': {
+        'roundNumber': s.roundNumber,
+        'teamOneTotal': s.teamOneTotal,
+        'teamTwoTotal': s.teamTwoTotal,
+        'teamOneRound': s.teamOneRound,
+        'teamTwoRound': s.teamTwoRound,
+        'playerRoundPoints': s.playerRoundPoints,
+        'roundComplete': s.roundComplete,
+        'targetScore': s.targetScore,
+        'gameComplete': s.gameComplete,
+        'winningTeam': s.winningTeam,
+        'finishOrder': s.finishOrder,
+        'rounds': [
+          for (final r in s.rounds)
+            [
+              r.roundNumber,
+              r.teamOnePoints,
+              r.teamTwoPoints,
+              r.teamOneCardPoints,
+              r.teamTwoCardPoints,
+              r.teamOneBonusPoints,
+              r.teamTwoBonusPoints,
+              r.finishOrder,
+              r.roundEndType.index,
+            ],
+        ],
+        'tichuCalls': {
+          for (final e in s.tichuCalls.entries) e.key: e.value.index,
+        },
+      },
+      'captured': {
+        for (final e in _capturedCards.entries) e.key: cards(e.value),
+      },
+      'remaining': {
+        for (final e in _remainingHands.entries) e.key: cards(e.value),
+      },
+      'finishOrder': _finishOrder,
+      'tichuCalls': {for (final e in _tichuCalls.entries) e.key: e.value.index},
+      'seats': _playerSeats,
+    };
+  }
+
+  /// The tracker [toJson] wrote.
+  factory LocalScoreTracker.fromJson(
+    Map<String, Object?> json,
+    Card Function(Object?) card,
+  ) {
+    List<Card> cards(Object? list) => [for (final c in list! as List) card(c)];
+    List<String> strings(Object? list) => [
+      for (final s in list! as List) s! as String,
+    ];
+    Map<String, T> map<T>(Object? m, T Function(Object?) value) => {
+      for (final e in (m! as Map).entries) e.key as String: value(e.value),
+    };
+    final s = json['state']! as Map;
+    final tracker = LocalScoreTracker()
+      .._state = ScoreState(
+        roundNumber: s['roundNumber']! as int,
+        teamOneTotal: s['teamOneTotal']! as int,
+        teamTwoTotal: s['teamTwoTotal']! as int,
+        teamOneRound: s['teamOneRound']! as int,
+        teamTwoRound: s['teamTwoRound']! as int,
+        playerRoundPoints: map(s['playerRoundPoints'], (v) => v! as int),
+        roundComplete: s['roundComplete']! as bool,
+        targetScore: s['targetScore']! as int,
+        gameComplete: s['gameComplete']! as bool,
+        winningTeam: s['winningTeam'] as int?,
+        finishOrder: strings(s['finishOrder']),
+        rounds: [
+          for (final r in s['rounds']! as List)
+            RoundScore(
+              roundNumber: (r as List)[0]! as int,
+              teamOnePoints: r[1]! as int,
+              teamTwoPoints: r[2]! as int,
+              teamOneCardPoints: r[3]! as int,
+              teamTwoCardPoints: r[4]! as int,
+              teamOneBonusPoints: r[5]! as int,
+              teamTwoBonusPoints: r[6]! as int,
+              finishOrder: strings(r[7]),
+              roundEndType: RoundEndType.values[r[8]! as int],
+            ),
+        ],
+        tichuCalls: map(s['tichuCalls'], (v) => TichuCall.values[v! as int]),
+      );
+    tracker._capturedCards.addAll(map(json['captured'], cards));
+    tracker._remainingHands.addAll(map(json['remaining'], cards));
+    tracker._finishOrder.addAll(strings(json['finishOrder']));
+    tracker._tichuCalls.addAll(
+      map(json['tichuCalls'], (v) => TichuCall.values[v! as int]),
+    );
+    tracker._playerSeats.addAll(map(json['seats'], (v) => v! as int));
+    return tracker;
+  }
+
   void startNewRound(List<GamePlayer> players) {
     _capturedCards
       ..clear()

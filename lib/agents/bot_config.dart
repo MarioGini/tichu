@@ -70,6 +70,10 @@ class BotConfig {
   /// [EndgameSearcher]); null = off.
   final EndgameSearch? endgameSearch;
 
+  /// Scorer for the play net instead of the Dart ones (the web: the wasm
+  /// SIMD kernel, `WasmMlpKernel`); null = [simdInference] decides.
+  final PrefixScorerFactory? playScorer;
+
   const BotConfig({
     this.play,
     this.tichu,
@@ -82,6 +86,7 @@ class BotConfig {
     this.style = StyleBias.none,
     this.heuristicOptions = HeuristicOptions.latest,
     this.endgameSearch,
+    this.playScorer,
   });
 
   /// This config with [search] as its endgame search (null = off).
@@ -97,6 +102,7 @@ class BotConfig {
     style: style,
     heuristicOptions: heuristicOptions,
     endgameSearch: search,
+    playScorer: playScorer,
   );
 
   /// The pure heuristic bot.
@@ -117,6 +123,7 @@ class BotConfig {
               playerId: playerId,
               network: play.network,
               simd: simdInference,
+              scorerFactory: playScorer,
               style: style,
               outputScale: play.targetStd,
             )),

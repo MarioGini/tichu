@@ -63,6 +63,9 @@ jobs:
       # publishable key are public by design (they ship in the web bundle;
       # row-level security guards the data), so they are set here; the
       # SUPABASE_URL / SUPABASE_ANON_KEY repository secrets override them.
+      # The endgame search's web worker, served next to the app.
+      - if: matrix.target == 'web'
+        run: tool/build_web.sh
       - if: matrix.target == 'web'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://fujbfizzxdxufetszvbe.supabase.co' }}

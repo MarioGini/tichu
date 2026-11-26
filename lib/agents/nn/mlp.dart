@@ -262,6 +262,14 @@ class Mlp {
 
   int _vecLen(int l) => (layerSizes[l + 1] + 3) ~/ 4;
 
+  /// Layer [l]'s weights as float32, column-major with every input row
+  /// padded to a multiple of four outputs (`[i * 4 * vec + j]`), and its
+  /// padded bias: the layout of the SIMD scorers (and the web's wasm
+  /// kernel, `web_kernel/mlp_kernel.c`).
+  Float32List simdWeightLayout(int l) =>
+      Float32List.view(_simdWeights[l].buffer);
+  Float32List simdBiasLayout(int l) => Float32List.view(_simdBiases[l].buffer);
+
   Float32x4List _simdTranspose(int l) {
     final inLen = layerSizes[l];
     final outLen = layerSizes[l + 1];
@@ -379,6 +387,9 @@ abstract interface class PrefixScorer {
   void setPrefix(List<double> prefix);
   double score(List<double> suffix, [int offset]);
 }
+
+/// Builds a [PrefixScorer] for [net] with [prefixLength] shared inputs.
+typedef PrefixScorerFactory = PrefixScorer Function(Mlp net, int prefixLength);
 
 /// Scores inputs of an [Mlp] (first output unit) that share a prefix.
 ///

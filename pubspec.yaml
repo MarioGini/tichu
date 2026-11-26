@@ -34,3 +34,4 @@ flutter:
     - assets/bots/tichu_q_v10.safetensors
     - assets/bots/tichu_schupf_v5.safetensors
     - assets/bots/tichu_belief_v1.safetensors
+    - assets/bots/mlp_kernel.wasm

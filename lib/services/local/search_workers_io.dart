@@ -3,22 +3,29 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
 
+import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/services/local/search_workers.dart';
 
 /// One worker per core, at most 4 (8 worlds: two each). The UI isolate
 /// only waits while they work. Measured on 4 cores: 4 workers 31 ms per
 /// searched decision, 3 workers 35 ms, inline 64-71 ms.
 int get searchWorkerCount => min(4, Platform.numberOfProcessors);
 
-RolloutWorkers? createSearchWorkers(
-  PlayerAgent Function(String playerId, int seat) agentFor,
-) {
+Future<RolloutWorkers?> startSearchWorkers(
+  BotConfig config,
+  SearchWorkerAssets assets,
+) async {
   final size = searchWorkerCount;
-  return size < 2 ? null : IsolateRolloutWorkers(agentFor, size);
+  return size < 2 ? null : IsolateRolloutWorkers(_rolloutBots(config), size);
 }
+
+/// Top level, so the closure captures only [config] (sent to isolates).
+PlayerAgent Function(String, int) _rolloutBots(BotConfig config) =>
+    (id, _) => config.build(id);
 
 /// [size] long-lived isolates, each holding its own copy of the rollout
 /// bots (sent once, when the first search starts them): a search sends

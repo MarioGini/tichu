@@ -13,9 +13,13 @@ void main() {
 
   test('no lint suppression comments', () {
     final hits = <String>[];
-    for (final dir in ['lib', 'test', 'tool', 'rl']) {
+    for (final dir in ['lib', 'test', 'tool', 'rl', 'arena/adapters']) {
       for (final entity in Directory(dir).listSync(recursive: true)) {
-        if (entity is! File || entity.path.contains('/.venv/')) continue;
+        if (entity is! File ||
+            entity.path.contains('/.venv/') ||
+            entity.path.contains('/target/')) {
+          continue;
+        }
         final dot = entity.path.lastIndexOf('.');
         final pattern = dot < 0
             ? null

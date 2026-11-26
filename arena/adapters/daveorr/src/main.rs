@@ -533,10 +533,12 @@ impl Adapter {
                     if let Some(j) = to_option(combo, options)? {
                         plays.push(combo.clone());
                         index.push(j);
+                    } else {
+                        let cs: Vec<String> = combo.cards.iter().map(|&c| card_code(c)).collect();
+                        note("BRIDGE_DIFF_LOG", &format!(
+                            "{{\"theirs\":{:?},\"kind\":\"{:?}\",\"rank\":{},\"trick\":{},\"wish\":{},\"hand\":{}}}",
+                            cs, combo.kind, combo.rank, state["trick"], state["wish"], state["hand"]));
                     }
-                }
-                if plays.len() < all.len() {
-                    note("BRIDGE_DIFF_LOG", &format!("{} of {} plays not legal for us", all.len() - plays.len(), all.len()));
                 }
                 if plays.is_empty() && !can_pass {
                     return Err("none of their legal plays is legal for us".into());

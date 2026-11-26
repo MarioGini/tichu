@@ -39,7 +39,11 @@ class LocalMatchRuntime {
     this._engine,
     AgentFactory agentFactory,
     Map<String, PlayerAgent>? automatedAgents,
-  ) : _aiRunner = AiTurnRunner(engine: _engine, agentFactory: agentFactory) {
+  ) : _aiRunner = AiTurnRunner(
+        engine: _engine,
+        agentFactory: agentFactory,
+        belief: AppBots.belief,
+      ) {
     if (automatedAgents != null) {
       _aiRunner.addAgents(automatedAgents);
     }

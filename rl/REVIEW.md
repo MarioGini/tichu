@@ -1,8 +1,8 @@
-# What we learned (as of 2026-11-24)
+# What we learned (as of 2026-11-26)
 
 These are the measured findings that still guide the work. Every result
 comes from a duplicate duel on fresh deals, played as matches to 1000
-points (the shipped bot is v8 + schupf v4 + search ≤ 8).
+points (the shipped bot is v10 + schupf v5 + belief search ≤ 12 + solver).
 
 ## What moved the bot
 
@@ -15,6 +15,8 @@ points (the shipped bot is v8 + schupf v4 + search ≤ 8).
 | One-on-one solver (≤ 10 cards, also decides the Dragon gift) | +11.5 points per match |
 | Graded beatability inputs **with all old data rebuilt** (v10) | 52.4 % vs v8 without search; v10 iterations 1–4 all promoted |
 | Belief-weighted worlds, search up to 12 cards | 52.5 % vs the app bot |
+| More data from worker sessions (~6.5M-decision window) + gate needing ≥ 50 % vs the best | v10 iterations 9–10 promoted again after a plateau; it10 vs v8 60–62 % without search |
+| Shipped v10 + schupf v5 + belief search ≤ 12 + solver | **63.7 % ± 1.4** vs v8 + schupf v4 + search ≤ 8 + solver |
 
 The pattern behind these gains: the play net sits at the fixed point of its
 training signal. New gains came from new information (inputs or data),
@@ -34,11 +36,22 @@ decision time.
   rule**: no gain. Removed.
 - **A single-opponent promotion gate**: too noisy for steps of about 1 pp.
   The loop now uses a panel gate with a duel cache.
+- **A panel gate alone**: v10 iterations 6–8 gained on the panel but lost
+  48–49 % to their predecessor (they exploited older nets). The gate now
+  also needs ≥ 50 % against the best.
+- **Schupf retrained on v10 play** (400k worker labels): 51.0 and 50.9 %
+  vs j2, not adopted. The schupf net is not the bottleneck right now.
 
 ## Findings worth remembering
 
 - **No style collapse from v3 to v8.** Every version beats every earlier
   one in a round robin.
+- **Where v10 gained.** Judged one move at a time on v8's positions (v8
+  playing the rest), v10 is no better than v8 (+0.07 ± 0.77). Its edge is
+  coherent play over several moves: more first-outs (48.9 → 50.6 %), fewer
+  double losses (13.8 → 11.5 %), and higher call success at the same call
+  rate (Tichu 63.5 → 65.9 %, Grand 63.3 → 66.1 %). Leads are the first
+  hint of a gain since v3 (+1.6 ± 1.8, not significant).
 - **Where v8 gained.** Each version is more patient than the one before:
   v8 lets a third of the opponent tricks it could beat go by, keeps its
   bombs for later, and rarely overtakes a partner who called Tichu. The
@@ -68,13 +81,11 @@ decision time.
 
 ## Current plan
 
-1. Run the v10 rollout loop on all rebuilt data, with the panel gate,
-   recording every game (`rl/outputs/v10`).
-2. Ship candidate: v10 + schupf j2 (extended candidates) + search ≤ 12 with
-   belief worlds + solver. Ship it once it wins ≥ 60 % against the shipped
-   bot. With the v10 iteration-3 net it stood at about 57.5 %.
-3. Retrain the schupf net and the belief net on v10's play.
-4. Before shipping, check the search speed on phones and the web.
+1. Keep the v10 loop running with data workers; the loop retrains the
+   schupf net from worker labels after every iteration.
+2. Retrain the belief net on v10's play.
+3. Learned or re-tuned calls: call success rose at an unchanged call rate,
+   so the heuristic thresholds may now be too cautious.
 
 ## Open
 

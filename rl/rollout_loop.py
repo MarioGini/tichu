@@ -38,6 +38,11 @@ plays N self-play matches with exact schupf candidate labels (in chunks of
 ``--schupf-chunk``, restart-safe), ``schupf_cf_train.py`` fits a new schupf
 net on the labels of the last two promotions, and it replaces the learner's
 schupf net if it wins a duel (same play net both sides) by ``--promote-z``.
+With ``--schupf-label-run`` the labels come from data workers
+(``data_worker.py --mode=schupf``, labelling with the published schupf net)
+and the retrain runs after every iteration on the newest
+``--schupf-label-rows``. ``--schupf-extended``: the learner's schupf net
+scores the extended candidate set, in play, duels and labels.
 
 ``--upload-run=NAME`` stores every new data file in Supabase Storage
 (``training_data_store.py``); a failed upload only warns.
@@ -125,9 +130,101 @@ def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str
     print(f"   {out.name}: {data.num_decisions} decisions ({time.time() - t0:.0f}s)", flush=True)
 
 
-def upload(path: Path | None, run: str, policy: Path) -> None:
+def publish_job(run: str, out: Path, *, it: int, best: Path, schupf: str, opponent_nets: list[str],
+                opponent_schupf: str, common_args: list[str]) -> None:
+    """Publish what data workers (rl/data_worker.py, other machines) need to
+    generate this iteration's data: the nets under fixed names plus
+    ``job.json``. Unchanged files are not uploaded again."""
+    try:
+        from training_data_store import upload_file
+
+        stage = out / "publish"
+        stage.mkdir(exist_ok=True)
+        files = {"best.safetensors": best}
+        if schupf:
+            files["schupf.safetensors"] = Path(schupf)
+            # Workers in --mode=schupf label with the learner's schupf net.
+            files["schupf_label.safetensors"] = Path(schupf)
+        if opponent_schupf:
+            files["opp_schupf.safetensors"] = Path(opponent_schupf)
+        for i, net in enumerate(opponent_nets):
+            files[f"opp{i}.safetensors"] = Path(net)
+        for name, src in files.items():
+            shutil.copy2(src, stage / name)
+        job = {
+            "iteration": it,
+            "opponents": [f"opp{i}.safetensors" for i in range(len(opponent_nets))],
+            "schupf": "schupf.safetensors" if schupf else "",
+            "opponent_schupf": "opp_schupf.safetensors" if opponent_schupf else "",
+            "args": common_args,
+        }
+        (stage / "job.json").write_text(json.dumps(job, indent=1))
+        for name in [*files, "job.json"]:
+            upload_file(stage / name, run=run)
+    except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage must never stop training
+        print(f"   publishing the job failed: {e}", flush=True)
+
+
+def sync_data(run: str, data_dir: Path) -> None:
+    """Fetch data files other machines uploaded to ``run``."""
+    try:
+        from training_data_store import download
+
+        before = len(list(data_dir.glob("*.npz")))
+        download(run, data_dir)
+        print(f"   synced {len(list(data_dir.glob('*.npz'))) - before} new files from {run}", flush=True)
+    except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage errors
+        print(f"   sync from {run} failed: {e}", flush=True)
+
+
+def _decisions(path: Path) -> int:
+    import numpy as np
+
+    with np.load(path) as d:
+        return int(d["starts"].size - 1)
+
+
+def _rows(path: Path) -> int:
+    with path.open() as f:
+        return sum(1 for _ in f)
+
+
+def data_window(files: list[Path], max_decisions: int, prune_run: str, count=_decisions) -> list[Path]:
+    """The newest files (by iteration, then name) up to ``max_decisions``
+    decisions. Older files are dropped from the data directory and, when
+    they belong to ``prune_run``, from the store (memory and the 1 GB free
+    store bound the data; their game records stay stored)."""
+    import re
+
+    def key(f: Path):
+        m = re.match(r"it(\d+)_", f.name)
+        return (int(m.group(1)) if m else -1, f.name)
+
+    keep, total = [], 0
+    for f in sorted(files, key=key, reverse=True):
+        if total >= max_decisions:
+            break
+        keep.append(f)
+        total += count(f)
+    drop = [f for f in files if f not in keep]
+    if drop:
+        print(f"   data window: {total} decisions in {len(keep)} files, dropping {len(drop)} older files", flush=True)
+        if prune_run:
+            try:
+                from training_data_store import delete_files, manifest
+
+                names = {f"{prune_run}/{f.name}" for f in drop}
+                delete_files([r for r in manifest(prune_run) if r["path"] in names])
+            except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage errors
+                print(f"   pruning the store failed: {e}", flush=True)
+        for f in drop:
+            f.unlink()
+    return sorted(keep)
+
+
+def upload(path: Path | None, run: str, policy: Path) -> bool:
     if path is None:  # generated in an earlier (interrupted) run
-        return
+        return False
     try:
         from training_data_store import upload_file
 
@@ -135,10 +232,12 @@ def upload(path: Path | None, run: str, policy: Path) -> None:
         games = path.with_suffix(".games.jsonl.xz")  # replayable game records
         if games.exists():
             upload_file(games, run=run)
+        return True
     # Storage must never stop training: network and file errors (OSError),
     # HTTP errors (RuntimeError), unexpected responses (ValueError, KeyError).
     except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"   upload of {path.name} failed: {e}", flush=True)
+        return False
 
 
 def _net_key(path: Path) -> str:
@@ -169,13 +268,64 @@ def panel_gate(args, entry, cand, best, vs_best, opponent_nets, own_schupf, opp_
     se = sum(s * s for _, s in gains) ** 0.5 / len(gains)
     entry["panel"] = {"gain": mean, "se": se, "n": len(gains)}
     print(f"   panel gain {mean:+.2f} pp ± {se:.2f} over {len(gains)} opponents", flush=True)
-    return mean > args.promote_z * se
+    # A candidate must also not lose to the best net head to head: a panel
+    # gain alone can come from exploiting the older nets (v10 iterations
+    # 6-8 gained on the panel but lost 48-49 % to their predecessor).
+    return mean > args.promote_z * se and vs_best["win_rate"] >= 50
 
 
-def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Path) -> dict:
-    """Exact schupf labels from the new best's self-play, new schupf net, keep it if it wins."""
+def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Path) -> dict | None:
+    """Exact schupf labels from the new best's self-play (or the workers'
+    labels in ``--schupf-label-run``), new schupf net, keep it if it wins."""
     sdir = data_dir.parent / "schupf"
     sdir.mkdir(exist_ok=True)
+    ext = ["--schupf-extended"] if args.schupf_extended else []
+    if args.schupf_label_run:
+        ldir = sdir / "labels"
+        try:
+            from training_data_store import download
+
+            download(args.schupf_label_run, ldir)
+        except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage errors
+            print(f"   schupf label sync failed: {e}", flush=True)
+        files = data_window(sorted(ldir.glob("*.jsonl")), 2 * args.schupf_label_rows, args.schupf_label_run,
+                            count=_rows)
+        # Train on the newest labels only (those of the recent nets); the
+        # rest of the window stays for the next retrain.
+        train, rows = [], 0
+        for f in sorted(files, reverse=True):
+            if rows >= args.schupf_label_rows:
+                break
+            train.append(f)
+            rows += _rows(f)
+        if rows < args.schupf_label_rows // 2:
+            print(f"   schupf retrain skipped: {rows} label rows", flush=True)
+            return None
+        files = sorted(train)
+        print(f"   schupf retrain on {rows} label rows ({len(files)} files)", flush=True)
+    else:
+        files = _schupf_labels(args, it, play_net, cur_schupf, sdir, ext)
+    new = sdir / f"it{it:02d}_schupf.safetensors"
+    if not new.exists():
+        res = subprocess.run([sys.executable, str(RL / "schupf_cf_train.py"),
+                              "--jsonl=" + ",".join(str(x) for x in files), f"--output={new}"],
+                             cwd=RL.parent, capture_output=True, text=True)
+        if res.returncode != 0:
+            raise RuntimeError(res.stdout + res.stderr)
+    r = duel([f"--nn-policy={play_net}", f"--schupf-net={new}", *ext],
+             [f"--opponent-policy={play_net}", f"--opponent-schupf-net={cur_schupf}",
+              *(["--opponent-schupf-extended"] if ext else [])],
+             deals=args.duel_deals, seed=5151 + it, shards=args.shards)
+    adopted = r["win_rate"] - 50 > args.promote_z * r["win_rate_se"]
+    print(f"   new schupf vs current: {r['win_rate']:.1f}% ± {r['win_rate_se']:.1f} -> "
+          f"{'ADOPTED' if adopted else 'kept current'}", flush=True)
+    if adopted:
+        shutil.copy2(cur_schupf, sdir / f"before_it{it:02d}.safetensors")
+        shutil.copy2(new, cur_schupf)
+    return {"vs_current": r, "adopted": adopted}
+
+
+def _schupf_labels(args, it: int, play_net: Path, cur_schupf: Path, sdir: Path, ext: list[str]) -> list[Path]:
     chunks = max(1, args.schupf_episodes // args.schupf_chunk)
     for k in range(chunks):
         f = sdir / f"it{it:02d}_cf{k:02d}.jsonl"
@@ -185,7 +335,8 @@ def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Pa
         run_headless_sharded(
             base_args=["--format=bc-jsonl", "--skip-play-rows", "--schupf-rollout-rate=1",
                        f"--target-score={args.target_score}", "--epsilon=0",
-                       f"--nn-policy={play_net}", f"--schupf-net={cur_schupf}"],
+                       f"--nn-policy={play_net}", f"--schupf-net={cur_schupf}", *ext,
+                       *(["--schupf-label-extended", "--schupf-candidates=20"] if ext else [])],
             seed=args.seed + 10_000 * it + 7000 + 10 * k,
             episodes=args.schupf_chunk,
             output_path=tmp,
@@ -195,24 +346,7 @@ def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Pa
         print(f"   schupf labels {f.name}", flush=True)
     files = sorted(sdir.glob("*_cf*.jsonl"))
     its = sorted({x.name[:4] for x in files})[-2:]
-    files = [x for x in files if x.name[:4] in its]
-    new = sdir / f"it{it:02d}_schupf.safetensors"
-    if not new.exists():
-        res = subprocess.run([sys.executable, str(RL / "schupf_cf_train.py"),
-                              "--jsonl=" + ",".join(str(x) for x in files), f"--output={new}"],
-                             cwd=RL.parent, capture_output=True, text=True)
-        if res.returncode != 0:
-            raise RuntimeError(res.stdout + res.stderr)
-    r = duel([f"--nn-policy={play_net}", f"--schupf-net={new}"],
-             [f"--opponent-policy={play_net}", f"--opponent-schupf-net={cur_schupf}"],
-             deals=args.duel_deals, seed=5151 + it, shards=args.shards)
-    adopted = r["win_rate"] - 50 > args.promote_z * r["win_rate_se"]
-    print(f"   new schupf vs current: {r['win_rate']:.1f}% ± {r['win_rate_se']:.1f} -> "
-          f"{'ADOPTED' if adopted else 'kept current'}", flush=True)
-    if adopted:
-        shutil.copy2(cur_schupf, sdir / f"before_it{it:02d}.safetensors")
-        shutil.copy2(new, cur_schupf)
-    return {"vs_current": r, "adopted": adopted}
+    return [x for x in files if x.name[:4] in its]
 
 
 def main() -> None:
@@ -272,6 +406,13 @@ def main() -> None:
     p.add_argument("--gate", choices=["best", "panel"], default="best")
     p.add_argument("--schupf-episodes", type=int, default=0, help="schupf retrain after a promotion (0 = off)")
     p.add_argument("--schupf-chunk", type=int, default=250)
+    p.add_argument("--schupf-extended", action="store_true",
+                   help="the learner's schupf net scores the extended candidate set (labels too)")
+    p.add_argument("--schupf-label-run", default="",
+                   help="store run with worker schupf labels (data_worker.py --mode=schupf): the schupf "
+                        "net is retrained from them after every iteration instead of after promotions")
+    p.add_argument("--schupf-label-rows", type=int, default=400_000,
+                   help="newest schupf label rows per retrain (twice as many are kept)")
     p.add_argument(
         "--confirm-deals",
         type=int,
@@ -285,6 +426,23 @@ def main() -> None:
         help="also train and measure against the K newest earlier best nets (0 = off)",
     )
     p.add_argument("--upload-run", default="", help="upload new data files to Supabase under this run name")
+    p.add_argument(
+        "--publish-run",
+        default="",
+        help="publish the nets + job.json for rl/data_worker.py under this store run every iteration",
+    )
+    p.add_argument(
+        "--sync-run",
+        default="",
+        help="before training, download the data files of this store run (the workers' data)",
+    )
+    p.add_argument(
+        "--max-decisions",
+        type=int,
+        default=0,
+        help="train on the newest files up to this many decisions; older ones are deleted "
+        "locally and from --upload-run (0 = keep everything)",
+    )
     p.add_argument("--shards", type=int, default=4)
     p.add_argument("--seed", type=int, default=100_000)
     args = p.parse_args()
@@ -311,9 +469,13 @@ def main() -> None:
     if args.schupf_net:
         args.schupf_net = str(cur_schupf)
     own_schupf = [f"--schupf-net={args.schupf_net}"] if args.schupf_net else []
+    if args.schupf_net and args.schupf_extended:
+        own_schupf.append("--schupf-extended")
     opp_schupf = [f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else []
     # The candidate and the best net play the duel with the same schupf.
     best_schupf = [f"--opponent-schupf-net={args.schupf_net}"] if args.schupf_net else []
+    if args.schupf_net and args.schupf_extended:
+        best_schupf.append("--opponent-schupf-extended")
 
     for it in range(start, start + args.iterations):
         t0 = time.time()
@@ -330,6 +492,17 @@ def main() -> None:
             *own_schupf,
             *shlex.split(args.gen_args),
         ]
+        if args.publish_run:
+            publish_job(
+                args.publish_run,
+                out,
+                it=it,
+                best=best,
+                schupf=args.schupf_net,
+                opponent_nets=opponent_nets,
+                opponent_schupf=args.opponent_schupf_net,
+                common_args=[a for a in common if not a.startswith(("--nn-policy=", "--schupf-net="))],
+            )
         seed = args.seed + 10_000 * it
         per = max(1, args.mixed_episodes // (2 * max(1, len(opponents) + len(opponent_nets))))
         for i, net in enumerate(opponent_nets):
@@ -370,7 +543,11 @@ def main() -> None:
                 upload(last_generated[0], args.upload_run, best)
 
         print("2) train", flush=True)
+        if args.sync_run:
+            sync_data(args.sync_run, data_dir)
         files = sorted(data_dir.glob("*.npz"))
+        if args.max_decisions > 0:
+            files = data_window(files, args.max_decisions, args.upload_run)
         if args.window > 0:
             keep = {f"it{k:02d}" for k in range(it - args.window + 1, it + 1)}
             files = [f for f in files if f.name[:4] in keep]
@@ -462,8 +639,8 @@ def main() -> None:
                 f"margin {r['margin']:+.0f}",
                 flush=True,
             )
-        if promoted and args.schupf_net and args.schupf_episodes > 0:
-            entry["schupf"] = retrain_schupf(args, it, cand, cur_schupf, data_dir)
+        if args.schupf_net and (args.schupf_label_run or (promoted and args.schupf_episodes > 0)):
+            entry["schupf"] = retrain_schupf(args, it, cand if promoted else best, cur_schupf, data_dir)
         if promoted:
             if args.league > 0:
                 # The net being replaced joins the league pool.

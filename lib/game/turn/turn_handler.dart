@@ -4,27 +4,27 @@ import 'package:tichu/game/turn/wish_logic.dart';
 
 class TurnHandler {
   DeckState handleTurn(
-    final DeckState currentDeck,
-    final List<Card> selectedCards,
-    final CardFace inputWish, {
-    final List<Card>? hand,
+    DeckState currentDeck,
+    List<Card> selectedCards,
+    CardFace inputWish, {
+    List<Card>? hand,
   }) {
     final normalizedCards = _normalizePhoenixSingle(currentDeck, selectedCards);
     final currentTurn = getTurn(normalizedCards);
     final handCards = hand ?? selectedCards;
 
     // Selected cards must form a valid turn.
-    if (currentTurn == TichuTurn.InvalidTurn()) {
-      return DeckState.Invalid(); // TODO(turnHandler): inform user
+    if (currentTurn == TichuTurn.invalid()) {
+      return DeckState.invalid(); // TODO(turnHandler): inform user
     }
 
     // When mah jong is not obeyed, turn is invalid.
     if (mahJong(currentDeck, currentTurn, handCards)) {
-      return DeckState.Invalid();
+      return DeckState.invalid();
     }
 
     if (!validTurn(currentDeck.turn, currentTurn)) {
-      return DeckState.Invalid();
+      return DeckState.invalid();
     }
 
     // The wish is either fulfilled or propagated to next deck state.
@@ -36,8 +36,8 @@ class TurnHandler {
 }
 
 List<Card> _normalizePhoenixSingle(
-  final DeckState currentDeck,
-  final List<Card> selectedCards,
+  DeckState currentDeck,
+  List<Card> selectedCards,
 ) {
   if (selectedCards.length != 1) {
     return selectedCards;
@@ -66,7 +66,7 @@ List<Card> _normalizePhoenixSingle(
   return [Card.phoenix(phoenixValue)];
 }
 
-bool validTurn(final TichuTurn deck, final TichuTurn turn) {
+bool validTurn(TichuTurn deck, TichuTurn turn) {
   // We can play any turn on an empty deck or dog.
   if (deck.type == TurnType.empty || deck.type == TurnType.dog) {
     return true;

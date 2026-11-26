@@ -33,7 +33,7 @@ void main() {
       // Must be a card from the hand.
       for (final c in play.cards) {
         expect(
-          hand.any((final h) => h.face == c.face),
+          hand.any((h) => h.face == c.face),
           true,
           reason: 'played card ${c.face} should be from hand',
         );

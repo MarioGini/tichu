@@ -48,9 +48,9 @@ void main() {
       final straightTurns = getStraights(sixStraight, desiredLength);
 
       expect(straightTurns.length, 1);
-      expect(straightTurns.every((final turn) => isStraight(turn.cards)), true);
+      expect(straightTurns.every((turn) => isStraight(turn.cards)), true);
       expect(
-        straightTurns.every((final turn) => turn.cards.length == desiredLength),
+        straightTurns.every((turn) => turn.cards.length == desiredLength),
         true,
       );
       expect(straightTurns[0].value, 8);
@@ -67,9 +67,9 @@ void main() {
       final straightTurns = getStraights(hiddenSixStraight, desiredLength);
 
       expect(straightTurns.length, 2);
-      expect(straightTurns.every((final turn) => isStraight(turn.cards)), true);
+      expect(straightTurns.every((turn) => isStraight(turn.cards)), true);
       expect(
-        straightTurns.every((final turn) => turn.cards.length == desiredLength),
+        straightTurns.every((turn) => turn.cards.length == desiredLength),
         true,
       );
       expect(straightTurns[0].value, 8);
@@ -89,11 +89,8 @@ void main() {
       final turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 2);
-      expect(turns.every((final turn) => isStraight(turn.cards)), true);
-      expect(
-        turns.every((final turn) => turn.cards.length == desiredLength),
-        true,
-      );
+      expect(turns.every((turn) => isStraight(turn.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.eight));
       expect(turns[1].value, Card.getValue(CardFace.seven));
     });
@@ -130,11 +127,8 @@ void main() {
       final turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 2);
-      expect(turns.every((final turn) => isStraight(turn.cards)), true);
-      expect(
-        turns.every((final turn) => turn.cards.length == desiredLength),
-        true,
-      );
+      expect(turns.every((turn) => isStraight(turn.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.ace));
       expect(turns[1].value, Card.getValue(CardFace.seven));
     });
@@ -151,11 +145,8 @@ void main() {
       final turns = getStraights(phoenixStraight, desiredLength);
 
       expect(turns.length, 1);
-      expect(turns.every((final turn) => isStraight(turn.cards)), true);
-      expect(
-        turns.every((final turn) => turn.cards.length == desiredLength),
-        true,
-      );
+      expect(turns.every((turn) => isStraight(turn.cards)), true);
+      expect(turns.every((turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.ace));
     });
 
@@ -188,7 +179,7 @@ void main() {
       final turns = getStraightPermutations(sevenStraight);
 
       expect(turns.length, 6);
-      expect(turns.every((final element) => isStraight(element.cards)), true);
+      expect(turns.every((element) => isStraight(element.cards)), true);
       expect(turns[0].value, 8);
       expect(turns[0].cards.length, 7);
       expect(turns[1].cards.length, 6);

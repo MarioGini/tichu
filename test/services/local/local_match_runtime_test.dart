@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/services/local/local_match_runtime.dart';
+import 'package:tichu/services/request_rejected_exception.dart';
 
 import 'local_match_runtime_fakes.dart';
 import 'schupf_flow_engine_fake.dart';
@@ -11,12 +13,21 @@ void main() {
     test('throws for unknown game id operations', () async {
       final backend = LocalMatchRuntime(engine: FakeEngine());
 
-      expect(() => backend.watchGameState('missing'), throwsStateError);
-      expect(() => backend.startGame('missing'), throwsStateError);
-      expect(() => backend.startNewRound('missing'), throwsStateError);
+      expect(
+        () => backend.watchGameState('missing'),
+        throwsA(isA<RequestRejectedException>()),
+      );
+      expect(
+        () => backend.startGame('missing'),
+        throwsA(isA<RequestRejectedException>()),
+      );
+      expect(
+        () => backend.startNewRound('missing'),
+        throwsA(isA<RequestRejectedException>()),
+      );
       expect(
         () => backend.submitAction('missing', const PassAction(playerId: 'p0')),
-        throwsStateError,
+        throwsA(isA<RequestRejectedException>()),
       );
     });
 
@@ -52,7 +63,7 @@ void main() {
 
       expect(
         () => backend.submitAction(gameId, const PassAction(playerId: 'p0')),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
 
       await backend.disposeGame(gameId);

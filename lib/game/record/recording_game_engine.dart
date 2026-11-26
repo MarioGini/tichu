@@ -6,6 +6,7 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/record/game_record.dart';
 import 'package:tichu/game/record/game_record_store.dart';
+import 'package:tichu/game/record/round_log.dart';
 import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -35,24 +36,24 @@ class RecordingGameEngine implements GameEngine {
   final Map<String, _SaveQueue> _saves = {};
 
   /// The record of [gameId], if this engine created that game.
-  GameRecord? recordFor(final String gameId) => _records[gameId];
+  GameRecord? recordFor(String gameId) => _records[gameId];
 
   /// Emits the record of [gameId] each time an event is added.
-  Stream<GameRecord> watchRecord(final String gameId) =>
+  Stream<GameRecord> watchRecord(String gameId) =>
       _controllerFor(gameId).stream;
 
   /// Completes once every pending save of [gameId] has finished.
-  Future<void> flush(final String gameId) =>
+  Future<void> flush(String gameId) =>
       _saves[gameId]?.idle ?? Future<void>.value();
 
-  StreamController<GameRecord> _controllerFor(final String gameId) =>
+  StreamController<GameRecord> _controllerFor(String gameId) =>
       _controllers.putIfAbsent(gameId, StreamController<GameRecord>.broadcast);
 
   @override
   GameEngineState createGame({
-    required final String gameId,
-    required final List<GamePlayer> players,
-    final int targetScore = 1000,
+    required String gameId,
+    required List<GamePlayer> players,
+    int targetScore = 1000,
   }) {
     final state = _inner.createGame(
       gameId: gameId,
@@ -70,19 +71,19 @@ class RecordingGameEngine implements GameEngine {
   }
 
   @override
-  void startGame(final GameEngineState state) {
+  void startGame(GameEngineState state) {
     _inner.startGame(state);
     _recordDeal(state);
   }
 
   @override
-  void startNewRound(final GameEngineState state) {
+  void startNewRound(GameEngineState state) {
     _inner.startNewRound(state);
     _recordDeal(state);
   }
 
   @override
-  void applyAction(final GameEngineState state, final GameAction action) {
+  void applyAction(GameEngineState state, GameAction action) {
     final record = _records[state.gameId];
     if (record == null) {
       _inner.applyAction(state, action);
@@ -96,11 +97,11 @@ class RecordingGameEngine implements GameEngine {
 
   @override
   GameSnapshot buildSnapshot(
-    final GameEngineState state, {
-    final String? pendingOpponentPlayerId,
-    final List<Card>? pendingOpponentCards,
-    final bool pendingOpponentPass = false,
-    final bool opponentAwaitingConfirmation = false,
+    GameEngineState state, {
+    String? pendingOpponentPlayerId,
+    List<Card>? pendingOpponentCards,
+    bool pendingOpponentPass = false,
+    bool opponentAwaitingConfirmation = false,
   }) => _inner.buildSnapshot(
     state,
     pendingOpponentPlayerId: pendingOpponentPlayerId,
@@ -110,34 +111,37 @@ class RecordingGameEngine implements GameEngine {
   );
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) => _inner.buildPlayerSnapshot(snapshot, playerId);
+  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId) =>
+      _inner.buildPlayerSnapshot(snapshot, playerId);
 
   @override
-  bool hasPendingHumanSchupfReceipts(final GameEngineState state) =>
+  bool hasPendingHumanSchupfReceipts(GameEngineState state) =>
       _inner.hasPendingHumanSchupfReceipts(state);
 
   @override
-  bool shouldPauseForAutomatedOpponent(
-    final GameEngineState state,
-    final String actorId,
-  ) => _inner.shouldPauseForAutomatedOpponent(state, actorId);
+  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId) =>
+      _inner.shouldPauseForAutomatedOpponent(state, actorId);
 
   @override
-  List<String> opponentIds(
-    final GameEngineState state,
-    final String playerId,
-  ) => _inner.opponentIds(state, playerId);
+  List<String> opponentIds(GameEngineState state, String playerId) =>
+      _inner.opponentIds(state, playerId);
 
   // ── Recording ───────────────────────────────────────────────────────
 
-  void _recordDeal(final GameEngineState state) {
+  void _recordDeal(GameEngineState state) {
     final record = _records[state.gameId];
     if (record == null) return;
     final round = state.scoreTracker.state.roundNumber;
     record.roundsPlayed = round;
+    final log = RoundLog(round: round);
+    for (final p in state.players) {
+      final seat = _seatOf(record, p.id);
+      log.firstCards[seat].addAll(state.hands[p.id] ?? const <Card>[]);
+      if (state.phase != GamePhase.grandTichu) {
+        log.fullHands[seat].addAll(state.hands[p.id] ?? const <Card>[]);
+      }
+    }
+    record.roundLogs.add(log);
     record.add(
       round: round,
       kind: 'deal',
@@ -150,17 +154,20 @@ class RecordingGameEngine implements GameEngine {
   }
 
   void _recordAction(
-    final GameRecord record,
-    final GameEngineState state,
-    final GameAction action,
-    final _Before before,
+    GameRecord record,
+    GameEngineState state,
+    GameAction action,
+    _Before before,
   ) {
     final round = before.round;
     final who = record.nameOf(action.playerId);
     final hand = before.actorHand;
+    final seat = _seatOf(record, action.playerId);
+    final log = record.roundLogs.isNotEmpty ? record.roundLogs.last : null;
 
     switch (action) {
       case GrandTichuDecisionAction(:final call):
+        if (call) log?.addGrandTichu(seat);
         record.add(
           round: round,
           kind: 'grandTichu',
@@ -169,6 +176,7 @@ class RecordingGameEngine implements GameEngine {
           data: {'call': call, 'hand': cardLabels(hand)},
         );
       case CallGrandTichuAction():
+        log?.addGrandTichu(seat);
         record.add(
           round: round,
           kind: 'grandTichu',
@@ -179,6 +187,11 @@ class RecordingGameEngine implements GameEngine {
       case CallTichuAction():
         if (before.tichuCalls[action.playerId] !=
             state.scoreTracker.state.tichuCalls[action.playerId]) {
+          if (before.phase == GamePhase.play) {
+            log?.addTichuDuringPlay(seat);
+          } else {
+            log?.addCall(seat, grand: false);
+          }
           record.add(
             round: round,
             kind: 'tichu',
@@ -194,7 +207,12 @@ class RecordingGameEngine implements GameEngine {
             state.schupfSelections[action.playerId] ??
             state.completedSchupfSelections[action.playerId] ??
             action;
-        final seat = _seatOf(record, action.playerId);
+        log?.addSchupf(
+          seat,
+          selection.toLeft,
+          selection.toPartner,
+          selection.toRight,
+        );
         final left = record.playerAtSeat((seat + 1) % 4);
         final partner = record.playerAtSeat((seat + 2) % 4);
         final right = record.playerAtSeat((seat + 3) % 4);
@@ -224,8 +242,18 @@ class RecordingGameEngine implements GameEngine {
             ? state.lastPlayedTurn
             : null;
         final type = turn?.type ?? before.onTableType;
+        // The engine's copy of the play carries the Phoenix's value.
+        final played = turn != null && turn.cards.length == cards.length
+            ? turn.cards
+            : cards;
+        log?.addPlay(
+          seat,
+          played,
+          wish: inputWish,
+          outOfTurn: before.currentSeat != seat,
+        );
         final lead = before.onTableBy == null;
-        final hasMahJong = cards.any((final c) => c.face == CardFace.mahJong);
+        final hasMahJong = cards.any((c) => c.face == CardFace.mahJong);
         final wish = inputWish != CardFace.none
             ? ', wishes ${faceLabel(inputWish)}'
             : hasMahJong
@@ -236,9 +264,7 @@ class RecordingGameEngine implements GameEngine {
             : "plays on ${record.nameOf(before.onTableBy)}'s "
                   '${before.onTableText}';
         final isDog = cards.length == 1 && cards.first.face == CardFace.dog;
-        final partner = record.playerAtSeat(
-          (_seatOf(record, action.playerId) + 2) % 4,
-        );
+        final partner = record.playerAtSeat((seat + 2) % 4);
         record.add(
           round: round,
           kind: 'play',
@@ -260,6 +286,7 @@ class RecordingGameEngine implements GameEngine {
           },
         );
       case PassAction():
+        log?.addPass(seat);
         record.add(
           round: round,
           kind: 'pass',
@@ -276,6 +303,10 @@ class RecordingGameEngine implements GameEngine {
           },
         );
       case GiveDragonAction(:final targetPlayerId):
+        log?.addDragonGift(
+          seat,
+          toLeft: _seatOf(record, targetPlayerId) == (seat + 1) % 4,
+        );
         record.add(
           round: round,
           kind: 'dragon',
@@ -300,9 +331,9 @@ class RecordingGameEngine implements GameEngine {
 
   /// Trick won, player out, phase changes and the round result.
   void _recordConsequences(
-    final GameRecord record,
-    final GameEngineState state,
-    final _Before before,
+    GameRecord record,
+    GameEngineState state,
+    _Before before,
   ) {
     final round = before.round;
 
@@ -347,6 +378,17 @@ class RecordingGameEngine implements GameEngine {
       );
     }
 
+    if (before.phase != state.phase &&
+        state.phase == GamePhase.schupf &&
+        record.roundLogs.isNotEmpty) {
+      final log = record.roundLogs.last;
+      for (final p in state.players) {
+        final seat = _seatOf(record, p.id);
+        log.fullHands[seat]
+          ..clear()
+          ..addAll(state.hands[p.id] ?? const <Card>[]);
+      }
+    }
     if (before.phase != state.phase) {
       final label = switch (state.phase) {
         GamePhase.schupf => 'Full hands (14 cards), before the schupf',
@@ -419,45 +461,45 @@ class RecordingGameEngine implements GameEngine {
 
   /// Stops [watchRecord] streams of [gameId] and drops the in-memory record
   /// (the stored copy is kept).
-  Future<void> forget(final String gameId) async {
+  Future<void> forget(String gameId) async {
     await flush(gameId);
     _records.remove(gameId);
     _saves.remove(gameId);
     await _controllers.remove(gameId)?.close();
   }
 
-  void _changed(final String gameId) {
+  void _changed(String gameId) {
     final record = _records[gameId];
     if (record == null) return;
-    // Closed in [forget].
-    // ignore: close_sinks
-    final controller = _controllers[gameId];
-    if (controller != null && !controller.isClosed) controller.add(record);
+    // The controllers are closed in [forget].
+    if (_controllers[gameId] case final controller? when !controller.isClosed) {
+      controller.add(record);
+    }
     final store = this.store;
     if (store != null) {
       _saves
           .putIfAbsent(gameId, _SaveQueue.new)
           .schedule(
             () => store.save(record),
-            (final error) => onSaved?.call(gameId, error),
+            (error) => onSaved?.call(gameId, error),
           );
     }
   }
 
-  static int _seatOf(final GameRecord record, final String playerId) {
+  static int _seatOf(GameRecord record, String playerId) {
     for (final p in record.players) {
       if (p.id == playerId) return p.seat;
     }
     return 0;
   }
 
-  static Map<String, List<String>> _hands(final GameEngineState state) => {
+  static Map<String, List<String>> _hands(GameEngineState state) => {
     for (final p in state.players)
       p.id: cardLabels(state.hands[p.id] ?? const <Card>[]),
   };
 }
 
-String _typeLabel(final TurnType? type) => switch (type) {
+String _typeLabel(TurnType? type) => switch (type) {
   TurnType.single => 'single',
   TurnType.pair => 'pair',
   TurnType.pairStraight => 'pair straight',
@@ -469,7 +511,7 @@ String _typeLabel(final TurnType? type) => switch (type) {
   _ => '',
 };
 
-String _ordinal(final int n) => switch (n) {
+String _ordinal(int n) => switch (n) {
   1 => '1st',
   2 => '2nd',
   3 => '3rd',
@@ -493,9 +535,10 @@ class _Before {
     required this.cardCounts,
     required this.pendingDragonGiveBy,
     required this.pendingDragonPoints,
+    required this.currentSeat,
   });
 
-  factory _Before.capture(final GameEngineState state, final String actorId) {
+  factory _Before.capture(GameEngineState state, String actorId) {
     final score = state.scoreTracker.state;
     final turn = state.lastPlayedTurn;
     final hasTable =
@@ -520,6 +563,7 @@ class _Before {
       },
       pendingDragonGiveBy: state.pendingDragonGiveBy,
       pendingDragonPoints: pointsForCards(state.pendingDragonTrickCards),
+      currentSeat: state.players[state.currentPlayerIndex].seat,
     );
   }
 
@@ -537,6 +581,9 @@ class _Before {
   final Map<String, int> cardCounts;
   final String? pendingDragonGiveBy;
   final int pendingDragonPoints;
+
+  /// Seat whose turn it was (a bomb by another seat is out of turn).
+  final int currentSeat;
 
   String get onTableText =>
       '${_typeLabel(onTableType)} ${cardLabels(onTableCards).join(' ')}';
@@ -556,8 +603,8 @@ class _SaveQueue {
   Future<void> get idle => _tail;
 
   void schedule(
-    final Future<void> Function() save,
-    final void Function(Object? error) done,
+    Future<void> Function() save,
+    void Function(Object? error) done,
   ) {
     if (_queued) return;
     _queued = true;
@@ -567,8 +614,7 @@ class _SaveQueue {
       try {
         await save();
         // A failing store must never break the game.
-        // ignore: avoid_catches_without_on_clauses
-      } catch (error) {
+      } on Object catch (error) {
         failure = error;
       }
       done(failure);

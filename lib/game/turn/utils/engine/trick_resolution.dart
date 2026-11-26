@@ -1,5 +1,6 @@
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/turn_handler.dart';
@@ -8,13 +9,13 @@ import 'package:tichu/game/turn/utils/engine/turn_order.dart';
 import 'package:tichu/game/turn/wish_logic.dart';
 
 void applyPlayAction(
-  final GameEngineState state,
-  final PlayTurnAction action,
-  final TurnHandler turnHandler,
+  GameEngineState state,
+  PlayTurnAction action,
+  TurnHandler turnHandler,
 ) {
   final hand = state.hands[action.playerId] ?? [];
   if (!handContainsAll(hand, action.cards)) {
-    throw StateError('Played cards are not in hand.');
+    throw const IllegalActionException('Played cards are not in hand.');
   }
 
   final updatedDeck = turnHandler.handleTurn(
@@ -23,8 +24,8 @@ void applyPlayAction(
     action.inputWish,
     hand: hand,
   );
-  if (updatedDeck.turn == TichuTurn.InvalidTurn()) {
-    throw StateError('Invalid turn.');
+  if (updatedDeck.turn == TichuTurn.invalid()) {
+    throw const IllegalActionException('Invalid turn.');
   }
 
   _logAction(state, action.playerId, List<Card>.unmodifiable(action.cards));
@@ -75,16 +76,16 @@ void applyPlayAction(
   }
 }
 
-void applyPassAction(final GameEngineState state, final PassAction action) {
+void applyPassAction(GameEngineState state, PassAction action) {
   final hand = state.hands[action.playerId] ?? [];
 
   if (state.deck.turn.type == TurnType.empty ||
       state.deck.turn.type == TurnType.none) {
-    throw StateError('Cannot pass on an empty trick.');
+    throw const IllegalActionException('Cannot pass on an empty trick.');
   }
 
   if (mahJong(state.deck, TichuTurn(TurnType.none, const []), hand)) {
-    throw StateError('Wish must be fulfilled when possible.');
+    throw const IllegalActionException('Wish must be fulfilled when possible.');
   }
 
   _logAction(state, action.playerId, const <Card>[]);
@@ -108,7 +109,7 @@ void applyPassAction(final GameEngineState state, final PassAction action) {
   state.consecutivePasses = 0;
 }
 
-int _leadReturnIndex(final GameEngineState state, final String winnerId) {
+int _leadReturnIndex(GameEngineState state, String winnerId) {
   final winnerIndex = playerIndexById(state, winnerId);
   if (winnerIndex < 0) {
     return state.currentPlayerIndex;
@@ -119,7 +120,7 @@ int _leadReturnIndex(final GameEngineState state, final String winnerId) {
   return nextActiveIndex(state, winnerIndex);
 }
 
-void finalizeRoundIfComplete(final GameEngineState state) {
+void finalizeRoundIfComplete(GameEngineState state) {
   if (state.scoreTracker.state.roundComplete) return;
 
   final matchComplete = _isMatchFinish(state);
@@ -147,30 +148,22 @@ void finalizeRoundIfComplete(final GameEngineState state) {
   }
 }
 
-bool _isMatchFinish(final GameEngineState state) {
+bool _isMatchFinish(GameEngineState state) {
   final finishOrder = state.scoreTracker.state.finishOrder;
   if (finishOrder.length < 2) return false;
   return _sameTeam(state, finishOrder[0], finishOrder[1]);
 }
 
-bool _sameTeam(
-  final GameEngineState state,
-  final String playerAId,
-  final String playerBId,
-) {
-  final playerA = state.players.firstWhere(
-    (final player) => player.id == playerAId,
-  );
-  final playerB = state.players.firstWhere(
-    (final player) => player.id == playerBId,
-  );
+bool _sameTeam(GameEngineState state, String playerAId, String playerBId) {
+  final playerA = state.players.firstWhere((player) => player.id == playerAId);
+  final playerB = state.players.firstWhere((player) => player.id == playerBId);
   return playerA.seat % 2 == playerB.seat % 2;
 }
 
 bool maybeAwardTrick(
-  final GameEngineState state,
-  final String winnerId,
-  final List<Card> trickCards,
+  GameEngineState state,
+  String winnerId,
+  List<Card> trickCards,
 ) {
   if (!dragonWonTrick(state)) {
     state.scoreTracker.recordTrick(winnerId, trickCards);
@@ -197,15 +190,14 @@ bool maybeAwardTrick(
   return false;
 }
 
-void applyGiveDragonAction(
-  final GameEngineState state,
-  final GiveDragonAction action,
-) {
+void applyGiveDragonAction(GameEngineState state, GiveDragonAction action) {
   if (state.pendingDragonGiveBy == null) {
-    throw StateError('No dragon trick to give.');
+    throw const IllegalActionException('No dragon trick to give.');
   }
   if (!state.pendingDragonGiveTargets.contains(action.targetPlayerId)) {
-    throw StateError('Dragon trick must be given to an opponent.');
+    throw const IllegalActionException(
+      'Dragon trick must be given to an opponent.',
+    );
   }
 
   state.scoreTracker.recordTrick(
@@ -221,19 +213,15 @@ void applyGiveDragonAction(
   finalizeRoundIfComplete(state);
 }
 
-bool dragonWonTrick(final GameEngineState state) {
+bool dragonWonTrick(GameEngineState state) {
   final lastTurn = state.lastPlayedTurn;
   if (lastTurn == null) return false;
   if (lastTurn.type != TurnType.single) return false;
-  return lastTurn.cards.any((final card) => card.face == CardFace.dragon);
+  return lastTurn.cards.any((card) => card.face == CardFace.dragon);
 }
 
 /// Records a play or pass with the trick it answered (see [RoundLogEntry]).
-void _logAction(
-  final GameEngineState state,
-  final String playerId,
-  final List<Card> cards,
-) {
+void _logAction(GameEngineState state, String playerId, List<Card> cards) {
   final turn = state.deck.turn;
   final active =
       turn.type != TurnType.empty &&

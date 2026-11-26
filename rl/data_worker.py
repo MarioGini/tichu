@@ -27,16 +27,14 @@ from __future__ import annotations
 import argparse
 import json
 import random
-import sys
 import time
 from pathlib import Path
 
-RL = Path(__file__).resolve().parent
-sys.path.insert(0, str(RL))
+from headless_runner import run_headless_sharded
+from rollout_loop import generate, last_generated, upload
+from training_data_store import download, upload_file
 
-from headless_runner import run_headless_sharded  # noqa: E402
-from rollout_loop import generate, last_generated, upload  # noqa: E402
-from training_data_store import download, upload_file  # noqa: E402
+RL = Path(__file__).resolve().parent
 
 
 def schupf_chunk(nets: Path, data: Path, *, it: int, tag: str, seed: int, episodes: int, shards: int,
@@ -60,7 +58,7 @@ def schupf_chunk(nets: Path, data: Path, *, it: int, tag: str, seed: int, episod
     try:
         upload_file(out, run=run, policy=nets / "best.safetensors")
         out.unlink()
-    except Exception as e:  # noqa: BLE001 - kept on disk
+    except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage errors: kept on disk
         print(f"   upload of {out.name} failed: {e}", flush=True)
 
 

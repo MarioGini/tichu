@@ -4,8 +4,8 @@ import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 
 void applyGrandTichuDecision(
-  final GameEngineState state,
-  final GrandTichuDecisionAction action,
+  GameEngineState state,
+  GrandTichuDecisionAction action,
 ) {
   if (state.grandTichuDecisions.containsKey(action.playerId)) {
     return;
@@ -30,10 +30,7 @@ void applyGrandTichuDecision(
       (state.currentPlayerIndex + 1) % state.players.length;
 }
 
-bool _partnerAlreadyCalledGrandTichu(
-  final GameEngineState state,
-  final String playerId,
-) {
+bool _partnerAlreadyCalledGrandTichu(GameEngineState state, String playerId) {
   final player = _playerById(state, playerId);
   if (player == null) {
     return false;
@@ -55,15 +52,12 @@ bool _partnerAlreadyCalledGrandTichu(
   return false;
 }
 
-bool _playerAlreadyCalledAnyTichu(
-  final GameEngineState state,
-  final String playerId,
-) {
+bool _playerAlreadyCalledAnyTichu(GameEngineState state, String playerId) {
   final call = state.scoreTracker.state.tichuCalls[playerId];
   return call != null && call != TichuCall.none;
 }
 
-GamePlayer? _playerById(final GameEngineState state, final String playerId) {
+GamePlayer? _playerById(GameEngineState state, String playerId) {
   for (final player in state.players) {
     if (player.id == playerId) {
       return player;
@@ -72,10 +66,10 @@ GamePlayer? _playerById(final GameEngineState state, final String playerId) {
   return null;
 }
 
-bool _allPlayersDecided(final GameEngineState state) =>
+bool _allPlayersDecided(GameEngineState state) =>
     state.grandTichuDecisions.length >= state.players.length;
 
-void _maybeFinalizeGrandTichu(final GameEngineState state) {
+void _maybeFinalizeGrandTichu(GameEngineState state) {
   if (!_allPlayersDecided(state)) {
     return;
   }

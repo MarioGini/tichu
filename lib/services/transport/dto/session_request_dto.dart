@@ -19,7 +19,7 @@ class CreateGameLobbyRequestDto {
   });
 
   factory CreateGameLobbyRequestDto.fromDomain(
-    final CreateGameLobbyRequest request,
+    CreateGameLobbyRequest request,
   ) => CreateGameLobbyRequestDto(
     displayName: request.displayName,
     gameName: request.gameName,
@@ -28,7 +28,7 @@ class CreateGameLobbyRequestDto {
     visibility: request.visibility.name,
   );
 
-  factory CreateGameLobbyRequestDto.fromJson(final Map<String, dynamic> json) =>
+  factory CreateGameLobbyRequestDto.fromJson(Map<String, dynamic> json) =>
       CreateGameLobbyRequestDto(
         displayName: json['displayName'] as String,
         gameName: (json['gameName'] as String?) ?? '',
@@ -66,15 +66,14 @@ class JoinGameLobbyRequestDto {
     required this.preferredTeam,
   });
 
-  factory JoinGameLobbyRequestDto.fromDomain(
-    final JoinGameLobbyRequest request,
-  ) => JoinGameLobbyRequestDto(
-    joinCode: request.joinCode,
-    displayName: request.displayName,
-    preferredTeam: request.preferredTeam,
-  );
+  factory JoinGameLobbyRequestDto.fromDomain(JoinGameLobbyRequest request) =>
+      JoinGameLobbyRequestDto(
+        joinCode: request.joinCode,
+        displayName: request.displayName,
+        preferredTeam: request.preferredTeam,
+      );
 
-  factory JoinGameLobbyRequestDto.fromJson(final Map<String, dynamic> json) =>
+  factory JoinGameLobbyRequestDto.fromJson(Map<String, dynamic> json) =>
       JoinGameLobbyRequestDto(
         joinCode: json['joinCode'] as String,
         displayName: json['displayName'] as String,
@@ -110,7 +109,7 @@ class GameSessionHandleDto {
     required this.matchId,
   });
 
-  factory GameSessionHandleDto.fromDomain(final GameSessionHandle handle) =>
+  factory GameSessionHandleDto.fromDomain(GameSessionHandle handle) =>
       GameSessionHandleDto(
         lobbyId: handle.lobbyId,
         playerId: handle.playerId,
@@ -119,7 +118,7 @@ class GameSessionHandleDto {
         matchId: handle.matchId,
       );
 
-  factory GameSessionHandleDto.fromJson(final Map<String, dynamic> json) =>
+  factory GameSessionHandleDto.fromJson(Map<String, dynamic> json) =>
       GameSessionHandleDto(
         lobbyId: json['lobbyId'] as String,
         playerId: json['playerId'] as String,

@@ -206,10 +206,10 @@ void main() {
 }
 
 Future<Map<String, dynamic>> _postJson(
-  final Uri baseUri,
-  final String action,
-  final Map<String, dynamic> body, {
-  final String? authUserId,
+  Uri baseUri,
+  String action,
+  Map<String, dynamic> body, {
+  String? authUserId,
 }) async {
   final client = HttpClient();
   try {

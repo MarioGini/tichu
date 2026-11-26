@@ -33,7 +33,10 @@ MJ, DOG, PH, DR = 52, 53, 54, 55
 def grand_strength(hand: list[int]) -> float:
     """DefaultTichuCallStrategy.grandStrength on card slots."""
     cnt = collections.Counter(s % 13 for s in hand if s < 52)
-    n = lambda slot: sum(1 for s in hand if s == slot)  # noqa: E731
+
+    def n(slot: int) -> int:
+        return sum(1 for s in hand if s == slot)
+
     aces = cnt[12]
     kq = cnt[11] + cnt[10]
     quads = sum(1 for k, v in cnt.items() if v == 4)

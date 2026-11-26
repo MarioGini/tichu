@@ -4,9 +4,9 @@ import 'package:tichu/widgets/trick_display.dart';
 
 extension BombOverlayExtension on TrickDisplay {
   Widget withBombOverlay({
-    required final bool showOverlay,
-    required final Animation<Offset> slide,
-    required final Animation<double> scale,
+    required bool showOverlay,
+    required Animation<Offset> slide,
+    required Animation<double> scale,
   }) => Stack(
     fit: StackFit.expand,
     alignment: Alignment.center,
@@ -49,7 +49,7 @@ class EventSlamOverlay extends StatelessWidget {
   final Color? labelColor;
 
   @override
-  Widget build(final BuildContext context) => SlideTransition(
+  Widget build(BuildContext context) => SlideTransition(
     position: slide,
     child: ScaleTransition(
       scale: scale,

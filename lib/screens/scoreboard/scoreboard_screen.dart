@@ -66,12 +66,12 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
     });
   }
 
-  void _setGame(final ScoreboardGame game) {
+  void _setGame(ScoreboardGame game) {
     setState(() => _game = game);
     unawaited(_save(game));
   }
 
-  Future<void> _save(final ScoreboardGame game) async {
+  Future<void> _save(ScoreboardGame game) async {
     try {
       await _store.saveCurrent(game);
     } on Object catch (error) {
@@ -81,7 +81,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
     }
   }
 
-  void _onSetup(final ScoreboardSetupResult result) {
+  void _onSetup(ScoreboardSetupResult result) {
     final current = _game;
     final game = current != null && _editing
         ? current.copyWith(
@@ -102,7 +102,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
     if (game != null && game.rounds.isNotEmpty && !game.isFinished) {
       final confirmed = await showDialog<bool>(
         context: context,
-        builder: (final context) => AlertDialog(
+        builder: (context) => AlertDialog(
           title: const Text('Start a new match?'),
           content: const Text('The current score sheet will be discarded.'),
           actions: [
@@ -128,7 +128,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
     });
   }
 
-  Future<void> _openRound([final int? index]) async {
+  Future<void> _openRound([int? index]) async {
     final game = _game;
     if (game == null) return;
     // Round indices may shift: drop a pending "Undo" of a deletion.
@@ -157,7 +157,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
     }
   }
 
-  void _removeRound(final int index) {
+  void _removeRound(int index) {
     final game = _game!;
     final removed = game.rounds[index];
     _setGame(game.removeRound(index));
@@ -185,7 +185,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
   }
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final game = _game;
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -202,7 +202,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                 onPressed: () => _removeRound(game.rounds.length - 1),
               ),
             PopupMenuButton<String>(
-              onSelected: (final v) {
+              onSelected: (v) {
                 if (v == 'edit') {
                   setState(() {
                     _setup = true;
@@ -240,7 +240,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
               : _ScoreSheet(
                   game: game,
                   onAddRound: () => unawaited(_openRound()),
-                  onEditRound: (final i) => unawaited(_openRound(i)),
+                  onEditRound: (i) => unawaited(_openRound(i)),
                   onNewMatch: () => unawaited(_newMatch()),
                 ),
         ),
@@ -248,7 +248,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
     );
   }
 
-  Widget _buildSetup(final ScoreboardGame? game) {
+  Widget _buildSetup(ScoreboardGame? game) {
     final editing = game != null && _editing;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -269,9 +269,8 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
                     ? 'Rounds already entered are kept.'
                     : 'Keep score of a game played with real cards.',
                 textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white60),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: Colors.white60),
               ),
               const SizedBox(height: 16),
               ScoreboardSetupForm(
@@ -312,7 +311,7 @@ class _ScoreSheet extends StatelessWidget {
   final VoidCallback onNewMatch;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final totals = game.runningTotals;
     final winner = game.winner;
@@ -378,7 +377,7 @@ class _ScoreSheet extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 itemCount: game.rounds.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 6),
-                itemBuilder: (_, final i) {
+                itemBuilder: (_, i) {
                   final index = game.rounds.length - 1 - i;
                   return _RoundRow(
                     number: index + 1,
@@ -410,7 +409,7 @@ class _ScoreSheet extends StatelessWidget {
       ),
     );
     return LayoutBuilder(
-      builder: (final context, final constraints) {
+      builder: (context, constraints) {
         if (constraints.maxWidth > constraints.maxHeight &&
             constraints.maxWidth >= 640) {
           // Landscape: totals and the button left, rounds right.
@@ -467,12 +466,12 @@ class _TotalsHeader extends StatelessWidget {
   final ScoreboardGame game;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final last = game.rounds.isEmpty ? null : game.rounds.last;
     final a = game.totalFor(0);
     final b = game.totalFor(1);
-    Widget team(final int t, final int total, final bool leading) {
+    Widget team(int t, int total, bool leading) {
       final color = scoreboardTeamColors[t];
       return Expanded(
         child: ScoreboardPanel(
@@ -570,7 +569,7 @@ class _WinnerBanner extends StatelessWidget {
   final int winner;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -625,9 +624,9 @@ class _RoundRow extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Widget side(final int team) {
+    Widget side(int team) {
       final points = round.totalFor(team);
       final badges = <Widget>[
         if (round.doubleVictoryTeam == team)
@@ -718,7 +717,7 @@ class _Badge extends StatelessWidget {
   final IconData? icon;
 
   @override
-  Widget build(final BuildContext context) => Container(
+  Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.15),

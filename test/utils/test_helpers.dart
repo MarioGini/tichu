@@ -3,9 +3,9 @@ import 'package:material_ui/material_ui.dart';
 /// Suppresses RenderFlex overflow errors during a test.
 /// Call in the test body before pumping widgets with tight layout.
 void suppressOverflowErrors(
-  final void Function(FlutterErrorDetails)? previousOnError,
+  void Function(FlutterErrorDetails)? previousOnError,
 ) {
-  FlutterError.onError = (final details) {
+  FlutterError.onError = (details) {
     final message = details.exceptionAsString();
     if (message.contains('overflowed')) return;
     previousOnError?.call(details);

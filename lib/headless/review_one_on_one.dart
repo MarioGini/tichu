@@ -29,8 +29,8 @@ import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-Future<void> main(final List<String> args) async {
-  String? opt(final String name) {
+Future<void> main(List<String> args) async {
+  String? opt(String name) {
     for (final a in args) {
       if (a.startsWith('--$name=')) return a.substring(name.length + 3);
     }
@@ -42,7 +42,7 @@ Future<void> main(final List<String> args) async {
   final maxCards = int.parse(opt('max-cards') ?? '10');
   final search = args.contains('--search');
   final out = File(opt('output') ?? '1v1.jsonl').openWrite();
-  Future<LoadedNet?> load(final String? p) async =>
+  Future<LoadedNet?> load(String? p) async =>
       p == null ? null : LoadedNet.fromBytes(await File(p).readAsBytes());
   final plain = BotConfig(
     play: await load(opt('nn-policy')),
@@ -52,7 +52,7 @@ Future<void> main(final List<String> args) async {
   final config = search
       ? plain.withEndgameSearch(const EndgameSearch(maxCards: 8))
       : plain;
-  PlayerAgent plainAgent(final String id, final int _) => plain.build(id);
+  PlayerAgent plainAgent(String id, int _) => plain.build(id);
   final searcher = EndgameSearcher(rolloutAgent: plainAgent);
   final engine = GameEngineImpl(random: Random(seed));
   const players = [
@@ -82,7 +82,6 @@ Future<void> main(final List<String> args) async {
       if (action == null) continue;
       if (request is TurnRequest && search) {
         action = await searcher.refine(
-          engine: engine,
           state: state,
           agent: agent,
           chosen: action,
@@ -100,15 +99,14 @@ Future<void> main(final List<String> args) async {
         final options = _options(engine, state, request, agent);
         if (options.length >= 2) {
           final solver = OneOnOneSolver(
-            engine: engine,
             agentFor: plainAgent,
             nodeBudget: 200000,
           );
           final values = await solver.values(state, pid, options);
-          if (values.any((final v) => v == null)) {
+          if (values.any((v) => v == null)) {
             giveUps++;
           } else {
-            final chosen = options.indexWhere((final o) => _same(o, action!));
+            final chosen = options.indexWhere((o) => _same(o, action!));
             out.writeln(
               jsonEncode(
                 _row(state, pid, request, options, values, chosen)
@@ -128,7 +126,7 @@ Future<void> main(final List<String> args) async {
   stderr.writeln('$rows decisions reviewed, $giveUps too large');
 }
 
-bool _oneOnOne(final GameEngineState s, final int maxCards) {
+bool _oneOnOne(GameEngineState s, int maxCards) {
   final active = [
     for (final p in s.players)
       if (s.hands[p.id]?.isNotEmpty ?? false) p,
@@ -136,15 +134,14 @@ bool _oneOnOne(final GameEngineState s, final int maxCards) {
   if (active.length != 2 || active[0].seat % 2 == active[1].seat % 2) {
     return false;
   }
-  return active.fold<int>(0, (final n, final p) => n + s.hands[p.id]!.length) <=
-      maxCards;
+  return active.fold<int>(0, (n, p) => n + s.hands[p.id]!.length) <= maxCards;
 }
 
 List<GameAction> _options(
-  final GameEngine engine,
-  final GameEngineState state,
-  final DecisionRequest request,
-  final PlayerAgent agent,
+  GameEngine engine,
+  GameEngineState state,
+  DecisionRequest request,
+  PlayerAgent agent,
 ) {
   if (request is DragonGiveRequest) {
     return [
@@ -171,12 +168,11 @@ List<GameAction> _options(
   ];
 }
 
-String _key(final List<Card> cards) =>
-    (cards.map((final c) => '${c.face.index}.${c.color.index}').toList()
-          ..sort())
+String _key(List<Card> cards) =>
+    (cards.map((c) => '${c.face.index}.${c.color.index}').toList()..sort())
         .join(',');
 
-bool _same(final GameAction a, final GameAction b) {
+bool _same(GameAction a, GameAction b) {
   if (a is PassAction && b is PassAction) return true;
   if (a is PlayTurnAction && b is PlayTurnAction) {
     return _key(a.cards) == _key(b.cards);
@@ -187,7 +183,7 @@ bool _same(final GameAction a, final GameAction b) {
   return false;
 }
 
-String _tok(final Card c) => switch (c.face) {
+String _tok(Card c) => switch (c.face) {
   CardFace.dog => 'Dog',
   CardFace.mahJong => '1',
   CardFace.phoenix => 'Ph',
@@ -200,7 +196,7 @@ String _tok(final Card c) => switch (c.face) {
   _ => '${c.value.toInt()}',
 };
 
-int _order(final Card c) => switch (c.face) {
+int _order(Card c) => switch (c.face) {
   CardFace.dog => 0,
   CardFace.mahJong => 1,
   CardFace.phoenix => 15,
@@ -208,27 +204,26 @@ int _order(final Card c) => switch (c.face) {
   _ => c.value.toInt(),
 };
 
-String _cards(final List<Card> cards) {
-  final s = [...cards]..sort((final a, final b) => _order(a) - _order(b));
+String _cards(List<Card> cards) {
+  final s = [...cards]..sort((a, b) => _order(a) - _order(b));
   return s.map(_tok).join(' ');
 }
 
 Map<String, Object?> _row(
-  final GameEngineState s,
-  final String pid,
-  final DecisionRequest request,
-  final List<GameAction> options,
-  final List<int?> values,
-  final int chosen,
+  GameEngineState s,
+  String pid,
+  DecisionRequest request,
+  List<GameAction> options,
+  List<int?> values,
+  int chosen,
 ) {
-  final me = s.players.firstWhere((final p) => p.id == pid);
+  final me = s.players.firstWhere((p) => p.id == pid);
   final opp = s.players.firstWhere(
-    (final p) =>
-        p.seat % 2 != me.seat % 2 && (s.hands[p.id]?.isNotEmpty ?? false),
+    (p) => p.seat % 2 != me.seat % 2 && (s.hands[p.id]?.isNotEmpty ?? false),
     orElse: () => me,
   );
   final score = s.scoreTracker.state;
-  String desc(final GameAction a) => switch (a) {
+  String desc(GameAction a) => switch (a) {
     PassAction() => 'pass',
     PlayTurnAction(:final cards) => _cards(cards),
     GiveDragonAction(:final targetPlayerId) =>
@@ -247,8 +242,7 @@ Map<String, Object?> _row(
     'winner_is_me': s.deck.currentWinner == pid,
     'first_out_mine': first == null
         ? null
-        : s.players.firstWhere((final p) => p.id == first).seat % 2 ==
-              me.seat % 2,
+        : s.players.firstWhere((p) => p.id == first).seat % 2 == me.seat % 2,
     'wish': s.deck.wish.name,
     'actions': [for (final a in options) desc(a)],
     'values': values,

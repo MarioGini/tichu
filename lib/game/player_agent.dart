@@ -11,27 +11,27 @@ import 'package:tichu/game/scoring/score_tracker.dart';
 abstract class PlayerAgent {
   String get playerId;
 
-  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot);
+  Future<bool> shouldCallGrandTichu(GameSnapshot snapshot);
 
-  Future<bool> shouldCallTichu(final GameSnapshot snapshot);
+  Future<bool> shouldCallTichu(GameSnapshot snapshot);
 
   /// Whether to call Tichu during the schupf phase, before passing cards.
   /// Defaults to no.
-  Future<bool> shouldCallTichuBeforeSchupf(final GameSnapshot snapshot) async =>
+  Future<bool> shouldCallTichuBeforeSchupf(GameSnapshot snapshot) async =>
       false;
 
-  Future<SchupfAction> selectSchupfCards(final GameSnapshot snapshot);
+  Future<SchupfAction> selectSchupfCards(GameSnapshot snapshot);
 
-  Future<GameAction> selectTurn(final GameSnapshot snapshot);
+  Future<GameAction> selectTurn(GameSnapshot snapshot);
 
   /// Selects which opponent (seat index) receives the dragon trick.
-  int selectDragonGive(final GameSnapshot snapshot);
+  int selectDragonGive(GameSnapshot snapshot);
 
   /// Play-phase entry-point called by the backend.
   ///
   /// The default implementation evaluates a tichu call before delegating
   /// to [selectTurn].  Override for custom pre-turn logic.
-  Future<GameAction> selectAction(final GameSnapshot snapshot) async {
+  Future<GameAction> selectAction(GameSnapshot snapshot) async {
     final canCallTichu = snapshot.canCallTichuByPlayer[playerId] ?? false;
     final tichuCall =
         snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none;

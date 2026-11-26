@@ -37,7 +37,7 @@ class Card {
     : face = CardFace.phoenix,
       color = CardColor.special;
 
-  static double getValue(final CardFace cardFace) => switch (cardFace) {
+  static double getValue(CardFace cardFace) => switch (cardFace) {
     CardFace.mahJong => 1.0,
     CardFace.two => 2.0,
     CardFace.three => 3.0,
@@ -59,7 +59,7 @@ class Card {
   };
 
   @override
-  bool operator ==(final Object other) =>
+  bool operator ==(Object other) =>
       other is Card &&
       color == other.color &&
       face == other.face &&
@@ -70,7 +70,7 @@ class Card {
 }
 
 // Cards are sorted based on their value. This sorts in descending order.
-int compareCards(final Card a, final Card b) {
+int compareCards(Card a, Card b) {
   final valueComparison = b.value.compareTo(a.value);
   if (valueComparison != 0) {
     return valueComparison;
@@ -87,7 +87,7 @@ int compareCards(final Card a, final Card b) {
 /// Display rank for hand ordering — specials get fixed positions so the
 /// player sees them in a consistent, intuitive spot (dragon/phoenix high,
 /// mahjong low, dog lowest).
-int displayRank(final Card card) => switch (card.face) {
+int displayRank(Card card) => switch (card.face) {
   CardFace.dragon => 1000,
   CardFace.phoenix => 900,
   CardFace.mahJong => 0,
@@ -97,7 +97,7 @@ int displayRank(final Card card) => switch (card.face) {
 
 /// Sort comparator for hand display (descending by display rank, then color,
 /// then face). Use with [List.sort].
-int compareCardsForDisplay(final Card a, final Card b) {
+int compareCardsForDisplay(Card a, Card b) {
   final rankCmp = displayRank(b).compareTo(displayRank(a));
   if (rankCmp != 0) return rankCmp;
   final colorCmp = b.color.index.compareTo(a.color.index);
@@ -129,10 +129,10 @@ class TichuTurn {
 
   TichuTurn(this.type, this.cards) : value = getValue(type, cards);
 
-  // ignore: non_constant_identifier_names, prefer_constructors_over_static_methods, legacy sentinel API
-  static TichuTurn InvalidTurn() => TichuTurn(TurnType.none, const []);
+  /// No turn: an empty trick (type [TurnType.none]).
+  TichuTurn.invalid() : this(TurnType.none, const []);
 
-  static double getValue(final TurnType type, final List<Card> cards) {
+  static double getValue(TurnType type, List<Card> cards) {
     final sortedCards = [...cards]..sort(compareCards);
 
     return switch (type) {
@@ -147,7 +147,7 @@ class TichuTurn {
             : 20 + sortedCards.first.value,
       TurnType.fullHouse => () {
         final firstValueCount = sortedCards
-            .where((final card) => card.value == sortedCards.first.value)
+            .where((card) => card.value == sortedCards.first.value)
             .length;
         return firstValueCount == 3
             ? sortedCards.first.value
@@ -159,7 +159,7 @@ class TichuTurn {
   }
 
   @override
-  bool operator ==(final Object other) {
+  bool operator ==(Object other) {
     if (other is! TichuTurn) {
       return false;
     }
@@ -176,7 +176,7 @@ class TichuTurn {
   int get hashCode => type.index + value.toInt() * 10;
 }
 
-bool _listEquals<T>(final List<T> a, final List<T> b) {
+bool _listEquals<T>(List<T> a, List<T> b) {
   if (identical(a, b)) return true;
   if (a.length != b.length) return false;
   for (var i = 0; i < a.length; i++) {
@@ -185,7 +185,7 @@ bool _listEquals<T>(final List<T> a, final List<T> b) {
   return true;
 }
 
-int compareTurns(final TichuTurn a, final TichuTurn b) {
+int compareTurns(TichuTurn a, TichuTurn b) {
   if (a.value == b.value) {
     return 0;
   } else if (a.value > b.value) {
@@ -205,7 +205,6 @@ class DeckState {
 
   DeckState(this.turn, this.wish);
 
-  // ignore: non_constant_identifier_names, prefer_constructors_over_static_methods, legacy sentinel API
-  static DeckState Invalid() =>
-      DeckState(TichuTurn.InvalidTurn(), CardFace.none);
+  /// An empty trick with no wish.
+  DeckState.invalid() : this(TichuTurn.invalid(), CardFace.none);
 }

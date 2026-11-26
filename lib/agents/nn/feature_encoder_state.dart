@@ -63,7 +63,7 @@ extension _StateEncoding on FeatureEncoder {
   /// partner and the right opponent, one-hot over the 17 rank classes each
   /// (as in `unseen`). Only in the play phase: before the exchange is done
   /// the snapshot's selections are other players' pending choices.
-  void _encodeReceived(final Float64List f) {
+  void _encodeReceived(Float64List f) {
     if (snapshot.phase != GamePhase.play) return;
     final selections = snapshot.schupfSelections;
     for (var rel = 1; rel <= 3; rel++) {
@@ -86,7 +86,7 @@ extension _StateEncoding on FeatureEncoder {
   /// partner and the right opponent, one-hot over the 17 rank classes, as
   /// long as that player still holds it (e.g. "my partner has the Dragon I
   /// passed": my Aces are safe from it). Only in the play phase.
-  void _encodePassed(final Float64List f) {
+  void _encodePassed(Float64List f) {
     if (snapshot.phase != GamePhase.play) return;
     final pass = snapshot.schupfSelections[playerId];
     if (pass == null) return;
@@ -107,7 +107,7 @@ extension _StateEncoding on FeatureEncoder {
   /// in `unseen`), the lowest single and the lowest pair they passed on
   /// while one of their opponents was winning the trick (flag + value), and
   /// how often they passed on an opponent's trick.
-  void _encodeHistory(final Float64List f) {
+  void _encodeHistory(Float64List f) {
     final log = snapshot.roundLog;
     if (log.isEmpty) return;
     final teamOf = <String, int>{
@@ -151,7 +151,7 @@ extension _StateEncoding on FeatureEncoder {
     }
   }
 
-  void _encodeTrick(final Float64List f) {
+  void _encodeTrick(Float64List f) {
     final deck = snapshot.deck;
     final turn = deck.turn;
     const o = trickOffset;
@@ -180,7 +180,7 @@ extension _StateEncoding on FeatureEncoder {
       f[o + 9] = turn.cards.length / 14.0;
       f[o + 19] =
           turn.type == TurnType.single &&
-              turn.cards.any((final c) => c.face == CardFace.dragon)
+              turn.cards.any((c) => c.face == CardFace.dragon)
           ? 1.0
           : 0.0;
     }
@@ -197,11 +197,11 @@ extension _StateEncoding on FeatureEncoder {
     if (wish != CardFace.none) {
       f[o + 16] = 1.0;
       f[o + 17] = faceRank(wish) / 14.0;
-      f[o + 18] = _hand.any((final c) => c.face == wish) ? 1.0 : 0.0;
+      f[o + 18] = _hand.any((c) => c.face == wish) ? 1.0 : 0.0;
     }
   }
 
-  void _encodeSeats(final Float64List f) {
+  void _encodeSeats(Float64List f) {
     final score = snapshot.scoreState;
     final finishOrder = score.finishOrder;
     for (var rel = 1; rel <= 3; rel++) {
@@ -225,7 +225,7 @@ extension _StateEncoding on FeatureEncoder {
 
   /// Cards I schupfed to [otherId] that have not been played yet — these are
   /// known to still be in that player's hand.
-  int _knownPassedHeld(final String otherId) {
+  int _knownPassedHeld(String otherId) {
     final receipts =
         snapshot.schupfReceipts[otherId] ?? const <SchupfReceipt>[];
     var held = 0;
@@ -236,7 +236,7 @@ extension _StateEncoding on FeatureEncoder {
     return held;
   }
 
-  void _encodeSelf(final Float64List f) {
+  void _encodeSelf(Float64List f) {
     const o = selfOffset;
     final score = snapshot.scoreState;
     final myCall = score.tichuCalls[playerId] ?? TichuCall.none;

@@ -17,20 +17,19 @@ class GameMatchConnectionSnapshotDto {
   });
 
   factory GameMatchConnectionSnapshotDto.fromDomain(
-    final GameMatchConnectionSnapshot snapshot,
+    GameMatchConnectionSnapshot snapshot,
   ) => GameMatchConnectionSnapshotDto(
     state: snapshot.state.name,
     detail: snapshot.detail,
     updatedAt: snapshot.updatedAt?.toIso8601String(),
   );
 
-  factory GameMatchConnectionSnapshotDto.fromJson(
-    final Map<String, dynamic> json,
-  ) => GameMatchConnectionSnapshotDto(
-    state: json['state'] as String,
-    detail: json['detail'] as String?,
-    updatedAt: json['updatedAt'] as String?,
-  );
+  factory GameMatchConnectionSnapshotDto.fromJson(Map<String, dynamic> json) =>
+      GameMatchConnectionSnapshotDto(
+        state: json['state'] as String,
+        detail: json['detail'] as String?,
+        updatedAt: json['updatedAt'] as String?,
+      );
 
   Map<String, dynamic> toJson() => {
     'state': state,
@@ -65,18 +64,17 @@ class GameMatchViewDto {
     required this.snapshot,
   });
 
-  factory GameMatchViewDto.fromDomain(final GameMatchView view) =>
-      GameMatchViewDto(
-        lobbyId: view.lobbyId,
-        matchId: view.matchId,
-        selfPlayerId: view.selfPlayerId,
-        selfSeat: view.selfSeat,
-        revision: view.revision,
-        roundAcknowledgementRequired: view.roundAcknowledgementRequired,
-        snapshot: PlayerSnapshotDto.fromDomain(view.snapshot),
-      );
+  factory GameMatchViewDto.fromDomain(GameMatchView view) => GameMatchViewDto(
+    lobbyId: view.lobbyId,
+    matchId: view.matchId,
+    selfPlayerId: view.selfPlayerId,
+    selfSeat: view.selfSeat,
+    revision: view.revision,
+    roundAcknowledgementRequired: view.roundAcknowledgementRequired,
+    snapshot: PlayerSnapshotDto.fromDomain(view.snapshot),
+  );
 
-  factory GameMatchViewDto.fromJson(final Map<String, dynamic> json) =>
+  factory GameMatchViewDto.fromJson(Map<String, dynamic> json) =>
       GameMatchViewDto(
         lobbyId: json['lobbyId'] as String,
         matchId: json['matchId'] as String,
@@ -123,15 +121,14 @@ class GameActionSubmissionDto {
     required this.expectedRevision,
   });
 
-  factory GameActionSubmissionDto.fromDomain(
-    final GameActionSubmission submission,
-  ) => GameActionSubmissionDto(
-    clientActionId: submission.clientActionId,
-    action: GameActionDto.fromDomain(submission.action),
-    expectedRevision: submission.expectedRevision,
-  );
+  factory GameActionSubmissionDto.fromDomain(GameActionSubmission submission) =>
+      GameActionSubmissionDto(
+        clientActionId: submission.clientActionId,
+        action: GameActionDto.fromDomain(submission.action),
+        expectedRevision: submission.expectedRevision,
+      );
 
-  factory GameActionSubmissionDto.fromJson(final Map<String, dynamic> json) =>
+  factory GameActionSubmissionDto.fromJson(Map<String, dynamic> json) =>
       GameActionSubmissionDto(
         clientActionId: json['clientActionId'] as String,
         action: GameActionDto.fromJson(
@@ -166,20 +163,19 @@ class RoundSummaryAcknowledgementDto {
   });
 
   factory RoundSummaryAcknowledgementDto.fromDomain(
-    final RoundSummaryAcknowledgement acknowledgement,
+    RoundSummaryAcknowledgement acknowledgement,
   ) => RoundSummaryAcknowledgementDto(
     clientActionId: acknowledgement.clientActionId,
     roundNumber: acknowledgement.roundNumber,
     expectedRevision: acknowledgement.expectedRevision,
   );
 
-  factory RoundSummaryAcknowledgementDto.fromJson(
-    final Map<String, dynamic> json,
-  ) => RoundSummaryAcknowledgementDto(
-    clientActionId: json['clientActionId'] as String,
-    roundNumber: (json['roundNumber'] as num).toInt(),
-    expectedRevision: (json['expectedRevision'] as num?)?.toInt(),
-  );
+  factory RoundSummaryAcknowledgementDto.fromJson(Map<String, dynamic> json) =>
+      RoundSummaryAcknowledgementDto(
+        clientActionId: json['clientActionId'] as String,
+        roundNumber: (json['roundNumber'] as num).toInt(),
+        expectedRevision: (json['expectedRevision'] as num?)?.toInt(),
+      );
 
   Map<String, dynamic> toJson() => {
     'clientActionId': clientActionId,

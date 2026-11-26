@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -9,7 +10,7 @@ import 'package:tichu/game/turn/utils/engine/trick_resolution.dart';
 
 import '../../../../utils/test_game_fixtures.dart';
 
-Card _card(final CardFace face, final CardColor color) => Card(face, color);
+Card _card(CardFace face, CardColor color) => Card(face, color);
 
 class _FakeTurnHandler extends TurnHandler {
   final DeckState Function(DeckState, List<Card>, CardFace) builder;
@@ -18,17 +19,17 @@ class _FakeTurnHandler extends TurnHandler {
 
   @override
   DeckState handleTurn(
-    final DeckState currentDeck,
-    final List<Card> selectedCards,
-    final CardFace inputWish, {
-    final List<Card>? hand,
+    DeckState currentDeck,
+    List<Card> selectedCards,
+    CardFace inputWish, {
+    List<Card>? hand,
   }) => builder(currentDeck, selectedCards, inputWish);
 }
 
 GameEngineState _buildState({
-  final DeckState? deck,
-  final int currentPlayerIndex = 0,
-  final List<Card>? hand,
+  DeckState? deck,
+  int currentPlayerIndex = 0,
+  List<Card>? hand,
 }) {
   final state = GameEngineState(
     gameId: 'g1',
@@ -59,7 +60,7 @@ void main() {
     test('throws when cards are not in hand', () {
       final state = _buildState();
       final handler = _FakeTurnHandler(
-        (final deck, final cards, final wish) =>
+        (deck, cards, wish) =>
             DeckState(TichuTurn(TurnType.single, cards), wish),
       );
 
@@ -72,14 +73,14 @@ void main() {
           ),
           handler,
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
     test('throws when turn handler returns invalid turn', () {
       final state = _buildState();
       final handler = _FakeTurnHandler(
-        (final deck, final cards, final wish) => DeckState.Invalid(),
+        (deck, cards, wish) => DeckState.invalid(),
       );
 
       expect(
@@ -91,7 +92,7 @@ void main() {
           ),
           handler,
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -101,8 +102,7 @@ void main() {
         hand: [dog, _card(CardFace.five, CardColor.red)],
       );
       final handler = _FakeTurnHandler(
-        (final deck, final cards, final wish) =>
-            DeckState(TichuTurn(TurnType.dog, cards), wish),
+        (deck, cards, wish) => DeckState(TichuTurn(TurnType.dog, cards), wish),
       );
 
       applyPlayAction(
@@ -124,7 +124,7 @@ void main() {
 
       expect(
         () => applyPassAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -143,7 +143,7 @@ void main() {
 
       expect(
         () => applyPassAction(state, const PassAction(playerId: testHumanId)),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
     });
 
@@ -217,7 +217,7 @@ void main() {
             targetPlayerId: testOpponentLeftId,
           ),
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
 
       state.pendingDragonGiveBy = testHumanId;
@@ -237,7 +237,7 @@ void main() {
             targetPlayerId: testOpponentPartnerId,
           ),
         ),
-        throwsStateError,
+        throwsA(isA<IllegalActionException>()),
       );
 
       applyGiveDragonAction(

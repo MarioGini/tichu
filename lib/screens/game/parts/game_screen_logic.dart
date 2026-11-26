@@ -2,7 +2,7 @@ part of '../game_screen.dart';
 
 mixin _GameScreenHelpers on _GameScreenStateBase {
   @override
-  void _handleTurnEffects(final TichuTurn? previous, final TichuTurn? current) {
+  void _handleTurnEffects(TichuTurn? previous, TichuTurn? current) {
     if (current == null || previous == current) return;
     if (current.type == TurnType.dog) {
       unawaited(SoundEffects.playDog());
@@ -13,7 +13,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
   }
 
   @override
-  void _maybeAutoConfirmOpponentTurn(final PlayerSnapshot snapshot) {
+  void _maybeAutoConfirmOpponentTurn(PlayerSnapshot snapshot) {
     if (!snapshot.opponentAwaitingConfirmation) return;
     if (snapshot.scoreState.roundComplete) return;
     final pendingPlayer = snapshot.pendingOpponentPlayerId;
@@ -24,9 +24,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
       snapshot.gameId,
       pendingPlayer,
       snapshot.pendingOpponentPass.toString(),
-      snapshot.pendingOpponentCards
-          .map((final card) => card.hashCode)
-          .join(','),
+      snapshot.pendingOpponentCards.map((card) => card.hashCode).join(','),
     ].join('|');
 
     if (_lastAutoConfirmKey == pendingKey) return;
@@ -42,7 +40,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
   }
 
   @override
-  void _maybeAutoPass(final PlayerSnapshot snapshot) {
+  void _maybeAutoPass(PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
     if (!_autoPassEnabled) return;
     if (snapshot.phase != GamePhase.play) return;
@@ -75,7 +73,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
   }
 
   @override
-  void _maybeAutoSelectFinisher(final PlayerSnapshot snapshot) {
+  void _maybeAutoSelectFinisher(PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
     if (snapshot.scoreState.roundComplete) return;
     final shouldAutoSelect = _playController.shouldAutoSelectFinisher(
@@ -92,7 +90,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
     setState(() {
       _selectedIndexes
         ..clear()
-        ..addAll(List<int>.generate(_hand.length, (final index) => index));
+        ..addAll(List<int>.generate(_hand.length, (index) => index));
     });
   }
 
@@ -114,7 +112,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
   }
 
   @override
-  TichuTurn? _resolveSelectedTurn(final PlayerSnapshot snapshot) =>
+  TichuTurn? _resolveSelectedTurn(PlayerSnapshot snapshot) =>
       _playController.resolveSelectedTurn(
         snapshot: snapshot,
         selectedCards: _selectedCards(),
@@ -122,7 +120,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
       );
 
   @override
-  bool _canPlaySelected(final PlayerSnapshot snapshot) =>
+  bool _canPlaySelected(PlayerSnapshot snapshot) =>
       _playController.canPlaySelected(
         snapshot: snapshot,
         humanId: _humanId,
@@ -132,7 +130,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
       );
 
   @override
-  bool _canPlayAny(final PlayerSnapshot snapshot) => _playController.canPlayAny(
+  bool _canPlayAny(PlayerSnapshot snapshot) => _playController.canPlayAny(
     snapshot: snapshot,
     humanId: _humanId,
     hand: _hand,
@@ -140,7 +138,7 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
   );
 
   @override
-  bool _canPass(final PlayerSnapshot snapshot) => _playController.canPass(
+  bool _canPass(PlayerSnapshot snapshot) => _playController.canPass(
     snapshot: snapshot,
     humanId: _humanId,
     hand: _hand,
@@ -148,10 +146,9 @@ mixin _GameScreenHelpers on _GameScreenStateBase {
   );
 
   @override
-  void _showSnack(final String message) {
+  void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }

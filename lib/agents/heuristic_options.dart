@@ -17,7 +17,7 @@ class HeuristicOptions {
 
   /// Parses a comma list: `latest` (optional) and `weight:value` to override
   /// a `TurnScorer` weight, e.g. `latest,lowLeadPreference:4`.
-  factory HeuristicOptions.parse(final String spec) {
+  factory HeuristicOptions.parse(String spec) {
     final weights = <String, double>{};
     for (final raw in spec.split(',')) {
       final token = raw.trim();

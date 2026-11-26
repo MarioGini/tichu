@@ -2,7 +2,7 @@ part of '../game_screen.dart';
 
 mixin _GameScreenActions on _GameScreenStateBase {
   @override
-  void _toggleSelect(final int index) {
+  void _toggleSelect(int index) {
     if (!_isSelfManual) return;
     setState(() {
       _aiSuggestionSelectionOwned = false;

@@ -4,17 +4,16 @@ part of 'local_table_service.dart';
 /// (mixin) and private helpers (extensions) on top of it.
 abstract class _LocalTableBase {
   _LocalTableBase({
-    final LocalMatchRuntime Function()? runtimeFactory,
-    final GameEngine? projectionEngine,
-    final GameTableProjectionStore? projectionStore,
-    final AuthorityStateStore? stateStore,
-    final HeartbeatConfig heartbeatConfig = HeartbeatConfig.disabled,
+    LocalMatchRuntime Function()? runtimeFactory,
+    GameEngine? projectionEngine,
+    GameTableProjectionStore? projectionStore,
+    AuthorityStateStore? stateStore,
+    this._heartbeatConfig = HeartbeatConfig.disabled,
   }) : _runtimeFactory = runtimeFactory ?? LocalMatchRuntime.new,
        _projectionEngine = projectionEngine ?? GameEngineImpl(),
        _projectionStore =
            projectionStore ?? const NoopGameTableProjectionStore(),
-       _stateStore = stateStore ?? const NoopAuthorityStateStore(),
-       _heartbeatConfig = heartbeatConfig {
+       _stateStore = stateStore ?? const NoopAuthorityStateStore() {
     if (_heartbeatConfig.enabled) {
       _heartbeatSweepTimer = Timer.periodic(
         _heartbeatConfig.sweepInterval,

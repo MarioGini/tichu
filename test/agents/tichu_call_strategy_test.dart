@@ -9,15 +9,14 @@ void main() {
   const strategy = DefaultTichuCallStrategy();
 
   test('grand tichu needs strength 5 in the first eight cards', () async {
-    Card card(final CardFace f, [final CardColor c = CardColor.red]) =>
-        Card(f, c);
+    Card card(CardFace f, [CardColor c = CardColor.red]) => Card(f, c);
     final fillers = [
       card(CardFace.two),
       card(CardFace.three, CardColor.blue),
       card(CardFace.five, CardColor.green),
       card(CardFace.seven, CardColor.black),
     ];
-    Future<bool> call(final List<Card> strong) => strategy.shouldCallGrandTichu(
+    Future<bool> call(List<Card> strong) => strategy.shouldCallGrandTichu(
       aiSnapshot(myHand: [...strong, ...fillers].take(8).toList()),
       aiTestSelfId,
     );
@@ -119,7 +118,7 @@ void main() {
       Card(CardFace.three, CardColor.black),
       Card(CardFace.two, CardColor.black),
     ];
-    Set<CardFace> partnerFaces({required final bool extended}) => {
+    Set<CardFace> partnerFaces({required bool extended}) => {
       for (final (_, p, _) in SchupfFeatures.candidates(
         hand,
         extended: extended,

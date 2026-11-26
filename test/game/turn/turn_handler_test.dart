@@ -50,7 +50,7 @@ void main() {
         hand: hand,
       );
 
-      expect(updated.turn, TichuTurn.InvalidTurn());
+      expect(updated.turn, TichuTurn.invalid());
     });
 
     test('allows play when wish cannot be fulfilled', () {
@@ -72,7 +72,7 @@ void main() {
         hand: hand,
       );
 
-      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn, isNot(TichuTurn.invalid()));
     });
   });
 
@@ -96,7 +96,7 @@ void main() {
         hand: List<Card>.from(selected),
       );
 
-      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn, isNot(TichuTurn.invalid()));
       expect(updated.turn.type, TurnType.triplet);
     });
 
@@ -121,7 +121,7 @@ void main() {
         hand: List<Card>.from(selected),
       );
 
-      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn, isNot(TichuTurn.invalid()));
       expect(updated.turn.type, TurnType.fullHouse);
     });
 
@@ -143,7 +143,7 @@ void main() {
         hand: List<Card>.from(selected),
       );
 
-      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn, isNot(TichuTurn.invalid()));
       expect(updated.turn.type, TurnType.pair);
     });
   });
@@ -164,7 +164,7 @@ void main() {
         hand: List<Card>.from(selected),
       );
 
-      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn, isNot(TichuTurn.invalid()));
       expect(updated.turn.type, TurnType.single);
       expect(updated.turn.value, deck.turn.value + 0.5);
     });
@@ -184,18 +184,18 @@ void main() {
         hand: List<Card>.from(selected),
       );
 
-      expect(updated.turn, TichuTurn.InvalidTurn());
+      expect(updated.turn, TichuTurn.invalid());
     });
   });
   // Regression: checking whether the wish could be played on a straight,
   // pair straight or full house used to strip Dragon/Dog from the live hand.
   group('handleTurn does not mutate the hand', () {
     final handler = TurnHandler();
-    Card c(final CardFace face, final CardColor color) => Card(face, color);
+    Card c(CardFace face, CardColor color) => Card(face, color);
 
     void expectHandUnchanged({
-      required final TichuTurn deckTurn,
-      required final List<Card> play,
+      required TichuTurn deckTurn,
+      required List<Card> play,
     }) {
       final hand = <Card>[
         ...play,
@@ -212,7 +212,7 @@ void main() {
         hand: hand,
       );
 
-      expect(updated.turn, isNot(TichuTurn.InvalidTurn()));
+      expect(updated.turn, isNot(TichuTurn.invalid()));
       expect(hand, before);
     }
 

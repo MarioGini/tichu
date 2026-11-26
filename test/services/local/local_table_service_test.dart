@@ -3,6 +3,7 @@ import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_match.dart';
 import 'package:tichu/services/local/local_match_runtime.dart';
 import 'package:tichu/services/local/local_table_service.dart';
+import 'package:tichu/services/request_rejected_exception.dart';
 
 import 'local_table_fixtures.dart';
 
@@ -79,7 +80,7 @@ void main() {
             ),
             accessToken: nextPlayer.accessToken,
           ),
-          throwsStateError,
+          throwsA(isA<RequestRejectedException>()),
         );
       },
     );

@@ -24,23 +24,20 @@ typedef AgentFactory = PlayerAgent Function(String playerId);
 /// the local runtime stays focused on state progression.
 class AiTurnRunner {
   AiTurnRunner({
-    required final AgentFactory agentFactory,
-    final BeliefModel? belief,
-  }) : _agentFactory = agentFactory,
-       _belief = belief;
+    required this._engine,
+    required this._agentFactory,
+    this._belief,
+  });
 
+  /// The engine of the games this runner plays bots in (the runtime's).
+  final GameEngine _engine;
   final AgentFactory _agentFactory;
   final BeliefModel? _belief;
-
-  late GameEngine _engine;
-
-  // ignore: avoid_setters_without_getters, engine is write-only; set once by LocalMatchRuntime.
-  set engine(final GameEngine value) => _engine = value;
 
   /// Endgame search of bots configured with one (see `AppBots`). Rollouts
   /// use fresh bots from the factory for every seat (humans included).
   late final EndgameSearcher _endgameSearcher = EndgameSearcher(
-    rolloutAgent: (final playerId, final _) => _agentFactory(playerId),
+    rolloutAgent: (playerId, _) => _agentFactory(playerId),
     yieldBetweenRollouts: true,
     belief: _belief,
   );
@@ -52,11 +49,11 @@ class AiTurnRunner {
   final Set<String> _preSchupfDecided = {};
   Duration automatedActionDelay = const Duration(seconds: 1);
 
-  void addAgents(final Map<String, PlayerAgent> agents) =>
+  void addAgents(Map<String, PlayerAgent> agents) =>
       _automatedAgents.addAll(agents);
 
   /// Ensures every automated player has a registered agent.
-  void ensureAgents(final List<GamePlayer> players) {
+  void ensureAgents(List<GamePlayer> players) {
     for (final player in players) {
       if (player.type == PlayerType.automated &&
           !_automatedAgents.containsKey(player.id)) {
@@ -70,9 +67,9 @@ class AiTurnRunner {
   /// Calls [emitSnapshot] after each state-changing step so listeners see
   /// intermediate states.
   Future<void> runAutomatedPlayers(
-    final LocalGameState state, {
-    required final GameSnapshot Function() buildSnapshot,
-    required final void Function() emitSnapshot,
+    LocalGameState state, {
+    required GameSnapshot Function() buildSnapshot,
+    required void Function() emitSnapshot,
   }) async {
     if (state.engineState.scoreTracker.state.roundComplete) {
       return;
@@ -119,7 +116,7 @@ class AiTurnRunner {
     if (state.engineState.pendingDragonGiveBy != null) {
       final pendingId = state.engineState.pendingDragonGiveBy!;
       final pendingPlayer = state.engineState.players.firstWhere(
-        (final p) => p.id == pendingId,
+        (p) => p.id == pendingId,
       );
       if (pendingPlayer.type == PlayerType.automated) {
         await _autoResolveDragonGive(state, pendingId, buildSnapshot);
@@ -155,7 +152,6 @@ class AiTurnRunner {
       if (action != null) {
         final logLength = state.engineState.roundLog.length;
         action = await _endgameSearcher.refine(
-          engine: _engine,
           state: state.engineState,
           agent: agent,
           chosen: action,
@@ -194,8 +190,7 @@ class AiTurnRunner {
     }
   }
 
-  bool _isAutomated(final GamePlayer player) =>
-      player.type == PlayerType.automated;
+  bool _isAutomated(GamePlayer player) => player.type == PlayerType.automated;
 
   // ── Helpers ─────────────────────────────────────────────────────────
 

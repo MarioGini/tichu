@@ -7,7 +7,7 @@ import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/services/local/local_table_service.dart';
 
-Card card(final CardFace face, final CardColor color) => Card(face, color);
+Card card(CardFace face, CardColor color) => Card(face, color);
 
 final List<PlayerSeed> playerSeeds = <PlayerSeed>[
   const PlayerSeed('Host', 0),
@@ -25,9 +25,9 @@ class PlayerSeed {
 
 class StaticMultiplayerEngine implements GameEngine {
   GameEngineState buildState(
-    final String gameId,
-    final List<GamePlayer> players,
-    final int targetScore,
+    String gameId,
+    List<GamePlayer> players,
+    int targetScore,
   ) {
     final score = LocalScoreTracker(targetScore: targetScore)
       ..startNewRound(players);
@@ -51,13 +51,13 @@ class StaticMultiplayerEngine implements GameEngine {
 
   @override
   GameEngineState createGame({
-    required final String gameId,
-    required final List<GamePlayer> players,
-    final int targetScore = 1000,
+    required String gameId,
+    required List<GamePlayer> players,
+    int targetScore = 1000,
   }) => buildState(gameId, players, targetScore);
 
   @override
-  void startNewRound(final GameEngineState state) {
+  void startNewRound(GameEngineState state) {
     state.scoreTracker.startNewRound(state.players);
     state.currentPlayerIndex = 0;
     state.consecutivePasses = 0;
@@ -70,10 +70,10 @@ class StaticMultiplayerEngine implements GameEngine {
   }
 
   @override
-  void startGame(final GameEngineState state) {}
+  void startGame(GameEngineState state) {}
 
   @override
-  void applyAction(final GameEngineState state, final GameAction action) {
+  void applyAction(GameEngineState state, GameAction action) {
     switch (action) {
       case PlayTurnAction():
         final hand = state.hands[action.playerId] ?? <Card>[];
@@ -96,11 +96,11 @@ class StaticMultiplayerEngine implements GameEngine {
 
   @override
   GameSnapshot buildSnapshot(
-    final GameEngineState state, {
-    final String? pendingOpponentPlayerId,
-    final List<Card>? pendingOpponentCards,
-    final bool pendingOpponentPass = false,
-    final bool opponentAwaitingConfirmation = false,
+    GameEngineState state, {
+    String? pendingOpponentPlayerId,
+    List<Card>? pendingOpponentCards,
+    bool pendingOpponentPass = false,
+    bool opponentAwaitingConfirmation = false,
   }) => GameSnapshot(
     gameId: state.gameId,
     players: state.players,
@@ -133,63 +133,56 @@ class StaticMultiplayerEngine implements GameEngine {
   );
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) => PlayerSnapshot(
-    gameId: snapshot.gameId,
-    players: snapshot.players,
-    hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
-    opponentCardCounts: {
-      for (final player in snapshot.players)
-        if (player.id != playerId)
-          player.id: (snapshot.hands[player.id] ?? const <Card>[]).length,
-    },
-    deck: snapshot.deck,
-    trickPoints: snapshot.trickPoints,
-    activeWish: snapshot.activeWish,
-    currentPlayerId: snapshot.currentPlayerId,
-    consecutivePasses: snapshot.consecutivePasses,
-    lastPlayedBy: snapshot.lastPlayedBy,
-    lastPlayedTurn: snapshot.lastPlayedTurn,
-    lastDragonGiveBy: snapshot.lastDragonGiveBy,
-    lastDragonGiveTo: snapshot.lastDragonGiveTo,
-    pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
-    pendingDragonGiveTargets: List<String>.from(
-      snapshot.pendingDragonGiveTargets,
-    ),
-    pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
-    pendingOpponentCards: List<Card>.from(snapshot.pendingOpponentCards),
-    pendingOpponentPass: snapshot.pendingOpponentPass,
-    scoreState: snapshot.scoreState,
-    opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
-    phase: snapshot.phase,
-    grandTichuDecisions: const <String, bool>{},
-    schupfCompletedPlayers: const <String>[],
-    schupfReceipts: const <SchupfReceipt>[],
-  );
+  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId) =>
+      PlayerSnapshot(
+        gameId: snapshot.gameId,
+        players: snapshot.players,
+        hand: List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]),
+        opponentCardCounts: {
+          for (final player in snapshot.players)
+            if (player.id != playerId)
+              player.id: (snapshot.hands[player.id] ?? const <Card>[]).length,
+        },
+        deck: snapshot.deck,
+        trickPoints: snapshot.trickPoints,
+        activeWish: snapshot.activeWish,
+        currentPlayerId: snapshot.currentPlayerId,
+        consecutivePasses: snapshot.consecutivePasses,
+        lastPlayedBy: snapshot.lastPlayedBy,
+        lastPlayedTurn: snapshot.lastPlayedTurn,
+        lastDragonGiveBy: snapshot.lastDragonGiveBy,
+        lastDragonGiveTo: snapshot.lastDragonGiveTo,
+        pendingDragonGiveBy: snapshot.pendingDragonGiveBy,
+        pendingDragonGiveTargets: List<String>.from(
+          snapshot.pendingDragonGiveTargets,
+        ),
+        pendingOpponentPlayerId: snapshot.pendingOpponentPlayerId,
+        pendingOpponentCards: List<Card>.from(snapshot.pendingOpponentCards),
+        pendingOpponentPass: snapshot.pendingOpponentPass,
+        scoreState: snapshot.scoreState,
+        opponentAwaitingConfirmation: snapshot.opponentAwaitingConfirmation,
+        phase: snapshot.phase,
+        grandTichuDecisions: const <String, bool>{},
+        schupfCompletedPlayers: const <String>[],
+        schupfReceipts: const <SchupfReceipt>[],
+      );
 
   @override
-  bool hasPendingHumanSchupfReceipts(final GameEngineState state) => false;
+  bool hasPendingHumanSchupfReceipts(GameEngineState state) => false;
 
   @override
-  bool shouldPauseForAutomatedOpponent(
-    final GameEngineState state,
-    final String actorId,
-  ) => false;
+  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId) =>
+      false;
 
   @override
-  List<String> opponentIds(
-    final GameEngineState state,
-    final String playerId,
-  ) => <String>[
+  List<String> opponentIds(GameEngineState state, String playerId) => <String>[
     for (final player in state.players)
       if (player.id != playerId) player.id,
   ];
 }
 
 Future<List<GameSessionHandle>> createHumanTable(
-  final LocalGameTableService service,
+  LocalGameTableService service,
 ) async {
   final host = await service.createLobby(
     CreateGameLobbyRequest(displayName: playerSeeds.first.displayName),
@@ -233,7 +226,7 @@ Future<List<GameSessionHandle>> createHumanTable(
   await service.startMatch(host.lobbyId, accessToken: host.accessToken);
   final activeLobby = await service
       .watchLobby(host.lobbyId, accessToken: host.accessToken)
-      .firstWhere((final snapshot) => snapshot.matchId != null);
+      .firstWhere((snapshot) => snapshot.matchId != null);
 
   return [
     for (final handle in handles) handle.copyWith(matchId: activeLobby.matchId),

@@ -13,7 +13,7 @@ void main() {
     Size(1280, 800),
   ]) {
     testWidgets('home screen fits at ${size.width.toInt()}x'
-        '${size.height.toInt()}', (final tester) async {
+        '${size.height.toInt()}', (tester) async {
       tester.view
         ..physicalSize = size * 2
         ..devicePixelRatio = 2;
@@ -36,7 +36,7 @@ void main() {
 
   for (final size in const [Size(863, 360), Size(412, 839)]) {
     testWidgets('round summary with 12 rounds fits at '
-        '${size.width.toInt()}x${size.height.toInt()}', (final tester) async {
+        '${size.width.toInt()}x${size.height.toInt()}', (tester) async {
       tester.view
         ..physicalSize = size * 2
         ..devicePixelRatio = 2;
@@ -84,7 +84,7 @@ void main() {
         find.text('Start next round'),
         100,
         scrollable: find.byWidgetPredicate(
-          (final w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
         ),
       );
       expect(find.text('Start next round'), findsOneWidget);
@@ -92,7 +92,7 @@ void main() {
   }
 
   testWidgets('round summary labels teams from the local player view', (
-    final tester,
+    tester,
   ) async {
     await tester.pumpWidget(
       MaterialApp(

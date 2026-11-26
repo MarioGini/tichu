@@ -1,9 +1,10 @@
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-bool handContainsAll(final List<Card> hand, final List<Card> cards) {
+bool handContainsAll(List<Card> hand, List<Card> cards) {
   final temp = List<Card>.from(hand);
   for (final card in cards) {
-    final index = temp.indexWhere((final candidate) {
+    final index = temp.indexWhere((candidate) {
       if (card.face == CardFace.phoenix) {
         return candidate.face == CardFace.phoenix;
       }
@@ -17,9 +18,9 @@ bool handContainsAll(final List<Card> hand, final List<Card> cards) {
   return true;
 }
 
-void removeCardsFromHand(final List<Card> hand, final List<Card> cards) {
+void removeCardsFromHand(List<Card> hand, List<Card> cards) {
   for (final card in cards) {
-    final index = hand.indexWhere((final candidate) {
+    final index = hand.indexWhere((candidate) {
       if (card.face == CardFace.phoenix) {
         return candidate.face == CardFace.phoenix;
       }
@@ -31,13 +32,11 @@ void removeCardsFromHand(final List<Card> hand, final List<Card> cards) {
   }
 }
 
-(Card toLeft, Card toPartner, Card toRight) fallbackSchupf(
-  final List<Card> hand,
-) {
+(Card toLeft, Card toPartner, Card toRight) fallbackSchupf(List<Card> hand) {
   if (hand.length < 3) {
-    throw StateError('Not enough cards to schupf.');
+    throw const IllegalActionException('Not enough cards to schupf.');
   }
   final sorted = List<Card>.from(hand)
-    ..sort((final a, final b) => a.value.compareTo(b.value));
+    ..sort((a, b) => a.value.compareTo(b.value));
   return (sorted[0], sorted[1], sorted[2]);
 }

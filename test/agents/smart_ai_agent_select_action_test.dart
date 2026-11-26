@@ -10,45 +10,41 @@ import 'ai_test_fixtures.dart';
 class _AlwaysCallTichuStrategy implements TichuCallStrategy {
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async => false;
 
   const _AlwaysCallTichuStrategy();
 
   @override
   Future<bool> shouldCallGrandTichu(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async => false;
 
   @override
-  Future<bool> shouldCallTichu(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) async => true;
+  Future<bool> shouldCallTichu(GameSnapshot snapshot, String playerId) async =>
+      true;
 }
 
 class _NeverCallTichuStrategy implements TichuCallStrategy {
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async => false;
 
   const _NeverCallTichuStrategy();
 
   @override
   Future<bool> shouldCallGrandTichu(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async => false;
 
   @override
-  Future<bool> shouldCallTichu(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) async => false;
+  Future<bool> shouldCallTichu(GameSnapshot snapshot, String playerId) async =>
+      false;
 }
 
 void main() {

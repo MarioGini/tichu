@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-Card _card(final CardFace face, final CardColor color) => Card(face, color);
+Card _card(CardFace face, CardColor color) => Card(face, color);
 
 void main() {
   group('cardPoints map', () {

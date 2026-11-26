@@ -3,7 +3,7 @@ name = "tichu-rl"
 version = "0.1.0"
 description = "PyTorch RL training for Tichu AI"
 # The RL tooling is supported on Linux only (see [tool.uv] environments).
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
     "numpy>=2.5.4",
     "safetensors>=0.8.0",

@@ -62,9 +62,8 @@ class AppTheme {
   }
 
   static ThemeData get lightTheme {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: _seed,
-    ).copyWith(secondary: _accent, tertiary: const Color(0xFF3CB371));
+    final colorScheme = ColorScheme.fromSeed(seedColor: _seed)
+        .copyWith(secondary: _accent, tertiary: const Color(0xFF3CB371));
 
     return ThemeData(
       useMaterial3: true,
@@ -94,7 +93,7 @@ class AppTheme {
     );
   }
 
-  static TextTheme _baseTextTheme(final Brightness brightness) {
+  static TextTheme _baseTextTheme(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
     return TextTheme(
       headlineMedium: TextStyle(

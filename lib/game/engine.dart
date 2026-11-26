@@ -8,36 +8,30 @@ export 'engine_state.dart';
 
 abstract class GameEngine {
   GameEngineState createGame({
-    required final String gameId,
-    required final List<GamePlayer> players,
-    final int targetScore = 1000,
+    required String gameId,
+    required List<GamePlayer> players,
+    int targetScore = 1000,
   });
 
-  void startNewRound(final GameEngineState state);
+  void startNewRound(GameEngineState state);
 
-  void startGame(final GameEngineState state);
+  void startGame(GameEngineState state);
 
-  void applyAction(final GameEngineState state, final GameAction action);
+  void applyAction(GameEngineState state, GameAction action);
 
   GameSnapshot buildSnapshot(
-    final GameEngineState state, {
-    final String? pendingOpponentPlayerId,
-    final List<Card>? pendingOpponentCards,
-    final bool pendingOpponentPass = false,
-    final bool opponentAwaitingConfirmation = false,
+    GameEngineState state, {
+    String? pendingOpponentPlayerId,
+    List<Card>? pendingOpponentCards,
+    bool pendingOpponentPass = false,
+    bool opponentAwaitingConfirmation = false,
   });
 
-  PlayerSnapshot buildPlayerSnapshot(
-    final GameSnapshot snapshot,
-    final String playerId,
-  );
+  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId);
 
-  bool hasPendingHumanSchupfReceipts(final GameEngineState state);
+  bool hasPendingHumanSchupfReceipts(GameEngineState state);
 
-  bool shouldPauseForAutomatedOpponent(
-    final GameEngineState state,
-    final String actorId,
-  );
+  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId);
 
-  List<String> opponentIds(final GameEngineState state, final String playerId);
+  List<String> opponentIds(GameEngineState state, String playerId);
 }

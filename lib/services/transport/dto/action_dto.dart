@@ -28,7 +28,7 @@ class GameActionDto {
     this.toRight,
   });
 
-  factory GameActionDto.fromDomain(final GameAction action) => switch (action) {
+  factory GameActionDto.fromDomain(GameAction action) => switch (action) {
     PlayTurnAction() => GameActionDto(
       kind: 'playTurn',
       playerId: action.playerId,
@@ -74,18 +74,17 @@ class GameActionDto {
     ),
   };
 
-  factory GameActionDto.fromJson(final Map<String, dynamic> json) =>
-      GameActionDto(
-        kind: json['kind'] as String,
-        playerId: json['playerId'] as String,
-        cards: decodeMapList(json['cards']).map(CardDto.fromJson).toList(),
-        inputWish: json['inputWish'] as String?,
-        targetPlayerId: json['targetPlayerId'] as String?,
-        call: json['call'] as bool?,
-        toLeft: decodeNullableMap(json['toLeft'], CardDto.fromJson),
-        toPartner: decodeNullableMap(json['toPartner'], CardDto.fromJson),
-        toRight: decodeNullableMap(json['toRight'], CardDto.fromJson),
-      );
+  factory GameActionDto.fromJson(Map<String, dynamic> json) => GameActionDto(
+    kind: json['kind'] as String,
+    playerId: json['playerId'] as String,
+    cards: decodeMapList(json['cards']).map(CardDto.fromJson).toList(),
+    inputWish: json['inputWish'] as String?,
+    targetPlayerId: json['targetPlayerId'] as String?,
+    call: json['call'] as bool?,
+    toLeft: decodeNullableMap(json['toLeft'], CardDto.fromJson),
+    toPartner: decodeNullableMap(json['toPartner'], CardDto.fromJson),
+    toRight: decodeNullableMap(json['toRight'], CardDto.fromJson),
+  );
 
   Map<String, dynamic> toJson() => {
     'kind': kind,

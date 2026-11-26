@@ -13,9 +13,9 @@ extension _BcActionEncoding on _BcTransitionWriter {
     List<String> keys,
   })?
   _legalPlayActionFeatures({
-    required final GameSnapshot snapshot,
-    required final GameAction chosen,
-    final GameAction? shadow,
+    required GameSnapshot snapshot,
+    required GameAction chosen,
+    GameAction? shadow,
   }) {
     final (:legalTurns, :canPass) = _decisionActions(snapshot, chosen.playerId);
     final encoder = FeatureEncoder(
@@ -68,7 +68,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
   }
 
   /// Index of [action] among the legal-action [keys] (-1 when absent).
-  int _indexOf(final List<String> keys, final GameAction? action) {
+  int _indexOf(List<String> keys, GameAction? action) {
     if (action is PassAction) {
       return keys.indexOf('pass');
     }
@@ -79,8 +79,8 @@ extension _BcActionEncoding on _BcTransitionWriter {
   /// Human-readable position for analysis (`--describe`): cards as rank
   /// tokens, seats relative to the actor (L = next player, P, R).
   Map<String, Object?> _describePosition(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) {
     final table = TableRelationships(snapshot, playerId);
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
@@ -89,7 +89,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
       table.partnerId ?? '',
       table.playerBySeat(table.rightSeat()).id,
     ];
-    String rel(final String? id) {
+    String rel(String? id) {
       if (id == null || id.isEmpty) return '-';
       if (id == playerId) return 'me';
       final i = ids.indexOf(id);
@@ -134,13 +134,12 @@ extension _BcActionEncoding on _BcTransitionWriter {
     };
   }
 
-  String _tokens(final List<Card> cards) {
-    final sorted = [...cards]
-      ..sort((final a, final b) => _order(a).compareTo(_order(b)));
-    return sorted.map((final c) => _rankToken(c.face)).join(' ');
+  String _tokens(List<Card> cards) {
+    final sorted = [...cards]..sort((a, b) => _order(a).compareTo(_order(b)));
+    return sorted.map((c) => _rankToken(c.face)).join(' ');
   }
 
-  int _order(final Card c) => switch (c.face) {
+  int _order(Card c) => switch (c.face) {
     CardFace.dog => -1,
     CardFace.mahJong => 1,
     CardFace.phoenix => 15,
@@ -148,7 +147,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
     _ => faceRank(c.face),
   };
 
-  String _rankToken(final CardFace face) => switch (face) {
+  String _rankToken(CardFace face) => switch (face) {
     CardFace.dog => 'Dog',
     CardFace.mahJong => '1',
     CardFace.phoenix => 'Ph',
@@ -162,7 +161,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
     _ => '${faceRank(face)}',
   };
 
-  String _describe(final GameAction action) {
+  String _describe(GameAction action) {
     if (action is PassAction) return 'pass';
     if (action is! PlayTurnAction) return action.runtimeType.toString();
     final cards = [for (final c in action.cards) c.face.name]..sort();
@@ -171,7 +170,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
 
   /// Order-independent identity of a card set (phoenix matches by face, so
   /// its assigned value does not matter).
-  String _cardKey(final List<Card> cards) {
+  String _cardKey(List<Card> cards) {
     final slots = [for (final c in cards) cardSlot(c)]..sort();
     return slots.join(',');
   }
@@ -180,8 +179,8 @@ extension _BcActionEncoding on _BcTransitionWriter {
 /// The legal actions of [playerId]'s play-phase turn, in the order the net
 /// scores them: the wish-filtered legal turns (+ pass when legal).
 ({List<TichuTurn> legalTurns, bool canPass}) _decisionActions(
-  final GameSnapshot snapshot,
-  final String playerId,
+  GameSnapshot snapshot,
+  String playerId,
 ) {
   final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
   return (

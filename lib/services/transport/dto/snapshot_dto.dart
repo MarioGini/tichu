@@ -68,7 +68,7 @@ class PlayerSnapshotDto {
     required this.schupfReceipts,
   });
 
-  factory PlayerSnapshotDto.fromDomain(final PlayerSnapshot snapshot) =>
+  factory PlayerSnapshotDto.fromDomain(PlayerSnapshot snapshot) =>
       PlayerSnapshotDto(
         gameId: snapshot.gameId,
         players: [
@@ -111,12 +111,12 @@ class PlayerSnapshotDto {
       );
 
   factory PlayerSnapshotDto.fromJson(
-    final Map<String, dynamic> json,
+    Map<String, dynamic> json,
   ) => PlayerSnapshotDto(
     gameId: json['gameId'] as String,
-    players: decodeMapList(
-      json['players'],
-    ).map(GamePlayerDto.fromJson).toList(),
+    players: decodeMapList(json['players'])
+        .map(GamePlayerDto.fromJson)
+        .toList(),
     hand: decodeMapList(json['hand']).map(CardDto.fromJson).toList(),
     opponentCardCounts: decodeIntMap(json['opponentCardCounts']),
     deck: DeckStateDto.fromJson(Map<String, dynamic>.from(json['deck'] as Map)),
@@ -136,9 +136,9 @@ class PlayerSnapshotDto {
       json['pendingDragonGiveTargets'],
     ),
     pendingOpponentPlayerId: json['pendingOpponentPlayerId'] as String?,
-    pendingOpponentCards: decodeMapList(
-      json['pendingOpponentCards'],
-    ).map(CardDto.fromJson).toList(),
+    pendingOpponentCards: decodeMapList(json['pendingOpponentCards'])
+        .map(CardDto.fromJson)
+        .toList(),
     pendingOpponentPass: json['pendingOpponentPass'] as bool? ?? false,
     scoreState: ScoreStateDto.fromJson(
       Map<String, dynamic>.from(json['scoreState'] as Map),
@@ -151,9 +151,9 @@ class PlayerSnapshotDto {
     canBomb: json['canBomb'] as bool? ?? false,
     grandTichuDecisions: decodeBoolMap(json['grandTichuDecisions']),
     schupfCompletedPlayers: decodeStringList(json['schupfCompletedPlayers']),
-    schupfReceipts: decodeMapList(
-      json['schupfReceipts'],
-    ).map(SchupfReceiptDto.fromJson).toList(),
+    schupfReceipts: decodeMapList(json['schupfReceipts'])
+        .map(SchupfReceiptDto.fromJson)
+        .toList(),
   );
 
   Map<String, dynamic> toJson() => {

@@ -4,10 +4,10 @@ import 'package:tichu/game/turn/wish_logic.dart';
 
 abstract class WishStrategy {
   CardFace selectWish(
-    final GameSnapshot snapshot,
-    final List<Card> hand,
-    final DeckState deck, {
-    final CardFace? preferredFace,
+    GameSnapshot snapshot,
+    List<Card> hand,
+    DeckState deck, {
+    CardFace? preferredFace,
   });
 }
 
@@ -16,10 +16,10 @@ class DefaultWishStrategy implements WishStrategy {
 
   @override
   CardFace selectWish(
-    final GameSnapshot snapshot,
-    final List<Card> hand,
-    final DeckState deck, {
-    final CardFace? preferredFace,
+    GameSnapshot snapshot,
+    List<Card> hand,
+    DeckState deck, {
+    CardFace? preferredFace,
   }) {
     if (preferredFace != null && isWishableFace(preferredFace)) {
       return preferredFace;
@@ -34,7 +34,7 @@ class DefaultWishStrategy implements WishStrategy {
     ];
 
     for (final face in highCards) {
-      if (!hand.any((final c) => c.face == face)) {
+      if (!hand.any((c) => c.face == face)) {
         return face;
       }
     }

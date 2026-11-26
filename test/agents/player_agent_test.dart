@@ -13,13 +13,13 @@ class _FakeAgent extends PlayerAgent {
   _FakeAgent(this.playerId);
 
   @override
-  Future<bool> shouldCallGrandTichu(final GameSnapshot snapshot) async => false;
+  Future<bool> shouldCallGrandTichu(GameSnapshot snapshot) async => false;
 
   @override
-  Future<bool> shouldCallTichu(final GameSnapshot snapshot) async => false;
+  Future<bool> shouldCallTichu(GameSnapshot snapshot) async => false;
 
   @override
-  Future<SchupfAction> selectSchupfCards(final GameSnapshot snapshot) async {
+  Future<SchupfAction> selectSchupfCards(GameSnapshot snapshot) async {
     final hand = snapshot.hands[playerId]!;
     return SchupfAction(
       playerId: playerId,
@@ -30,11 +30,11 @@ class _FakeAgent extends PlayerAgent {
   }
 
   @override
-  Future<GameAction> selectTurn(final GameSnapshot snapshot) async =>
+  Future<GameAction> selectTurn(GameSnapshot snapshot) async =>
       PassAction(playerId: playerId);
 
   @override
-  int selectDragonGive(final GameSnapshot snapshot) => 1;
+  int selectDragonGive(GameSnapshot snapshot) => 1;
 }
 
 void main() {

@@ -25,19 +25,18 @@ class GameLobbySeatSnapshotDto {
     required this.isConnected,
   });
 
-  factory GameLobbySeatSnapshotDto.fromDomain(
-    final GameLobbySeatSnapshot snapshot,
-  ) => GameLobbySeatSnapshotDto(
-    seat: snapshot.seat,
-    state: snapshot.state.name,
-    type: snapshot.type.name,
-    playerId: snapshot.playerId,
-    displayName: snapshot.displayName,
-    isReady: snapshot.isReady,
-    isConnected: snapshot.isConnected,
-  );
+  factory GameLobbySeatSnapshotDto.fromDomain(GameLobbySeatSnapshot snapshot) =>
+      GameLobbySeatSnapshotDto(
+        seat: snapshot.seat,
+        state: snapshot.state.name,
+        type: snapshot.type.name,
+        playerId: snapshot.playerId,
+        displayName: snapshot.displayName,
+        isReady: snapshot.isReady,
+        isConnected: snapshot.isConnected,
+      );
 
-  factory GameLobbySeatSnapshotDto.fromJson(final Map<String, dynamic> json) =>
+  factory GameLobbySeatSnapshotDto.fromJson(Map<String, dynamic> json) =>
       GameLobbySeatSnapshotDto(
         seat: (json['seat'] as num).toInt(),
         state: json['state'] as String,
@@ -99,7 +98,7 @@ class GameLobbySnapshotDto {
     required this.seats,
   });
 
-  factory GameLobbySnapshotDto.fromDomain(final GameLobbySnapshot snapshot) =>
+  factory GameLobbySnapshotDto.fromDomain(GameLobbySnapshot snapshot) =>
       GameLobbySnapshotDto(
         lobbyId: snapshot.lobbyId,
         joinCode: snapshot.joinCode,
@@ -118,7 +117,7 @@ class GameLobbySnapshotDto {
         ],
       );
 
-  factory GameLobbySnapshotDto.fromJson(final Map<String, dynamic> json) =>
+  factory GameLobbySnapshotDto.fromJson(Map<String, dynamic> json) =>
       GameLobbySnapshotDto(
         lobbyId: json['lobbyId'] as String,
         joinCode: json['joinCode'] as String?,
@@ -131,9 +130,9 @@ class GameLobbySnapshotDto {
         visibility: (json['visibility'] as String?) ?? 'public',
         canStart: json['canStart'] as bool? ?? false,
         isLocalPlayerHost: json['isLocalPlayerHost'] as bool? ?? false,
-        seats: decodeMapList(
-          json['seats'],
-        ).map(GameLobbySeatSnapshotDto.fromJson).toList(),
+        seats: decodeMapList(json['seats'])
+            .map(GameLobbySeatSnapshotDto.fromJson)
+            .toList(),
       );
 
   Map<String, dynamic> toJson() => {
@@ -187,7 +186,7 @@ class GameLobbyListEntryDto {
     required this.totalSeats,
   });
 
-  factory GameLobbyListEntryDto.fromDomain(final GameLobbyListEntry entry) =>
+  factory GameLobbyListEntryDto.fromDomain(GameLobbyListEntry entry) =>
       GameLobbyListEntryDto(
         lobbyId: entry.lobbyId,
         gameName: entry.gameName,
@@ -198,7 +197,7 @@ class GameLobbyListEntryDto {
         totalSeats: entry.totalSeats,
       );
 
-  factory GameLobbyListEntryDto.fromJson(final Map<String, dynamic> json) =>
+  factory GameLobbyListEntryDto.fromJson(Map<String, dynamic> json) =>
       GameLobbyListEntryDto(
         lobbyId: json['lobbyId'] as String,
         gameName: (json['gameName'] as String?) ?? '',

@@ -3,9 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:tichu/screens/game/widgets/game_board.dart';
 
 void main() {
-  testWidgets('uses same size for top and side opponent areas', (
-    final tester,
-  ) async {
+  testWidgets('uses same size for top and side opponent areas', (tester) async {
     const topKey = Key('top-area');
     const leftKey = Key('left-area');
     const rightKey = Key('right-area');
@@ -39,7 +37,7 @@ void main() {
   });
 
   testWidgets('uses larger trick square than side player areas', (
-    final tester,
+    tester,
   ) async {
     const leftKey = Key('left-area');
     const centerKey = Key('center-area');
@@ -74,7 +72,7 @@ void main() {
   });
 
   testWidgets('scales on compact layout and keeps opponent sizes equal', (
-    final tester,
+    tester,
   ) async {
     const topKey = Key('top-compact');
     const leftKey = Key('left-compact');

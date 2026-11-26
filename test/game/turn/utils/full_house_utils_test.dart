@@ -34,8 +34,7 @@ void main() {
       expect(turns.first.type, TurnType.fullHouse);
       expect(
         turns.first.cards.any(
-          (final card) =>
-              card.face == CardFace.dragon || card.face == CardFace.dog,
+          (card) => card.face == CardFace.dragon || card.face == CardFace.dog,
         ),
         false,
       );
@@ -54,16 +53,13 @@ void main() {
       final turns = getFullHouses(cards);
 
       expect(turns.length, 2);
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       expect(
-        turns.every((final turn) => turn.type == TurnType.fullHouse),
+        turns.any((turn) => turn.value == Card.getValue(CardFace.two)),
         true,
       );
       expect(
-        turns.any((final turn) => turn.value == Card.getValue(CardFace.two)),
-        true,
-      );
-      expect(
-        turns.any((final turn) => turn.value == Card.getValue(CardFace.five)),
+        turns.any((turn) => turn.value == Card.getValue(CardFace.five)),
         true,
       );
     });
@@ -81,25 +77,20 @@ void main() {
       final turns = getFullHouses(cards);
 
       expect(turns.length, 2);
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       expect(
-        turns.every((final turn) => turn.type == TurnType.fullHouse),
-        true,
-      );
-      expect(
-        turns.every((final turn) => turn.value == Card.getValue(CardFace.two)),
+        turns.every((turn) => turn.value == Card.getValue(CardFace.two)),
         true,
       );
       expect(
         turns.any(
-          (final turn) =>
-              turn.cards.any((final card) => card.face == CardFace.five),
+          (turn) => turn.cards.any((card) => card.face == CardFace.five),
         ),
         true,
       );
       expect(
         turns.any(
-          (final turn) =>
-              turn.cards.any((final card) => card.face == CardFace.seven),
+          (turn) => turn.cards.any((card) => card.face == CardFace.seven),
         ),
         true,
       );
@@ -118,24 +109,15 @@ void main() {
       final turns = getFullHouses(cards);
 
       expect(turns.length, 6);
-      expect(
-        turns.every((final turn) => turn.type == TurnType.fullHouse),
-        true,
-      );
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       final sevenFullHouseCount = turns
-          .where(
-            (final element) => element.value == Card.getValue(CardFace.seven),
-          )
+          .where((element) => element.value == Card.getValue(CardFace.seven))
           .length;
       final fiveFullHouseCount = turns
-          .where(
-            (final element) => element.value == Card.getValue(CardFace.five),
-          )
+          .where((element) => element.value == Card.getValue(CardFace.five))
           .length;
       final twoFullHouseCount = turns
-          .where(
-            (final element) => element.value == Card.getValue(CardFace.two),
-          )
+          .where((element) => element.value == Card.getValue(CardFace.two))
           .length;
       expect(sevenFullHouseCount, 2);
       expect(fiveFullHouseCount, 2);
@@ -155,19 +137,12 @@ void main() {
       final turns = getFullHouses(cards);
 
       expect(turns.length, 3);
-      expect(
-        turns.every((final turn) => turn.type == TurnType.fullHouse),
-        true,
-      );
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       final fiveFullHouseCount = turns
-          .where(
-            (final element) => element.value == Card.getValue(CardFace.five),
-          )
+          .where((element) => element.value == Card.getValue(CardFace.five))
           .length;
       final twoFullHouseCount = turns
-          .where(
-            (final element) => element.value == Card.getValue(CardFace.two),
-          )
+          .where((element) => element.value == Card.getValue(CardFace.two))
           .length;
       expect(fiveFullHouseCount, 1);
       expect(twoFullHouseCount, 2);
@@ -186,27 +161,24 @@ void main() {
       final turns = getFullHouses(cards);
 
       expect(turns.length, 2);
+      expect(turns.every((turn) => turn.type == TurnType.fullHouse), true);
       expect(
-        turns.every((final turn) => turn.type == TurnType.fullHouse),
-        true,
-      );
-      expect(
-        turns.every((final turn) => turn.value == Card.getValue(CardFace.two)),
+        turns.every((turn) => turn.value == Card.getValue(CardFace.two)),
         true,
       );
       expect(
         turns.any(
-          (final turn) =>
-              turn.cards.any((final card) => card.face == CardFace.phoenix) &&
-              turn.cards.any((final card) => card.face == CardFace.five),
+          (turn) =>
+              turn.cards.any((card) => card.face == CardFace.phoenix) &&
+              turn.cards.any((card) => card.face == CardFace.five),
         ),
         true,
       );
       expect(
         turns.any(
-          (final turn) =>
-              turn.cards.any((final card) => card.face == CardFace.phoenix) &&
-              turn.cards.any((final card) => card.face == CardFace.seven),
+          (turn) =>
+              turn.cards.any((card) => card.face == CardFace.phoenix) &&
+              turn.cards.any((card) => card.face == CardFace.seven),
         ),
         true,
       );
@@ -232,10 +204,9 @@ void main() {
       }
       expect(
         turns.any(
-          (final t) =>
-              t.cards.where((final c) => c.face == CardFace.eight).length ==
-                  3 &&
-              t.cards.where((final c) => c.face == CardFace.four).length == 2,
+          (t) =>
+              t.cards.where((c) => c.face == CardFace.eight).length == 3 &&
+              t.cards.where((c) => c.face == CardFace.four).length == 2,
         ),
         isTrue,
       );

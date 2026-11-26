@@ -5,18 +5,14 @@ abstract base class _SupabaseServiceBase {
   static const String _matchViewTable = 'tichu_match_player_views';
   static const String _connectionViewTable = 'tichu_match_connection_views';
 
-  _SupabaseServiceBase({
-    required final SupabaseClient client,
-    required final SupabaseMultiplayerConfig config,
-  }) : _client = client,
-       _config = config;
+  _SupabaseServiceBase({required this._client, required this._config});
 
   final SupabaseClient _client;
   final SupabaseMultiplayerConfig _config;
 
   Future<Map<String, dynamic>> invokeJson(
-    final String action, {
-    final Map<String, dynamic>? body,
+    String action, {
+    Map<String, dynamic>? body,
   }) async {
     final response = await _client.functions.invoke(
       _config.functionName,
@@ -25,10 +21,7 @@ abstract base class _SupabaseServiceBase {
     return _normalizeMap(response.data);
   }
 
-  Future<void> invokeVoid(
-    final String action, {
-    final Map<String, dynamic>? body,
-  }) async {
+  Future<void> invokeVoid(String action, {Map<String, dynamic>? body}) async {
     await _client.functions.invoke(
       _config.functionName,
       body: _buildFunctionBody(action, body),
@@ -36,15 +29,15 @@ abstract base class _SupabaseServiceBase {
   }
 
   Map<String, dynamic> _buildFunctionBody(
-    final String action,
-    final Map<String, dynamic>? body,
+    String action,
+    Map<String, dynamic>? body,
   ) => <String, dynamic>{'action': action, ...?body};
 
   Future<Map<String, dynamic>?> loadProjectedPayload({
-    required final String table,
-    required final String scopeColumn,
-    required final String scopeValue,
-    required final String accessToken,
+    required String table,
+    required String scopeColumn,
+    required String scopeValue,
+    required String accessToken,
   }) async {
     try {
       final response = await _client
@@ -70,30 +63,33 @@ abstract base class _SupabaseServiceBase {
   }
 
   Stream<T> watchProjectedValue<T>({
-    required final String channelTopic,
-    required final String table,
-    required final String scopeColumn,
-    required final String scopeValue,
-    required final Future<T?> Function() loadProjectedValue,
-    required final Future<T> Function() loadFallbackValue,
-    required final String Function(T value) signatureOf,
-    final T? seedValue,
-    final void Function(
-      StreamController<T> controller,
+    required String channelTopic,
+    required String table,
+    required String scopeColumn,
+    required String scopeValue,
+    required Future<T?> Function() loadProjectedValue,
+    required Future<T> Function() loadFallbackValue,
+    required String Function(T value) signatureOf,
+    T? seedValue,
+    void Function(
+      void Function(T value) emit,
       RealtimeSubscribeStatus status,
       Object? error,
     )?
     onStatus,
-    final Future<void> Function(StreamController<T> controller)?
-    onProjectionMiss,
+    Future<void> Function(void Function(T value) emit)? onProjectionMiss,
   }) {
-    // Closed by the subscriber via onCancel; the stream is returned.
-    // ignore: close_sinks
     final controller = StreamController<T>();
     RealtimeChannel? channel;
     String? previousSignature;
 
-    Future<void> emitIfChanged(final T value) async {
+    /// Adds [value] unless the subscriber has cancelled (callbacks can
+    /// still run after that, e.g. once an await returns).
+    void emit(T value) {
+      if (!controller.isClosed) controller.add(value);
+    }
+
+    Future<void> emitIfChanged(T value) async {
       if (controller.isClosed) {
         return;
       }
@@ -105,7 +101,7 @@ abstract base class _SupabaseServiceBase {
       controller.add(value);
     }
 
-    Future<void> emitCurrent({required final bool allowFallback}) async {
+    Future<void> emitCurrent({required bool allowFallback}) async {
       try {
         final projectedValue = await loadProjectedValue();
         if (projectedValue != null) {
@@ -114,7 +110,7 @@ abstract base class _SupabaseServiceBase {
         }
         if (!allowFallback) {
           if (onProjectionMiss != null) {
-            await onProjectionMiss(controller);
+            await onProjectionMiss(emit);
           }
           return;
         }
@@ -147,12 +143,12 @@ abstract base class _SupabaseServiceBase {
               unawaited(emitCurrent(allowFallback: false));
             },
           )
-          .subscribe((final status, final error) {
+          .subscribe((status, error) {
             if (status == RealtimeSubscribeStatus.subscribed) {
               unawaited(emitCurrent(allowFallback: true));
             }
             if (onStatus != null) {
-              onStatus(controller, status, error);
+              onStatus(emit, status, error);
             }
           });
     };
@@ -162,12 +158,13 @@ abstract base class _SupabaseServiceBase {
       if (activeChannel != null) {
         await _client.removeChannel(activeChannel);
       }
+      await controller.close();
     };
 
     return controller.stream;
   }
 
-  Map<String, dynamic> _normalizeMap(final Object? raw) {
+  Map<String, dynamic> _normalizeMap(Object? raw) {
     final normalized = switch (raw) {
       final String text => jsonDecode(text),
       _ => jsonDecode(jsonEncode(raw)),
@@ -180,8 +177,8 @@ abstract base class _SupabaseServiceBase {
 
   /// Mirrors [source] and sends a heartbeat every 15 s while listened to.
   Stream<T> withHeartbeat<T>({
-    required final Stream<T> Function() source,
-    required final Map<String, dynamic> heartbeatBody,
+    required Stream<T> Function() source,
+    required Map<String, dynamic> heartbeatBody,
   }) {
     final controller = StreamController<T>();
     Timer? heartbeatTimer;

@@ -68,7 +68,7 @@ mixin _GameScreenInput on _GameScreenStateBase {
 
   /// Returns the list of hand cards not yet assigned to a schupf slot,
   /// or `null` if schupf cursor navigation is not applicable.
-  List<Card>? _schupfAvailableCards(final PlayerSnapshot snapshot) {
+  List<Card>? _schupfAvailableCards(PlayerSnapshot snapshot) {
     final isSchupfActive =
         snapshot.phase == GamePhase.schupf &&
         !snapshot.schupfCompletedPlayers.contains(_humanId);
@@ -84,15 +84,13 @@ mixin _GameScreenInput on _GameScreenStateBase {
     final selectedCards = <Card>{
       ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
     };
-    final available = _hand
-        .where((final c) => !selectedCards.contains(c))
-        .toList();
+    final available = _hand.where((c) => !selectedCards.contains(c)).toList();
     return available.isEmpty ? null : available;
   }
 
   /// Assigns the card under the schupf cursor to the next empty slot.
   /// Returns `true` if the event was handled.
-  bool _trySchupfCursorAssign(final PlayerSnapshot snapshot) {
+  bool _trySchupfCursorAssign(PlayerSnapshot snapshot) {
     final isSchupfActive =
         snapshot.phase == GamePhase.schupf &&
         !snapshot.schupfCompletedPlayers.contains(_humanId);
@@ -127,7 +125,7 @@ mixin _GameScreenInput on _GameScreenStateBase {
   }
 
   /// Moves the schupf cursor by [delta] (-1 = left, +1 = right).
-  void _moveSchupfCursor(final PlayerSnapshot snapshot, final int delta) {
+  void _moveSchupfCursor(PlayerSnapshot snapshot, int delta) {
     final available = _schupfAvailableCards(snapshot);
     if (available == null) return;
 
@@ -138,7 +136,7 @@ mixin _GameScreenInput on _GameScreenStateBase {
   }
 
   @override
-  void _setSchupfSlot(final SchupfSlot slot, final Card card) {
+  void _setSchupfSlot(SchupfSlot slot, Card card) {
     setState(() {
       if (_schupfToLeft == card) _schupfToLeft = null;
       if (_schupfToPartner == card) _schupfToPartner = null;
@@ -161,7 +159,7 @@ mixin _GameScreenInput on _GameScreenStateBase {
   }
 
   @override
-  void _clearSchupfSlot(final SchupfSlot slot) {
+  void _clearSchupfSlot(SchupfSlot slot) {
     setState(() {
       switch (slot) {
         case SchupfSlot.left:
@@ -180,7 +178,7 @@ mixin _GameScreenInput on _GameScreenStateBase {
   }
 
   @override
-  void _syncSchupfCursor({required final bool defaultToRightMost}) {
+  void _syncSchupfCursor({required bool defaultToRightMost}) {
     if (!_hasKeyboardForSchupf) {
       _schupfCursorIndex = null;
       return;
@@ -197,9 +195,7 @@ mixin _GameScreenInput on _GameScreenStateBase {
     final selectedCards = <Card>{
       ...[_schupfToLeft, _schupfToPartner, _schupfToRight].whereType<Card>(),
     };
-    final available = _hand
-        .where((final c) => !selectedCards.contains(c))
-        .length;
+    final available = _hand.where((c) => !selectedCards.contains(c)).length;
     if (available == 0) {
       _schupfCursorIndex = null;
       return;

@@ -5,11 +5,11 @@ import 'package:tichu/agents/endgame_solver.dart';
 import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
-import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 /// Settings of the decision-time endgame search (see [EndgameSearcher]).
@@ -65,11 +65,7 @@ class EndgameSearch {
 /// with the highest mean advantage. Null values (not rolled out, stuck)
 /// make an action ineligible; a world where [chosen] is null keeps
 /// [chosen].
-int pickEndgameAction(
-  final List<List<double?>> values,
-  final int chosen,
-  final double margin,
-) {
+int pickEndgameAction(List<List<double?>> values, int chosen, double margin) {
   if (values.isEmpty) return chosen;
   final count = values.first.length;
   var best = chosen;
@@ -111,17 +107,16 @@ int pickEndgameAction(
 /// proportion to that probability times the room left in their hand,
 /// instead of uniformly: the world reflects what the play revealed.
 GameEngineState redealWorld(
-  final GameEngineState state,
-  final String actorId,
-  final Random random, {
-  final bool canonicalPool = true,
-  final List<List<double>>? holders,
+  GameEngineState state,
+  String actorId,
+  Random random, {
+  bool canonicalPool = true,
+  List<List<double>>? holders,
 }) {
   final world = state.copy();
-  final actor = world.players.firstWhere((final p) => p.id == actorId);
-  String idAt(final int offset) => world.players
-      .firstWhere((final p) => p.seat == (actor.seat + offset) % 4)
-      .id;
+  final actor = world.players.firstWhere((p) => p.id == actorId);
+  String idAt(int offset) =>
+      world.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
   final pass = world.completedSchupfSelections[actorId];
   final pinned = <String, List<Card>>{};
   if (pass != null) {
@@ -133,7 +128,7 @@ GameEngineState redealWorld(
       final id = idAt(offset);
       final hand = world.hands[id] ?? const <Card>[];
       final i = hand.indexWhere(
-        (final c) => c.face == card.face && c.color == card.color,
+        (c) => c.face == card.face && c.color == card.color,
       );
       if (i >= 0) (pinned[id] ??= []).add(hand[i]);
     }
@@ -146,11 +141,11 @@ GameEngineState redealWorld(
   for (final id in others) {
     final keep = pinned[id] ?? const <Card>[];
     for (final c in world.hands[id]!) {
-      if (!keep.any((final k) => identical(k, c))) pool.add(c);
+      if (!keep.any((k) => identical(k, c))) pool.add(c);
     }
   }
   if (canonicalPool) {
-    pool.sort((final a, final b) => cardSlot(a).compareTo(cardSlot(b)));
+    pool.sort((a, b) => cardSlot(a).compareTo(cardSlot(b)));
   }
   pool.shuffle(random);
   if (holders != null) {
@@ -204,38 +199,6 @@ GameEngineState redealWorld(
   return world;
 }
 
-/// Play [fork] to the end of the round with [agents]; returns team one's
-/// round points minus team two's, or null when the playout got stuck.
-Future<int?> playOutRound(
-  final GameEngine engine,
-  final GameEngineState fork,
-  final Map<String, PlayerAgent> agents,
-) async {
-  for (var steps = 0; steps < 5000; steps++) {
-    final score = fork.scoreTracker.state;
-    if (score.roundComplete) return score.teamOneRound - score.teamTwoRound;
-    final request = AgentDecisions.next(engine, fork);
-    if (request == null) return null;
-    final snap = engine.buildSnapshot(fork);
-    GameAction? action;
-    try {
-      action = await AgentDecisions.resolve(
-        request,
-        agents[request.playerId]!,
-        snap,
-        fork,
-      );
-      // Agents signal "no legal action" with StateError.
-      // ignore: avoid_catching_errors
-    } on StateError {
-      return null;
-    }
-    if (action == null) continue;
-    engine.applyAction(fork, action);
-  }
-  return null;
-}
-
 /// Decision-time endgame search, run by a driver that owns the game state
 /// (the headless simulator, the app's `AiTurnRunner`).
 ///
@@ -286,10 +249,9 @@ class EndgameSearcher {
   /// [state]); [chosen] itself when the search does not apply or finds
   /// nothing clearly better.
   Future<GameAction> refine({
-    required final GameEngine engine,
-    required final GameEngineState state,
-    required final PlayerAgent agent,
-    required final GameAction chosen,
+    required GameEngineState state,
+    required PlayerAgent agent,
+    required GameAction chosen,
   }) async {
     if (agent is! SmartAiAgent) return chosen;
     final config = agent.endgameSearch;
@@ -308,7 +270,6 @@ class EndgameSearcher {
       stopwatch.start();
       try {
         final solver = _solvers[current.seat % 2] ??= OneOnOneSolver(
-          engine: engine,
           agentFor: rolloutAgent,
           nodeBudget: config.solveBudget,
         );
@@ -329,7 +290,7 @@ class EndgameSearcher {
     final hand = state.hands[playerId] ?? const <Card>[];
     if (hand.isEmpty || hand.length > config.maxCards) return chosen;
 
-    final snapshot = engine.buildSnapshot(state);
+    final snapshot = simulationEngine.buildSnapshot(state);
     final options = agent.searchableActions(snapshot);
     if (options == null) return chosen;
     final turns = options.turns;
@@ -381,15 +342,9 @@ class EndgameSearcher {
             for (final p in fork.players) p.id: rolloutAgent(p.id, p.seat),
           };
           final action = actions[i]!;
-          try {
-            engine.applyAction(fork, _copyAction(action));
-            // The engine signals an illegal action with StateError.
-            // ignore: avoid_catching_errors
-          } on StateError {
-            continue;
-          }
+          simulationEngine.applyAction(fork, _copyAction(action));
           rollouts++;
-          final diff = await playOutRound(engine, fork, agents);
+          final diff = await playOutRound(fork, agents);
           if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();
           if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
         }
@@ -408,12 +363,12 @@ class EndgameSearcher {
   /// [maxActions]) the policy's move, pass, and the plays with the
   /// highest Q.
   static List<int> _candidates(
-    final SmartAiAgent agent,
-    final GameSnapshot snapshot,
-    final List<TichuTurn> turns, {
-    required final bool canPass,
-    required final int chosenIndex,
-    required final int maxActions,
+    SmartAiAgent agent,
+    GameSnapshot snapshot,
+    List<TichuTurn> turns, {
+    required bool canPass,
+    required int chosenIndex,
+    required int maxActions,
   }) {
     final count = turns.length + (canPass ? 1 : 0);
     final all = [for (var i = 0; i < count; i++) i];
@@ -423,7 +378,7 @@ class EndgameSearcher {
     final order = [for (var i = 0; i < turns.length; i++) i];
     if (strategy is NnPlaySelectionStrategy) {
       final q = strategy.qValues(snapshot, turns);
-      order.sort((final a, final b) => q[b].compareTo(q[a]));
+      order.sort((a, b) => q[b].compareTo(q[a]));
     }
     for (final i in order) {
       if (keep.length >= maxActions) break;
@@ -435,9 +390,9 @@ class EndgameSearcher {
   /// Seed for the worlds of a decision, from what [actorId] knows: their
   /// hand, the round's public record, hand sizes and the score. 30-bit
   /// arithmetic, so the web build (doubles) gives the same seed.
-  static int searchSeed(final GameEngineState state, final String actorId) {
+  static int searchSeed(GameEngineState state, String actorId) {
     var h = 17;
-    void mix(final int x) => h = (h * 31 + x + 1) & 0x3FFFFFFF;
+    void mix(int x) => h = (h * 31 + x + 1) & 0x3FFFFFFF;
     final hand = [
       for (final c in state.hands[actorId] ?? const <Card>[]) cardSlot(c),
     ]..sort();
@@ -461,7 +416,7 @@ class EndgameSearcher {
   }
 
   /// Order-independent key of a set of cards.
-  static String slotKey(final List<Card> cards) {
+  static String slotKey(List<Card> cards) {
     final slots = [for (final c in cards) cardSlot(c)]..sort();
     return slots.join(',');
   }
@@ -471,10 +426,9 @@ class EndgameSearcher {
   /// gets the trick matters there: the last player's tricks go to the
   /// first player out.
   Future<GameAction> refineDragonGift({
-    required final GameEngine engine,
-    required final GameEngineState state,
-    required final PlayerAgent agent,
-    required final GiveDragonAction chosen,
+    required GameEngineState state,
+    required PlayerAgent agent,
+    required GiveDragonAction chosen,
   }) async {
     if (agent is! SmartAiAgent) return chosen;
     final config = agent.endgameSearch;
@@ -491,9 +445,8 @@ class EndgameSearcher {
     }
     stopwatch.start();
     try {
-      final current = state.players.firstWhere((final p) => p.id == playerId);
+      final current = state.players.firstWhere((p) => p.id == playerId);
       final solver = _solvers[current.seat % 2] ??= OneOnOneSolver(
-        engine: engine,
         agentFor: rolloutAgent,
         nodeBudget: config.solveBudget,
       );
@@ -511,7 +464,7 @@ class EndgameSearcher {
     }
   }
 
-  static bool _sameAction(final GameAction a, final GameAction b) {
+  static bool _sameAction(GameAction a, GameAction b) {
     if (a is GiveDragonAction && b is GiveDragonAction) {
       return a.targetPlayerId == b.targetPlayerId;
     }
@@ -522,8 +475,7 @@ class EndgameSearcher {
     return false;
   }
 
-  static GameAction _copyAction(final GameAction action) =>
-      action is PlayTurnAction
+  static GameAction _copyAction(GameAction action) => action is PlayTurnAction
       ? PlayTurnAction(
           playerId: action.playerId,
           cards: List<Card>.from(action.cards),

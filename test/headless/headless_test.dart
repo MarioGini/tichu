@@ -48,9 +48,9 @@ void main() {
 
       final roundEndRows = lines
           .skip(1)
-          .map((final line) => line.split(','))
+          .map((line) => line.split(','))
           .where(
-            (final columns) =>
+            (columns) =>
                 columns.length > teamTwoRoundIndex &&
                 columns[eventIndex] == 'round_end',
           )
@@ -96,9 +96,9 @@ void main() {
 
       final roundEndCount = lines
           .skip(1)
-          .map((final line) => line.split(','))
+          .map((line) => line.split(','))
           .where(
-            (final columns) =>
+            (columns) =>
                 columns.length > eventIndex &&
                 columns[eventIndex] == 'round_end',
           )
@@ -133,9 +133,9 @@ void main() {
 
       final roundEndCount = lines
           .skip(1)
-          .map((final line) => line.split(','))
+          .map((line) => line.split(','))
           .where(
-            (final columns) =>
+            (columns) =>
                 columns.length > eventIndex &&
                 columns[eventIndex] == 'round_end',
           )
@@ -182,13 +182,13 @@ void main() {
         ];
         // Bookkeeping rows: one episode_end per episode, round_end rows,
         // and logged Tichu / Grand Tichu decisions.
-        expect(rows.where((final r) => r['episode_end'] == true).length, 2);
-        expect(rows.any((final r) => r['round_end'] == true), isTrue);
-        expect(rows.any((final r) => r['call'] == 'grand'), isTrue);
-        expect(rows.map((final r) => r['episode']).toSet(), {1, 2});
+        expect(rows.where((r) => r['episode_end'] == true).length, 2);
+        expect(rows.any((r) => r['round_end'] == true), isTrue);
+        expect(rows.any((r) => r['call'] == 'grand'), isTrue);
+        expect(rows.map((r) => r['episode']).toSet(), {1, 2});
 
         final first = rows.firstWhere(
-          (final r) => r.containsKey('legal_play_action_features'),
+          (r) => r.containsKey('legal_play_action_features'),
         );
         expect(first['episode'], isA<int>());
         expect(first['round'], isA<int>());
@@ -228,10 +228,10 @@ void main() {
         for (final l in await outputFile.readAsLines())
           jsonDecode(l) as Map<String, dynamic>,
       ];
-      final labelled = rows.where((final r) => r.containsKey('q_rollout'));
+      final labelled = rows.where((r) => r.containsKey('q_rollout'));
       expect(labelled, isNotEmpty);
       expect(
-        rows.where((final r) => r.containsKey('legal_play_action_features')),
+        rows.where((r) => r.containsKey('legal_play_action_features')),
         hasLength(labelled.length),
       );
     } finally {

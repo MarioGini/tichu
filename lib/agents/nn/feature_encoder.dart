@@ -127,39 +127,35 @@ const int legacyTotalFeatureCount =
 /// The input layout of a play net by its input size: how many state
 /// features (a prefix of the current state part) and action features (a
 /// prefix of the current action part) it reads; null for an unknown size.
-({int state, int action})? playNetLayout(final int inputSize) =>
-    switch (inputSize) {
-      totalFeatureCount => (
-        state: stateFeatureCount,
-        action: actionFeatureCount,
-      ),
-      v8TotalFeatureCount => (
-        state: stateFeatureCount,
-        action: v8ActionFeatureCount,
-      ),
-      v7TotalFeatureCount => (
-        state: v7StateFeatureCount,
-        action: v8ActionFeatureCount,
-      ),
-      v6TotalFeatureCount => (
-        state: v6StateFeatureCount,
-        action: legacyActionFeatureCount,
-      ),
-      v5TotalFeatureCount => (
-        state: v5StateFeatureCount,
-        action: legacyActionFeatureCount,
-      ),
-      legacyTotalFeatureCount => (
-        state: legacyStateFeatureCount,
-        action: legacyActionFeatureCount,
-      ),
-      _ => null,
-    };
+({int state, int action})? playNetLayout(int inputSize) => switch (inputSize) {
+  totalFeatureCount => (state: stateFeatureCount, action: actionFeatureCount),
+  v8TotalFeatureCount => (
+    state: stateFeatureCount,
+    action: v8ActionFeatureCount,
+  ),
+  v7TotalFeatureCount => (
+    state: v7StateFeatureCount,
+    action: v8ActionFeatureCount,
+  ),
+  v6TotalFeatureCount => (
+    state: v6StateFeatureCount,
+    action: legacyActionFeatureCount,
+  ),
+  v5TotalFeatureCount => (
+    state: v5StateFeatureCount,
+    action: legacyActionFeatureCount,
+  ),
+  legacyTotalFeatureCount => (
+    state: legacyStateFeatureCount,
+    action: legacyActionFeatureCount,
+  ),
+  _ => null,
+};
 
 /// Encode the state prefix for [playerId].
 List<double> encodeStateFeatures({
-  required final GameSnapshot snapshot,
-  required final String playerId,
+  required GameSnapshot snapshot,
+  required String playerId,
 }) => FeatureEncoder(snapshot: snapshot, playerId: playerId).stateFeatures;
 
 /// Per-decision feature encoder. Analyses the snapshot once; state features
@@ -207,10 +203,7 @@ class FeatureEncoder {
   // ── Action ───────────────────────────────────────────────────────────────
 
   /// Encode one action. [play] is ignored when [isPass] is true.
-  Float64List actionFeatures(
-    final TichuTurn play, {
-    final bool isPass = false,
-  }) {
+  Float64List actionFeatures(TichuTurn play, {bool isPass = false}) {
     final f = Float64List(actionFeatureCount);
     writeActionFeatures(play, f, 0, isPass: isPass);
     return f;
@@ -219,10 +212,10 @@ class FeatureEncoder {
   /// Write the action features of [play] into [out] starting at [offset].
   /// Lets hot paths reuse one buffer (state prefix + action suffix).
   void writeActionFeatures(
-    final TichuTurn play,
-    final Float64List out,
-    final int offset, {
-    final bool isPass = false,
+    TichuTurn play,
+    Float64List out,
+    int offset, {
+    bool isPass = false,
   }) {
     for (var i = 0; i < actionFeatureCount; i++) {
       out[offset + i] = 0.0;
@@ -325,7 +318,7 @@ class FeatureEncoder {
       out[offset + 18] = _relativeSeat(deck.currentWinner) == 2 ? 1.0 : 0.0;
     }
     final wish = snapshot.activeWish;
-    if (wish != CardFace.none && play.cards.any((final c) => c.face == wish)) {
+    if (wish != CardFace.none && play.cards.any((c) => c.face == wish)) {
       out[offset + 19] = 1.0;
     }
 
@@ -382,14 +375,14 @@ class FeatureEncoder {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  int _relativeSeat(final String otherId) {
+  int _relativeSeat(String otherId) {
     for (final p in snapshot.players) {
       if (p.id == otherId) return (p.seat - _mySeat + 4) % 4;
     }
     return -1;
   }
 
-  GamePlayer? _playerAtSeat(final int seat) {
+  GamePlayer? _playerAtSeat(int seat) {
     for (final p in snapshot.players) {
       if (p.seat == seat) return p;
     }
@@ -397,26 +390,26 @@ class FeatureEncoder {
   }
 }
 
-bool _isLead(final DeckState deck) =>
+bool _isLead(DeckState deck) =>
     deck.turn.type == TurnType.empty ||
     deck.turn.type == TurnType.none ||
     deck.turn.type == TurnType.dog;
 
-int _seatOf(final GameSnapshot snapshot, final String playerId) {
+int _seatOf(GameSnapshot snapshot, String playerId) {
   for (final p in snapshot.players) {
     if (p.id == playerId) return p.seat;
   }
   return 0;
 }
 
-List<int> _slotsOf(final List<Card> cards) => [
+List<int> _slotsOf(List<Card> cards) => [
   for (final c in cards)
     if (cardSlot(c) >= 0) cardSlot(c),
 ];
 
 /// Rank used for highest/lowest-rank features. A played phoenix takes its
 /// assigned value; dragon = 15, mahjong = 1, dog = 0.
-double _effectiveRank(final Card card) => switch (card.face) {
+double _effectiveRank(Card card) => switch (card.face) {
   CardFace.dragon => 15,
   CardFace.dog || CardFace.none => 0,
   CardFace.phoenix => card.value.clamp(0.0, 15.0),
@@ -425,7 +418,7 @@ double _effectiveRank(final Card card) => switch (card.face) {
 
 /// Index into the 17-wide rank histogram (r2..rA, mahjong, dog, phoenix,
 /// dragon) or -1.
-int _histIndex(final Card card) => switch (card.face) {
+int _histIndex(Card card) => switch (card.face) {
   CardFace.mahJong => 13,
   CardFace.dog => 14,
   CardFace.phoenix => 15,

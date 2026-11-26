@@ -40,16 +40,14 @@ class FakeGameMatchService
   GameMatchView? _latestView;
 
   void emit(
-    final PlayerSnapshot snapshot, {
-    final int revision = 1,
-    final bool roundAcknowledgementRequired = false,
-    final int? selfSeat,
+    PlayerSnapshot snapshot, {
+    int revision = 1,
+    bool roundAcknowledgementRequired = false,
+    int? selfSeat,
   }) {
     final resolvedSelfSeat =
         selfSeat ??
-        snapshot.players
-            .firstWhere((final player) => player.id == playerId)
-            .seat;
+        snapshot.players.firstWhere((player) => player.id == playerId).seat;
     final view = GameMatchView(
       lobbyId: lobbyId,
       matchId: matchId,
@@ -73,8 +71,8 @@ class FakeGameMatchService
 
   @override
   Stream<GameMatchView> watchMatch(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) async* {
     final latestView = _latestView;
     if (latestView != null) {
@@ -85,8 +83,8 @@ class FakeGameMatchService
 
   @override
   Stream<GameMatchConnectionSnapshot> watchConnection(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) async* {
     yield const GameMatchConnectionSnapshot(
       state: GameMatchConnectionState.live,
@@ -95,9 +93,9 @@ class FakeGameMatchService
 
   @override
   Future<void> submitAction(
-    final String matchId,
-    final GameActionSubmission submission, {
-    required final String accessToken,
+    String matchId,
+    GameActionSubmission submission, {
+    required String accessToken,
   }) async {
     final dto = match_dto.GameActionSubmissionDto.fromDomain(submission);
     final roundTrippedSubmission = match_dto.GameActionSubmissionDto.fromJson(
@@ -109,9 +107,9 @@ class FakeGameMatchService
 
   @override
   Future<void> acknowledgeRoundSummary(
-    final String matchId,
-    final RoundSummaryAcknowledgement acknowledgement, {
-    required final String accessToken,
+    String matchId,
+    RoundSummaryAcknowledgement acknowledgement, {
+    required String accessToken,
   }) async {
     final dto = match_dto.RoundSummaryAcknowledgementDto.fromDomain(
       acknowledgement,
@@ -127,15 +125,15 @@ class FakeGameMatchService
 
   @override
   Future<void> leaveMatch(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) async {}
 
   @override
   Future<void> setMatchAutomatedActionDelay(
-    final String matchId, {
-    required final String accessToken,
-    required final Duration delay,
+    String matchId, {
+    required String accessToken,
+    required Duration delay,
   }) async {
     automatedActionDelay = delay;
   }

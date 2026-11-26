@@ -13,11 +13,11 @@ class _StubScorer extends TurnScorer {
 
   @override
   double scoreTurn(
-    final GameSnapshot snapshot,
-    final String playerId,
-    final TichuTurn play,
-    final DeckState deck,
-    final List<Card> hand,
+    GameSnapshot snapshot,
+    String playerId,
+    TichuTurn play,
+    DeckState deck,
+    List<Card> hand,
   ) => scores[play.type] ?? 0;
 }
 

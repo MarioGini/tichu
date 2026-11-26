@@ -114,7 +114,6 @@ $RECYCLE.BIN/
 **/.venv/
 **/__pycache__/
 *.pyc
-uv.lock
 
 # RL training artifacts
 rl/outputs/

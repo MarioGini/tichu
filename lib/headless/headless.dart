@@ -22,6 +22,7 @@ import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/scoring/score_data.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
+import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/move_generator.dart';
@@ -31,8 +32,8 @@ import 'package:tichu/game/turn/wish_logic.dart';
 
 part 'bc_action_encoding.dart';
 part 'bc_transition_writer.dart';
-part 'headless_args.dart';
 part 'csv_event_writer.dart';
+part 'headless_args.dart';
 part 'headless_decisions.dart';
 part 'headless_exploration.dart';
 part 'headless_game_records.dart';
@@ -48,7 +49,7 @@ const _defaultTargetScore = 1000;
 const _defaultEpisodes = 1;
 const _defaultMaxStepsPerEpisode = 200000;
 
-Future<void> main(final List<String> args) async {
+Future<void> main(List<String> args) async {
   final config = _parseArgs(args);
   if (config.showHelp) {
     _printUsage();
@@ -98,21 +99,19 @@ Future<void> main(final List<String> args) async {
   // The bots that play the endgame-search rollouts: the same bots, plain.
   final PlayerAgent Function(String, int) plainFactory;
   if (opponentPolicy != null || opponentSchupf != null || config.mixed) {
-    plainFactory = (final playerId, final seat) =>
-        seat.isEven != config.swapTeams
+    plainFactory = (playerId, seat) => seat.isEven != config.swapTeams
         ? policyConfig.build(playerId)
         : opponentConfig.build(playerId);
     // Self-play / mixed mode: team0 (even seats) plays the loaded policy,
     // team1 (odd seats) plays the frozen opponent policy (or the heuristic).
     // --swap-teams flips this so duplicate evaluation can replay the same
     // deals with the policy on the other seats.
-    agentFactory = (final playerId, final seat) =>
-        seat.isEven != config.swapTeams
+    agentFactory = (playerId, seat) => seat.isEven != config.swapTeams
         ? policyFactory(playerId)
         : opponentFactory(playerId);
   } else {
-    agentFactory = (final playerId, final _) => policyFactory(playerId);
-    plainFactory = (final playerId, final _) => policyConfig.build(playerId);
+    agentFactory = (playerId, _) => policyFactory(playerId);
+    plainFactory = (playerId, _) => policyConfig.build(playerId);
   }
 
   final simulator = _HeadlessSimulator(
@@ -145,10 +144,10 @@ Future<void> main(final List<String> args) async {
     isLearnerSeat:
         (opponentPolicy != null || opponentSchupf != null || config.mixed) &&
             config.labelSeats != 'all'
-        ? (final seat) =>
+        ? (seat) =>
               (seat.isEven != config.swapTeams) ==
               (config.labelSeats == 'policy')
-        : (final _) => true,
+        : (_) => true,
     describe: config.describe,
     shadowVariants: config.shadowVariants,
     schupfRolloutRate: config.schupfRolloutRate,
@@ -189,14 +188,14 @@ List<GamePlayer> _buildAutomatedPlayers() => const [
   GamePlayer(id: 'auto_4', name: 'P4', seat: 3, type: PlayerType.automated),
 ];
 
-String _cardToken(final Card card) {
+String _cardToken(Card card) {
   if (card.face == CardFace.phoenix) {
     return 'phoenix:${card.value.toStringAsFixed(1)}';
   }
   return '${card.face.name}-${card.color.name}';
 }
 
-Future<LoadedNet?> _loadNet(final String? path) async {
+Future<LoadedNet?> _loadNet(String? path) async {
   if (path == null || path.isEmpty) return null;
   final file = File(path);
   if (!file.existsSync()) {

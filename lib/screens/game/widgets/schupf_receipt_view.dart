@@ -3,18 +3,18 @@ part of 'schupf_panel.dart';
 /// Receipt mode: the three received cards and the rest of the hand.
 extension _SchupfReceiptView on SchupfPanel {
   Widget _buildReceipt(
-    final BuildContext context,
-    final BoxConstraints constraints,
-    final SchupfLayout layout,
-    final SchupfReceiptMode m, {
-    required final bool compact,
+    BuildContext context,
+    BoxConstraints constraints,
+    SchupfLayout layout,
+    SchupfReceiptMode m, {
+    required bool compact,
   }) {
     final receiptByDirection = {
       for (final receipt in m.receipts) receipt.direction: receipt,
     };
     final filteredHand = <Card>[];
     final hiddenCards = List<Card>.from(m.schupfSentCards)
-      ..addAll(m.receipts.map((final receipt) => receipt.card));
+      ..addAll(m.receipts.map((receipt) => receipt.card));
     for (final card in hand) {
       final hiddenIndex = hiddenCards.indexOf(card);
       if (hiddenIndex >= 0) {
@@ -31,8 +31,8 @@ extension _SchupfReceiptView on SchupfPanel {
         : _contentWidth(layout, filteredHand.length);
 
     Widget buildTarget({
-      required final String label,
-      required final SchupfReceipt? receipt,
+      required String label,
+      required SchupfReceipt? receipt,
     }) => SchupfTargetBox(
       label: label,
       targetWidth: layout.targetWidth,
@@ -63,7 +63,7 @@ extension _SchupfReceiptView on SchupfPanel {
               spacing: layout.rowSpacing,
               minVisible: 14 * layout.rowScale,
               height: layout.rowCardHeight + 8,
-              itemBuilder: (final context, final index) => CardWidget(
+              itemBuilder: (context, index) => CardWidget(
                 card: filteredHand[index],
                 isSelected: false,
                 compact: true,

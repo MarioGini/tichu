@@ -19,7 +19,7 @@ class InMemoryScoreboardStore implements ScoreboardStore {
   Future<ScoreboardGame?> loadCurrent() async => _game;
 
   @override
-  Future<void> saveCurrent(final ScoreboardGame game) async => _game = game;
+  Future<void> saveCurrent(ScoreboardGame game) async => _game = game;
 
   @override
   Future<void> clearCurrent() async => _game = null;
@@ -45,7 +45,7 @@ class SharedPreferencesScoreboardStore implements ScoreboardStore {
   }
 
   @override
-  Future<void> saveCurrent(final ScoreboardGame game) async {
+  Future<void> saveCurrent(ScoreboardGame game) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_key, jsonEncode(game.toJson()));
   }

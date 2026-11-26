@@ -17,8 +17,8 @@ void main() {
         .watchLobby(handle.lobbyId, accessToken: handle.accessToken)
         .first;
     expect(lobby.state, GameLobbyState.active);
-    final human = lobby.seats.where((final s) => s.type == PlayerType.human);
-    final bots = lobby.seats.where((final s) => s.type == PlayerType.automated);
+    final human = lobby.seats.where((s) => s.type == PlayerType.human);
+    final bots = lobby.seats.where((s) => s.type == PlayerType.automated);
     expect(human.single.playerId, handle.playerId);
     expect(human.single.seat, handle.seat);
     expect(bots, hasLength(3));

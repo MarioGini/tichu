@@ -4,7 +4,7 @@ import 'package:tichu/widgets/opponent_display.dart';
 
 void main() {
   testWidgets('grand tichu uses badge without coloring whole player box', (
-    final tester,
+    tester,
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -43,7 +43,7 @@ void main() {
     expect(decoration.boxShadow, isNull);
   });
 
-  testWidgets('player box is always square', (final tester) async {
+  testWidgets('player box is always square', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(

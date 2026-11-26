@@ -10,8 +10,8 @@ import '../../utils/test_game_match_service.dart';
 
 void main() {
   Future<void> pumpGame(
-    final WidgetTester tester,
-    final FakeGameMatchService backend,
+    WidgetTester tester,
+    FakeGameMatchService backend,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1080, 2400));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -26,9 +26,7 @@ void main() {
     );
   }
 
-  testWidgets('play phase has stable layout at 1080x2400', (
-    final tester,
-  ) async {
+  testWidgets('play phase has stable layout at 1080x2400', (tester) async {
     final backend = FakeGameMatchService();
     await pumpGame(tester, backend);
 
@@ -45,7 +43,7 @@ void main() {
 
   testWidgets(
     'schupf phase keeps tichu button below schupf panel at 1080x2400',
-    (final tester) async {
+    (tester) async {
       final backend = FakeGameMatchService();
       await pumpGame(tester, backend);
 
@@ -81,9 +79,7 @@ void main() {
     },
   );
 
-  testWidgets('schupf receipt phase is stable at 1080x2400', (
-    final tester,
-  ) async {
+  testWidgets('schupf receipt phase is stable at 1080x2400', (tester) async {
     final backend = FakeGameMatchService();
     await pumpGame(tester, backend);
 

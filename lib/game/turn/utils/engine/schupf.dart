@@ -1,13 +1,11 @@
 import 'package:tichu/game/engine_state.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/engine/hand_utils.dart';
 
-void applySchupfSelection(
-  final GameEngineState state,
-  final SchupfAction action,
-) {
+void applySchupfSelection(GameEngineState state, SchupfAction action) {
   if (state.schupfSelections.containsKey(action.playerId)) {
     return;
   }
@@ -25,7 +23,7 @@ void applySchupfSelection(
     );
     selected = [toLeft, toPartner, toRight];
     if (!handContainsAll(hand, selected)) {
-      throw StateError('Schupf cards are not in hand.');
+      throw const IllegalActionException('Schupf cards are not in hand.');
     }
   }
 
@@ -34,8 +32,8 @@ void applySchupfSelection(
 }
 
 void applyAcknowledgeSchupf(
-  final GameEngineState state,
-  final AcknowledgeSchupfAction action,
+  GameEngineState state,
+  AcknowledgeSchupfAction action,
 ) {
   // Cards are already merged into hands during finalization.
   // Acknowledgment just clears the receipt UI metadata.
@@ -43,12 +41,9 @@ void applyAcknowledgeSchupf(
   state.schupfPendingAdditions.remove(action.playerId);
 }
 
-bool hasPendingSchupfReceiptsForPlayer(
-  final GameEngineState state,
-  final String playerId,
-) {
+bool hasPendingSchupfReceiptsForPlayer(GameEngineState state, String playerId) {
   final player = state.players.firstWhere(
-    (final p) => p.id == playerId,
+    (p) => p.id == playerId,
     orElse: () => state.players.first,
   );
   if (player.type != PlayerType.human) return false;
@@ -56,7 +51,7 @@ bool hasPendingSchupfReceiptsForPlayer(
   return receipts != null && receipts.isNotEmpty;
 }
 
-bool hasPendingHumanSchupfReceipts(final GameEngineState state) {
+bool hasPendingHumanSchupfReceipts(GameEngineState state) {
   for (final player in state.players) {
     if (player.type != PlayerType.human) continue;
     final receipts = state.schupfReceipts[player.id];
@@ -67,7 +62,7 @@ bool hasPendingHumanSchupfReceipts(final GameEngineState state) {
   return false;
 }
 
-void _maybeFinalizeSchupf(final GameEngineState state) {
+void _maybeFinalizeSchupf(GameEngineState state) {
   if (state.schupfSelections.length < state.players.length) {
     return;
   }
@@ -82,9 +77,7 @@ void _maybeFinalizeSchupf(final GameEngineState state) {
   for (final entry in state.schupfSelections.entries) {
     final sourceId = entry.key;
     final selection = entry.value;
-    final sourcePlayer = state.players.firstWhere(
-      (final p) => p.id == sourceId,
-    );
+    final sourcePlayer = state.players.firstWhere((p) => p.id == sourceId);
     final leftId = seatToPlayer[(sourcePlayer.seat + 1) % 4]!;
     final partnerId = seatToPlayer[(sourcePlayer.seat + 2) % 4]!;
     final rightId = seatToPlayer[(sourcePlayer.seat + 3) % 4]!;
@@ -155,9 +148,9 @@ void _maybeFinalizeSchupf(final GameEngineState state) {
 }
 
 SchupfDirection _schupfDirectionForRecipient(
-  final Map<String, int> idToSeat,
-  final String fromPlayerId,
-  final String recipientId,
+  Map<String, int> idToSeat,
+  String fromPlayerId,
+  String recipientId,
 ) {
   final fromSeat = idToSeat[fromPlayerId] ?? 0;
   final recipientSeat = idToSeat[recipientId] ?? 0;
@@ -171,11 +164,11 @@ SchupfDirection _schupfDirectionForRecipient(
 }
 
 void _addSchupfReceipt(
-  final Map<String, List<SchupfReceipt>> receipts, {
-  required final String recipientId,
-  required final String fromPlayerId,
-  required final SchupfDirection direction,
-  required final Card card,
+  Map<String, List<SchupfReceipt>> receipts, {
+  required String recipientId,
+  required String fromPlayerId,
+  required SchupfDirection direction,
+  required Card card,
 }) {
   receipts
       .putIfAbsent(recipientId, () => <SchupfReceipt>[])
@@ -188,11 +181,11 @@ void _addSchupfReceipt(
       );
 }
 
-int _startingPlayerIndex(final GameEngineState state) {
+int _startingPlayerIndex(GameEngineState state) {
   for (var i = 0; i < state.players.length; i++) {
     final playerId = state.players[i].id;
     final hand = state.hands[playerId] ?? const <Card>[];
-    if (hand.any((final card) => card.face == CardFace.mahJong)) {
+    if (hand.any((card) => card.face == CardFace.mahJong)) {
       return i;
     }
   }

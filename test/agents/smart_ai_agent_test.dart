@@ -15,7 +15,7 @@ void main() {
 
   group('shouldCallGrandTichu', () {
     test('calls with a Grand Tichu hand, not with a weak one', () async {
-      Future<bool> call(final List<Card> hand) =>
+      Future<bool> call(List<Card> hand) =>
           agent.shouldCallGrandTichu(aiSnapshot(myHand: hand));
       // Dragon + Phoenix: strength 6.
       expect(
@@ -140,10 +140,7 @@ void main() {
         Card(CardFace.three, CardColor.blue),
       ];
       final snapshot = aiSnapshot(myHand: hand);
-      expect(
-        () => agent.selectSchupfCards(snapshot),
-        throwsA(isA<StateError>()),
-      );
+      expect(() => agent.selectSchupfCards(snapshot), throwsStateError);
     });
 
     test('gives best card to partner on grand tichu', () async {
@@ -210,7 +207,7 @@ void main() {
       final action = await agent.selectTurn(snapshot);
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
-      expect(play.cards.any((final c) => c.face == CardFace.seven), true);
+      expect(play.cards.any((c) => c.face == CardFace.seven), true);
     });
 
     test(
@@ -245,7 +242,7 @@ void main() {
         final action = await agent.selectTurn(snapshot);
         expect(action, isA<PlayTurnAction>());
         final play = action as PlayTurnAction;
-        expect(play.cards.any((final c) => c.face == CardFace.seven), isTrue);
+        expect(play.cards.any((c) => c.face == CardFace.seven), isTrue);
       },
     );
   });

@@ -1,41 +1,42 @@
-T enumByName<T extends Enum>(final List<T> values, final String name) =>
-    values.firstWhere((final value) => value.name == name);
+/// The value of [values] named [name]; [FormatException] for an unknown
+/// name (the JSON came from a client).
+T enumByName<T extends Enum>(List<T> values, String name) {
+  for (final value in values) {
+    if (value.name == name) return value;
+  }
+  throw FormatException('Unknown $T: $name');
+}
 
-List<Map<String, dynamic>> decodeMapList(final Object? json) =>
+List<Map<String, dynamic>> decodeMapList(Object? json) =>
     (json as List? ?? const <Object>[])
-        .map((final item) => Map<String, dynamic>.from(item as Map))
+        .map((item) => Map<String, dynamic>.from(item as Map))
         .toList();
 
-List<String> decodeStringList(final Object? json) =>
-    (json as List? ?? const <Object>[])
-        .map((final item) => item as String)
-        .toList();
+List<String> decodeStringList(Object? json) =>
+    (json as List? ?? const <Object>[]).map((item) => item as String).toList();
 
-Map<String, int> decodeIntMap(final Object? json) =>
-    Map<String, int>.fromEntries(
-      (json as Map? ?? const <Object, Object>{}).entries.map(
-        (final entry) =>
-            MapEntry(entry.key as String, (entry.value as num).toInt()),
-      ),
-    );
+Map<String, int> decodeIntMap(Object? json) => Map<String, int>.fromEntries(
+  (json as Map? ?? const <Object, Object>{}).entries.map(
+    (entry) => MapEntry(entry.key as String, (entry.value as num).toInt()),
+  ),
+);
 
-Map<String, bool> decodeBoolMap(final Object? json) =>
-    Map<String, bool>.fromEntries(
-      (json as Map? ?? const <Object, Object>{}).entries.map(
-        (final entry) => MapEntry(entry.key as String, entry.value as bool),
-      ),
-    );
+Map<String, bool> decodeBoolMap(Object? json) => Map<String, bool>.fromEntries(
+  (json as Map? ?? const <Object, Object>{}).entries.map(
+    (entry) => MapEntry(entry.key as String, entry.value as bool),
+  ),
+);
 
-Map<String, String> decodeStringMap(final Object? json) =>
+Map<String, String> decodeStringMap(Object? json) =>
     Map<String, String>.fromEntries(
       (json as Map? ?? const <Object, Object>{}).entries.map(
-        (final entry) => MapEntry(entry.key as String, entry.value as String),
+        (entry) => MapEntry(entry.key as String, entry.value as String),
       ),
     );
 
 T? decodeNullableMap<T>(
-  final Object? json,
-  final T Function(Map<String, dynamic> json) decode,
+  Object? json,
+  T Function(Map<String, dynamic> json) decode,
 ) {
   if (json == null) {
     return null;

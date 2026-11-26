@@ -2,10 +2,7 @@ part of 'local_table_service.dart';
 
 /// Lobby, seat and participant bookkeeping.
 extension _LobbyHelpers on _LocalTableBase {
-  void _updateHeartbeat(
-    final _LocalLobbyState lobby,
-    final _LocalParticipant participant,
-  ) {
+  void _updateHeartbeat(_LocalLobbyState lobby, _LocalParticipant participant) {
     participant.lastHeartbeatAt = DateTime.now();
     if (!participant.isConnected) {
       _markParticipantConnected(lobby, participant);
@@ -14,8 +11,8 @@ extension _LobbyHelpers on _LocalTableBase {
   }
 
   _LocalParticipant _createParticipant({
-    required final String displayName,
-    final String? authUserId,
+    required String displayName,
+    String? authUserId,
   }) {
     final playerId = 'local-player-${_nextPlayerId++}';
     return _LocalParticipant(
@@ -35,7 +32,7 @@ extension _LobbyHelpers on _LocalTableBase {
   }
 
   /// Returns the first open seat on the given team (0 = even seats, 1 = odd).
-  int? _firstOpenSeatForTeam(final _LocalLobbyState lobby, final int team) {
+  int? _firstOpenSeatForTeam(_LocalLobbyState lobby, int team) {
     final teamSeats = team == 0 ? <int>[0, 2] : <int>[1, 3];
     for (final seatIndex in teamSeats) {
       if (lobby.seats[seatIndex].state == GameLobbySeatState.open) {
@@ -46,8 +43,8 @@ extension _LobbyHelpers on _LocalTableBase {
   }
 
   _LocalParticipant? _findParticipantByAuthUserId(
-    final _LocalLobbyState lobby,
-    final String? authUserId,
+    _LocalLobbyState lobby,
+    String? authUserId,
   ) {
     if (authUserId == null || authUserId.isEmpty) {
       return null;
@@ -61,8 +58,8 @@ extension _LobbyHelpers on _LocalTableBase {
   }
 
   void _markParticipantConnected(
-    final _LocalLobbyState lobby,
-    final _LocalParticipant participant,
+    _LocalLobbyState lobby,
+    _LocalParticipant participant,
   ) {
     participant.isConnected = true;
     final seat = participant.seat;
@@ -74,61 +71,65 @@ extension _LobbyHelpers on _LocalTableBase {
     }
   }
 
-  _LocalLobbyState _requireLobby(final String lobbyId) {
+  _LocalLobbyState _requireLobby(String lobbyId) {
     final lobby = _lobbies[lobbyId];
     if (lobby == null) {
-      throw StateError('Unknown lobbyId: $lobbyId');
+      throw RequestRejectedException('Unknown lobbyId: $lobbyId');
     }
     return lobby;
   }
 
   _LocalParticipant _requireParticipant(
-    final _LocalLobbyState lobby,
-    final String accessToken,
+    _LocalLobbyState lobby,
+    String accessToken,
   ) {
     final participant = lobby.participantsByAccessToken[accessToken];
     if (participant == null) {
-      throw StateError('Unknown access token for lobby ${lobby.lobbyId}.');
+      throw RequestRejectedException(
+        'Unknown access token for lobby ${lobby.lobbyId}.',
+      );
     }
     return participant;
   }
 
   ({_LocalLobbyState lobby, _LocalParticipant participant}) _requireActiveMatch(
-    final String matchId,
-    final String accessToken,
+    String matchId,
+    String accessToken,
   ) {
     final lobby = _lobbies.values.firstWhere(
-      (final entry) => entry.matchId == matchId,
-      orElse: () => throw StateError('Unknown matchId: $matchId'),
+      (entry) => entry.matchId == matchId,
+      orElse: () => throw RequestRejectedException('Unknown matchId: $matchId'),
     );
     final participant = _requireParticipant(lobby, accessToken);
     if (lobby.runtime == null) {
-      throw StateError('Match is not active.');
+      throw const RequestRejectedException('Match is not active.');
     }
     return (lobby: lobby, participant: participant);
   }
 
-  void _ensureSeatIndex(final _LocalLobbyState lobby, final int seat) {
+  void _ensureSeatIndex(_LocalLobbyState lobby, int seat) {
     if (seat < 0 || seat >= lobby.seats.length) {
       throw RangeError.range(seat, 0, lobby.seats.length - 1, 'seat');
     }
   }
 
-  void _ensureLobbyNotActive(final _LocalLobbyState lobby) {
+  void _ensureLobbyNotActive(_LocalLobbyState lobby) {
     if (lobby.matchId != null || lobby.runtime != null) {
-      throw StateError('Cannot change seats after the match has started.');
+      throw const RequestRejectedException(
+        'Cannot change seats after the match has started.',
+      );
     }
   }
 
   void _claimParticipantSeat(
-    final _LocalLobbyState lobby,
-    final _LocalParticipant participant, {
-    required final int seat,
-    required final PlayerType type,
+    _LocalLobbyState lobby,
+    _LocalParticipant participant, {
+    required int seat,
+    required PlayerType type,
   }) {
     final targetSeat = lobby.seats[seat];
     if (targetSeat.isOccupiedByDifferentParticipant(participant.playerId)) {
-      throw StateError('Seat $seat is already occupied.');
+      throw RequestRejectedException('Seat $seat is already occupied.');
     }
 
     final previousSeat = participant.seat;
@@ -147,13 +148,15 @@ extension _LobbyHelpers on _LocalTableBase {
   }
 
   void _claimAutomatedSeat(
-    final _LocalLobbyState lobby,
-    final int seat,
-    final String displayName,
+    _LocalLobbyState lobby,
+    int seat,
+    String displayName,
   ) {
     final targetSeat = lobby.seats[seat];
     if (targetSeat.state == GameLobbySeatState.occupied && !targetSeat.isBot) {
-      throw StateError('Seat $seat is already occupied by a player.');
+      throw RequestRejectedException(
+        'Seat $seat is already occupied by a player.',
+      );
     }
 
     targetSeat.assignBot(
@@ -162,19 +165,19 @@ extension _LobbyHelpers on _LocalTableBase {
     );
   }
 
-  bool _canStart(final _LocalLobbyState lobby) {
+  bool _canStart(_LocalLobbyState lobby) {
     final allSeatsOccupied = lobby.seats.every(
-      (final seat) => seat.state == GameLobbySeatState.occupied,
+      (seat) => seat.state == GameLobbySeatState.occupied,
     );
     final participantsReady = lobby.participantsByPlayerId.values.every(
-      (final participant) => participant.isReady && participant.seat != null,
+      (participant) => participant.isReady && participant.seat != null,
     );
     return allSeatsOccupied && participantsReady;
   }
 
   void _removeParticipantFromLobby(
-    final _LocalLobbyState lobby,
-    final _LocalParticipant participant,
+    _LocalLobbyState lobby,
+    _LocalParticipant participant,
   ) {
     final seat = participant.seat;
     if (seat != null) {
@@ -187,7 +190,7 @@ extension _LobbyHelpers on _LocalTableBase {
     lobby.participantsByPlayerId.remove(participant.playerId);
   }
 
-  Future<void> _closeLobby(final _LocalLobbyState lobby) async {
+  Future<void> _closeLobby(_LocalLobbyState lobby) async {
     _emitConnection(
       lobby,
       const GameMatchConnectionSnapshot(state: GameMatchConnectionState.closed),

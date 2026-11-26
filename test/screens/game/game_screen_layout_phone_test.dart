@@ -36,7 +36,7 @@ void main() {
     (const Size(412, 915), 2.625),
   ]) {
     testWidgets('14-card hand is readable at ${size.width.toInt()}x'
-        '${size.height.toInt()} dp', (final tester) async {
+        '${size.height.toInt()} dp', (tester) async {
       tester.view
         ..physicalSize = size * dpr
         ..devicePixelRatio = dpr;
@@ -61,9 +61,9 @@ void main() {
           find
               .byType(CardWidget)
               .evaluate()
-              .map((final e) => tester.getRect(find.byWidget(e.widget)))
-              .where((final r) => r.bottom > size.height * 0.6)
-              .map((final r) => r.left)
+              .map((e) => tester.getRect(find.byWidget(e.widget)))
+              .where((r) => r.bottom > size.height * 0.6)
+              .map((r) => r.left)
               .toList()
             ..sort();
       expect(lefts.length, 14);

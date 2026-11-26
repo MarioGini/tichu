@@ -25,13 +25,12 @@ Future<void> main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key, final MultiplayerBackend? multiplayerBackend})
-    : _multiplayerBackend = multiplayerBackend;
+  const MyApp({super.key, this._multiplayerBackend});
 
   final MultiplayerBackend? _multiplayerBackend;
 
   @override
-  Widget build(final BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => MaterialApp(
     title: 'Tichu',
     debugShowCheckedModeBanner: false,
     theme: AppTheme.lightTheme,
@@ -47,7 +46,7 @@ class _BootstrapErrorApp extends StatelessWidget {
   final Object error;
 
   @override
-  Widget build(final BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => MaterialApp(
     title: 'Tichu',
     debugShowCheckedModeBanner: false,
     theme: AppTheme.lightTheme,

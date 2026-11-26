@@ -6,13 +6,13 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
     if (!mounted) return;
     await showDialog<void>(
       context: context,
-      builder: (final context) => OptionsDialog(
+      builder: (context) => OptionsDialog(
         aiSuggestionEnabled: _aiSuggestionEnabled,
         opponentDelay: _opponentDelaySeconds,
         autoPassEnabled: _autoPassEnabled,
         soundEnabled: _soundEnabled,
         gameId: _gameId,
-        onAiSuggestionChanged: (final value) {
+        onAiSuggestionChanged: (value) {
           setState(() {
             _aiSuggestionEnabled = value;
           });
@@ -24,30 +24,30 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
           if (snapshot == null) return;
           unawaited(_maybeApplyAiSuggestion(snapshot));
         },
-        onOpponentDelayChanged: (final value) {
+        onOpponentDelayChanged: (value) {
           setState(() {
             _opponentDelaySeconds = value;
           });
           final delayMs = (value * 1000).round();
           unawaited(_setAutomatedActionDelay(Duration(milliseconds: delayMs)));
         },
-        onAutoPassChanged: (final value) {
+        onAutoPassChanged: (value) {
           setState(() {
             _autoPassEnabled = value;
           });
         },
-        onSoundChanged: (final value) {
+        onSoundChanged: (value) {
           setState(() {
             _soundEnabled = value;
           });
-          SoundEffects.setEnabled(value);
+          SoundEffects.enabled = value;
         },
       ),
     );
   }
 
   @override
-  void _maybeShowDragonGiveDialog(final PlayerSnapshot snapshot) {
+  void _maybeShowDragonGiveDialog(PlayerSnapshot snapshot) {
     if (!_isSelfManual) return;
     if (_dragonGiveDialogOpen) return;
     if (snapshot.pendingDragonGiveBy != _humanId) return;
@@ -61,13 +61,13 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
       final selectedTarget = await showDialog<String>(
         context: context,
         barrierDismissible: false,
-        builder: (final context) => AlertDialog(
+        builder: (context) => AlertDialog(
           title: const Text('Who receives the dragon?'),
           content: const Text('The trick goes to an opponent.'),
           actionsAlignment: MainAxisAlignment.center,
-          actions: targetIds.map((final targetId) {
+          actions: targetIds.map((targetId) {
             final name = snapshot.players
-                .firstWhere((final player) => player.id == targetId)
+                .firstWhere((player) => player.id == targetId)
                 .name;
             return TextButton(
               onPressed: () => Navigator.of(context).pop(targetId),
@@ -95,9 +95,7 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
     });
   }
 
-  List<String> _orderDragonGiveTargetsForDisplay(
-    final PlayerSnapshot snapshot,
-  ) {
+  List<String> _orderDragonGiveTargetsForDisplay(PlayerSnapshot snapshot) {
     final targetIds = List<String>.from(snapshot.pendingDragonGiveTargets);
     final seatById = {
       for (final player in snapshot.players) player.id: player.seat,
@@ -108,7 +106,7 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
       return targetIds;
     }
 
-    int displayPriority(final String playerId) {
+    int displayPriority(String playerId) {
       final seat = seatById[playerId];
       if (seat == null) return 3;
       final relativeSeat = (seat - humanSeat + playerCount) % playerCount;
@@ -117,10 +115,9 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
       return 2;
     }
 
-    targetIds.sort((final a, final b) {
-      final priorityComparison = displayPriority(
-        a,
-      ).compareTo(displayPriority(b));
+    targetIds.sort((a, b) {
+      final priorityComparison = displayPriority(a)
+          .compareTo(displayPriority(b));
       if (priorityComparison != 0) {
         return priorityComparison;
       }
@@ -133,7 +130,7 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
   }
 
   @override
-  bool _shouldShowGrandTichuDecision(final PlayerSnapshot snapshot) {
+  bool _shouldShowGrandTichuDecision(PlayerSnapshot snapshot) {
     if (!_isSelfManual) return false;
     if (snapshot.phase != GamePhase.grandTichu) return false;
     if (snapshot.currentPlayerId != _humanId) return false;
@@ -144,7 +141,7 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
   }
 
   @override
-  Future<CardFace?> _promptWish({final CardFace? defaultWish}) async {
+  Future<CardFace?> _promptWish({CardFace? defaultWish}) async {
     if (_wishDialogOpen) return null;
     if (!mounted) return null;
 
@@ -152,14 +149,14 @@ mixin _GameScreenDialogs on _GameScreenStateBase {
     final selection = await showDialog<CardFace>(
       context: context,
       barrierDismissible: false,
-      builder: (final context) => WishDialog(defaultWish: defaultWish),
+      builder: (context) => WishDialog(defaultWish: defaultWish),
     );
     _wishDialogOpen = false;
     return selection;
   }
 
   @override
-  Future<void> _submitGrandTichuDecision(final bool call) async {
+  Future<void> _submitGrandTichuDecision(bool call) async {
     final snapshot = _snapshot;
     if (snapshot == null) return;
     if (_grandTichuDialogOpen) return;

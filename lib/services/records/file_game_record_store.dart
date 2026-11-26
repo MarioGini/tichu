@@ -28,10 +28,10 @@ class FileGameRecordStore implements GameRecordStore {
 
   final Directory directory;
 
-  File _file(final String id) => File('${directory.path}/$id.json');
+  File _file(String id) => File('${directory.path}/$id.json');
 
   @override
-  Future<void> save(final GameRecord record) async {
+  Future<void> save(GameRecord record) async {
     await directory.create(recursive: true);
     final file = _file(record.id);
     final tmp = File('${file.path}.tmp');
@@ -43,7 +43,7 @@ class FileGameRecordStore implements GameRecordStore {
   }
 
   @override
-  Future<Map<String, Object?>?> load(final String id) async {
+  Future<Map<String, Object?>?> load(String id) async {
     final file = _file(id);
     if (!file.existsSync()) return null;
     return Map<String, Object?>.from(
@@ -52,5 +52,5 @@ class FileGameRecordStore implements GameRecordStore {
   }
 
   @override
-  String describeLocation(final String id) => _file(id).path;
+  String describeLocation(String id) => _file(id).path;
 }

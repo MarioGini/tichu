@@ -29,10 +29,7 @@ abstract final class SchupfFeatures {
   static const int size = 232;
 
   /// Call flags `[grand, tichu]` for me, partner, left, right.
-  static List<double> context(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) {
+  static List<double> context(GameSnapshot snapshot, String playerId) {
     final table = TableRelationships(snapshot, playerId);
     final out = <double>[];
     for (final id in [
@@ -53,14 +50,12 @@ abstract final class SchupfFeatures {
   /// odd rank go to the left opponent, even ranks to the right (specials go
   /// anywhere). Partners both follow it, so an opponent never receives two
   /// cards of the same rank from us.
-  static bool allowedLeft(final Card c) =>
-      !_isNormal(c) || c.value.toInt().isOdd;
-  static bool allowedRight(final Card c) =>
-      !_isNormal(c) || c.value.toInt().isEven;
+  static bool allowedLeft(Card c) => !_isNormal(c) || c.value.toInt().isOdd;
+  static bool allowedRight(Card c) => !_isNormal(c) || c.value.toInt().isEven;
 
   /// Strength order for passing: Dog 0, Mahjong 1, 2..A, Phoenix 15,
   /// Dragon 16.
-  static int passStrength(final Card c) => switch (c.face) {
+  static int passStrength(Card c) => switch (c.face) {
     CardFace.dog => 0,
     CardFace.mahJong => 1,
     CardFace.phoenix => 15,
@@ -77,21 +72,18 @@ abstract final class SchupfFeatures {
   /// [extended] also lets the partner receive one of the two weakest normal
   /// cards (a hand going for Tichu keeps its strength).
   static List<(int, int, int)> candidates(
-    final List<Card> hand, {
-    final bool extended = false,
+    List<Card> hand, {
+    bool extended = false,
   }) {
-    final order = List<int>.generate(hand.length, (final i) => i)
-      ..sort(
-        (final a, final b) =>
-            passStrength(hand[a]).compareTo(passStrength(hand[b])),
-      );
+    final order = List<int>.generate(hand.length, (i) => i)
+      ..sort((a, b) => passStrength(hand[a]).compareTo(passStrength(hand[b])));
     final partner = <int>{
       ...order.reversed.take(5),
-      ...order.where((final i) => hand[i].face == CardFace.dog),
-      if (extended) ...order.where((final i) => _isNormal(hand[i])).take(2),
+      ...order.where((i) => hand[i].face == CardFace.dog),
+      if (extended) ...order.where((i) => _isNormal(hand[i])).take(2),
     };
-    final left = order.where((final i) => allowedLeft(hand[i])).take(5);
-    final right = order.where((final i) => allowedRight(hand[i])).take(5);
+    final left = order.where((i) => allowedLeft(hand[i])).take(5);
+    final right = order.where((i) => allowedRight(hand[i])).take(5);
     return [
       for (final p in partner)
         for (final l in left)
@@ -101,7 +93,7 @@ abstract final class SchupfFeatures {
     ];
   }
 
-  static bool _isNormal(final Card c) =>
+  static bool _isNormal(Card c) =>
       c.face != CardFace.dragon &&
       c.face != CardFace.phoenix &&
       c.face != CardFace.dog &&
@@ -110,11 +102,11 @@ abstract final class SchupfFeatures {
   /// Full feature vector (used for logging and tests; inference uses the
   /// incremental path in [NnSchupfStrategy]).
   static Float64List encode({
-    required final List<Card> hand,
-    required final Card toLeft,
-    required final Card toPartner,
-    required final Card toRight,
-    required final List<double> context,
+    required List<Card> hand,
+    required Card toLeft,
+    required Card toPartner,
+    required Card toRight,
+    required List<double> context,
   }) {
     final f = Float64List(size);
     for (final c in hand) {
@@ -158,8 +150,8 @@ class NnSchupfStrategy implements SchupfStrategy {
 
   @override
   Future<SchupfAction> selectSchupfCards(
-    final GameSnapshot snapshot,
-    final String playerId,
+    GameSnapshot snapshot,
+    String playerId,
   ) async {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     if (hand.length < 3) {

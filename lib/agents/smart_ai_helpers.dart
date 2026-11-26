@@ -5,16 +5,13 @@ extension _HeuristicHelpers on SmartAiAgent {
   /// (lowest rank sum; Phoenix and Dragon count as the most expensive
   /// cards). Only multi-card, non-bomb combinations are swapped: for singles
   /// the scorer's choice (which card to split off) matters more than rank.
-  TichuTurn _cheapestEquivalent(
-    final TichuTurn selected,
-    final List<TichuTurn> plays,
-  ) {
+  TichuTurn _cheapestEquivalent(TichuTurn selected, List<TichuTurn> plays) {
     if (selected.cards.length < 2 || selected.type == TurnType.bomb) {
       return selected;
     }
-    int cost(final TichuTurn t) => t.cards.fold(
+    int cost(TichuTurn t) => t.cards.fold(
       0,
-      (final sum, final c) =>
+      (sum, c) =>
           sum +
           switch (c.face) {
             CardFace.phoenix => 15,
@@ -38,8 +35,8 @@ extension _HeuristicHelpers on SmartAiAgent {
   }
 
   bool _holdBackForPartnerTichu(
-    final GameSnapshot snapshot,
-    final TableRelationships table,
+    GameSnapshot snapshot,
+    TableRelationships table,
   ) {
     final partnerId = table.partnerId;
     if (partnerId == null) return false;

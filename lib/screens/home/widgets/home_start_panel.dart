@@ -37,7 +37,7 @@ class HomeStartPanel extends StatelessWidget {
   final VoidCallback onJoinWithCode;
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Column(

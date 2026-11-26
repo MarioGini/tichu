@@ -21,7 +21,7 @@ void main() {
   setUpAll(loadFonts);
 
   for (final device in devices.entries) {
-    testWidgets('observe ${device.key}', (final tester) async {
+    testWidgets('observe ${device.key}', (tester) async {
       final (size, dpr) = device.value;
       tester.view
         ..physicalSize = size * dpr

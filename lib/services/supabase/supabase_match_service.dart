@@ -6,8 +6,8 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
 
   @override
   Stream<GameMatchView> watchMatch(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) => withHeartbeat(
     heartbeatBody: <String, dynamic>{
       'matchId': matchId,
@@ -17,8 +17,8 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
   );
 
   Stream<GameMatchView> _watchMatchProjected(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) => watchProjectedValue(
     channelTopic: 'tichu:match:$matchId:$accessToken',
     table: _SupabaseServiceBase._matchViewTable,
@@ -43,14 +43,14 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
       );
       return match_dto.GameMatchViewDto.fromJson(payload).toDomain();
     },
-    signatureOf: (final value) =>
+    signatureOf: (value) =>
         jsonEncode(match_dto.GameMatchViewDto.fromDomain(value).toJson()),
   );
 
   @override
   Stream<GameMatchConnectionSnapshot> watchConnection(
-    final String matchId, {
-    required final String accessToken,
+    String matchId, {
+    required String accessToken,
   }) => watchProjectedValue(
     channelTopic: 'tichu:connection:$matchId:$accessToken',
     table: _SupabaseServiceBase._connectionViewTable,
@@ -69,26 +69,24 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
       if (payload == null) {
         return null;
       }
-      return match_dto.GameMatchConnectionSnapshotDto.fromJson(
-        payload,
-      ).toDomain();
+      return match_dto.GameMatchConnectionSnapshotDto.fromJson(payload)
+          .toDomain();
     },
     loadFallbackValue: () async {
       final payload = await invokeJson(
         'get-match-connection',
         body: <String, dynamic>{'matchId': matchId, 'accessToken': accessToken},
       );
-      return match_dto.GameMatchConnectionSnapshotDto.fromJson(
-        payload,
-      ).toDomain();
+      return match_dto.GameMatchConnectionSnapshotDto.fromJson(payload)
+          .toDomain();
     },
-    signatureOf: (final value) => jsonEncode(
+    signatureOf: (value) => jsonEncode(
       match_dto.GameMatchConnectionSnapshotDto.fromDomain(value).toJson(),
     ),
-    onStatus: (final controller, final status, final error) {
+    onStatus: (emit, status, error) {
       if (status == RealtimeSubscribeStatus.channelError ||
           status == RealtimeSubscribeStatus.timedOut) {
-        controller.add(
+        emit(
           GameMatchConnectionSnapshot(
             state: GameMatchConnectionState.reconnecting,
             detail: error?.toString(),
@@ -97,8 +95,8 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
         );
       }
     },
-    onProjectionMiss: (final controller) async {
-      controller.add(
+    onProjectionMiss: (emit) async {
+      emit(
         GameMatchConnectionSnapshot(
           state: GameMatchConnectionState.closed,
           updatedAt: DateTime.now(),
@@ -109,25 +107,24 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
 
   @override
   Future<void> submitAction(
-    final String matchId,
-    final GameActionSubmission submission, {
-    required final String accessToken,
+    String matchId,
+    GameActionSubmission submission, {
+    required String accessToken,
   }) => invokeVoid(
     'submit-action',
     body: <String, dynamic>{
       'matchId': matchId,
       'accessToken': accessToken,
-      'submission': match_dto.GameActionSubmissionDto.fromDomain(
-        submission,
-      ).toJson(),
+      'submission': match_dto.GameActionSubmissionDto.fromDomain(submission)
+          .toJson(),
     },
   );
 
   @override
   Future<void> acknowledgeRoundSummary(
-    final String matchId,
-    final RoundSummaryAcknowledgement acknowledgement, {
-    required final String accessToken,
+    String matchId,
+    RoundSummaryAcknowledgement acknowledgement, {
+    required String accessToken,
   }) => invokeVoid(
     'acknowledge-round-summary',
     body: <String, dynamic>{
@@ -140,11 +137,9 @@ final class SupabaseGameMatchService extends _SupabaseServiceBase
   );
 
   @override
-  Future<void> leaveMatch(
-    final String matchId, {
-    required final String accessToken,
-  }) => invokeVoid(
-    'leave-match',
-    body: <String, dynamic>{'matchId': matchId, 'accessToken': accessToken},
-  );
+  Future<void> leaveMatch(String matchId, {required String accessToken}) =>
+      invokeVoid(
+        'leave-match',
+        body: <String, dynamic>{'matchId': matchId, 'accessToken': accessToken},
+      );
 }

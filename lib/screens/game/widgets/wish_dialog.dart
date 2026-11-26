@@ -32,9 +32,9 @@ class _WishDialogState extends State<WishDialog> {
   }
 
   @override
-  Widget build(final BuildContext context) => Focus(
+  Widget build(BuildContext context) => Focus(
     autofocus: true,
-    onKeyEvent: (final node, final event) => handleDirectionalEnterKeyEvent(
+    onKeyEvent: (node, event) => handleDirectionalEnterKeyEvent(
       event,
       onEnter: () => Navigator.of(context).pop(_selected),
       onLeft: () {},
@@ -64,7 +64,7 @@ class _WishDialogState extends State<WishDialog> {
               runSpacing: 8,
               children: _wishChoices
                   .map(
-                    (final face) => ChoiceChip(
+                    (face) => ChoiceChip(
                       label: Text(_labelFor(face)),
                       selected: face == _selected,
                       onSelected: (_) {
@@ -92,7 +92,7 @@ class _WishDialogState extends State<WishDialog> {
     ),
   );
 
-  static String _labelFor(final CardFace face) {
+  static String _labelFor(CardFace face) {
     switch (face) {
       case CardFace.none:
         return 'No wish';

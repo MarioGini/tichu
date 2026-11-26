@@ -111,7 +111,7 @@ void main() {
 
   for (final device in devices.entries) {
     for (final scene in scenes.entries) {
-      testWidgets('${device.key} ${scene.key}', (final tester) async {
+      testWidgets('${device.key} ${scene.key}', (tester) async {
         final (size, dpr) = device.value;
         tester.view
           ..physicalSize = size * dpr

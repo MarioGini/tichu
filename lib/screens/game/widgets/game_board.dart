@@ -10,7 +10,7 @@ part 'game_board_landscape.dart';
 
 /// Whether a screen of [size] gets the phone-landscape table: wider than
 /// tall. Opponents are then drawn as wide pills instead of square tiles.
-bool isLandscapeTable(final Size size) => size.width > size.height;
+bool isLandscapeTable(Size size) => size.width > size.height;
 
 /// Game table layout for portrait and landscape screens.
 ///
@@ -73,9 +73,9 @@ class GameBoard extends StatelessWidget {
   final Widget rightPendingSlot;
 
   @override
-  Widget build(final BuildContext context) => GameGradientBackground(
+  Widget build(BuildContext context) => GameGradientBackground(
     child: LayoutBuilder(
-      builder: (final context, final constraints) {
+      builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
         if (isLandscapeTable(Size(w, h))) {
@@ -88,7 +88,7 @@ class GameBoard extends StatelessWidget {
 
   // ── Portrait ─────────────────────────────────────────────────────────
 
-  Widget _portrait(final double w, final double h) {
+  Widget _portrait(double w, double h) {
     const topBarH = 48.0;
     final hPad = w < 600 ? 4.0 : 12.0;
     final handMaxH = expandHand ? h * 0.62 : math.min(h * 0.36, 300).toDouble();
@@ -107,7 +107,7 @@ class GameBoard extends StatelessWidget {
         ),
         Expanded(
           child: LayoutBuilder(
-            builder: (final context, final table) =>
+            builder: (context, table) =>
                 _portraitTable(table.maxWidth, table.maxHeight),
           ),
         ),
@@ -126,7 +126,7 @@ class GameBoard extends StatelessWidget {
     );
   }
 
-  Widget _portraitTable(final double w, final double h) {
+  Widget _portraitTable(double w, double h) {
     const pad = 4.0;
     const gap = 4.0;
     final op = math.min(w * 0.24, math.min(h * 0.26, 108)).toDouble();

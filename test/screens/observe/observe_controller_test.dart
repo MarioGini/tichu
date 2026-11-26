@@ -26,7 +26,7 @@ void main() {
     expect(controller.step, ObserveStep.roundOver);
 
     final record = controller.record!;
-    final kinds = record.events.map((final e) => e.kind).toSet();
+    final kinds = record.events.map((e) => e.kind).toSet();
     expect(
       kinds,
       containsAll(<String>[
@@ -41,16 +41,17 @@ void main() {
       ]),
     );
     final seqs = [for (final e in record.events) e.seq];
-    expect(seqs, List<int>.generate(seqs.length, (final i) => i + 1));
+    expect(seqs, List<int>.generate(seqs.length, (i) => i + 1));
 
-    final firstPlay = record.events.firstWhere((final e) => e.kind == 'play');
+    final firstPlay = record.events.firstWhere((e) => e.kind == 'play');
     expect(firstPlay.data['hand'], hasLength(14));
     expect(firstPlay.data['lead'], isTrue);
 
     await controller.flushRecord();
     final stored = await store.load(record.id);
     expect(stored, isNotNull);
-    expect((stored!['events']! as List).length, record.events.length);
+    expect(stored!['format'], 3);
+    expect((stored['log']! as List).length, 1);
     expect(stored['mode'], 'observe');
 
     // The next round starts on Continue.

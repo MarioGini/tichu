@@ -14,16 +14,14 @@ extension _Exploration on _HeadlessSimulator {
   /// on normally) or 'pre' (before the schupf; no-call = continues
   /// normally, may still call Tichu later).
   Future<double?> _counterfactualCall(
-    final GameEngine engine,
-    final GameEngineState state,
-    final String playerId,
-    final String kind,
+    GameEngineState state,
+    String playerId,
+    String kind,
   ) async {
-    final team =
-        state.players.firstWhere((final p) => p.id == playerId).seat % 2;
+    final team = state.players.firstWhere((p) => p.id == playerId).seat % 2;
     Future<(int, bool)?> playOut({
-      required final bool call,
-      final GameEngineState? base,
+      required bool call,
+      GameEngineState? base,
     }) async {
       final fork = (base ?? state).copy();
       final forkAgents = {
@@ -31,12 +29,12 @@ extension _Exploration on _HeadlessSimulator {
       };
       final preDecided = {..._preSchupfDecided};
       if (kind == 'grand') {
-        engine.applyAction(
+        simulationEngine.applyAction(
           fork,
           GrandTichuDecisionAction(playerId: playerId, call: call),
         );
       } else if (call) {
-        engine.applyAction(fork, CallTichuAction(playerId: playerId));
+        simulationEngine.applyAction(fork, CallTichuAction(playerId: playerId));
       }
       if (kind == 'pre') preDecided.add(playerId);
       for (var steps = 0; steps < 5000; steps++) {
@@ -49,31 +47,24 @@ extension _Exploration on _HeadlessSimulator {
           return (team == 0 ? diff : -diff, first);
         }
         final request = AgentDecisions.next(
-          engine,
+          simulationEngine,
           fork,
           preSchupfDecided: preDecided,
         );
         if (request == null) return null;
         if (request is PreSchupfTichuRequest) preDecided.add(request.playerId);
         final agent = forkAgents[request.playerId]!;
-        final snap = engine.buildSnapshot(fork);
-        GameAction? action;
-        try {
-          // The decider keeps the counterfactual: no Tichu in the
-          // no-call branch (selectTurn never calls).
-          action =
-              kind == 'tichu' &&
-                  request is TurnRequest &&
-                  request.playerId == playerId
-              ? await agent.selectTurn(snap)
-              : await AgentDecisions.resolve(request, agent, snap, fork);
-          // Agents signal "no legal action" with StateError.
-          // ignore: avoid_catching_errors
-        } on StateError {
-          return null;
-        }
+        final snap = simulationEngine.buildSnapshot(fork);
+        // The decider keeps the counterfactual: no Tichu in the
+        // no-call branch (selectTurn never calls).
+        final action =
+            kind == 'tichu' &&
+                request is TurnRequest &&
+                request.playerId == playerId
+            ? await agent.selectTurn(snap)
+            : await AgentDecisions.resolve(request, agent, snap, fork);
         if (action == null) continue;
-        engine.applyAction(fork, action);
+        simulationEngine.applyAction(fork, action);
       }
       return null;
     }
@@ -116,15 +107,11 @@ extension _Exploration on _HeadlessSimulator {
   /// [state] with the cards [playerId] cannot see dealt anew among the
   /// other three players: same hand sizes, and the cards [playerId] passed
   /// them in the schupf stay with them (they are known).
-  GameEngineState _determinize(
-    final GameEngineState state,
-    final String playerId,
-  ) {
+  GameEngineState _determinize(GameEngineState state, String playerId) {
     final det = state.copy();
-    final me = state.players.firstWhere((final p) => p.id == playerId);
-    String idAt(final int offset) => state.players
-        .firstWhere((final p) => p.seat == (me.seat + offset) % 4)
-        .id;
+    final me = state.players.firstWhere((p) => p.id == playerId);
+    String idAt(int offset) =>
+        state.players.firstWhere((p) => p.seat == (me.seat + offset) % 4).id;
     final pass = state.completedSchupfSelections[playerId];
     final passed = <String, Card>{
       if (pass != null) idAt(1): pass.toLeft,
@@ -167,7 +154,7 @@ extension _Exploration on _HeadlessSimulator {
 
   /// Replace one to three (mostly one) of the passed cards with random other
   /// hand cards, and sometimes swap destinations.
-  SchupfAction _perturbSchupf(final SchupfAction base, final List<Card> hand) {
+  SchupfAction _perturbSchupf(SchupfAction base, List<Card> hand) {
     final chosen = [base.toLeft, base.toPartner, base.toRight];
     // Mostly small changes, so the data covers choices near the heuristic's.
     final roll = random.nextDouble();
@@ -177,7 +164,7 @@ extension _Exploration on _HeadlessSimulator {
       // Stay within the bomb-safety convention for the opponents' cards.
       final pool = [
         for (final c in hand)
-          if (!chosen.any((final x) => _sameCard(x, c)) &&
+          if (!chosen.any((x) => _sameCard(x, c)) &&
               (slot != 0 || SchupfFeatures.allowedLeft(c)) &&
               (slot != 2 || SchupfFeatures.allowedRight(c)))
             c,
@@ -207,13 +194,9 @@ extension _Exploration on _HeadlessSimulator {
     );
   }
 
-  bool _sameCard(final Card a, final Card b) =>
-      a.face == b.face && a.color == b.color;
+  bool _sameCard(Card a, Card b) => a.face == b.face && a.color == b.color;
 
-  GameAction? _pickRandomLegalAction(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) {
+  GameAction? _pickRandomLegalAction(GameSnapshot snapshot, String playerId) {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     if (hand.isEmpty) return null;
 

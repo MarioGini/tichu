@@ -6,8 +6,8 @@ extension _PhaseResolvers on AiTurnRunner {
   // ── Grand Tichu ─────────────────────────────────────────────────────
 
   Future<void> _resolveGrandTichu(
-    final LocalGameState state,
-    final GameSnapshot Function() buildSnapshot,
+    LocalGameState state,
+    GameSnapshot Function() buildSnapshot,
   ) async {
     while (state.engineState.phase == GamePhase.grandTichu) {
       final request = AgentDecisions.next(
@@ -35,9 +35,9 @@ extension _PhaseResolvers on AiTurnRunner {
   // ── Schupf ──────────────────────────────────────────────────────────
 
   Future<void> _resolveSchupf(
-    final LocalGameState state,
-    final GameSnapshot Function() buildSnapshot,
-    final void Function() emitSnapshot,
+    LocalGameState state,
+    GameSnapshot Function() buildSnapshot,
+    void Function() emitSnapshot,
   ) async {
     // Bots may announce Tichu before anyone passes, so partners can react
     // in the exchange (same decision order as in headless training).
@@ -111,8 +111,8 @@ extension _PhaseResolvers on AiTurnRunner {
   // ── Schupf receipts ─────────────────────────────────────────────────
 
   Future<bool> _resolveSchupfReceipts(
-    final LocalGameState state,
-    final GameSnapshot Function() buildSnapshot,
+    LocalGameState state,
+    GameSnapshot Function() buildSnapshot,
   ) async {
     var applied = false;
     for (final player in state.engineState.players) {
@@ -134,9 +134,9 @@ extension _PhaseResolvers on AiTurnRunner {
   // ── Dragon give ─────────────────────────────────────────────────────
 
   Future<void> _autoResolveDragonGive(
-    final LocalGameState state,
-    final String winnerId,
-    final GameSnapshot Function() buildSnapshot,
+    LocalGameState state,
+    String winnerId,
+    GameSnapshot Function() buildSnapshot,
   ) async {
     final opponentIds = _engine.opponentIds(state.engineState, winnerId);
     if (opponentIds.isEmpty) return;
@@ -151,7 +151,6 @@ extension _PhaseResolvers on AiTurnRunner {
     );
     if (action is GiveDragonAction) {
       action = await _endgameSearcher.refineDragonGift(
-        engine: _engine,
         state: state.engineState,
         agent: agent,
         chosen: action,

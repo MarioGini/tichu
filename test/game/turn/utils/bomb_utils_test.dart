@@ -22,13 +22,13 @@ void main() {
 
       final turns = getBombs(cards);
       expect(turns.length, 2);
-      expect(turns.every((final turn) => turn.type == TurnType.bomb), true);
+      expect(turns.every((turn) => turn.type == TurnType.bomb), true);
       expect(
-        turns.any((final turn) => turn.value == Card.getValue(CardFace.eight)),
+        turns.any((turn) => turn.value == Card.getValue(CardFace.eight)),
         true,
       );
       expect(
-        turns.any((final turn) => turn.value == Card.getValue(CardFace.jack)),
+        turns.any((turn) => turn.value == Card.getValue(CardFace.jack)),
         true,
       );
     });
@@ -88,15 +88,11 @@ void main() {
       final turns = getBombs(cards);
       expect(turns.length, 2);
       expect(
-        turns.any(
-          (final turn) => turn.value == 20 + Card.getValue(CardFace.six),
-        ),
+        turns.any((turn) => turn.value == 20 + Card.getValue(CardFace.six)),
         true,
       );
       expect(
-        turns.any(
-          (final turn) => turn.value == 20 + Card.getValue(CardFace.king),
-        ),
+        turns.any((turn) => turn.value == 20 + Card.getValue(CardFace.king)),
         true,
       );
     });
@@ -230,27 +226,26 @@ void main() {
 }
 
 /// getBombs as it was before the bit-mask shortcut.
-List<TichuTurn> _referenceBombs(final List<Card> cards) {
+List<TichuTurn> _referenceBombs(List<Card> cards) {
   final bombTurns = <TichuTurn>[];
   final occurrenceCount = getOccurrenceCount(cards);
   final bombFaces = occurrenceCount.keys
-      .where((final element) => occurrenceCount[element] == 4)
+      .where((element) => occurrenceCount[element] == 4)
       .toList();
   for (final bombFace in bombFaces) {
     bombTurns.add(
       TichuTurn(
         TurnType.bomb,
-        cards.where((final card) => card.face == bombFace).toList(),
+        cards.where((card) => card.face == bombFace).toList(),
       ),
     );
   }
   final suitedCards = cards
-      .where((final card) => card.color != CardColor.special)
+      .where((card) => card.color != CardColor.special)
       .toList();
   for (final color in CardColor.values.where((c) => c != CardColor.special)) {
-    final colorCards =
-        suitedCards.where((final card) => card.color == color).toList()
-          ..sort(compareCards);
+    final colorCards = suitedCards.where((card) => card.color == color).toList()
+      ..sort(compareCards);
     if (colorCards.length < 5) continue;
     var start = 0;
     while (start < colorCards.length) {

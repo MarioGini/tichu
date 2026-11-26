@@ -3,10 +3,10 @@ part of 'headless.dart';
 /// Asks the bots for each pending decision, with exploration on top.
 extension _Decisions on _HeadlessSimulator {
   Future<GameAction?> _selectAction({
-    required final GameEngine engine,
-    required final GameEngineState state,
-    required final GameSnapshot snapshot,
-    required final Map<String, PlayerAgent> agents,
+    required GameEngine engine,
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required Map<String, PlayerAgent> agents,
   }) async {
     _lastActionExplored = false;
     final round = state.scoreTracker.state.roundNumber;
@@ -37,7 +37,7 @@ extension _Decisions on _HeadlessSimulator {
         called: shouldCall,
         explored: explored,
         counterfactual: _labelCounterfactual()
-            ? await _counterfactualCall(engine, state, playerId, 'pre')
+            ? await _counterfactualCall(state, playerId, 'pre')
             : null,
         cfDetails: _lastCallDetails,
       );
@@ -70,7 +70,7 @@ extension _Decisions on _HeadlessSimulator {
           called: shouldCall,
           explored: explored,
           counterfactual: _labelCounterfactual()
-              ? await _counterfactualCall(engine, state, playerId, 'grand')
+              ? await _counterfactualCall(state, playerId, 'grand')
               : null,
           cfDetails: _lastCallDetails,
         );
@@ -88,7 +88,6 @@ extension _Decisions on _HeadlessSimulator {
         if (schupfRolloutRate > 0) {
           if (random.nextDouble() < schupfRolloutRate) {
             await _labelSchupf(
-              engine: engine,
               state: state,
               snapshot: snapshot,
               playerId: playerId,
@@ -115,12 +114,7 @@ extension _Decisions on _HeadlessSimulator {
         if (turn == null || searcher == null || _lastActionExplored) {
           return turn;
         }
-        return searcher.refine(
-          engine: engine,
-          state: state,
-          agent: agent,
-          chosen: turn,
-        );
+        return searcher.refine(state: state, agent: agent, chosen: turn);
       case DragonGiveRequest():
         final gift = await AgentDecisions.resolve(
           request,
@@ -131,7 +125,6 @@ extension _Decisions on _HeadlessSimulator {
         final searcher = endgameSearcher;
         if (gift is! GiveDragonAction || searcher == null) return gift;
         return searcher.refineDragonGift(
-          engine: engine,
           state: state,
           agent: agent,
           chosen: gift,
@@ -142,11 +135,11 @@ extension _Decisions on _HeadlessSimulator {
   }
 
   Future<GameAction?> _selectTurn({
-    required final GameEngine engine,
-    required final GameEngineState state,
-    required final GameSnapshot snapshot,
-    required final String playerId,
-    required final PlayerAgent agent,
+    required GameEngine engine,
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required String playerId,
+    required PlayerAgent agent,
   }) async {
     if (epsilon > 0 && random.nextDouble() < epsilon) {
       final randomAction = _pickRandomLegalAction(snapshot, playerId);
@@ -156,44 +149,38 @@ extension _Decisions on _HeadlessSimulator {
       }
     }
 
-    try {
-      final tichuKey = '${snapshot.scoreState.roundNumber}:$playerId';
-      final canCall =
-          (snapshot.canCallTichuByPlayer[playerId] ?? false) &&
-          (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
-              TichuCall.none &&
-          !_tichuDecided.contains(tichuKey);
-      // The bot decides when it plays its first card; a pass keeps the
-      // option (see SmartAiAgent.selectAction).
-      GameAction? turn;
-      if (canCall && agent is SmartAiAgent) {
-        turn = await agent.selectTurn(snapshot);
-        if (turn is PassAction) return turn;
-      }
-      if (canCall && _tichuDecided.add(tichuKey)) {
-        // The Tichu decision of this round: explore + log it.
-        var shouldCall = await agent.shouldCallTichu(snapshot);
-        final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
-        if (explored) shouldCall = !shouldCall;
-        _bcWriter?.emitCallDecision(
-          kind: 'tichu',
-          snapshot: snapshot,
-          playerId: playerId,
-          called: shouldCall,
-          explored: explored,
-          counterfactual: _labelCounterfactual()
-              ? await _counterfactualCall(engine, state, playerId, 'tichu')
-              : null,
-          cfDetails: _lastCallDetails,
-        );
-        if (shouldCall) return CallTichuAction(playerId: playerId);
-        return turn ?? await agent.selectTurn(snapshot);
-      }
-      return await agent.selectAction(snapshot);
-      // Agents signal "no legal action" with StateError.
-      // ignore: avoid_catching_errors
-    } on StateError {
-      return null;
+    final tichuKey = '${snapshot.scoreState.roundNumber}:$playerId';
+    final canCall =
+        (snapshot.canCallTichuByPlayer[playerId] ?? false) &&
+        (snapshot.scoreState.tichuCalls[playerId] ?? TichuCall.none) ==
+            TichuCall.none &&
+        !_tichuDecided.contains(tichuKey);
+    // The bot decides when it plays its first card; a pass keeps the
+    // option (see SmartAiAgent.selectAction).
+    GameAction? turn;
+    if (canCall && agent is SmartAiAgent) {
+      turn = await agent.selectTurn(snapshot);
+      if (turn is PassAction) return turn;
     }
+    if (canCall && _tichuDecided.add(tichuKey)) {
+      // The Tichu decision of this round: explore + log it.
+      var shouldCall = await agent.shouldCallTichu(snapshot);
+      final explored = callEpsilon > 0 && random.nextDouble() < callEpsilon;
+      if (explored) shouldCall = !shouldCall;
+      _bcWriter?.emitCallDecision(
+        kind: 'tichu',
+        snapshot: snapshot,
+        playerId: playerId,
+        called: shouldCall,
+        explored: explored,
+        counterfactual: _labelCounterfactual()
+            ? await _counterfactualCall(state, playerId, 'tichu')
+            : null,
+        cfDetails: _lastCallDetails,
+      );
+      if (shouldCall) return CallTichuAction(playerId: playerId);
+      return turn ?? await agent.selectTurn(snapshot);
+    }
+    return await agent.selectAction(snapshot);
   }
 }

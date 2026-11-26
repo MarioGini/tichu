@@ -40,7 +40,6 @@ class PlayerHandArea extends StatelessWidget {
     required this.winningTeam,
     required this.onMatchContinue,
     required this.isSelfManual,
-    this.playerName = 'You',
   });
 
   // Hand display
@@ -55,10 +54,6 @@ class PlayerHandArea extends StatelessWidget {
   final bool humanTichu;
   final bool humanGrandTichu;
   final bool isSelfManual;
-
-  /// Name in the header ("You" in a normal game, the followed bot when
-  /// watching AI play).
-  final String playerName;
 
   // Schupf panel
   final bool isSchupfActive;
@@ -81,7 +76,7 @@ class PlayerHandArea extends StatelessWidget {
   final int? winningTeam;
   final VoidCallback? onMatchContinue;
 
-  Widget? _buildHeader(final BuildContext context) => FittedBox(
+  Widget? _buildHeader(BuildContext context) => FittedBox(
     fit: BoxFit.scaleDown,
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -90,18 +85,16 @@ class PlayerHandArea extends StatelessWidget {
         const Icon(Icons.person, color: Colors.white70, size: 18),
         const SizedBox(width: 4),
         Text(
-          playerName,
-          style: Theme.of(
-            context,
-          ).textTheme.labelMedium?.copyWith(color: Colors.white),
+          'You',
+          style: Theme.of(context).textTheme.labelMedium
+              ?.copyWith(color: Colors.white),
         ),
         if (showPoints) ...[
           const SizedBox(width: 8),
           Text(
             '$humanScore pts',
-            style: Theme.of(
-              context,
-            ).textTheme.labelSmall?.copyWith(color: Colors.white70),
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: Colors.white70),
           ),
         ],
         if (humanTichu) ...[
@@ -135,8 +128,8 @@ class PlayerHandArea extends StatelessWidget {
   );
 
   @override
-  Widget build(final BuildContext context) => LayoutBuilder(
-    builder: (final context, final constraints) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
       final maxHeight = constraints.maxHeight.isFinite
           ? constraints.maxHeight
           : null;
@@ -146,7 +139,7 @@ class PlayerHandArea extends StatelessWidget {
       final handDisplay = HandDisplay(
         cards: hand,
         selectedIndexes: selectedIndexes,
-        onCardTap: isSelfManual ? onCardTap : (final _) {},
+        onCardTap: isSelfManual ? onCardTap : (_) {},
         isActive: isActive,
         isFinished: isFinished,
         finishPosition: finishPosition,

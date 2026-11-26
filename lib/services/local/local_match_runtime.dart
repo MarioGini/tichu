@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:tichu/agents/app_bots.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/player_agent.dart';
@@ -11,6 +12,7 @@ import 'package:tichu/game/record/game_record.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/services/local/ai_turn_runner.dart';
 import 'package:tichu/services/local/local_game_state.dart';
+import 'package:tichu/services/request_rejected_exception.dart';
 
 /// Fully local, in-process runtime for a single match.
 ///
@@ -23,31 +25,40 @@ class LocalMatchRuntime {
   final Map<String, LocalGameState> _games = {};
 
   LocalMatchRuntime({
-    final GameEngine? engine,
-    final Random? random,
-    final AgentFactory? agentFactory,
-    final Map<String, PlayerAgent>? automatedAgents,
-  }) : _engine = engine ?? GameEngineImpl(random: random),
-       _aiRunner = AiTurnRunner(
-         agentFactory: agentFactory ?? AppBots.current.build,
-         belief: AppBots.belief,
-       ) {
-    _aiRunner.engine = _engine;
+    GameEngine? engine,
+    Random? random,
+    AgentFactory? agentFactory,
+    Map<String, PlayerAgent>? automatedAgents,
+  }) : this._(
+         engine ?? GameEngineImpl(random: random),
+         agentFactory ?? AppBots.current.build,
+         automatedAgents,
+       );
+
+  LocalMatchRuntime._(
+    this._engine,
+    AgentFactory agentFactory,
+    Map<String, PlayerAgent>? automatedAgents,
+  ) : _aiRunner = AiTurnRunner(
+        engine: _engine,
+        agentFactory: agentFactory,
+        belief: AppBots.belief,
+      ) {
     if (automatedAgents != null) {
       _aiRunner.addAgents(automatedAgents);
     }
   }
 
-  Future<void> setAutomatedActionDelay(final Duration delay) async {
+  Future<void> setAutomatedActionDelay(Duration delay) async {
     _aiRunner.automatedActionDelay = delay;
   }
 
-  Stream<GameSnapshot> watchGameState(final String gameId) =>
+  Stream<GameSnapshot> watchGameState(String gameId) =>
       _requireGame(gameId).watchSnapshots();
 
   Future<String> createGame(
-    final List<GamePlayer> players, {
-    final int targetScore = 1000,
+    List<GamePlayer> players, {
+    int targetScore = 1000,
   }) async {
     // A UUID, so a stored game record can be looked up by the match id.
     final gameId = generateUuidV4();
@@ -63,7 +74,7 @@ class LocalMatchRuntime {
     return gameId;
   }
 
-  Future<void> startNewRound(final String gameId) async {
+  Future<void> startNewRound(String gameId) async {
     final state = _requireGame(gameId);
     _engine.startNewRound(state.engineState);
     _clearPendingOpponentTurn(state);
@@ -71,7 +82,7 @@ class LocalMatchRuntime {
     await _runAi(state);
   }
 
-  Future<void> startGame(final String gameId) async {
+  Future<void> startGame(String gameId) async {
     final state = _requireGame(gameId);
     _engine.startGame(state.engineState);
     _clearPendingOpponentTurn(state);
@@ -79,17 +90,16 @@ class LocalMatchRuntime {
     await _runAi(state);
   }
 
-  Future<void> submitAction(
-    final String gameId,
-    final GameAction action,
-  ) async {
+  Future<void> submitAction(String gameId, GameAction action) async {
     final state = _requireGame(gameId);
 
     if (state.opponentAwaitingConfirmation &&
         action is! ConfirmOpponentTurnAction &&
         action is! AcknowledgeSchupfAction &&
         action is! CallTichuAction) {
-      throw StateError('Confirm the pending opponent turn before continuing.');
+      throw const IllegalActionException(
+        'Confirm the pending opponent turn before continuing.',
+      );
     }
 
     if (action is ConfirmOpponentTurnAction) {
@@ -120,40 +130,40 @@ class LocalMatchRuntime {
     await _runAi(state);
   }
 
-  Future<void> disposeGame(final String gameId) async {
+  Future<void> disposeGame(String gameId) async {
     final state = _games.remove(gameId);
     await state?.controller.close();
   }
 
-  LocalGameState _requireGame(final String gameId) {
+  LocalGameState _requireGame(String gameId) {
     final state = _games[gameId];
-    if (state == null) throw StateError('Unknown gameId: $gameId');
+    if (state == null) {
+      throw RequestRejectedException('Unknown gameId: $gameId');
+    }
     return state;
   }
 
-  void _emitSnapshot(final LocalGameState state) {
+  void _emitSnapshot(LocalGameState state) {
     final snapshot = _buildSnapshot(state);
     state.latestSnapshot = snapshot;
     state.controller.add(snapshot);
   }
 
-  GameSnapshot _buildSnapshot(final LocalGameState state) =>
-      _engine.buildSnapshot(
-        state.engineState,
-        pendingOpponentPlayerId: state.pendingOpponentPlayerId,
-        pendingOpponentCards: state.pendingOpponentCards,
-        pendingOpponentPass: state.pendingOpponentPass,
-        opponentAwaitingConfirmation: state.opponentAwaitingConfirmation,
-      );
+  GameSnapshot _buildSnapshot(LocalGameState state) => _engine.buildSnapshot(
+    state.engineState,
+    pendingOpponentPlayerId: state.pendingOpponentPlayerId,
+    pendingOpponentCards: state.pendingOpponentCards,
+    pendingOpponentPass: state.pendingOpponentPass,
+    opponentAwaitingConfirmation: state.opponentAwaitingConfirmation,
+  );
 
-  Future<void> _runAi(final LocalGameState state) =>
-      _aiRunner.runAutomatedPlayers(
-        state,
-        buildSnapshot: () => _buildSnapshot(state),
-        emitSnapshot: () => _emitSnapshot(state),
-      );
+  Future<void> _runAi(LocalGameState state) => _aiRunner.runAutomatedPlayers(
+    state,
+    buildSnapshot: () => _buildSnapshot(state),
+    emitSnapshot: () => _emitSnapshot(state),
+  );
 
-  void _clearPendingOpponentTurn(final LocalGameState state) {
+  void _clearPendingOpponentTurn(LocalGameState state) {
     state.pendingOpponentAction = null;
     state.pendingOpponentPlayerId = null;
     state.pendingOpponentCards.clear();

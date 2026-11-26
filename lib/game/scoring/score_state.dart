@@ -62,19 +62,19 @@ class ScoreState {
   });
 
   ScoreState copyWith({
-    final int? roundNumber,
-    final int? teamOneTotal,
-    final int? teamTwoTotal,
-    final int? teamOneRound,
-    final int? teamTwoRound,
-    final Map<String, int>? playerRoundPoints,
-    final bool? roundComplete,
-    final int? targetScore,
-    final bool? gameComplete,
-    final Object? winningTeam = _unset,
-    final List<String>? finishOrder,
-    final List<RoundScore>? rounds,
-    final Map<String, TichuCall>? tichuCalls,
+    int? roundNumber,
+    int? teamOneTotal,
+    int? teamTwoTotal,
+    int? teamOneRound,
+    int? teamTwoRound,
+    Map<String, int>? playerRoundPoints,
+    bool? roundComplete,
+    int? targetScore,
+    bool? gameComplete,
+    Object? winningTeam = _unset,
+    List<String>? finishOrder,
+    List<RoundScore>? rounds,
+    Map<String, TichuCall>? tichuCalls,
   }) => ScoreState(
     roundNumber: roundNumber ?? this.roundNumber,
     teamOneTotal: teamOneTotal ?? this.teamOneTotal,
@@ -93,7 +93,7 @@ class ScoreState {
     tichuCalls: tichuCalls ?? this.tichuCalls,
   );
 
-  factory ScoreState.initial({final int targetScore = 1000}) => ScoreState(
+  factory ScoreState.initial({int targetScore = 1000}) => ScoreState(
     roundNumber: 1,
     teamOneTotal: 0,
     teamTwoTotal: 0,

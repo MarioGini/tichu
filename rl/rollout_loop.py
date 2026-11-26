@@ -161,7 +161,7 @@ def publish_job(run: str, out: Path, *, it: int, best: Path, schupf: str, oppone
         (stage / "job.json").write_text(json.dumps(job, indent=1))
         for name in [*files, "job.json"]:
             upload_file(stage / name, run=run)
-    except Exception as e:  # noqa: BLE001 - storage must never stop training
+    except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage must never stop training
         print(f"   publishing the job failed: {e}", flush=True)
 
 
@@ -173,7 +173,7 @@ def sync_data(run: str, data_dir: Path) -> None:
         before = len(list(data_dir.glob("*.npz")))
         download(run, data_dir)
         print(f"   synced {len(list(data_dir.glob('*.npz'))) - before} new files from {run}", flush=True)
-    except Exception as e:  # noqa: BLE001
+    except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage errors
         print(f"   sync from {run} failed: {e}", flush=True)
 
 
@@ -215,7 +215,7 @@ def data_window(files: list[Path], max_decisions: int, prune_run: str, count=_de
 
                 names = {f"{prune_run}/{f.name}" for f in drop}
                 delete_files([r for r in manifest(prune_run) if r["path"] in names])
-            except Exception as e:  # noqa: BLE001
+            except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage errors
                 print(f"   pruning the store failed: {e}", flush=True)
         for f in drop:
             f.unlink()
@@ -233,7 +233,9 @@ def upload(path: Path | None, run: str, policy: Path) -> bool:
         if games.exists():
             upload_file(games, run=run)
         return True
-    except Exception as e:  # noqa: BLE001 - storage must never stop training
+    # Storage must never stop training: network and file errors (OSError),
+    # HTTP errors (RuntimeError), unexpected responses (ValueError, KeyError).
+    except (OSError, RuntimeError, ValueError, KeyError) as e:
         print(f"   upload of {path.name} failed: {e}", flush=True)
         return False
 
@@ -284,7 +286,7 @@ def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Pa
             from training_data_store import download
 
             download(args.schupf_label_run, ldir)
-        except Exception as e:  # noqa: BLE001
+        except (OSError, RuntimeError, ValueError, KeyError) as e:  # storage errors
             print(f"   schupf label sync failed: {e}", flush=True)
         files = data_window(sorted(ldir.glob("*.jsonl")), 2 * args.schupf_label_rows, args.schupf_label_run,
                             count=_rows)

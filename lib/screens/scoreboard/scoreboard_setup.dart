@@ -48,7 +48,7 @@ class _ScoreboardSetupFormState extends State<ScoreboardSetupForm> {
   }
 
   void _submit() {
-    final names = List.generate(2, (final i) {
+    final names = List.generate(2, (i) {
       final name = _names[i].text.trim();
       return name.isEmpty ? 'Team ${String.fromCharCode(65 + i)}' : name;
     });
@@ -58,7 +58,7 @@ class _ScoreboardSetupFormState extends State<ScoreboardSetupForm> {
   }
 
   @override
-  Widget build(final BuildContext context) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,

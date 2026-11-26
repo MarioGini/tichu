@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_exceptions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
@@ -19,15 +20,15 @@ class GameEngineImpl implements GameEngine {
   final TurnHandler _turnHandler;
   final Random _random;
 
-  GameEngineImpl({final TurnHandler? turnHandler, final Random? random})
+  GameEngineImpl({TurnHandler? turnHandler, Random? random})
     : _turnHandler = turnHandler ?? TurnHandler(),
       _random = random ?? Random();
 
   @override
   GameEngineState createGame({
-    required final String gameId,
-    required final List<GamePlayer> players,
-    final int targetScore = 1000,
+    required String gameId,
+    required List<GamePlayer> players,
+    int targetScore = 1000,
   }) {
     if (players.length != 4) {
       throw ArgumentError('Local mode currently supports exactly 4 players.');
@@ -57,9 +58,11 @@ class GameEngineImpl implements GameEngine {
   }
 
   @override
-  void startNewRound(final GameEngineState state) {
+  void startNewRound(GameEngineState state) {
     if (state.scoreTracker.state.gameComplete) {
-      throw StateError('Game has ended. Start a new game to play again.');
+      throw const IllegalActionException(
+        'Game has ended. Start a new game to play again.',
+      );
     }
 
     final (hands, reserved) = dealInitialHands(state.players, _random);
@@ -93,7 +96,7 @@ class GameEngineImpl implements GameEngine {
   }
 
   @override
-  void startGame(final GameEngineState state) {
+  void startGame(GameEngineState state) {
     state.grandTichuDecisions.clear();
     state.schupfSelections.clear();
     state.completedSchupfSelections.clear();
@@ -106,7 +109,7 @@ class GameEngineImpl implements GameEngine {
   }
 
   @override
-  void applyAction(final GameEngineState state, final GameAction action) {
+  void applyAction(GameEngineState state, GameAction action) {
     if (action is ConfirmOpponentTurnAction) {
       return;
     }
@@ -120,17 +123,23 @@ class GameEngineImpl implements GameEngine {
       state,
       action.playerId,
     )) {
-      throw StateError('Accept schupf before continuing play.');
+      throw const IllegalActionException(
+        'Accept schupf before continuing play.',
+      );
     }
 
     if (state.scoreTracker.state.roundComplete) {
-      throw StateError('Round has ended. Start a new round to continue.');
+      throw const IllegalActionException(
+        'Round has ended. Start a new round to continue.',
+      );
     }
 
     if (state.phase == GamePhase.grandTichu) {
       final expectedPlayer = state.players[state.currentPlayerIndex].id;
       if (action.playerId != expectedPlayer) {
-        throw StateError('Grand tichu decisions must be made in turn order.');
+        throw const IllegalActionException(
+          'Grand tichu decisions must be made in turn order.',
+        );
       }
 
       if (action is CallGrandTichuAction) {
@@ -142,7 +151,7 @@ class GameEngineImpl implements GameEngine {
         applyGrandTichuDecision(state, action);
       } else if (action is CallTichuAction) {
         if (!canPlayerCallTichu(state, action.playerId)) {
-          throw StateError(
+          throw const IllegalActionException(
             'Tichu can only be called before playing your first card.',
           );
         }
@@ -152,7 +161,9 @@ class GameEngineImpl implements GameEngine {
           GrandTichuDecisionAction(playerId: action.playerId, call: false),
         );
       } else {
-        throw StateError('Grand tichu decision required before play.');
+        throw const IllegalActionException(
+          'Grand tichu decision required before play.',
+        );
       }
       return;
     }
@@ -164,21 +175,21 @@ class GameEngineImpl implements GameEngine {
       }
       if (action is CallTichuAction) {
         if (!canPlayerCallTichu(state, action.playerId)) {
-          throw StateError(
+          throw const IllegalActionException(
             'Tichu can only be called before playing your first card.',
           );
         }
         state.scoreTracker.recordTichuCall(action.playerId, isGrand: false);
         return;
       }
-      throw StateError('Schupfen required before play.');
+      throw const IllegalActionException('Schupfen required before play.');
     }
 
     // Tichu may be called at any time before the player's first card,
     // not only on their own turn.
     if (action is CallTichuAction) {
       if (!canPlayerCallTichu(state, action.playerId)) {
-        throw StateError(
+        throw const IllegalActionException(
           'Tichu can only be called before playing your first card.',
         );
       }
@@ -189,7 +200,9 @@ class GameEngineImpl implements GameEngine {
     if (state.pendingDragonGiveBy != null) {
       if (action is! GiveDragonAction ||
           action.playerId != state.pendingDragonGiveBy) {
-        throw StateError('Dragon give required before continuing play.');
+        throw const IllegalActionException(
+          'Dragon give required before continuing play.',
+        );
       }
       applyGiveDragonAction(state, action);
       return;
@@ -205,10 +218,10 @@ class GameEngineImpl implements GameEngine {
             deckType != TurnType.empty &&
             deckType != TurnType.none;
         if (!canInterrupt) {
-          throw StateError("Not this player's turn.");
+          throw const IllegalActionException("Not this player's turn.");
         }
       } else {
-        throw StateError("Not this player's turn.");
+        throw const IllegalActionException("Not this player's turn.");
       }
     }
 
@@ -217,7 +230,7 @@ class GameEngineImpl implements GameEngine {
     } else if (action is PassAction) {
       applyPassAction(state, action);
     } else if (action is GiveDragonAction) {
-      throw StateError('No dragon trick to give.');
+      throw const IllegalActionException('No dragon trick to give.');
     } else if (action is CallGrandTichuAction) {
       state.scoreTracker.recordTichuCall(action.playerId, isGrand: true);
     }
@@ -225,11 +238,11 @@ class GameEngineImpl implements GameEngine {
 
   @override
   GameSnapshot buildSnapshot(
-    final GameEngineState state, {
-    final String? pendingOpponentPlayerId,
-    final List<Card>? pendingOpponentCards,
-    final bool pendingOpponentPass = false,
-    final bool opponentAwaitingConfirmation = false,
+    GameEngineState state, {
+    String? pendingOpponentPlayerId,
+    List<Card>? pendingOpponentCards,
+    bool pendingOpponentPass = false,
+    bool opponentAwaitingConfirmation = false,
   }) => buildGameSnapshot(
     state,
     pendingOpponentPlayerId: pendingOpponentPlayerId,
@@ -239,37 +252,28 @@ class GameEngineImpl implements GameEngine {
   );
 
   @override
-  PlayerSnapshot buildPlayerSnapshot(
-    final GameSnapshot snapshot,
-    final String playerId,
-  ) => buildPlayerView(snapshot, playerId);
+  PlayerSnapshot buildPlayerSnapshot(GameSnapshot snapshot, String playerId) =>
+      buildPlayerView(snapshot, playerId);
 
   @override
-  bool hasPendingHumanSchupfReceipts(final GameEngineState state) =>
+  bool hasPendingHumanSchupfReceipts(GameEngineState state) =>
       schupf_utils.hasPendingHumanSchupfReceipts(state);
 
   @override
-  bool shouldPauseForAutomatedOpponent(
-    final GameEngineState state,
-    final String actorId,
-  ) {
-    final actor = state.players.firstWhere(
-      (final player) => player.id == actorId,
-    );
+  bool shouldPauseForAutomatedOpponent(GameEngineState state, String actorId) {
+    final actor = state.players.firstWhere((player) => player.id == actorId);
     if (actor.type != PlayerType.automated) return false;
     if (state.scoreTracker.state.roundComplete) return false;
     if (state.scoreTracker.state.gameComplete) return false;
     final anyHumanOut = state.players
-        .where((final player) => player.type == PlayerType.human)
-        .any((final player) => (state.hands[player.id] ?? const []).isEmpty);
+        .where((player) => player.type == PlayerType.human)
+        .any((player) => (state.hands[player.id] ?? const []).isEmpty);
     if (anyHumanOut) return false;
     final nextPlayer = state.players[state.currentPlayerIndex];
     return nextPlayer.type == PlayerType.automated;
   }
 
   @override
-  List<String> opponentIds(
-    final GameEngineState state,
-    final String playerId,
-  ) => opponentIdsForPlayer(state, playerId);
+  List<String> opponentIds(GameEngineState state, String playerId) =>
+      opponentIdsForPlayer(state, playerId);
 }

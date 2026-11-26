@@ -33,7 +33,7 @@ void main() {
       expect(action, isA<PlayTurnAction>());
       final play = action as PlayTurnAction;
 
-      final playedFaces = play.cards.map((final c) => c.face).toSet();
+      final playedFaces = play.cards.map((c) => c.face).toSet();
       expect(playedFaces.contains(CardFace.ace), false);
       expect(playedFaces.contains(CardFace.king), false);
     });
@@ -51,16 +51,10 @@ void main() {
         myHand: hand,
         deck: emptyDeck(),
         otherHands: {
-          leftId: List.generate(
-            4,
-            (final i) => Card(CardFace.two, CardColor.red),
-          ),
+          leftId: List.generate(4, (i) => Card(CardFace.two, CardColor.red)),
           partnerId: defaultHand(),
           rightId: [
-            ...List.generate(
-              5,
-              (final i) => Card(CardFace.three, CardColor.blue),
-            ),
+            ...List.generate(5, (i) => Card(CardFace.three, CardColor.blue)),
             // An unseen Ace, so the King is not a sure winner.
             Card(CardFace.ace, CardColor.green),
           ],
@@ -89,10 +83,7 @@ void main() {
           leftId: [Card(CardFace.two, CardColor.red)],
           partnerId: defaultHand(),
           rightId: [
-            ...List.generate(
-              5,
-              (final i) => Card(CardFace.three, CardColor.blue),
-            ),
+            ...List.generate(5, (i) => Card(CardFace.three, CardColor.blue)),
             // An unseen Ace, so the King is not a sure winner.
             Card(CardFace.ace, CardColor.green),
           ],

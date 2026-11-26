@@ -38,6 +38,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from pathlib import Path
 
 DEFAULT_URL = "https://fujbfizzxdxufetszvbe.supabase.co"
@@ -92,7 +93,8 @@ def _npz_counts(path: Path) -> tuple[int, int]:
         with np.load(path) as d:
             starts = d["starts"]
             return int(starts.size - 1), int(starts[-1])
-    except Exception:  # noqa: BLE001 - not an npz cache: counts unknown
+    except (OSError, ValueError, EOFError, KeyError, IndexError, zipfile.BadZipFile):
+        # not a readable npz cache: counts unknown
         return 0, 0
 
 

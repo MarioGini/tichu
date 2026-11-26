@@ -114,7 +114,7 @@ class _HeadlessConfig {
 
 enum _HeadlessOutputFormat { csv, bcJsonl, summary, none }
 
-_HeadlessConfig _parseArgs(final List<String> args) {
+_HeadlessConfig _parseArgs(List<String> args) {
   int? seed;
   var targetScore = _defaultTargetScore;
   int? rounds;
@@ -489,9 +489,9 @@ _HeadlessConfig _parseArgs(final List<String> args) {
   }
 
   EndgameSearch search({
-    required final bool solve,
-    required final bool belief,
-    final int? maxCards,
+    required bool solve,
+    required bool belief,
+    int? maxCards,
   }) => EndgameSearch(
     beliefWorlds: belief,
     worlds: endgameWorlds,

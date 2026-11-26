@@ -8,7 +8,7 @@ const TextStyle scoreboardTabular = TextStyle(
 );
 
 /// "+165", "−65", "0".
-String signedPoints(final int points) => points > 0
+String signedPoints(int points) => points > 0
     ? '+$points'
     : points < 0
     ? '−${-points}'
@@ -26,7 +26,7 @@ class ScoreboardPanel extends StatelessWidget {
   final EdgeInsetsGeometry padding;
 
   @override
-  Widget build(final BuildContext context) => Container(
+  Widget build(BuildContext context) => Container(
     padding: padding,
     decoration: BoxDecoration(
       color: Colors.black.withValues(alpha: 0.25),
@@ -44,7 +44,7 @@ class ScoreboardSectionTitle extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(final BuildContext context) => Padding(
+  Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
     child: Row(
       children: [

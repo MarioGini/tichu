@@ -20,9 +20,6 @@ abstract final class AppBots {
   static const schupfAsset = 'assets/bots/tichu_schupf_v5.safetensors';
   static const schupfExtended = true;
 
-  /// Play-net scorer on wasm SIMD for the web (`web_kernel/`).
-  static const kernelAsset = 'assets/bots/mlp_kernel.wasm';
-
   /// Card-location model (rl/belief_train.py): the endgame search re-deals
   /// its worlds with it instead of uniformly.
   static const beliefAsset = 'assets/bots/tichu_belief_v1.safetensors';
@@ -58,9 +55,8 @@ abstract final class AppBots {
       final play = await rootBundle.load(playPolicyAsset);
       final schupf = await rootBundle.load(schupfAsset);
       final beliefBytes = await rootBundle.load(beliefAsset);
-      final kernelBytes = kIsWeb
-          ? (await rootBundle.load(kernelAsset)).buffer.asUint8List()
-          : null;
+      // The web: the play net's wasm SIMD kernel (`web_kernel/`).
+      final kernelBytes = kIsWeb ? await fetchWasmKernel() : null;
       final playScorer = kernelBytes == null
           ? null
           : await loadWasmScorer(kernelBytes);

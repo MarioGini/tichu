@@ -6,6 +6,30 @@ import 'package:tichu/agents/nn/mlp.dart';
 @JS('WebAssembly.validate')
 external bool _validate(JSUint8Array bytes);
 
+@JS('fetch')
+external JSPromise<_Response> _fetch(String url);
+
+extension type _Response(JSObject _) implements JSObject {
+  external bool get ok;
+  external JSPromise<JSArrayBuffer> arrayBuffer();
+}
+
+/// Kernel builds, preferred first (`web_kernel/build.sh`).
+const _kernelFiles = ['mlp_kernel_relaxed.wasm', 'mlp_kernel.wasm'];
+
+Future<Uint8List?> fetchWasmKernel() async {
+  for (final file in _kernelFiles) {
+    // A failed request (offline) counts as missing: the Dart scorer works.
+    final response = await _fetch(file).toDart
+        .then<_Response?>((r) => r, onError: (Object _) => null);
+    if (response == null || !response.ok) continue;
+    final bytes = (await response.arrayBuffer().toDart).toDart.asUint8List();
+    // False where the browser lacks (relaxed) wasm SIMD.
+    if (_validate(bytes.toJS)) return bytes;
+  }
+  return null;
+}
+
 @JS('WebAssembly.instantiate')
 external JSPromise<_Instantiated> _instantiate(
   JSUint8Array bytes,
@@ -51,13 +75,9 @@ extension type _Exports(JSObject _) implements JSObject {
   external double netScore(int net, int prefixLength, int suffixLength);
 }
 
-Future<PrefixScorerFactory?> loadWasmScorer(Uint8List kernelBytes) async {
-  final bytes = kernelBytes.toJS;
-  // False where the browser lacks wasm SIMD: the Dart scorer is used.
-  if (!_validate(bytes)) return null;
-  final instantiated = await _instantiate(bytes, JSObject()).toDart;
-  final kernel = _Kernel(instantiated.instance.exports);
-  return kernel.scorer;
+Future<PrefixScorerFactory> loadWasmScorer(Uint8List kernel) async {
+  final instantiated = await _instantiate(kernel.toJS, JSObject()).toDart;
+  return _Kernel(instantiated.instance.exports).scorer;
 }
 
 /// One wasm instance; one kernel net per [Mlp] (the bots built from a

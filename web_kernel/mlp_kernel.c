@@ -8,6 +8,14 @@
 // row padded to vec(l) = ceil(out / 4) vectors: w[l][i * vec(l) + v].
 #include <wasm_simd128.h>
 
+// a + b * c: one fused instruction with relaxed SIMD (-mrelaxed-simd;
+// Chrome 114+), a multiply and an add otherwise.
+#ifdef __wasm_relaxed_simd__
+#define MADD(a, b, c) wasm_f32x4_relaxed_madd(b, c, a)
+#else
+#define MADD(a, b, c) wasm_f32x4_add(a, wasm_f32x4_mul(b, c))
+#endif
+
 #define MAX_LAYERS 8
 
 extern unsigned char __heap_base;
@@ -89,14 +97,14 @@ static void accumulate(v128_t *out, const v128_t *init, const v128_t *w,
     for (int k = 0; k < n; k++) {
       const v128_t x = xs[k];
       const v128_t *r = w + rows[k] + v;
-      a0 = wasm_f32x4_add(a0, wasm_f32x4_mul(r[0], x));
-      a1 = wasm_f32x4_add(a1, wasm_f32x4_mul(r[1], x));
-      a2 = wasm_f32x4_add(a2, wasm_f32x4_mul(r[2], x));
-      a3 = wasm_f32x4_add(a3, wasm_f32x4_mul(r[3], x));
-      a4 = wasm_f32x4_add(a4, wasm_f32x4_mul(r[4], x));
-      a5 = wasm_f32x4_add(a5, wasm_f32x4_mul(r[5], x));
-      a6 = wasm_f32x4_add(a6, wasm_f32x4_mul(r[6], x));
-      a7 = wasm_f32x4_add(a7, wasm_f32x4_mul(r[7], x));
+      a0 = MADD(a0, r[0], x);
+      a1 = MADD(a1, r[1], x);
+      a2 = MADD(a2, r[2], x);
+      a3 = MADD(a3, r[3], x);
+      a4 = MADD(a4, r[4], x);
+      a5 = MADD(a5, r[5], x);
+      a6 = MADD(a6, r[6], x);
+      a7 = MADD(a7, r[7], x);
     }
     out[v] = a0; out[v + 1] = a1; out[v + 2] = a2; out[v + 3] = a3;
     out[v + 4] = a4; out[v + 5] = a5; out[v + 6] = a6; out[v + 7] = a7;
@@ -104,7 +112,7 @@ static void accumulate(v128_t *out, const v128_t *init, const v128_t *w,
   for (; v < len; v++) {
     v128_t a = init[v];
     for (int k = 0; k < n; k++) {
-      a = wasm_f32x4_add(a, wasm_f32x4_mul(w[rows[k] + v], xs[k]));
+      a = MADD(a, w[rows[k] + v], xs[k]);
     }
     out[v] = a;
   }

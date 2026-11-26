@@ -25,8 +25,8 @@ example when it shares the 4 cores with game generation.
 
 | | Play net | Schupf | Search |
 |---|---|---|---|
-| shipped (app) | `tichu_q_v8` (376 inputs) | `tichu_schupf_v4` | endgame search ≤ 8 cards, 1-on-1 solver |
-| candidate | v10 (431 inputs, schema v9) | schupf j2, extended candidates | search ≤ 12 cards with belief worlds, solver |
+| shipped (app) | `tichu_q_v10` (431 inputs, schema v9) | `tichu_schupf_v5`, extended candidates | search ≤ 12 cards with belief worlds (`tichu_belief_v1`), 1-on-1 solver |
+| previous | `tichu_q_v8` (376 inputs) | `tichu_schupf_v4` | search ≤ 8 cards, 1-on-1 solver |
 
 `lib/agents/bot_config.dart` (`BotConfig`) builds every bot, in both the
 app and the headless runner. The play net scores every legal play plus pass

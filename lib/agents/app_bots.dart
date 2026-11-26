@@ -8,7 +8,8 @@ import 'package:tichu/agents/nn/belief_model.dart';
 /// then (and in tests, or if loading fails) bots use the heuristic.
 abstract final class AppBots {
   /// Trained play policy (rl/models/README.md): v10, schema v9 inputs.
-  /// Calls stay heuristic.
+  /// With [schupfAsset] and the belief search it beats the previous bot
+  /// (v8 + schupf v4 + search <= 8) 63.7 %. Calls stay heuristic.
   static const playPolicyAsset = 'assets/bots/tichu_q_v10.safetensors';
 
   /// Learned schupf v5 (rl/schupf_cf_train.py) on the extended candidate
@@ -22,6 +23,7 @@ abstract final class AppBots {
 
   /// Decision-time endgame search and one-on-one solver for the app bots
   /// (rl/README.md, "Search at decision time"). Flip to switch it off.
+  /// ~70 ms per searched decision natively (more on phones and the web).
   static const useEndgameSearch = true;
   static const endgameSearch = EndgameSearch(
     maxCards: 12,

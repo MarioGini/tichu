@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -21,6 +23,11 @@ const _players = [
   GamePlayer(id: 'p3', name: 'P3', seat: 2, type: PlayerType.automated),
   GamePlayer(id: 'p4', name: 'P4', seat: 3, type: PlayerType.automated),
 ];
+
+/// Rollout bots of [config]; top level, so the closure captures only the
+/// config (it is sent to isolates).
+PlayerAgent Function(String, int) _rolloutFactory(BotConfig config) =>
+    (id, _) => config.build(id);
 
 SmartAiAgent _searchingBot(String id) =>
     SmartAiAgent(id, endgameSearch: _search);
@@ -247,6 +254,39 @@ void main() {
         );
       },
     );
+
+    test('parallel worlds on isolates give the same moves', () async {
+      final config = BotConfig(
+        play: LoadedNet.fromBytes(
+          File('assets/bots/tichu_q_v10.safetensors').readAsBytesSync(),
+        ),
+        simdInference: true,
+      );
+      final searching = config.withEndgameSearch(_search);
+      final serial = EndgameSearcher(rolloutAgent: _rolloutFactory(config));
+      final parallel = EndgameSearcher(
+        rolloutAgent: _rolloutFactory(config),
+        runWorlds: Isolate.run,
+        parallelism: 3,
+      );
+      for (final state in states.take(4)) {
+        final id = state.players[state.currentPlayerIndex].id;
+        final agent = searching.build(id);
+        final chosen = await agent.selectTurn(engine.buildSnapshot(state));
+        final a = await serial.refine(
+          state: state.copy(),
+          agent: agent,
+          chosen: chosen,
+        );
+        final b = await parallel.refine(
+          state: state.copy(),
+          agent: agent,
+          chosen: chosen,
+        );
+        expect(_key(b), _key(a));
+      }
+      expect(parallel.rollouts, serial.rollouts);
+    });
 
     test('the seed depends only on what the decider knows', () {
       final state = states.first;

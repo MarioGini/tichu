@@ -245,6 +245,11 @@ Map<String, List<Card>> dealUnseen(
   return result;
 }
 
+/// Runs [task] somewhere else, e.g. on another isolate (`Isolate.run`).
+typedef WorldTaskRunner = Future<List<List<double?>>> Function(
+  Future<List<List<double?>>> Function() task,
+);
+
 /// Decision-time endgame search, run by a driver that owns the game state
 /// (the headless simulator, the app's `AiTurnRunner`).
 ///
@@ -285,10 +290,20 @@ class EndgameSearcher {
   /// Card-location model for [EndgameSearch.beliefWorlds].
   final BeliefModel? belief;
 
+  /// Rolls the worlds out in up to [parallelism] batches through this
+  /// runner (the app: background isolates); null = one after another here.
+  /// The worlds are dealt before, so the result does not depend on it.
+  /// [rolloutAgent] must then be sendable to another isolate (capture the
+  /// bot config, not an object holding streams or timers).
+  final WorldTaskRunner? runWorlds;
+  final int parallelism;
+
   EndgameSearcher({
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
     this.belief,
+    this.runWorlds,
+    this.parallelism = 1,
   });
 
   /// The action to play instead of [chosen] (which [agent] picked in
@@ -375,7 +390,6 @@ class EndgameSearcher {
       };
       final team = current.seat % 2;
       final random = Random(searchSeed(state, playerId));
-      final values = <List<double?>>[];
       final holders = config.beliefWorlds && belief != null
           ? belief!.holderProbabilities(snapshot, playerId)
           : null;
@@ -388,22 +402,8 @@ class EndgameSearcher {
               ],
               null,
             );
-      for (final world in worlds) {
-        final row = List<double?>.filled(count, null);
-        for (final i in indices) {
-          final fork = world.copy();
-          final agents = {
-            for (final p in fork.players) p.id: rolloutAgent(p.id, p.seat),
-          };
-          final action = actions[i]!;
-          simulationEngine.applyAction(fork, _copyAction(action));
-          rollouts++;
-          final diff = await playOutRound(fork, agents);
-          if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();
-          if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
-        }
-        values.add(row);
-      }
+      final values = await _rollOutWorlds(worlds, actions, count, team);
+      rollouts += worlds.length * actions.length;
       final pick = pickEndgameAction(
         values,
         chosenIndex,
@@ -417,6 +417,77 @@ class EndgameSearcher {
     } finally {
       stopwatch.stop();
     }
+  }
+
+  /// `values[world][action]`: the round result for [team] after each of
+  /// [actions] (by action index; others null) in each of [worlds].
+  Future<List<List<double?>>> _rollOutWorlds(
+    List<GameEngineState> worlds,
+    Map<int, GameAction> actions,
+    int count,
+    int team,
+  ) async {
+    final runner = runWorlds;
+    final batches = min(parallelism, worlds.length);
+    if (runner == null || batches < 2) {
+      return _rollOut(
+        worlds,
+        actions,
+        count,
+        team,
+        rolloutAgent,
+        yieldBetweenRollouts: yieldBetweenRollouts,
+      );
+    }
+    final parts = [
+      for (var b = 0; b < batches; b++)
+        [for (var w = b; w < worlds.length; w += batches) worlds[w]],
+    ];
+    final results = await Future.wait([
+      for (final part in parts)
+        runner(_rollOutTask(part, actions, count, team, rolloutAgent)),
+    ]);
+    return [
+      for (var w = 0; w < worlds.length; w++)
+        results[w % batches][w ~/ batches],
+    ];
+  }
+
+  /// The task for one batch; static so the closure captures only its
+  /// arguments (it is sent to another isolate).
+  static Future<List<List<double?>>> Function() _rollOutTask(
+    List<GameEngineState> worlds,
+    Map<int, GameAction> actions,
+    int count,
+    int team,
+    PlayerAgent Function(String playerId, int seat) agentFor,
+  ) =>
+      () => _rollOut(worlds, actions, count, team, agentFor);
+
+  static Future<List<List<double?>>> _rollOut(
+    List<GameEngineState> worlds,
+    Map<int, GameAction> actions,
+    int count,
+    int team,
+    PlayerAgent Function(String playerId, int seat) agentFor, {
+    bool yieldBetweenRollouts = false,
+  }) async {
+    final values = <List<double?>>[];
+    for (final world in worlds) {
+      final row = List<double?>.filled(count, null);
+      for (final MapEntry(key: i, value: action) in actions.entries) {
+        final fork = world.copy();
+        final agents = {
+          for (final p in fork.players) p.id: agentFor(p.id, p.seat),
+        };
+        simulationEngine.applyAction(fork, _copyAction(action));
+        final diff = await playOutRound(fork, agents);
+        if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();
+        if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
+      }
+      values.add(row);
+    }
+    return values;
   }
 
   /// Worlds in two strata, with and without a bomb in another player's

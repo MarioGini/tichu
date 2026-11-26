@@ -11,6 +11,7 @@ import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 import 'package:tichu/services/local/local_game_state.dart';
+import 'package:tichu/services/local/search_workers.dart';
 
 part 'ai_phase_resolvers.dart';
 
@@ -36,11 +37,21 @@ class AiTurnRunner {
 
   /// Endgame search of bots configured with one (see `AppBots`). Rollouts
   /// use fresh bots from the factory for every seat (humans included).
-  late final EndgameSearcher _endgameSearcher = EndgameSearcher(
-    rolloutAgent: (playerId, _) => _agentFactory(playerId),
-    yieldBetweenRollouts: true,
-    belief: _belief,
+  late final EndgameSearcher _endgameSearcher = _searcher(
+    _agentFactory,
+    _belief,
   );
+
+  /// Static, so the rollout factory captures only [factory] (the bot
+  /// config): it is sent to the background isolates.
+  static EndgameSearcher _searcher(AgentFactory factory, BeliefModel? belief) =>
+      EndgameSearcher(
+        rolloutAgent: (playerId, _) => factory(playerId),
+        yieldBetweenRollouts: true,
+        belief: belief,
+        runWorlds: searchWorldRunner,
+        parallelism: searchParallelism,
+      );
 
   final Map<String, PlayerAgent> _automatedAgents = {};
   final Set<String> _automatedTurnsInFlight = {};

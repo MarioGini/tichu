@@ -59,8 +59,8 @@ class BotConfig {
   /// Required call advantage (round points) before calling (Grand) Tichu.
   final double callMargin;
 
-  /// Float32 SIMD inference for the play net: ~2x faster simulation in the
-  /// compiled headless runner. The app keeps the float64 path.
+  /// Float32 SIMD inference for the play net: ~3x faster simulation when
+  /// compiled ahead of time (headless runner, the app outside the web).
   final bool simdInference;
 
   /// Style experiment for the play net (headless `--style=`); none in the app.

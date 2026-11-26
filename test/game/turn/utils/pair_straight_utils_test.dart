@@ -108,14 +108,14 @@ void main() {
       final turns = getPairStraights(cards, desiredLength);
       turns.sort(compareTurns);
 
-      expect(turns.length, 5);
+      // No 1-1-2-2-3-3: the Phoenix cannot pair the Mah Jong.
+      expect(turns.length, 4);
       expect(turns.every((turn) => isPairStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
       expect(turns[0].value, Card.getValue(CardFace.seven));
       expect(turns[1].value, Card.getValue(CardFace.six));
       expect(turns[2].value, Card.getValue(CardFace.five));
       expect(turns[3].value, Card.getValue(CardFace.four));
-      expect(turns[4].value, Card.getValue(CardFace.three));
     });
 
     test('oddDesiredLengthReturnsEmpty', () {
@@ -211,6 +211,16 @@ void main() {
       ];
 
       expect(isPairStraight(cards), false);
+    });
+
+    test('the Phoenix cannot pair the Mah Jong', () {
+      final turns = getPairStraights([
+        Card(CardFace.mahJong, CardColor.special),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.two, CardColor.green),
+        Card(CardFace.two, CardColor.blue),
+      ], 4);
+      expect(turns, isEmpty);
     });
   });
 }

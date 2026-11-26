@@ -164,9 +164,13 @@ GameEngineState redealWorld(
   return world;
 }
 
+/// The other players' hands in one re-deal of the unseen cards (a world
+/// is the state with these hands).
+typedef Deal = Map<String, List<Card>>;
+
 /// The hands of the other players in a re-deal of [state] as
 /// [redealWorld] makes it, without copying the state.
-Map<String, List<Card>> dealUnseen(
+Deal dealUnseen(
   GameEngineState state,
   String actorId,
   Random random, {
@@ -260,12 +264,13 @@ Map<String, List<Card>> dealUnseen(
 /// rollout bots). [rollOut] returns what [EndgameSearcher.rollOutWorlds]
 /// returns for the same arguments.
 abstract interface class RolloutWorkers {
-  /// Number of workers: a search splits its worlds in up to this many
-  /// batches.
+  /// Number of workers: a search splits its deals in up to this many
+  /// batches; the pool hands each to its least busy worker.
   int get size;
 
   Future<List<List<double?>>> rollOut(
-    List<GameEngineState> worlds,
+    GameEngineState base,
+    List<Deal> deals,
     Map<int, GameAction> actions,
     int count,
     int team,
@@ -411,17 +416,17 @@ class EndgameSearcher {
       final holders = config.beliefWorlds && belief != null
           ? belief!.holderProbabilities(snapshot, playerId)
           : null;
-      final (worlds, weights) = config.bombStrata
-          ? _bombStrataWorlds(state, playerId, random, holders, config)
+      final (deals, weights) = config.bombStrata
+          ? _bombStrataDeals(state, playerId, random, holders, config)
           : (
               [
                 for (var w = 0; w < config.worlds; w++)
-                  redealWorld(state, playerId, random, holders: holders),
+                  dealUnseen(state, playerId, random, holders: holders),
               ],
               null,
             );
-      final values = await _rollOutWorlds(worlds, actions, count, team);
-      rollouts += worlds.length * actions.length;
+      final values = await _rollOutWorlds(state, deals, actions, count, team);
+      rollouts += deals.length * actions.length;
       final pick = pickEndgameAction(
         values,
         chosenIndex,
@@ -439,18 +444,20 @@ class EndgameSearcher {
   }
 
   /// `values[world][action]`: the round result for [team] after each of
-  /// [actions] (by action index; others null) in each of [worlds].
+  /// [actions] (by action index; others null) in [base] with each of
+  /// [deals].
   Future<List<List<double?>>> _rollOutWorlds(
-    List<GameEngineState> worlds,
+    GameEngineState base,
+    List<Deal> deals,
     Map<int, GameAction> actions,
     int count,
     int team,
   ) async {
     final pool = workers;
-    final batches = pool == null ? 1 : min(pool.size, worlds.length);
-    if (pool == null || batches < 2) {
+    if (pool == null || pool.size < 2 || deals.length < 2) {
       return rollOutWorlds(
-        worlds,
+        base,
+        deals,
         actions,
         count,
         team,
@@ -458,26 +465,31 @@ class EndgameSearcher {
         yieldBetweenRollouts: yieldBetweenRollouts,
       );
     }
+    // One batch per worker (one request per deal was slower: the state
+    // is encoded per request on the web).
+    final batches = min(pool.size, deals.length);
     final results = await Future.wait([
       for (var b = 0; b < batches; b++)
         pool.rollOut(
-          [for (var w = b; w < worlds.length; w += batches) worlds[w]],
+          base,
+          [for (var w = b; w < deals.length; w += batches) deals[w]],
           actions,
           count,
           team,
         ),
     ]);
     return [
-      for (var w = 0; w < worlds.length; w++)
-        results[w % batches][w ~/ batches],
+      for (var w = 0; w < deals.length; w++) results[w % batches][w ~/ batches],
     ];
   }
 
-  /// Plays each of [actions] out in each of [worlds] with fresh bots from
-  /// [agentFor]: `values[world][action]`, the round result for [team]
-  /// (null where not rolled out or stuck).
+  /// Plays each of [actions] out in [base] with each of [deals] (the
+  /// other players' hands) with fresh bots from [agentFor]:
+  /// `values[world][action]`, the round result for [team] (null where not
+  /// rolled out or stuck).
   static Future<List<List<double?>>> rollOutWorlds(
-    List<GameEngineState> worlds,
+    GameEngineState base,
+    List<Deal> deals,
     Map<int, GameAction> actions,
     int count,
     int team,
@@ -485,7 +497,9 @@ class EndgameSearcher {
     bool yieldBetweenRollouts = false,
   }) async {
     final values = <List<double?>>[];
-    for (final world in worlds) {
+    for (final deal in deals) {
+      final world = base.copy();
+      deal.forEach((id, hand) => world.hands[id] = hand);
       final row = List<double?>.filled(count, null);
       for (final MapEntry(key: i, value: action) in actions.entries) {
         final fork = world.copy();
@@ -502,42 +516,33 @@ class EndgameSearcher {
     return values;
   }
 
-  /// Worlds in two strata, with and without a bomb in another player's
+  /// Deals in two strata, with and without a bomb in another player's
   /// hand, about half each, and their weights: the bomb probability
   /// (share of [EndgameSearch.bombProbes] re-deals with a bomb) spread
-  /// over the bomb worlds, the rest over the others. Plain worlds with
+  /// over the bomb deals, the rest over the others. Plain deals with
   /// equal weights when the probes show no bomb or only bombs.
-  static (List<GameEngineState>, List<double>?) _bombStrataWorlds(
+  static (List<Deal>, List<double>?) _bombStrataDeals(
     GameEngineState state,
     String playerId,
     Random random,
     List<List<double>>? holders,
     EndgameSearch config,
   ) {
-    final bomb = <Map<String, List<Card>>>[];
-    final plain = <Map<String, List<Card>>>[];
+    final bomb = <Deal>[];
+    final plain = <Deal>[];
     for (var i = 0; i < config.bombProbes; i++) {
       final hands = dealUnseen(state, playerId, random, holders: holders);
       (hands.values.any(hasBombInHand) ? bomb : plain).add(hands);
     }
-    GameEngineState worldOf(Map<String, List<Card>> hands) {
-      final world = state.copy();
-      hands.forEach((id, hand) => world.hands[id] = hand);
-      return world;
-    }
-
     if (bomb.isEmpty || plain.isEmpty) {
       final all = bomb.isEmpty ? plain : bomb;
-      return ([for (final h in all.take(config.worlds)) worldOf(h)], null);
+      return (all.take(config.worlds).toList(), null);
     }
     final p = bomb.length / config.bombProbes;
     final nBomb = min(bomb.length, max(1, config.worlds ~/ 2));
     final nPlain = min(plain.length, config.worlds - nBomb);
     return (
-      [
-        for (final h in bomb.take(nBomb)) worldOf(h),
-        for (final h in plain.take(nPlain)) worldOf(h),
-      ],
+      [...bomb.take(nBomb), ...plain.take(nPlain)],
       [
         for (var i = 0; i < nBomb; i++) p / nBomb,
         for (var i = 0; i < nPlain; i++) (1 - p) / nPlain,

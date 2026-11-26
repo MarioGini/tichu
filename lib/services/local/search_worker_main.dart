@@ -2,7 +2,7 @@
 // `tool/build_web.sh`): rolls out endgame-search worlds for the page
 // (`search_workers_web.dart`). Messages: an init array [init, play net
 // bytes, wasm kernel bytes or null], answered with 'ready'; then JSON
-// requests {id, worlds, actions, count, team}, answered with {id, values}.
+// requests {id, base, deals, actions, count, team}, answered with {id, values}.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
@@ -48,10 +48,8 @@ void main() {
     queue = queue.then((_) async {
       final config = await bots.future;
       final values = await EndgameSearcher.rollOutWorlds(
-        [
-          for (final w in request['worlds']! as List)
-            decodeEngineState(w as Map<String, Object?>),
-        ],
+        decodeEngineState(request['base']! as Map<String, Object?>),
+        [for (final d in request['deals']! as List) decodeDeal(d)],
         {
           for (final a in request['actions']! as List)
             (a as List)[0]! as int: decodeSearchAction(a[1]),

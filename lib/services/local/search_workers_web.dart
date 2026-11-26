@@ -53,23 +53,30 @@ Future<RolloutWorkers?> startSearchWorkers(
 
 /// Web workers running [EndgameSearcher.rollOutWorlds] with the bots of
 /// the page's config (play net + wasm kernel, sent once); worlds and
-/// actions go as JSON (`engine_state_codec.dart`).
+/// actions go as JSON (`engine_state_codec.dart`): the state once per
+/// request, then only each deal's hands.
 class WebRolloutWorkers implements RolloutWorkers {
   WebRolloutWorkers._(this._workers);
 
   final List<_PoolWorker> _workers;
-  var _next = 0;
 
   @override
   int get size => _workers.length;
 
   @override
   Future<List<List<double?>>> rollOut(
-    List<GameEngineState> worlds,
+    GameEngineState base,
+    List<Deal> deals,
     Map<int, GameAction> actions,
     int count,
     int team,
-  ) => _workers[_next++ % size].rollOut(worlds, actions, count, team);
+  ) {
+    var worker = _workers.first;
+    for (final w in _workers) {
+      if (w.busy < worker.busy) worker = w;
+    }
+    return worker.rollOut(base, deals, actions, count, team);
+  }
 }
 
 class _PoolWorker {
@@ -88,13 +95,17 @@ class _PoolWorker {
   final Map<int, Completer<List<List<double?>>>> _pending = {};
   var _nextId = 0;
 
+  /// Requests sent and not yet answered.
+  int get busy => _pending.length;
+
   /// True once the worker loaded its bots, false if its script failed.
   Future<bool> get ready => _ready.future;
 
   void terminate() => _worker.terminate();
 
   Future<List<List<double?>>> rollOut(
-    List<GameEngineState> worlds,
+    GameEngineState base,
+    List<Deal> deals,
     Map<int, GameAction> actions,
     int count,
     int team,
@@ -104,7 +115,9 @@ class _PoolWorker {
     _worker.postMessage(
       jsonEncode({
         'id': id,
-        'worlds': [for (final w in worlds) encodeEngineState(w)],
+        // The state once; the deals only differ in the others' hands.
+        'base': encodeEngineState(base),
+        'deals': [for (final d in deals) encodeDeal(d)],
         'actions': [
           for (final e in actions.entries) [e.key, encodeSearchAction(e.value)],
         ],

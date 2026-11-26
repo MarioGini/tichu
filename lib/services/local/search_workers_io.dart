@@ -41,20 +41,24 @@ class IsolateRolloutWorkers implements RolloutWorkers {
   final int size;
 
   Future<List<_Worker>>? _workers;
-  var _next = 0;
 
   Future<List<_Worker>> _start() =>
       Future.wait([for (var i = 0; i < size; i++) _Worker.spawn(_agentFor)]);
 
   @override
   Future<List<List<double?>>> rollOut(
-    List<GameEngineState> worlds,
+    GameEngineState base,
+    List<Deal> deals,
     Map<int, GameAction> actions,
     int count,
     int team,
   ) async {
     final workers = await (_workers ??= _start());
-    return workers[_next++ % size].rollOut(worlds, actions, count, team);
+    var worker = workers.first;
+    for (final w in workers) {
+      if (w.busy < worker.busy) worker = w;
+    }
+    return worker.rollOut(base, deals, actions, count, team);
   }
 
   /// Stops the isolates (tests); the next search starts new ones.
@@ -70,7 +74,8 @@ class IsolateRolloutWorkers implements RolloutWorkers {
 
 typedef _Request = (
   SendPort reply,
-  List<GameEngineState> worlds,
+  GameEngineState base,
+  List<Deal> deals,
   Map<int, GameAction> actions,
   int count,
   int team,
@@ -86,6 +91,9 @@ class _Worker {
   /// requests instead of leaving them waiting forever.
   final Stream<Object?> _errors;
   final ReceivePort _errorPort;
+
+  /// Requests sent and not yet answered.
+  int busy = 0;
 
   static Future<_Worker> spawn(
     PlayerAgent Function(String playerId, int seat) agentFor,
@@ -103,19 +111,22 @@ class _Worker {
   }
 
   Future<List<List<double?>>> rollOut(
-    List<GameEngineState> worlds,
+    GameEngineState base,
+    List<Deal> deals,
     Map<int, GameAction> actions,
     int count,
     int team,
   ) async {
+    busy++;
     final reply = ReceivePort();
-    _requests.send((reply.sendPort, worlds, actions, count, team));
+    _requests.send((reply.sendPort, base, deals, actions, count, team));
     final failed = _errors.first.then<Object?>((error) {
       final [message, stack] = error! as List<Object?>;
       throw RemoteError('$message', '$stack');
     });
     final result = await Future.any([reply.first, failed]);
     reply.close();
+    busy--;
     return result! as List<List<double?>>;
   }
 
@@ -131,10 +142,11 @@ class _Worker {
     final requests = ReceivePort();
     ready.send(requests.sendPort);
     requests.listen((message) async {
-      final (reply, worlds, actions, count, team) = message as _Request;
+      final (reply, base, deals, actions, count, team) = message as _Request;
       reply.send(
         await EndgameSearcher.rollOutWorlds(
-          worlds,
+          base,
+          deals,
           actions,
           count,
           team,

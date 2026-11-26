@@ -147,6 +147,16 @@ GameEngineState decodeEngineState(Map<String, Object?> json) {
   return s;
 }
 
+/// Hands by player id (an endgame-search deal).
+Map<String, Object?> encodeDeal(Map<String, List<Card>> hands) => {
+  for (final e in hands.entries) e.key: _cards(e.value),
+};
+
+Map<String, List<Card>> decodeDeal(Object? json) => {
+  for (final e in (json! as Map).entries)
+    e.key as String: _decodeCards(e.value),
+};
+
 /// A play or pass (the actions the endgame search rolls out).
 Object? encodeSearchAction(GameAction action) => switch (action) {
   PlayTurnAction(:final playerId, :final cards, :final inputWish) => [

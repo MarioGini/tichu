@@ -1,0 +1,13 @@
+[package]
+name = "daveorr_bridge"
+version = "0.1.0"
+edition = "2021"
+description = "Bot bridge adapter (doc/bot_bridge.md) for the bots of dave-orr/Tichu-ai"
+
+[dependencies]
+tichu_engine = { path = "../../.bots/dave-orr__Tichu-ai" }
+rand = "0.8"
+serde_json = "1"
+
+[profile.release]
+debug = 0

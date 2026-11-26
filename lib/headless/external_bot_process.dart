@@ -27,9 +27,10 @@ class _ExternalBotProcess implements BotChannel {
     _process.stdin.writeln(jsonEncode({'id': id, ...message}));
     await _process.stdin.flush();
     if (!await _lines.moveNext()) {
+      _process.kill();
       throw StateError(
-        'External bot exited (code ${await _process.exitCode}) '
-        'without answering request $id (${message['type']}).',
+        'External bot closed its output without answering request $id '
+        '(${message['type']}).',
       );
     }
     final reply = Map<String, Object?>.from(jsonDecode(_lines.current) as Map);

@@ -93,9 +93,14 @@ abstract final class BridgeCodec {
   /// `{"cards": [...], "type": ..., "value": ...}`; value is the rank the
   /// combination is compared by (2-14, a single Phoenix half a rank above
   /// what it beat, 25 the Dragon).
-  static Map<String, Object?> combo(TichuTurn turn) => {
-    'cards': cards(turn.cards),
-    'type': _types[turn.type] ?? 'none',
-    'value': turn.value,
-  };
+  static Map<String, Object?> combo(TichuTurn turn) {
+    // The move generator lists the Dog as a single.
+    final dog =
+        turn.cards.length == 1 && turn.cards.single.face == CardFace.dog;
+    return {
+      'cards': cards(turn.cards),
+      'type': dog ? 'dog' : _types[turn.type] ?? 'none',
+      'value': dog ? 0.0 : turn.value,
+    };
+  }
 }

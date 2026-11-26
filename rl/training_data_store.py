@@ -204,14 +204,38 @@ def delete_run(run: str) -> int:
     return len(rows)
 
 
-def download(run: str, dest: Path, *, overwrite: bool = False) -> list[Path]:
+def delete_files(rows: list[dict]) -> None:
+    """Delete the stored objects and manifest rows of ``rows`` (from
+    :func:`manifest`)."""
+    names = []
+    for r in rows:
+        parts = int((r.get("meta") or {}).get("parts", 1))
+        names += [r["path"]] if parts == 1 else [f"{r['path']}.part{i:02d}" for i in range(parts)]
+    for i in range(0, len(names), 100):
+        _request(
+            "DELETE",
+            f"{_base()}/storage/v1/object/{BUCKET}",
+            json.dumps({"prefixes": names[i : i + 100]}).encode(),
+            {"Content-Type": "application/json"},
+        )
+    for r in rows:
+        _request("DELETE", f"{_base()}/rest/v1/{TABLE}?path=eq.{urllib.parse.quote(r['path'])}")
+
+
+def download(run: str, dest: Path, *, overwrite: bool = False, refresh: bool = False) -> list[Path]:
+    """Download every file of ``run`` into ``dest``; existing files are kept.
+
+    ``refresh``: re-download a non-npz file whose checksum differs from the
+    stored one (files that are replaced in place, e.g. the published nets
+    of ``rollout_loop.py --publish-run``).
+    """
     dest.mkdir(parents=True, exist_ok=True)
     out = []
     for row in manifest(run):
         target = dest / Path(row["path"]).name
         out.append(target)
         if target.exists() and not overwrite and (
-            (row.get("meta") or {}).get("codec") == "xz"
+            ((row.get("meta") or {}).get("codec") == "xz" and not (refresh and target.suffix != ".npz"))
             or _sha256(target.read_bytes()) == row["sha256"]
         ):
             continue

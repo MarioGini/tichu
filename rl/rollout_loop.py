@@ -125,9 +125,94 @@ def generate(out: Path, *, seed: int, episodes: int, shards: int, args: list[str
     print(f"   {out.name}: {data.num_decisions} decisions ({time.time() - t0:.0f}s)", flush=True)
 
 
-def upload(path: Path | None, run: str, policy: Path) -> None:
+def publish_job(run: str, out: Path, *, it: int, best: Path, schupf: str, opponent_nets: list[str],
+                opponent_schupf: str, common_args: list[str]) -> None:
+    """Publish what data workers (rl/data_worker.py, other machines) need to
+    generate this iteration's data: the nets under fixed names plus
+    ``job.json``. Unchanged files are not uploaded again."""
+    try:
+        from training_data_store import upload_file
+
+        stage = out / "publish"
+        stage.mkdir(exist_ok=True)
+        files = {"best.safetensors": best}
+        if schupf:
+            files["schupf.safetensors"] = Path(schupf)
+        if opponent_schupf:
+            files["opp_schupf.safetensors"] = Path(opponent_schupf)
+        for i, net in enumerate(opponent_nets):
+            files[f"opp{i}.safetensors"] = Path(net)
+        for name, src in files.items():
+            shutil.copy2(src, stage / name)
+        job = {
+            "iteration": it,
+            "opponents": [f"opp{i}.safetensors" for i in range(len(opponent_nets))],
+            "schupf": "schupf.safetensors" if schupf else "",
+            "opponent_schupf": "opp_schupf.safetensors" if opponent_schupf else "",
+            "args": common_args,
+        }
+        (stage / "job.json").write_text(json.dumps(job, indent=1))
+        for name in [*files, "job.json"]:
+            upload_file(stage / name, run=run)
+    except Exception as e:  # noqa: BLE001 - storage must never stop training
+        print(f"   publishing the job failed: {e}", flush=True)
+
+
+def sync_data(run: str, data_dir: Path) -> None:
+    """Fetch data files other machines uploaded to ``run``."""
+    try:
+        from training_data_store import download
+
+        before = len(list(data_dir.glob("*.npz")))
+        download(run, data_dir)
+        print(f"   synced {len(list(data_dir.glob('*.npz'))) - before} new files from {run}", flush=True)
+    except Exception as e:  # noqa: BLE001
+        print(f"   sync from {run} failed: {e}", flush=True)
+
+
+def _decisions(path: Path) -> int:
+    import numpy as np
+
+    with np.load(path) as d:
+        return int(d["starts"].size - 1)
+
+
+def data_window(files: list[Path], max_decisions: int, prune_run: str) -> list[Path]:
+    """The newest files (by iteration, then name) up to ``max_decisions``
+    decisions. Older files are dropped from the data directory and, when
+    they belong to ``prune_run``, from the store (memory and the 1 GB free
+    store bound the data; their game records stay stored)."""
+    import re
+
+    def key(f: Path):
+        m = re.match(r"it(\d+)_", f.name)
+        return (int(m.group(1)) if m else -1, f.name)
+
+    keep, total = [], 0
+    for f in sorted(files, key=key, reverse=True):
+        if total >= max_decisions:
+            break
+        keep.append(f)
+        total += _decisions(f)
+    drop = [f for f in files if f not in keep]
+    if drop:
+        print(f"   data window: {total} decisions in {len(keep)} files, dropping {len(drop)} older files", flush=True)
+        if prune_run:
+            try:
+                from training_data_store import delete_files, manifest
+
+                names = {f"{prune_run}/{f.name}" for f in drop}
+                delete_files([r for r in manifest(prune_run) if r["path"] in names])
+            except Exception as e:  # noqa: BLE001
+                print(f"   pruning the store failed: {e}", flush=True)
+        for f in drop:
+            f.unlink()
+    return sorted(keep)
+
+
+def upload(path: Path | None, run: str, policy: Path) -> bool:
     if path is None:  # generated in an earlier (interrupted) run
-        return
+        return False
     try:
         from training_data_store import upload_file
 
@@ -135,8 +220,10 @@ def upload(path: Path | None, run: str, policy: Path) -> None:
         games = path.with_suffix(".games.jsonl.xz")  # replayable game records
         if games.exists():
             upload_file(games, run=run)
+        return True
     except Exception as e:  # noqa: BLE001 - storage must never stop training
         print(f"   upload of {path.name} failed: {e}", flush=True)
+        return False
 
 
 def _net_key(path: Path) -> str:
@@ -283,6 +370,23 @@ def main() -> None:
         help="also train and measure against the K newest earlier best nets (0 = off)",
     )
     p.add_argument("--upload-run", default="", help="upload new data files to Supabase under this run name")
+    p.add_argument(
+        "--publish-run",
+        default="",
+        help="publish the nets + job.json for rl/data_worker.py under this store run every iteration",
+    )
+    p.add_argument(
+        "--sync-run",
+        default="",
+        help="before training, download the data files of this store run (the workers' data)",
+    )
+    p.add_argument(
+        "--max-decisions",
+        type=int,
+        default=0,
+        help="train on the newest files up to this many decisions; older ones are deleted "
+        "locally and from --upload-run (0 = keep everything)",
+    )
     p.add_argument("--shards", type=int, default=4)
     p.add_argument("--seed", type=int, default=100_000)
     args = p.parse_args()
@@ -328,6 +432,17 @@ def main() -> None:
             *own_schupf,
             *shlex.split(args.gen_args),
         ]
+        if args.publish_run:
+            publish_job(
+                args.publish_run,
+                out,
+                it=it,
+                best=best,
+                schupf=args.schupf_net,
+                opponent_nets=opponent_nets,
+                opponent_schupf=args.opponent_schupf_net,
+                common_args=[a for a in common if not a.startswith(("--nn-policy=", "--schupf-net="))],
+            )
         seed = args.seed + 10_000 * it
         per = max(1, args.mixed_episodes // (2 * max(1, len(opponents) + len(opponent_nets))))
         for i, net in enumerate(opponent_nets):
@@ -368,7 +483,11 @@ def main() -> None:
                 upload(last_generated[0], args.upload_run, best)
 
         print("2) train", flush=True)
+        if args.sync_run:
+            sync_data(args.sync_run, data_dir)
         files = sorted(data_dir.glob("*.npz"))
+        if args.max_decisions > 0:
+            files = data_window(files, args.max_decisions, args.upload_run)
         if args.window > 0:
             keep = {f"it{k:02d}" for k in range(it - args.window + 1, it + 1)}
             files = [f for f in files if f.name[:4] in keep]

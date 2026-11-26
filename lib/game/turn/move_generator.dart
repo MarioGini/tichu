@@ -26,9 +26,9 @@ List<TichuTurn> generateLegalTurns(DeckState deck, List<Card> hand) {
       turns.addAll(_generateTriplets(handCopy, deck));
     case TurnType.straight:
       turns.addAll(
-        getStraights(
-          handCopy,
-          deck.turn.cards.length,
+        _plainStraights(
+          getStraights(handCopy, deck.turn.cards.length),
+          hand,
         ).where((turn) => validTurn(deck.turn, turn)),
       );
     case TurnType.pairStraight:
@@ -85,7 +85,32 @@ List<TichuTurn> _generateAnyStraights(List<Card> hand) {
   for (var length = 5; length <= maxLength; length += 1) {
     turns.addAll(straightsOfLength(candidates, length));
   }
-  return turns;
+  return _plainStraights(turns, hand);
+}
+
+/// A straight in one suit is a bomb (listed with the bombs), never a plain
+/// straight. Where another card of the same rank breaks the suit, that is
+/// the plain straight; otherwise there is none.
+List<TichuTurn> _plainStraights(List<TichuTurn> straights, List<Card> hand) => [
+  for (final straight in straights)
+    if (_inOneSuit(straight.cards)) ?_breakSuit(straight, hand) else straight,
+];
+
+bool _inOneSuit(List<Card> cards) =>
+    cards.every((c) => c.color != CardColor.special) &&
+    cards.every((c) => c.color == cards.first.color);
+
+TichuTurn? _breakSuit(TichuTurn straight, List<Card> hand) {
+  for (var i = straight.cards.length - 1; i >= 0; i--) {
+    final card = straight.cards[i];
+    for (final other in hand) {
+      if (other.face == card.face && other.color != card.color) {
+        final cards = [...straight.cards]..[i] = other;
+        return TichuTurn(TurnType.straight, cards);
+      }
+    }
+  }
+  return null;
 }
 
 // Same as getPairStraights(hand, length) for length = 4, 6, ...

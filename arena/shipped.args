@@ -1,0 +1,1 @@
+--nn-policy=assets/bots/tichu_q_v10.safetensors --schupf-net=assets/bots/tichu_schupf_v5.safetensors --schupf-extended --endgame-search --endgame-max-cards=12 --endgame-solve --belief-net=assets/bots/tichu_belief_v1.safetensors --endgame-belief

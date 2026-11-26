@@ -1,3 +1,5 @@
 .bots/
 **/target/
-results/tmp/
+results/tmp*
+results/wish_*.log
+results/fail_*.jsonl

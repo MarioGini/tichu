@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:tichu/agents/endgame_search.dart';
+import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -22,10 +23,14 @@ typedef AgentFactory = PlayerAgent Function(String playerId);
 /// actions, and exposes a single [runAutomatedPlayers] entry point so that
 /// the local runtime stays focused on state progression.
 class AiTurnRunner {
-  AiTurnRunner({required final AgentFactory agentFactory})
-    : _agentFactory = agentFactory;
+  AiTurnRunner({
+    required final AgentFactory agentFactory,
+    final BeliefModel? belief,
+  }) : _agentFactory = agentFactory,
+       _belief = belief;
 
   final AgentFactory _agentFactory;
+  final BeliefModel? _belief;
 
   late GameEngine _engine;
 
@@ -37,6 +42,7 @@ class AiTurnRunner {
   late final EndgameSearcher _endgameSearcher = EndgameSearcher(
     rolloutAgent: (final playerId, final _) => _agentFactory(playerId),
     yieldBetweenRollouts: true,
+    belief: _belief,
   );
 
   final Map<String, PlayerAgent> _automatedAgents = {};

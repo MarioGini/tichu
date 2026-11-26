@@ -30,6 +30,7 @@ class LocalMatchRuntime {
   }) : _engine = engine ?? GameEngineImpl(random: random),
        _aiRunner = AiTurnRunner(
          agentFactory: agentFactory ?? AppBots.current.build,
+         belief: AppBots.belief,
        ) {
     _aiRunner.engine = _engine;
     if (automatedAgents != null) {

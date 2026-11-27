@@ -76,7 +76,9 @@ abstract final class SchupfFeatures {
     bool extended = false,
     bool all = false,
   }) {
-    if (all) return allPasses(hand.length);
+    bool allowed((int, int, int) c) =>
+        SchupfRules.allows(hand[c.$1], hand[c.$2], hand[c.$3]);
+    if (all) return allPasses(hand.length).where(allowed).toList();
     final order = List<int>.generate(hand.length, (i) => i)
       ..sort((a, b) => passStrength(hand[a]).compareTo(passStrength(hand[b])));
     final partner = <int>{
@@ -91,7 +93,7 @@ abstract final class SchupfFeatures {
         for (final l in left)
           if (l != p)
             for (final r in right)
-              if (r != p && r != l) (l, p, r),
+              if (r != p && r != l && allowed((l, p, r))) (l, p, r),
     ];
   }
 

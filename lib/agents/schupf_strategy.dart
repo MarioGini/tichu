@@ -5,6 +5,16 @@ import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/bomb_utils.dart';
 
+/// Hard rules every pass obeys, learned or heuristic: the net only chooses
+/// among passes they allow.
+abstract final class SchupfRules {
+  /// The Mah Jong never goes to an opponent (it decides who leads first).
+  static bool toOpponent(Card c) => c.face != CardFace.mahJong;
+
+  static bool allows(Card toLeft, Card toPartner, Card toRight) =>
+      toOpponent(toLeft) && toOpponent(toRight);
+}
+
 abstract class SchupfStrategy {
   Future<SchupfAction> selectSchupfCards(
     GameSnapshot snapshot,
@@ -174,10 +184,12 @@ class DefaultSchupfStrategy implements SchupfStrategy {
       )
       .toList();
 
+  /// The lowest card of [pool] an opponent may receive ([SchupfRules]).
   Card _pickLowest(List<Card> pool, {bool avoidDog = false}) {
-    final candidates = avoidDog
-        ? pool.where((card) => card.face != CardFace.dog).toList()
-        : List<Card>.from(pool);
+    final candidates = pool
+        .where(SchupfRules.toOpponent)
+        .where((card) => !avoidDog || card.face != CardFace.dog)
+        .toList();
     if (candidates.isEmpty) {
       candidates.addAll(pool);
     }

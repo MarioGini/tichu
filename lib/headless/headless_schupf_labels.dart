@@ -76,6 +76,10 @@ extension _SchupfLabels on _HeadlessSimulator {
     addNear(own[0], own[2], own[1]);
     addNear(own[2], own[1], own[0]);
     near.shuffle(random);
+    bool allowed(SchupfAction a) =>
+        SchupfRules.allows(a.toLeft, a.toPartner, a.toRight);
+    near.retainWhere(allowed);
+    any.retainWhere(allowed);
     final third = (schupfCandidates - 1) ~/ 3;
     return [
       chosen,

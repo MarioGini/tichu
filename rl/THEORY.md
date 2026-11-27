@@ -117,6 +117,51 @@ calls out of turn are off. Out-of-turn play is an option with its own nets.
 (par games A–D with different opponent conventions) and are scored against
 the par average.
 
+## 1b. The DouZero lineage (Dou Dizhu), and where we and tichuengine sit
+
+DouZero (Zha et al., ICML 2021; code at github.com/kwai/DouZero, read
+from the code since arxiv is not reachable from the training sandbox) is
+the reference for climbing card games with huge action spaces.
+
+- **Deep Monte-Carlo (DMC).** It learns Q(s, a) with the action as an
+  *input*: a 4 x 15 card matrix of the play, scored by one network per
+  legal action, as our play net does. Every (s, a) of an episode is
+  regressed with MSE on the episode's final return: no bootstrapping, no
+  search, ε = 0.01 exploration, many parallel actors.
+- **Network.** An LSTM over the recent moves (162-dim per step, 128 units)
+  plus 5 x 512 dense layers, one network per position (landlord and the
+  two peasants).
+- **Objective.** `adp` (points, ×2 per bomb) or `wp` (win probability),
+  a choice like our points vs `MatchUtility`.
+- **Cooperation.** The two peasants are not modelled explicitly; each has
+  its own net trained on the shared team return.
+
+Follow-ups: DouZero+ (arXiv 2204.02558) adds *opponent modelling*, a head
+that predicts the other players' hands and feeds the Q net. It also adds a
+*coach* network that chooses training deals by difficulty. AlphaDou
+(arXiv 2407.10279) brings the bidding into the same end-to-end training.
+
+How it maps:
+
+- **We started as DouZero.** v1–v3 were DMC-style, Q(s, a) with action
+  features. REVIEW: "Deep Monte-Carlo labels (4 M one-outcome labels):
+  worse than the rollout labels at every evaluation". All-action rollout
+  labels are a policy-improvement step that DMC lacks, and they carried v4
+  past the heuristic. Our hand-made history group plays the role of
+  DouZero's LSTM.
+- **tichuengine is not DouZero.** Its About page names AlphaGo, AlphaZero
+  and Gumbel AlphaZero as the inspiration. Its first bots were a single
+  policy+value net trained on face-up games. It added a recurrent belief
+  net, a sampler and multi-root search for the hidden information.
+- **The idea all three later systems share** is the one we still lack:
+  *the policy sees the belief.* DouZero+ feeds the predicted opponent
+  hands into Q; tichuengine's policy and value nets take the belief
+  predictions as input. Our belief net only shapes the search worlds, and
+  the play net never sees it. Since `tichu_belief_v1` is a function of the
+  state features alone, its outputs can be computed for every cached
+  training row in Python. That makes the change a pure `data_upgrade.py`
+  step: no replay, and all old data is kept (the lesson of v9 → v10).
+
 ## 2. Where we stand against that
 
 | | tichuengine | ours (v10) |
@@ -251,7 +296,16 @@ unless noted). Keep the step only if it gains.
    call's EV with the value net, and run a halving search only when the
    probe is ambiguous (tichuengine's ladder). REVIEW: call success rose at
    an unchanged call rate, so the thresholds are likely too tight.
-8. **Expert iteration.** Once the search wins clearly, label positions with
+8. **Belief as a play-net input** (DouZero+, tichuengine). Add a
+   `belief` state group:
+   - per opponent and partner: P(holds each high card), expected high
+     cards, P(bomb);
+   - computed by `tichu_belief_v1` from the state features in Dart and,
+     for the caches, in `data_upgrade.py`.
+
+   Retrain the play net on all rebuilt data with the rollout loop. Gate:
+   the loop's panel gate, then the duel.
+9. **Expert iteration.** Once the search wins clearly, label positions with
    the halving values (search as teacher) and train the play net on them.
    The search then starts from a stronger prior. Repeat with the
    `rollout_loop.py` gate.

@@ -4,7 +4,8 @@ Python (`uv` + CPU PyTorch, Linux only) trains the nets; Dart encodes every
 feature and plays every game (`lib/headless/`). Artifacts are
 `.safetensors`. Run everything from the repo root. Past results and
 findings are in `rl/REVIEW.md`, and the shipped nets are listed in
-`rl/models/README.md`.
+`rl/models/README.md`. `rl/THEORY.md` reviews the tichuengine.com bot and
+lays out the plan beyond v10 (value net, halving search, match utility).
 
 ## Setup
 
@@ -104,6 +105,9 @@ Other trainers:
 - `call_train.py`: call-value nets; `call_labels.sh` generates their labels.
 - `belief_data.py` / `belief_train.py`: the belief net, which maps the state
   to a holder probability for each card.
+- `value_data.py` / `value_train.py`: the perfect-information value net
+  (state + true holders → round points of both teams, first out, double
+  victory), the leaf of truncated search rollouts.
 
 ## Data: always the latest layout
 
@@ -178,7 +182,13 @@ Headless flags for search:
   `--endgame-margin`;
 - `--endgame-solve`, `--solve-budget`, `--solve-max-cards`;
 - `--belief-net`, `--endgame-belief`;
-- every flag has an `--opponent-*` twin for the other team.
+- halving search (`rl/THEORY.md`): `--endgame-halving=N` (rollouts per
+  decision), `--endgame-prior-weight`, `--endgame-min-z`, `--value-net`,
+  `--endgame-leaf-after=N` (truncated rollouts), `--endgame-match-utility`;
+- the per-team flags have an `--opponent-*` twin for the other team. The
+  halving twins and `--opponent-endgame-max-actions` keep their defaults
+  unless given, so side B of a duel stays the shipped bot;
+  `--opponent-endgame-margin` overrides the shared margin.
 
 Other headless flags:
 

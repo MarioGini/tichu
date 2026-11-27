@@ -2,8 +2,11 @@ import 'dart:math';
 
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/endgame_solver.dart';
+import 'package:tichu/agents/halving_search.dart';
+import 'package:tichu/agents/match_utility.dart';
 import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
+import 'package:tichu/agents/nn/value_model.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -61,7 +64,36 @@ class EndgameSearch {
   /// and strictly better in [minBetterWorlds].
   final bool expectedValue;
 
+  /// Rollouts per searched decision for [sequentialHalving] (0 = off: the
+  /// fixed [worlds] x [maxActions] grid). The budget flows to the moves
+  /// still in contention, so a search can afford more candidates
+  /// ([maxActions]) and larger hands ([maxCards]).
+  final int halvingBudget;
+
+  /// Weight of the net's Q (round points) in the halving score: pulls
+  /// few-sample means toward the net (0 = samples only).
+  final double priorWeight;
+
+  /// A halving challenger must beat the policy's move by this many standard
+  /// errors of the paired difference, besides [margin] (0 = margin only).
+  final double minZ;
+
+  /// Truncated rollouts: stop each playout at the first turn after this
+  /// many actions and let the value net ([EndgameSearcher.value]) estimate
+  /// the rest of the round (null = play to the end). Halving search only.
+  final int? leafAfter;
+
+  /// Score rollouts in match-win probability ([MatchUtility], in points of
+  /// equal value at the current score) instead of round points. Halving
+  /// search only.
+  final bool matchUtility;
+
   const EndgameSearch({
+    this.halvingBudget = 0,
+    this.priorWeight = 0,
+    this.minZ = 0,
+    this.leafAfter,
+    this.matchUtility = false,
     this.worlds = 8,
     this.maxCards = 5,
     this.margin = 10,
@@ -89,7 +121,17 @@ class EndgameSearch {
     bool? bombStrata,
     int? bombProbes,
     bool? expectedValue,
+    int? halvingBudget,
+    double? priorWeight,
+    double? minZ,
+    int? leafAfter,
+    bool? matchUtility,
   }) => EndgameSearch(
+    halvingBudget: halvingBudget ?? this.halvingBudget,
+    priorWeight: priorWeight ?? this.priorWeight,
+    minZ: minZ ?? this.minZ,
+    leafAfter: leafAfter ?? this.leafAfter,
+    matchUtility: matchUtility ?? this.matchUtility,
     worlds: worlds ?? this.worlds,
     maxCards: maxCards ?? this.maxCards,
     margin: margin ?? this.margin,
@@ -110,7 +152,9 @@ class EndgameSearch {
       'margin: $margin, maxActions: $maxActions, '
       'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget, '
       'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata, '
-      'expectedValue: $expectedValue)';
+      'expectedValue: $expectedValue, halvingBudget: $halvingBudget, '
+      'priorWeight: $priorWeight, minZ: $minZ, leafAfter: $leafAfter, '
+      'matchUtility: $matchUtility)';
 }
 
 /// The decision rule: index of the action to play given rollout values
@@ -351,11 +395,20 @@ class EndgameSearcher {
   /// before, so the result does not depend on it.
   final RolloutWorkers? workers;
 
+  /// Perfect-information value net for truncated rollouts
+  /// ([EndgameSearch.leafAfter]).
+  final ValueModel? value;
+
+  /// Match-win model for [EndgameSearch.matchUtility].
+  final MatchUtility matchModel;
+
   EndgameSearcher({
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
     this.belief,
     this.workers,
+    this.value,
+    this.matchModel = const MatchUtility(),
   });
 
   /// The action to play instead of [chosen] (which [agent] picked in
@@ -432,6 +485,19 @@ class EndgameSearcher {
         chosenIndex: chosenIndex,
         maxActions: config.maxActions,
       );
+      if (config.halvingBudget > 0) {
+        return await _halving(
+          state: state,
+          snapshot: snapshot,
+          agent: agent,
+          config: config,
+          turns: turns,
+          canPass: options.canPass,
+          indices: indices,
+          chosenIndex: chosenIndex,
+          chosen: chosen,
+        );
+      }
       final actions = <int, GameAction>{
         for (final i in indices)
           i: i == chosenIndex
@@ -470,6 +536,115 @@ class EndgameSearcher {
     } finally {
       stopwatch.stop();
     }
+  }
+
+  /// The [EndgameSearch.halvingBudget] search: [sequentialHalving] over
+  /// the candidate [indices] (into [turns], then pass), each evaluated by a
+  /// playout in belief-weighted re-deals, optionally truncated by the value
+  /// net and scored in match utility.
+  Future<GameAction> _halving({
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required SmartAiAgent agent,
+    required EndgameSearch config,
+    required List<TichuTurn> turns,
+    required bool canPass,
+    required List<int> indices,
+    required int chosenIndex,
+    required GameAction chosen,
+  }) async {
+    final playerId = agent.playerId;
+    final team = state.players[state.currentPlayerIndex].seat % 2;
+    final actions = [
+      for (final i in indices)
+        if (i == chosenIndex)
+          chosen
+        else if (i >= turns.length)
+          PassAction(playerId: playerId)
+        else
+          agent.playActionFor(snapshot, turns[i]),
+    ];
+    final strategy = agent.playSelectionStrategy;
+    final q = strategy is NnPlaySelectionStrategy
+        ? strategy.pointValues(snapshot, turns, canPass: canPass)
+        : null;
+    final random = Random(searchSeed(state, playerId));
+    final holders = config.beliefWorlds && belief != null
+        ? belief!.holderProbabilities(snapshot, playerId)
+        : null;
+    final deals = <Deal>[];
+    final value = this.value;
+    final leafAfter = config.leafAfter;
+    if (leafAfter != null && value == null) {
+      throw StateError('leafAfter needs a value net');
+    }
+    final score = state.scoreTracker.state;
+    final usTotal = (team == 0 ? score.teamOneTotal : score.teamTwoTotal)
+        .toDouble();
+    final themTotal = (team == 0 ? score.teamTwoTotal : score.teamOneTotal)
+        .toDouble();
+    (double, double) leaf(GameEngineState s, String id) {
+      final estimate = value!.estimate(simulationEngine.buildSnapshot(s), id);
+      final seat = s.players.firstWhere((p) => p.id == id).seat;
+      return seat.isEven
+          ? (estimate.us, estimate.them)
+          : (estimate.them, estimate.us);
+    }
+
+    Future<List<double?>> evaluate(int w, List<int> which) async {
+      while (deals.length <= w) {
+        deals.add(dealUnseen(state, playerId, random, holders: holders));
+      }
+      final world = state.copy();
+      deals[w].forEach((id, hand) => world.hands[id] = hand);
+      final row = <double?>[];
+      for (final k in which) {
+        final fork = world.copy();
+        final agents = {
+          for (final p in fork.players) p.id: rolloutAgent(p.id, p.seat),
+        };
+        simulationEngine.applyAction(fork, _copyAction(actions[k]));
+        final points = await playOutRoundPoints(
+          fork,
+          agents,
+          leafAfter: leafAfter ?? 0,
+          leaf: leafAfter == null ? null : leaf,
+        );
+        rollouts++;
+        if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
+        if (points == null) {
+          row.add(null);
+          continue;
+        }
+        final (us, them) = team == 0 ? points : (points.$2, points.$1);
+        row.add(
+          config.matchUtility
+              ? matchModel.pointsEquivalent(
+                  us: usTotal,
+                  them: themTotal,
+                  usRound: us,
+                  themRound: them,
+                  target: score.targetScore,
+                )
+              : us - them,
+        );
+      }
+      return row;
+    }
+
+    final result = await sequentialHalving(
+      count: indices.length,
+      incumbent: indices.indexOf(chosenIndex),
+      budget: config.halvingBudget,
+      evaluate: evaluate,
+      prior: q == null ? null : [for (final i in indices) q[i]],
+      priorWeight: config.priorWeight,
+      margin: config.margin,
+      minZ: config.minZ,
+    );
+    if (result.pick == indices.indexOf(chosenIndex)) return chosen;
+    switches++;
+    return actions[result.pick];
   }
 
   /// `values[world][action]`: the round result for [team] after each of

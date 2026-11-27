@@ -311,6 +311,7 @@ class _BcTransitionWriter {
       'round': before.scoreState.roundNumber,
       'step': ?step,
       'team': actorTeam,
+      'seat': before.players.firstWhere((p) => p.id == action.playerId).seat,
       if (explored) 'explore': true,
       'state_features': stateFeatures,
       'oracle': _oracle(before, action.playerId),

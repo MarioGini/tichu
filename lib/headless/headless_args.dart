@@ -32,6 +32,10 @@ class _HeadlessConfig {
   final bool opponentSchupfExtended;
   final bool schupfLabelExtended;
   final String? beliefNetPath;
+
+  /// Perfect-information value net for truncated search rollouts
+  /// (`--value-net`, `rl/value_train.py`).
+  final String? valueNetPath;
   final bool recordGames;
   final double schupfEpsilon;
   final bool shadowHeuristic;
@@ -88,6 +92,7 @@ class _HeadlessConfig {
     required this.opponentSchupfExtended,
     required this.schupfLabelExtended,
     required this.beliefNetPath,
+    required this.valueNetPath,
     required this.recordGames,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
@@ -171,6 +176,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var solveBudget = 20000;
   var solveMaxCards = 10;
   String? beliefNetPath;
+  String? valueNetPath;
   var recordGames = false;
   var endgameBelief = false;
   var opponentEndgameBelief = false;
@@ -186,6 +192,16 @@ _HeadlessConfig _parseArgs(List<String> args) {
   bool? opponentEndgameBombStrata;
   var endgameExpectedValue = false;
   bool? opponentEndgameExpectedValue;
+  int? opponentEndgameMaxActions;
+  double? opponentEndgameMargin;
+  var endgameHalving = 0;
+  int? opponentEndgameHalving;
+  var endgamePriorWeight = 0.0;
+  var endgameMinZ = 0.0;
+  int? endgameLeafAfter;
+  int? opponentEndgameLeafAfter;
+  var endgameMatchUtility = false;
+  bool? opponentEndgameMatchUtility;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -354,6 +370,58 @@ _HeadlessConfig _parseArgs(List<String> args) {
     }
     if (arg == '--opponent-endgame-solve') {
       opponentEndgameSolve = true;
+      continue;
+    }
+    if (arg.startsWith('--value-net=')) {
+      valueNetPath = arg.substring('--value-net='.length);
+      continue;
+    }
+    if (arg.startsWith('--endgame-halving=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) endgameHalving = k;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-halving=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) opponentEndgameHalving = k;
+      continue;
+    }
+    if (arg.startsWith('--endgame-prior-weight=')) {
+      final w = double.tryParse(arg.split('=').last);
+      if (w != null && w >= 0) endgamePriorWeight = w;
+      continue;
+    }
+    if (arg.startsWith('--endgame-min-z=')) {
+      final z = double.tryParse(arg.split('=').last);
+      if (z != null && z >= 0) endgameMinZ = z;
+      continue;
+    }
+    if (arg.startsWith('--endgame-leaf-after=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) endgameLeafAfter = k;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-leaf-after=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) opponentEndgameLeafAfter = k;
+      continue;
+    }
+    if (arg == '--endgame-match-utility') {
+      endgameMatchUtility = true;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-match-utility=')) {
+      opponentEndgameMatchUtility = arg.split('=').last == 'true';
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-margin=')) {
+      final m = double.tryParse(arg.split('=').last);
+      if (m != null && m >= 0) opponentEndgameMargin = m;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-max-actions=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 2) opponentEndgameMaxActions = k;
       continue;
     }
     if (arg.startsWith('--belief-net=')) {
@@ -527,12 +595,25 @@ _HeadlessConfig _parseArgs(List<String> args) {
     int? minBetter,
     bool? bombStrata,
     bool? expectedValue,
+    bool opponent = false,
   }) => EndgameSearch(
     beliefWorlds: belief,
     worlds: endgameWorlds,
     maxCards: maxCards ?? endgameMaxCards,
-    margin: endgameMargin,
-    maxActions: endgameMaxActions,
+    margin: opponent ? opponentEndgameMargin ?? endgameMargin : endgameMargin,
+    // The halving flags and the action cap have independent twins, off by
+    // default for the opponent: a duel against the shipped bot sets them
+    // on side A only.
+    maxActions: opponent
+        ? opponentEndgameMaxActions ?? defaults.maxActions
+        : endgameMaxActions,
+    halvingBudget: opponent ? opponentEndgameHalving ?? 0 : endgameHalving,
+    priorWeight: endgamePriorWeight,
+    minZ: endgameMinZ,
+    leafAfter: opponent ? opponentEndgameLeafAfter : endgameLeafAfter,
+    matchUtility: opponent
+        ? opponentEndgameMatchUtility ?? false
+        : endgameMatchUtility,
     minBetterWorlds: minBetter ?? endgameMinBetter,
     bombStrata: bombStrata ?? endgameBombStrata,
     expectedValue: expectedValue ?? endgameExpectedValue,
@@ -540,20 +621,29 @@ _HeadlessConfig _parseArgs(List<String> args) {
     solveBudget: solveBudget,
     solveMaxCards: solveMaxCards,
   );
+  final policySearch = endgameSearch
+      ? search(solve: endgameSolve, belief: endgameBelief)
+      : null;
+  final opponentSearch = opponentEndgameSearch
+      ? search(
+          solve: opponentEndgameSolve,
+          belief: opponentEndgameBelief,
+          maxCards: opponentEndgameMaxCards,
+          minBetter: opponentEndgameMinBetter,
+          bombStrata: opponentEndgameBombStrata,
+          expectedValue: opponentEndgameExpectedValue,
+          opponent: true,
+        )
+      : null;
+  if (valueNetPath == null &&
+      (policySearch?.leafAfter != null || opponentSearch?.leafAfter != null)) {
+    stderr.writeln('--endgame-leaf-after needs --value-net');
+    exitCode = 64;
+    showHelp = true;
+  }
   return _HeadlessConfig(
-    endgameSearch: endgameSearch
-        ? search(solve: endgameSolve, belief: endgameBelief)
-        : null,
-    opponentEndgameSearch: opponentEndgameSearch
-        ? search(
-            solve: opponentEndgameSolve,
-            belief: opponentEndgameBelief,
-            maxCards: opponentEndgameMaxCards,
-            minBetter: opponentEndgameMinBetter,
-            bombStrata: opponentEndgameBombStrata,
-            expectedValue: opponentEndgameExpectedValue,
-          )
-        : null,
+    endgameSearch: policySearch,
+    opponentEndgameSearch: opponentSearch,
     seed: seed,
     targetScore: targetScore,
     rounds: rounds,
@@ -585,6 +675,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
     opponentSchupfExtended: opponentSchupfExtended,
     schupfLabelExtended: schupfLabelExtended,
     beliefNetPath: beliefNetPath,
+    valueNetPath: valueNetPath,
     recordGames: recordGames,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
@@ -668,6 +759,25 @@ void _printUsage() {
     '       [--endgame-expected-value] '
     '[--opponent-endgame-expected-value=false]  '
     '(decide by the weighted mean advantage alone)',
+  );
+  stdout.writeln(
+    '       [--endgame-halving=N] [--opponent-endgame-halving=N]  '
+    '(sequential halving with N rollouts per decision)',
+  );
+  stdout.writeln(
+    '       [--opponent-endgame-margin=x] '
+    '[--opponent-endgame-max-actions=N] [--endgame-prior-weight=w] '
+    '[--endgame-min-z=z]',
+  );
+  stdout.writeln(
+    '       [--value-net=..] [--endgame-leaf-after=N] '
+    '[--opponent-endgame-leaf-after=N]  '
+    '(halving: truncated rollouts scored by the value net)',
+  );
+  stdout.writeln(
+    '       [--endgame-match-utility] '
+    '[--opponent-endgame-match-utility=false]  '
+    '(halving: score in match-win probability)',
   );
   stdout.writeln('       [--epsilon=0.1]');
 }

@@ -132,6 +132,28 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     return values;
   }
 
+  /// Q of each of [plays] in round points and, with [canPass], of the
+  /// pass (last): the prior of a search (`sequentialHalving`).
+  List<double> pointValues(
+    GameSnapshot snapshot,
+    List<TichuTurn> plays, {
+    required bool canPass,
+  }) {
+    final values = [for (final q in qValues(snapshot, plays)) q * outputScale];
+    if (canPass) {
+      final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
+      final scorer = _scorer..setPrefix(encoder.stateFeatures);
+      encoder.writeActionFeatures(
+        TichuTurn(TurnType.none, const <Card>[]),
+        _actionBuffer,
+        0,
+        isPass: true,
+      );
+      values.add(scorer.score(_actionBuffer) * outputScale);
+    }
+    return values;
+  }
+
   /// Highest-Q play among [plays], or `null` when [canPass] and the pass
   /// action scores strictly highest.
   TichuTurn? _argmax(

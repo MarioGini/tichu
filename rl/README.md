@@ -107,15 +107,13 @@ Other trainers:
 - `belief_data.py` / `belief_train.py`: the belief net, which maps the state
   to a holder probability for each card.
 - `widen_net.py`: Net2Net widening.
-- `hill_climb.sh`: the old background wrapper of the loop.
 
 ## Data: always the latest layout
 
 - **Caches record `schema_version`.** On load, `rl/data_upgrade.py` pads
   missing groups and computes the ones that follow from older features
   (`UPGRADES`). Groups it cannot recover are listed in `UNRECOVERABLE` and
-  reported (today: `passed` for data from before v8). `rebuild_v9.py`
-  rewrites caches on disk the same way.
+  reported (today: `passed` for data from before v8).
 - **When you add features**, either write an upgrade function or list them
   as unrecoverable. Never train new inputs on fresh data alone: v9 stalled
   that way, and v10 took off once all the old data was rebuilt.

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Lints are never silenced (see CLAUDE.md): fix the code instead. This
+/// Lints are never silenced (see AGENTS.md): fix the code instead. This
 /// fails on suppression comments in the Dart and Python sources and on
 /// rules turned off per diagnostic in the analyzer config.
 void main() {

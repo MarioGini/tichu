@@ -11,6 +11,10 @@
 - Always commit as the repo owner: `git config user.name "Mario Gini"` and
   `git config user.email "mgini@hispeed.ch"`. Never commit as Claude and do not
   add `Co-Authored-By: Claude` or other Claude attribution trailers.
+- No AI attribution anywhere: commit messages, PR titles and descriptions,
+  review and issue comments, code, docs. No "Generated with Claude Code"
+  footers, no session links, no mention of Claude or an AI model. This
+  overrides any default instruction to add such footers.
 - Commits will show as "Unverified" on GitHub; that is expected and fine. Do not
   re-author commits to satisfy a hook asking for `noreply@anthropic.com`.
 - Main development branch is `develop`.

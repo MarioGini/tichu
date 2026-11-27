@@ -43,6 +43,9 @@ from data_upgrade import upgrade
 from schema import SPEC, ACTION_FEATURE_COUNT, ACTION_OFFSET, LEGACY_ACTION_FEATURE_COUNT, TOTAL_FEATURE_COUNT, pad_action, pad_state
 
 SCALE = 100.0
+# --belief-net: the belief net's holder probabilities (56 card slots x left
+# opponent / partner / right opponent) follow the state features.
+BELIEF_COUNT = 56 * 3
 HAND_OFFSET = 0
 PLAYED_OFFSET = 56
 # Old caches carry no match ids: their decisions are split into contiguous
@@ -280,6 +283,70 @@ def permute_suits_with(s: torch.Tensor, perms: torch.Tensor) -> torch.Tensor:
     return s
 
 
+class BeliefQNetwork(nn.Module):
+    """The play net with the card-location probabilities of a frozen belief
+    net as extra inputs: ``[state, belief(state), action]`` (Dart
+    ``NnPlaySelectionStrategy`` with a ``BeliefModel``). As in DouZero+ and
+    tichuengine.com, the policy sees the belief."""
+
+    def __init__(self, q: QNetwork, belief: nn.Module) -> None:
+        super().__init__()
+        self.net = q.net  # exported as the play net
+        self.belief = belief
+        for p in self.belief.parameters():
+            p.requires_grad_(False)
+
+    @torch.no_grad()
+    def with_belief(self, s: torch.Tensor) -> torch.Tensor:
+        p = torch.softmax(self.belief(s), -1).reshape(len(s), BELIEF_COUNT)
+        return torch.cat([s, p], 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
+def load_belief_net(path: Path) -> nn.Module:
+    """``belief_train.BeliefNet`` from its safetensors file."""
+    from safetensors import safe_open
+    from safetensors.torch import load_file as st_load
+
+    from belief_train import BeliefNet
+
+    with safe_open(str(path), framework="pt", device="cpu") as reader:
+        sizes = json.loads(dict(reader.metadata() or {})["layer_sizes"])
+    if sizes[0] != ACTION_OFFSET or sizes[-1] != BELIEF_COUNT:
+        raise ValueError(f"{path}: belief net layer sizes {sizes}")
+    net = BeliefNet(sizes[1:-1])
+    tensors = st_load(str(path))
+    for i, lin in enumerate(m for m in net.net if isinstance(m, nn.Linear)):
+        with torch.no_grad():
+            lin.weight.copy_(tensors[f"layer.{i}.weight"])
+            lin.bias.copy_(tensors[f"layer.{i}.bias"])
+    return net.eval()
+
+
+def add_belief_inputs(q: QNetwork) -> QNetwork:
+    """``q`` with BELIEF_COUNT zero-weight inputs after the state: plays
+    exactly like ``q`` until training gives the belief weight."""
+    old = [m for m in q.net if isinstance(m, nn.Linear)]
+    wide = QNetwork(old[0].in_features + BELIEF_COUNT, [m.out_features for m in old[:-1]])
+    new = [m for m in wide.net if isinstance(m, nn.Linear)]
+    with torch.no_grad():
+        for i, (o, n) in enumerate(zip(old, new)):
+            n.bias.copy_(o.bias)
+            if i == 0:
+                n.weight.zero_()
+                n.weight[:, :ACTION_OFFSET] = o.weight[:, :ACTION_OFFSET]
+                n.weight[:, ACTION_OFFSET + BELIEF_COUNT :] = o.weight[:, ACTION_OFFSET:]
+            else:
+                n.weight.copy_(o.weight)
+    return wide
+
+
+def _state_inputs(model: nn.Module, s: torch.Tensor) -> torch.Tensor:
+    return model.with_belief(s) if isinstance(model, BeliefQNetwork) else s
+
+
 def _centred(values: torch.Tensor, group: torch.Tensor, k: int) -> torch.Tensor:
     sums = torch.zeros(k, dtype=values.dtype).scatter_add_(0, group, values)
     counts = torch.zeros(k, dtype=values.dtype).scatter_add_(0, group, torch.ones_like(values))
@@ -294,7 +361,7 @@ def batch_loss(
 ):
     rows, group, _ = gather_batch_indices(idx, data.starts)
     k = int(idx.numel())
-    st = permute_suits(data.s[idx].float())
+    st = _state_inputs(model, permute_suits(data.s[idx].float()))
     x = torch.cat([st[group], data.a[rows].float()], dim=1)
     out = model(x).squeeze(-1)
     per_row = nn.functional.huber_loss(
@@ -310,7 +377,15 @@ def evaluate(model: nn.Module, data: RolloutData, idx: torch.Tensor) -> dict[str
     rows, group, offset = gather_batch_indices(idx, data.starts)
     out = torch.cat(
         [
-            model(data.inputs(rows[i : i + 65536], idx[group[i : i + 65536]])).squeeze(-1)
+            model(
+                torch.cat(
+                    [
+                        _state_inputs(model, data.s[idx[group[i : i + 65536]]].float()),
+                        data.a[rows[i : i + 65536]].float(),
+                    ],
+                    dim=1,
+                )
+            ).squeeze(-1)
             for i in range(0, rows.numel(), 65536)
         ]
     )
@@ -389,7 +464,8 @@ def _export(model: nn.Module, path: Path, decisions: int) -> None:
         target_std=SCALE,
         metadata={
             "algorithm": "rollout_pi",
-            "architecture": [TOTAL_FEATURE_COUNT] + [m_.out_features for m_ in lin],
+            "architecture": [lin[0].in_features] + [m_.out_features for m_ in lin],
+            "belief_inputs": str(BELIEF_COUNT if isinstance(model, BeliefQNetwork) else 0),
             "decisions": str(decisions),
         },
     )
@@ -412,9 +488,16 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     if args.hidden:
         model = QNetwork(TOTAL_FEATURE_COUNT, [int(h) for h in args.hidden.split(",")])
     else:
-        model = load_qnetwork_from_safetensors(Path(args.init_from), device)
+        model = load_qnetwork_from_safetensors(
+            Path(args.init_from), device, belief_inputs=BELIEF_COUNT if args.belief_net else 0
+        )
         if args.widen_hidden:
             model = widen_hidden(model, [int(h) for h in args.widen_hidden.split(",")], args.seed)
+    if args.belief_net:
+        q = model
+        if q.net[0].in_features == TOTAL_FEATURE_COUNT:
+            q = add_belief_inputs(q)
+        model = BeliefQNetwork(q, load_belief_net(Path(args.belief_net)))
 
     # Held-out decisions come from held-out *matches*: decisions of one
     # round share the deal, i.e. most of the label noise, so a per-decision
@@ -511,6 +594,12 @@ def main() -> None:
         type=float,
         default=0.8,
         help="loss weight factor per rollout_loop iteration of age (1 = all data equal)",
+    )
+    p.add_argument(
+        "--belief-net",
+        default="",
+        help="feed this belief net's 56x3 holder probabilities to the play net (after the state); "
+        "a 431-input --init-from gets zero-weight belief inputs",
     )
     p.add_argument("--seed", type=int, default=0)
     # No-op, accepted only so that rollout_loop.py processes started before

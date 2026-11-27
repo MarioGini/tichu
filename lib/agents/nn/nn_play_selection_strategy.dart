@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
+import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/legal_play_guard.dart';
+import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
@@ -28,10 +30,33 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// the first layer once, each action only adds its own features. This is
   /// the hot path of headless self-play and of the bots in the app.
   late final PrefixScorer _scorer =
-      scorerFactory?.call(network, stateFeatureCount) ??
+      scorerFactory?.call(network, _prefixLength) ??
       (simd
-          ? network.simdPrefixScorer(stateFeatureCount)
-          : network.prefixScorer(stateFeatureCount));
+          ? network.simdPrefixScorer(_prefixLength)
+          : network.prefixScorer(_prefixLength));
+
+  /// Card-location model whose holder probabilities follow the state
+  /// features in the net's input (`rollout_train.py --belief-net`), as in
+  /// DouZero+ and tichuengine.com: the policy sees the belief. Required
+  /// for a net with [beliefInputCount] extra inputs, null otherwise.
+  final BeliefModel? belief;
+
+  /// Holder probabilities per card slot x (left, partner, right).
+  static const int beliefInputCount = CardKnowledge.slotCount * 3;
+
+  int get _prefixLength =>
+      stateFeatureCount + (belief == null ? 0 : beliefInputCount);
+
+  /// The state part of the net's input: the state features, then (with
+  /// [belief]) the holder probabilities, slot-major.
+  List<double> _prefix(FeatureEncoder encoder, GameSnapshot snapshot) {
+    final belief = this.belief;
+    if (belief == null) return encoder.stateFeatures;
+    return [
+      ...encoder.stateFeatures,
+      for (final p in belief.holderProbabilities(snapshot, playerId)) ...p,
+    ];
+  }
 
   /// Builds the scorer instead of [simd] (the web: the wasm kernel).
   final PrefixScorerFactory? scorerFactory;
@@ -54,14 +79,18 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     this.scorerFactory,
     this.style = StyleBias.none,
     this.outputScale = 100,
+    this.belief,
   }) {
-    if (network.inputSize != totalFeatureCount) {
+    final expected =
+        totalFeatureCount + (belief == null ? 0 : beliefInputCount);
+    if (network.inputSize != expected) {
       throw ArgumentError.value(
         network.inputSize,
         'network.inputSize',
         'Policy was trained for a different feature schema; expected '
-            '$totalFeatureCount inputs (rl/schema/feature_spec.json). '
-            'Retrain the policy.',
+            '$expected inputs (rl/schema/feature_spec.json'
+            '${belief == null ? '' : ' + belief'}). Retrain the policy, '
+            'or pass the belief net it was trained with.',
       );
     }
   }
@@ -123,7 +152,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// Q(s, a) of each of [plays] (same order), for ranking candidates.
   List<double> qValues(GameSnapshot snapshot, List<TichuTurn> plays) {
     final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
-    final scorer = _scorer..setPrefix(encoder.stateFeatures);
+    final scorer = _scorer..setPrefix(_prefix(encoder, snapshot));
     final values = <double>[];
     for (final play in plays) {
       encoder.writeActionFeatures(play, _actionBuffer, 0);
@@ -142,7 +171,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     final values = [for (final q in qValues(snapshot, plays)) q * outputScale];
     if (canPass) {
       final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
-      final scorer = _scorer..setPrefix(encoder.stateFeatures);
+      final scorer = _scorer..setPrefix(_prefix(encoder, snapshot));
       encoder.writeActionFeatures(
         TichuTurn(TurnType.none, const <Card>[]),
         _actionBuffer,
@@ -162,7 +191,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     required bool canPass,
   }) {
     final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
-    final scorer = _scorer..setPrefix(encoder.stateFeatures);
+    final scorer = _scorer..setPrefix(_prefix(encoder, snapshot));
     final buffer = _actionBuffer;
 
     TichuTurn? bestPlay;

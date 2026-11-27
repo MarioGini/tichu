@@ -2,6 +2,8 @@ import 'dart:typed_data';
 
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/heuristic_options.dart';
+import 'package:tichu/agents/nn/belief_model.dart';
+import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
@@ -54,6 +56,11 @@ class BotConfig {
   /// [SchupfFeatures.candidates]).
   final bool schupfExtended;
 
+  /// Card-location net (`rl/belief_train.py`) for a play net trained with
+  /// belief inputs (`rollout_train.py --belief-net`); ignored by a play net
+  /// without them.
+  final LoadedNet? belief;
+
   /// Partner-passing convention of the learned schupf (needs [schupf]);
   /// the team's search reads its partner's promise via
   /// [EndgameSearch.partnerConvention].
@@ -88,6 +95,7 @@ class BotConfig {
     this.schupf,
     this.schupfExtended = false,
     this.partnerConvention = PartnerConvention.none,
+    this.belief,
     this.callMargin = 0,
     this.simdInference = false,
     this.style = StyleBias.none,
@@ -105,6 +113,7 @@ class BotConfig {
     schupf: schupf,
     schupfExtended: schupfExtended,
     partnerConvention: partnerConvention,
+    belief: belief,
     callMargin: callMargin,
     simdInference: simdInference,
     style: style,
@@ -112,6 +121,19 @@ class BotConfig {
     endgameSearch: search,
     playScorer: playScorer,
   );
+
+  /// The belief model the play net reads, if it was trained with one.
+  BeliefModel? _playBelief(LoadedNet play) {
+    if (play.network.inputSize == totalFeatureCount) return null;
+    final belief = this.belief;
+    if (belief == null) {
+      throw ArgumentError(
+        'The play net takes belief inputs; pass the belief net it was '
+        'trained with.',
+      );
+    }
+    return BeliefModel(belief.network);
+  }
 
   /// The pure heuristic bot.
   static const heuristic = BotConfig();
@@ -134,6 +156,7 @@ class BotConfig {
               scorerFactory: playScorer,
               style: style,
               outputScale: play.targetStd,
+              belief: _playBelief(play),
             )),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null

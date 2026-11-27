@@ -3,7 +3,7 @@ import 'package:tichu/agents/endgame_search.dart';
 /// The shipped bots: the assets and settings the app plays with
 /// (`AppBots`). Plain Dart, so tools can build the same bots.
 abstract final class ShippedBots {
-  /// Trained play policy (rl/models/README.md): v10, schema v9 inputs.
+  /// Trained play policy (rl/README.md): v10, schema v9 inputs.
   /// With [schupfAsset] and the belief search it beats the previous bot
   /// (v8 + schupf v4 + search <= 8) 63.7 %. Calls stay heuristic.
   static const playPolicyAsset = 'assets/bots/tichu_q_v10.safetensors';

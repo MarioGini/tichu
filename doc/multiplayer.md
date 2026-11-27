@@ -188,7 +188,7 @@ Open two browser windows against the same Supabase stack (see steps 6–7 above)
 
 ## Known limitations
 
-- **No crash recovery for active matches.** Lobby metadata is persisted, but `GameEngineState` is not serializable. If the authority restarts mid-match, that match is lost. An action-replay recovery path (replay the action log from `tichu_authority_actions`) would require engine state serialization.
+- **No crash recovery for active matches.** Lobby metadata and match action logs are persisted, but the authority does not restore matches from them. If it restarts mid-match, that match is lost. Recovery could replay the action log from `tichu_authority_actions`, or store the engine state with `EngineStateCodec` (`lib/game/engine_state_codec.dart`, used today by the search workers).
 - **No lobby expiry.** Abandoned lobbies stay in memory and Postgres until the authority restarts. A TTL sweep would fix this.
 - **Anonymous auth only.** There are no real user accounts. Each browser session is a separate anonymous identity. The projection RLS is sound but tied to ephemeral UUIDs.
 - **Single-process authority.** No horizontal scaling or failover. Fine for small-scale play.

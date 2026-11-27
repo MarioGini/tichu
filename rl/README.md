@@ -106,7 +106,6 @@ Other trainers:
 - `call_train.py`: call-value nets; `call_labels.sh` generates their labels.
 - `belief_data.py` / `belief_train.py`: the belief net, which maps the state
   to a holder probability for each card.
-- `widen_net.py`: Net2Net widening.
 
 ## Data: always the latest layout
 

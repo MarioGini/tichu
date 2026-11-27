@@ -19,41 +19,32 @@ void main() {
       (318, 267),
       (252, 201),
     ]) {
-      test('$size inputs play exactly like the zero-widened net', () {
+      test('$size inputs read a state and action prefix', () {
         final old = Mlp(layerSizes: [size, 16, 8, 1], seed: size);
-        final wide = old.widenInputs(
-          totalFeatureCount,
-          (i) => i < state ? i : actionOffset + i - state,
-        );
         expect(playNetLayout(size), (state: state, action: size - state));
-        for (final simd in [false, true]) {
-          final a = NnPlaySelectionStrategy(
-            playerId: aiTestSelfId,
-            network: old,
-            simd: simd,
+        // Float64 and SIMD scoring of an old net pick the same moves.
+        final a = NnPlaySelectionStrategy(playerId: aiTestSelfId, network: old);
+        final b = NnPlaySelectionStrategy(
+          playerId: aiTestSelfId,
+          network: old,
+          simd: true,
+        );
+        for (var k = 0; k < 20; k++) {
+          final h = [
+            for (var r = 0; r < 6; r++)
+              Card(
+                CardFace.values[2 + (k * 5 + r * 3) % 13],
+                CardColor.values[(k + r) % 4],
+              ),
+          ];
+          final ps = [
+            for (final c in h) TichuTurn(TurnType.single, [c]),
+          ];
+          final snapshot = aiSnapshot(myHand: h);
+          expect(
+            a.selectTurnOrPass(snapshot, ps, snapshot.deck, h, canPass: true),
+            b.selectTurnOrPass(snapshot, ps, snapshot.deck, h, canPass: true),
           );
-          final b = NnPlaySelectionStrategy(
-            playerId: aiTestSelfId,
-            network: wide,
-            simd: simd,
-          );
-          for (var k = 0; k < 20; k++) {
-            final h = [
-              for (var r = 0; r < 6; r++)
-                Card(
-                  CardFace.values[2 + (k * 5 + r * 3) % 13],
-                  CardColor.values[(k + r) % 4],
-                ),
-            ];
-            final ps = [
-              for (final c in h) TichuTurn(TurnType.single, [c]),
-            ];
-            final snapshot = aiSnapshot(myHand: h);
-            expect(
-              a.selectTurnOrPass(snapshot, ps, snapshot.deck, h, canPass: true),
-              b.selectTurnOrPass(snapshot, ps, snapshot.deck, h, canPass: true),
-            );
-          }
         }
       });
     }

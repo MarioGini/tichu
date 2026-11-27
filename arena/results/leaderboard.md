@@ -10,3 +10,4 @@ standard error over the deal pairs.
 | 2026-11-27 | dave-orr `h2`, rerun on the fixed engine (PR #45) | 200 | **93.8 % ± 1.3** | +737 ± 21 | same deals as above: the fixes cost nothing |
 | 2026-11-26 | dave-orr `eg:pimc10/h` (search over h2 rollouts) | 200 | **98.5 % ± 0.6** | +973 ± 17 | in their own arena pimc10/h loses to h2 (−19.6 ± 15.5 a deal) |
 | 2026-11-26 | rumoschilling `tichubot` 36.6 M (PPO self-play, samples its moves) | 200 | **67.8 % ± 2.3** | +306 ± 28 | our engine with the straight and bomb fixes |
+| 2026-11-27 | **tichuengine.com Grandmaster** (Sean McCarthy; our bot in one seat, Grandmaster partner, two Grandmaster opponents: 50 % = equal) | 5 games (54 hands), no duplicate | **0 of 5** | −372 a game, −34 a hand | our seat went out first in 13 % of hands (his bots ~29 % each); `tool/tichuengine_client.dart`; too few games for a rate, but a clear gap, close to ainze's −44 a round against the same bot |

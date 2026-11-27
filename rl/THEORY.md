@@ -261,7 +261,20 @@ rl/.venv/bin/python rl/duel.py --deals=600 \
 | C | shipped + `--partner-convention=2hc-odd` | 43.5 %, −91 after 476 matches of the first seating; stopped |
 | L | halving at every decision (≤ 14 cards, 12 candidates, 96 rollouts), `value_v1` leaves after 8 actions, match utility | 41.7 %, −109 after 115 matches of the first seating; stopped |
 
+| H2 | halving, ≤ 12 cards, 112 rollouts | 54.8 %, +59 after 186 first-seating matches; stopped (same as H) |
+| H3 | halving, ≤ 14 cards, 10 candidates, 96 full rollouts | 53.5 %, +51 after 127 first-seating matches; stopped (same as H) |
+| net only: belief inputs | v10 + 168 belief inputs (zero-weight warm start), 3 epochs on it11–13 (5.6 M decisions) vs v10, no search | 51.3 % ± 1.1, +41 ± 12 |
+| net only: control | the same training without belief inputs | 52.0 % ± 1.2, +27 ± 12 |
+
 What they show:
+
+- **More budget or larger hands add nothing over H.** At ~54–55 % the
+  search side of this design is saturated.
+- **Belief inputs add nothing measurable.** The belief net is a function
+  of the same state features, and the play net can learn what it needs
+  from them (a wider net never helped either). The +1–2 pp of both nets
+  is the extra training. The control net (`ctrl1`, 431 inputs) is kept:
+  it needs no belief at inference.
 
 - **Halving works.** At the same budget, spending it on the moves still
   in contention and comparing them in paired worlds is worth +4.4 pp.

@@ -16,6 +16,7 @@ swapped, in full games to 1000. ± is one standard error.
 | dave-orr `h2` (rule bot) | **93.8 % ± 1.3** | +739 ± 21 |
 | rumoschilling `tichubot` (PPO self-play, 36.6 M games) | **67.8 % ± 2.3** | +306 ± 28 |
 | tichuengine.com Grandmaster (Sean McCarthy; our bot in one seat with a Grandmaster partner, so 50 % = equal; 15 games, 143 hands, not duplicate) | **1 of 15** | −502 ± 97 (−53 a hand) |
+| tichuengine.com Grandmaster, **2v2 duplicate** (our bot in seats 0 and 2; the site's duplicate mode compares our score with its all-Grandmaster tables on the same 8 deals) | **0 of 11** | **−508 ± 127** against his tables (−64 a hand) |
 
 How to read these:
 

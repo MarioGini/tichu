@@ -31,7 +31,6 @@ import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
-const _me = 0;
 const _base = 'https://api.tichuengine.com';
 
 // ── Cards ────────────────────────────────────────────────────────────────
@@ -152,8 +151,12 @@ class Api {
 /// The only accessors of a server hand: seat 0's own cards and the public
 /// facts. Other seats' `hand_cards` are never read.
 class SeatView {
-  SeatView(this.hand);
+  SeatView(this.seat, this.hand);
+
+  /// The seat this view belongs to; only its cards are read.
+  final int seat;
   final Map<String, Object?> hand;
+  int get _me => seat;
 
   Map<String, Object?> get ps => hand['play_state']! as Map<String, Object?>;
   List<Map<String, Object?>> get history => [
@@ -231,6 +234,13 @@ final List<GamePlayer> _players = [
 class Shadow {
   Shadow(this.view, this.random);
   final SeatView view;
+  int get _me => view.seat;
+
+  /// The seats whose hands this seat does not see.
+  List<int> get _others => [
+    for (var s = 0; s < 4; s++)
+      if (s != _me) s,
+  ];
   final Random random;
   final engine = GameEngineImpl();
   late final GameEngineState state;
@@ -246,9 +256,7 @@ class Shadow {
       final c = (m['combination']! as Map)['cards']! as List;
       played[m['position']! as int].addAll(c.cast<int>());
     }
-    final toMe = {
-      for (final s in [1, 2, 3]) s: ?view.passedToMe(s),
-    };
+    final toMe = {for (final s in _others) s: ?view.passedToMe(s)};
     final exchanged = toMe.length == 3;
     final myGive = slate == null
         ? null
@@ -262,13 +270,13 @@ class Shadow {
     if (!exchanged) {
       pool.removeWhere(mine.contains);
       deal[_me] = mine;
-      for (final s in [1, 2, 3]) {
+      for (final s in _others) {
         deal[s] = pool.sublist(0, dealt == null ? 8 : 14);
         pool.removeRange(0, deal[s].length);
       }
     } else {
       final after = List.generate(4, (_) => <int>{});
-      for (final s in [1, 2, 3]) {
+      for (final s in _others) {
         after[s]
           ..addAll(played[s])
           ..add(myGive![s]!);
@@ -282,22 +290,22 @@ class Shadow {
             toMe.values.contains(c) ||
             after.any((a) => a.contains(c)),
       );
-      for (final s in [1, 2, 3]) {
+      for (final s in _others) {
         final n = 14 - after[s].length;
         after[s].addAll(pool.take(n));
         pool.removeRange(0, n);
       }
-      for (final y in [1, 2, 3]) {
+      for (final y in _others) {
         final spare = after[y].where((c) => c != myGive![y]).toList()
           ..shuffle(random);
-        for (final x in [1, 2, 3].where((x) => x != y)) {
+        for (final x in _others.where((x) => x != y)) {
           gifts[(x, y)] = spare.removeLast();
         }
       }
       deal[_me] = mine;
-      for (final x in [1, 2, 3]) {
+      for (final x in _others) {
         final h = after[x].toList()..remove(myGive![x]);
-        for (final y in [1, 2, 3].where((y) => y != x)) {
+        for (final y in _others.where((y) => y != x)) {
           h
             ..remove(gifts[(y, x)])
             ..add(gifts[(x, y)]!);
@@ -350,7 +358,7 @@ class Shadow {
               ? myGive
               : exchanged
               ? {
-                  for (final r in [1, 2, 3, 0].where((r) => r != seat))
+                  for (final r in [0, 1, 2, 3].where((r) => r != seat))
                     r: r == _me ? toMe[seat]! : gifts[(seat, r)]!,
                 }
               : null;
@@ -501,7 +509,7 @@ class Shadow {
     final free = hand.where((c) => !played[seat].contains(idOf(c))).toList();
     final wished = free.where((c) => c.face == state.deck.wish).toList();
     final pick = wished.isNotEmpty ? wished : free;
-    final others = [1, 2, 3].where((s) => s != seat).toList();
+    final others = _others.where((s) => s != seat).toList();
     final y = others[random.nextInt(others.length)];
     final theirs = state.hands[_ids[y]]!
         .where((c) => !played[y].contains(idOf(c)) && c.face != state.deck.wish)
@@ -525,7 +533,7 @@ class Bot {
   final BotConfig config;
   final EndgameSearcher searcher;
 
-  PlayerAgent get agent => config.build(_ids[_me]);
+  PlayerAgent agentFor(int seat) => config.build(_ids[seat]);
 }
 
 Future<Bot> loadBot(Map<String, String> flags) async {
@@ -566,7 +574,7 @@ Future<void> act(
   Map<String, Object?> move,
 ) async {
   await api.call('POST', '/api/table/$table/act', {
-    'position': _me,
+    'position': view.seat,
     'bet': false,
     'wish_rank': null,
     'give_dragon_pos': null,
@@ -591,13 +599,13 @@ Future<bool> decide(
   final grand = ps['grand_phase_state'] as Map?;
   if (view.phase() == 0 && grand != null) {
     final choices = grand['grand_bet_choices'] as List;
-    if (choices[_me] != null) return false;
+    if (choices[view.seat] != null) return false;
     final shadow = Shadow(view, random)..build();
-    final call = await bot.agent.shouldCallGrandTichu(
-      shadow.engine.buildSnapshot(shadow.state),
-    );
+    final call = await bot
+        .agentFor(view.seat)
+        .shouldCallGrandTichu(shadow.engine.buildSnapshot(shadow.state));
     await api.call('POST', '/api/table/$table/choose_grand_bet', {
-      'position': _me,
+      'position': view.seat,
       'bet': call,
     });
     return true;
@@ -605,16 +613,16 @@ Future<bool> decide(
   if (ps['is_trade_phase'] == true) {
     if (view.mySlate() != null) return false;
     final shadow = Shadow(view, random)..build();
-    final s = await bot.agent.selectSchupfCards(
-      shadow.engine.buildSnapshot(shadow.state),
-    );
+    final s = await bot
+        .agentFor(view.seat)
+        .selectSchupfCards(shadow.engine.buildSnapshot(shadow.state));
     await api.call('POST', '/api/table/$table/choose_trade', {
-      'position': _me,
+      'position': view.seat,
       'trade_slate': [idOf(s.toLeft), idOf(s.toPartner), idOf(s.toRight)],
     });
     return true;
   }
-  if (view.active() != _me) return false;
+  if (view.active() != view.seat) return false;
   if (ps['make_wish'] == true) {
     await act(api, table, view, {
       'combination': {
@@ -634,16 +642,16 @@ Future<bool> decide(
   final winning = ps['winning_combination'] as Map?;
   if (ps['give_dragon'] != true &&
       winner != null &&
-      (winner == _me || winning?['combination_type'] == _dog)) {
+      (winner == view.seat || winning?['combination_type'] == _dog)) {
     return false;
   }
   final shadow = Shadow(view, random)..build();
   final state = shadow.state;
   final snapshot = shadow.engine.buildSnapshot(state);
-  final agent = bot.agent;
+  final agent = bot.agentFor(view.seat);
   final req = AgentDecisions.next(shadow.engine, state);
   if (ps['give_dragon'] == true) {
-    if (req is! DragonGiveRequest || req.playerId != _ids[_me]) {
+    if (req is! DragonGiveRequest || req.playerId != _ids[view.seat]) {
       throw StateError('Shadow has no Dragon gift pending: $req');
     }
     final resolved = await AgentDecisions.resolve(req, agent, snapshot, state);
@@ -663,7 +671,7 @@ Future<bool> decide(
     });
     return true;
   }
-  if (req is! TurnRequest || req.playerId != _ids[_me]) {
+  if (req is! TurnRequest || req.playerId != _ids[view.seat]) {
     throw StateError('Shadow is not at our turn: $req');
   }
   var action = await agent.selectAction(snapshot);
@@ -701,56 +709,96 @@ Future<bool> decide(
 }
 
 Future<Map<String, Object?>> playGame(
-  Api api,
+  Map<int, Api> seats,
   Bot bot,
   String strength,
   Random random, {
+  required bool duplicate,
   String? resume,
 }) async {
+  final owner = seats[0]!;
   final table =
       resume ??
-      ((await api.call('POST', '/api/table/new', {}))! as Map)['id'] as String;
-  if (resume == null) await _setUp(api, table, strength);
+      ((await owner.call('POST', '/api/table/new', {}))! as Map)['id']
+          as String;
+  if (resume == null) await _setUp(seats, table, strength, duplicate);
   stderr.writeln('table $table');
-  return _play(api, table, bot, random);
+  return _play(seats, table, bot, random);
 }
 
-Future<void> _setUp(Api api, String table, String strength) async {
-  for (final seat in [1, 2, 3]) {
-    await api.call('POST', '/api/table/$table/addBot', {
-      'seat': seat,
-      'strength': strength,
+Future<void> _setUp(
+  Map<int, Api> seats,
+  String table,
+  String strength,
+  bool duplicate,
+) async {
+  final owner = seats[0]!;
+  if (duplicate) {
+    // Deals the site's own Grandmaster tables have played; the result is
+    // compared with their scores on the same deals.
+    await owner.call('POST', '/api/table/$table/update_settings', {
+      'game_mode': 5,
     });
   }
-  await api.call('POST', '/api/table/$table/update_team_conventions', {
+  for (final seat in [1, 2, 3]) {
+    if (seats.containsKey(seat)) {
+      await seats[seat]!.call('POST', '/api/table/$table/join', {'seat': seat});
+    } else {
+      await owner.call('POST', '/api/table/$table/addBot', {
+        'seat': seat,
+        'strength': strength,
+      });
+    }
+  }
+  await owner.call('POST', '/api/table/$table/update_team_conventions', {
     'team': 'ns',
     'conventions': {'opp_trade_convention': 0, 'partner_trade_convention': 3},
   });
-  // No out-of-turn bombs on our tables, so no bomb window to wait out.
-  await api.call('POST', '/api/table/$table/update_settings', {
-    'bomb_window': 'None',
-  });
-  await api.call('POST', '/api/table/$table/start', {});
+  if (!duplicate) {
+    // No out-of-turn bombs on our tables, so no bomb window to wait out.
+    await owner.call('POST', '/api/table/$table/update_settings', {
+      'bomb_window': 'None',
+    });
+  }
+  await owner.call('POST', '/api/table/$table/start', {});
+}
+
+/// Our team's points minus the average of the site's Grandmaster tables on
+/// the same deals, hand by hand (duplicate games only).
+int? _versusBots(Map<dynamic, dynamic> game, int hands, int ns) {
+  final set = game['duplicate_set'] as Map?;
+  final data = set?['bot_game_data'] as Map?;
+  final games = data?['games'] as List?;
+  if (games == null || games.isEmpty) return null;
+  var reference = 0.0;
+  for (final g in games) {
+    final outcome = ((g as Map)['outcome']! as Map)['hands']! as List;
+    for (final h in outcome.take(hands)) {
+      reference += ((h as Map)['ns_score']! as int) / games.length;
+    }
+  }
+  return (ns - reference).round();
 }
 
 Future<Map<String, Object?>> _play(
-  Api api,
+  Map<int, Api> seats,
   String table,
   Bot bot,
   Random random,
 ) async {
-  var wish = CardFace.none;
+  final owner = seats[0]!;
+  final wishes = {for (final s in seats.keys) s: CardFace.none};
   var idle = 0;
   while (true) {
-    final t = (await api.call('GET', '/api/table/$table'))! as Map;
+    final t = (await owner.call('GET', '/api/table/$table'))! as Map;
     final game = t['game']! as Map;
     final hands = game['game_hands']! as List;
     if (hands.isEmpty) {
       await Future<void>.delayed(const Duration(seconds: 1));
       continue;
     }
-    final view = SeatView(hands.last as Map<String, Object?>);
-    final ps = view.ps;
+    final hand = hands.last as Map<String, Object?>;
+    final ps = hand['play_state']! as Map;
     if (ps['is_hand_over'] == true) {
       // Scores are per hand; the game ends at status 3 (complete).
       var ns = 0;
@@ -762,21 +810,42 @@ Future<Map<String, Object?>> _play(
       }
       stderr.writeln('hand ${hands.length}: $ns - $ew');
       if (game['status'] == 3) {
-        return {'table': table, 'ns': ns, 'ew': ew, 'hands': hands.length};
+        return {
+          'table': table,
+          'ns': ns,
+          'ew': ew,
+          'hands': hands.length,
+          'vs_bots': ?_versusBots(game, hands.length, ns),
+        };
       }
-      await api.call('POST', '/api/table/$table/nextHand', {});
+      for (final api in seats.values) {
+        try {
+          await api.call('POST', '/api/table/$table/nextHand', {});
+        } on HttpException {
+          // Only one of our seats needs to start the next hand.
+        }
+      }
       continue;
     }
-    bool acted;
-    try {
-      acted = await decide(api, table, view, bot, random, wish, (w) {
-        wish = w;
-      });
-    } on HttpException catch (e) {
-      // The game moved on while we thought (a trick ended, a bot played):
-      // the server refuses the stale move; decide again on the new state.
-      if (!e.message.contains('Stale submission')) rethrow;
-      continue;
+    var acted = false;
+    for (final MapEntry(key: seat, value: api) in seats.entries) {
+      try {
+        acted |= await decide(
+          api,
+          table,
+          SeatView(seat, hand),
+          bot,
+          random,
+          wishes[seat]!,
+          (w) => wishes[seat] = w,
+        );
+      } on HttpException catch (e) {
+        // The game moved on while we thought (a trick ended, a bot played):
+        // the server refuses the stale move; decide again on the new state.
+        if (!e.message.contains('Stale submission')) rethrow;
+        acted = true;
+      }
+      if (acted) break;
     }
     if (acted) {
       idle = 0;
@@ -796,23 +865,31 @@ Future<void> main(List<String> args) async {
   };
   final games = int.parse(flags['games'] ?? '1');
   final strength = flags['strength'] ?? 'Grandmaster';
-  final jwt = File(flags['jwt-file']!).readAsStringSync().trim();
+  final duplicate = flags['mode'] == 'duplicate';
+  // Seat 0 always; seat 2 (our partner) when a second account is given.
+  final seats = {
+    0: Api(File(flags['jwt-file']!).readAsStringSync().trim()),
+    if (flags['jwt-file2'] case final f?)
+      2: Api(File(f).readAsStringSync().trim()),
+  };
   final out = File(flags['out'] ?? 'arena/results/tichuengine.jsonl');
-  final api = Api(jwt);
   final bot = await loadBot(flags);
   final random = Random(int.parse(flags['seed'] ?? '1'));
   try {
     for (var g = 0; g < games; g++) {
       final result = await playGame(
-        api,
+        seats,
         bot,
         strength,
         random,
+        duplicate: duplicate,
         resume: g == 0 ? flags['resume'] : null,
       );
       final row = {
         ...result,
         'strength': strength,
+        'mode': duplicate ? 'duplicate' : 'standard',
+        'our_seats': seats.keys.toList(),
         'won': (result['ns']! as int) > (result['ew']! as int),
         'at': DateTime.now().toUtc().toIso8601String(),
       };
@@ -820,6 +897,8 @@ Future<void> main(List<String> args) async {
       stdout.writeln(jsonEncode(row));
     }
   } finally {
-    api.close();
+    for (final api in seats.values) {
+      api.close();
+    }
   }
 }

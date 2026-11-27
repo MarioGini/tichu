@@ -15,6 +15,15 @@ decider's point of view. Labels are free in self-play.
   rl/.venv/bin/python rl/value_data.py --out-dir=rl/outputs/value --seed=1 \\
       --episodes=200 --shards=4 --args="--nn-policy=... --schupf-net=..."
 
+Or, much cheaper, from recorded games (``--record-games``; the
+``*.games.jsonl.xz`` files in Supabase Storage): no net runs, the rounds are
+replayed by ``build/bin/value_rows`` (lib/headless/value_rows_from_records.dart),
+one npz per records file:
+
+  dart compile exe lib/headless/value_rows_from_records.dart -o build/bin/value_rows
+  rl/.venv/bin/python rl/value_data.py --out-dir=rl/outputs/value_rec \\
+      --records='rl/outputs/records/*.games.jsonl.xz' --shards=2
+
 The rows of one round share its outcome (correlated labels, see
 rl/REVIEW.md): keep ``--rate`` low and spread the data over many deals;
 ``value_train.py`` holds out whole files.
@@ -23,7 +32,9 @@ rl/REVIEW.md): keep ``--rate`` low and spread the data over many deals;
 from __future__ import annotations
 
 import argparse
+import glob
 import json
+import lzma
 import multiprocessing as mp
 import os
 import random
@@ -89,6 +100,31 @@ def stream(cmd: list[str], out: Path, rate: float, seed: int) -> int:
     return len(ss)
 
 
+def from_records(src: Path, out: Path, rate: float, seed: int) -> int:
+    """Rows of one records file, replayed by ``build/bin/value_rows``."""
+    if out.exists():
+        return 0
+    binary = os.environ.get("TICHU_VALUE_ROWS", "build/bin/value_rows")
+    data = lzma.decompress(src.read_bytes()) if src.suffix == ".xz" else src.read_bytes()
+    p = subprocess.run([binary, f"--rate={rate}", f"--seed={seed}"], input=data,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    rows = [json.loads(line) for line in p.stdout.splitlines() if line.strip()]
+    if not rows:
+        return 0
+    h = np.asarray([r["h"] for r in rows], np.int8)
+    tmp = out.with_suffix(".tmp.npz")
+    np.savez_compressed(
+        tmp,
+        s=pad_state(np.asarray([r["s"] for r in rows], np.float16)),
+        h=h,
+        y=np.asarray([r["y"] for r in rows], np.float32),
+        f=np.asarray([r["f"] for r in rows], np.int8),
+        d=np.asarray([r["d"] for r in rows], np.int8),
+    )
+    tmp.rename(out)
+    return len(rows)
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--out-dir", required=True)
@@ -97,9 +133,18 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--rate", type=float, default=0.2, help="share of play decisions kept")
     p.add_argument("--args", default="")
+    p.add_argument("--records", default="", help="glob of recorded games to replay instead of self-play")
     args = p.parse_args()
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    if args.records:
+        files = sorted(Path(f) for f in glob.glob(args.records))
+        jobs = [(f, out / (f.name.split(".games")[0] + ".npz"), args.rate, args.seed * 100003 + i)
+                for i, f in enumerate(files)]
+        with mp.Pool(args.shards) as pool:
+            n = pool.starmap(from_records, jobs)
+        print(f"{sum(n)} positions from {len(files)} records files written to {out}")
+        return
     binary = os.environ.get("TICHU_HEADLESS", "build/bin/headless")
     jobs = []
     for k in range(args.shards):

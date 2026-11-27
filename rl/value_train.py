@@ -33,6 +33,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from qnet import export_safetensors, select_device
+from rollout_train import permute_suits_with as permute_state_suits
 from schema import STATE_FEATURE_COUNT
 
 HOLDERS = 56 * 3
@@ -55,9 +56,23 @@ class ValueNet(nn.Module):
         return self.net(x)
 
 
-def features(s: torch.Tensor, h: torch.Tensor) -> torch.Tensor:
+def permute_suits(s: torch.Tensor, h: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """The same random suit relabelling of the state's card bitmaps (as
+    ``rollout_train.permute_suits``) and of the holders (slots 0..51 are
+    suit x rank)."""
+    k = s.shape[0]
+    perms = torch.argsort(torch.rand(k, 4), dim=1)
+    s = permute_state_suits(s.float(), perms)
+    h = h.clone()
+    h[:, :52] = h[:, :52].reshape(-1, 4, 13).gather(1, perms[:, :, None].expand(-1, 4, 13)).reshape(-1, 52)
+    return s, h
+
+
+def features(s: torch.Tensor, h: torch.Tensor, augment: bool = False) -> torch.Tensor:
     """State features followed by the one-hot holders (as Dart
     ``encodeValueFeatures``: index state + slot * 3 + holder)."""
+    if augment:
+        s, h = permute_suits(s, h)
     onehot = F.one_hot(h.long().clamp_min(0), 3).float() * (h >= 0).unsqueeze(-1).float()
     return torch.cat([s.float(), onehot.reshape(len(h), HOLDERS)], 1)
 
@@ -79,7 +94,8 @@ def main() -> None:
     p.add_argument("--batch", type=int, default=1024)
     p.add_argument("--scale", type=float, default=100.0, help="points per output unit")
     p.add_argument("--aux", type=float, default=0.25, help="weight of the first-out and double-victory heads")
-    p.add_argument("--val-files", type=int, default=1)
+    p.add_argument("--no-augment", action="store_true", help="no suit-permutation augmentation")
+    p.add_argument("--val-files", type=int, default=1, help="files held out (whole files: whole matches)")
     args = p.parse_args()
     select_device()
     files = sorted(glob.glob(args.data))
@@ -91,32 +107,37 @@ def main() -> None:
     def cat(ps, k):
         return torch.from_numpy(np.concatenate([d[k] for d in ps]))
 
+    # Features are built per batch: s stays float16 and h int8 (a few
+    # hundred bytes per row instead of 2 KB).
     tr = {k: cat(parts[nval:], k) for k in "shyfd"}
     va = {k: cat(parts[:nval], k) for k in "shyfd"}
-    x_tr, x_va = features(tr["s"], tr["h"]), features(va["s"], va["h"])
-    print(f"{len(files)} files: {len(x_tr)} train / {len(x_va)} held-out positions", flush=True)
+    del parts
+    n_tr, n_va = len(tr["y"]), len(va["y"])
+    print(f"{len(files)} files: {n_tr} train / {n_va} held-out positions", flush=True)
     diff_va = va["y"][:, 0] - va["y"][:, 1]
     print(f"held-out round difference: mean {float(diff_va.mean()):.1f}, sd {float(diff_va.std()):.1f} points", flush=True)
 
     model = ValueNet([int(x) for x in args.hidden.split(",")])
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-5)
-    steps = (len(x_tr) + args.batch - 1) // args.batch
+    steps = (n_tr + args.batch - 1) // args.batch
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=args.lr, total_steps=args.epochs * steps)
     best = float("inf")
     t0 = time.time()
     for epoch in range(args.epochs):
         model.train()
-        order = torch.randperm(len(x_tr))
+        order = torch.randperm(n_tr)
         for i in range(steps):
             idx = order[i * args.batch : (i + 1) * args.batch]
-            loss, *_ = losses(model(x_tr[idx]), tr["y"][idx], tr["f"][idx], tr["d"][idx], args.scale, args.aux)
+            x = features(tr["s"][idx], tr["h"][idx], augment=not args.no_augment)
+            loss, *_ = losses(model(x), tr["y"][idx], tr["f"][idx], tr["d"][idx], args.scale, args.aux)
             opt.zero_grad(set_to_none=True)
             loss.backward()
             opt.step()
             sched.step()
         model.eval()
         with torch.no_grad():
-            out = model(x_va)
+            out = torch.cat([model(features(va["s"][i : i + 8192], va["h"][i : i + 8192]))
+                             for i in range(0, n_va, 8192)])
             loss, _, first, double = losses(out, va["y"], va["f"], va["d"], args.scale, args.aux)
             pred = (out[:, 0] - out[:, 1]) * args.scale
             rmse = float(((pred - diff_va) ** 2).mean().sqrt())

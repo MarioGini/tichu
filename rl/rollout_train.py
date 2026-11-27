@@ -267,8 +267,11 @@ def permute_suits(s: torch.Tensor) -> torch.Tensor:
     The hand and played bitmaps are 4 x 13 (suit x rank) blocks; all other
     features (including the action features) do not depend on suit identity.
     """
-    k = s.shape[0]
-    perms = torch.argsort(torch.rand(k, 4), dim=1)  # (k, 4)
+    return permute_suits_with(s, torch.argsort(torch.rand(s.shape[0], 4), dim=1))
+
+
+def permute_suits_with(s: torch.Tensor, perms: torch.Tensor) -> torch.Tensor:
+    """:func:`permute_suits` with given permutations ``perms`` (k, 4)."""
     idx = perms[:, :, None].expand(-1, 4, 13)
     s = s.clone()
     for start in (HAND_OFFSET, PLAYED_OFFSET):

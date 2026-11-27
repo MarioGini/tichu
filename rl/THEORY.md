@@ -253,6 +253,30 @@ rl/.venv/bin/python rl/duel.py --deals=600 \
        --opponent-endgame-max-cards=12 --opponent-endgame-margin=10"
 ```
 
+## 4b. Results so far (duplicate duels against the shipped bot)
+
+| Duel | A | Result |
+|---|---|---|
+| H | halving, ≤ 12 cards, 56 rollouts (today's budget), `minZ` 1, full rollouts | **54.4 % ± 1.2**, +80 ± 12 per match (600 deals × 2) |
+| C | shipped + `--partner-convention=2hc-odd` | 43.5 %, −91 after 476 matches of the first seating; stopped |
+| L | halving at every decision (≤ 14 cards, 12 candidates, 96 rollouts), `value_v1` leaves after 8 actions, match utility | 41.7 %, −109 after 115 matches of the first seating; stopped |
+
+What they show:
+
+- **Halving works.** At the same budget, spending it on the moves still
+  in contention and comparing them in paired worlds is worth +4.4 pp.
+- **The convention costs more than it gives.** Forcing the conforming
+  pass hands over a lone Ace or Dragon. The promise is only read by the
+  ≤ 12-card search, because neither net was trained to read it. It needs
+  step 6's retraining before another duel.
+- **The value-net leaf is not accurate enough.** Its error (RMSE 125)
+  is independent for each candidate, so pairing does not cancel it.
+  Swings of that size swamp the few-point differences between moves.
+  Before searching with leaves again: measure leaf vs full-rollout
+  agreement on the same decisions (step 1's gate), and train the value
+  net toward the rollout result *of the same world* rather than the
+  game's one outcome.
+
 ## 5. Plan, with the gate for each step
 
 Each step is a duplicate duel against the shipped bot (600 deals × 2

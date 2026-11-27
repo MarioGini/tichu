@@ -216,6 +216,13 @@ void main() {
 
   // Leads build the straight candidates once for all lengths; the result
   // must be getStraights / getPairStraights for each length, in order.
+  bool oneSuitOnly(TichuTurn t, List<Card> hand) =>
+      t.cards.every((c) => c.color != CardColor.special) &&
+      t.cards.every((c) => c.color == t.cards.first.color) &&
+      !t.cards.any(
+        (c) => hand.any((o) => o.face == c.face && o.color != c.color),
+      );
+
   test('lead straights equal the per-length searches', () {
     final deck = cardIdentifiers.values.toList();
     final rng = Random(4);
@@ -231,7 +238,9 @@ void main() {
         ],
         [
           for (var n = 5; n <= h.length; n++)
-            for (final t in getStraights(h, n)) key(t),
+            for (final t in getStraights(h, n))
+              // A one-suit straight no other card can break is a bomb only.
+              if (!oneSuitOnly(t, h)) key(t),
         ],
       );
       expect(

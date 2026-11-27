@@ -30,7 +30,10 @@ List<TichuTurn> allPairStraightCandidates(List<Card> input) {
 
   cards.removeWhere(
     (element) =>
-        element.face == CardFace.dragon || element.face == CardFace.dog,
+        element.face == CardFace.dragon ||
+        element.face == CardFace.dog ||
+        // The Mah Jong only goes in straights (a Phoenix cannot pair it).
+        element.face == CardFace.mahJong,
   );
 
   if (cards.length < 4) return pairStraights;
@@ -175,7 +178,10 @@ bool isPairStraight(List<Card> input) {
   // number of cards that is at least four.
   if (cards.any(
         (element) =>
-            element.face == CardFace.dragon || element.face == CardFace.dog,
+            element.face == CardFace.dragon ||
+            element.face == CardFace.dog ||
+            // The Mah Jong only goes in straights (a Phoenix cannot pair it).
+            element.face == CardFace.mahJong,
       ) ||
       cards.length < 4 ||
       cards.length % 2 != 0) {

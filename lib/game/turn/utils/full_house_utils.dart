@@ -6,7 +6,10 @@ List<TichuTurn> getFullHouses(List<Card> input) {
   final cards = List<Card>.of(input);
   cards.removeWhere(
     (element) =>
-        element.face == CardFace.dragon || element.face == CardFace.dog,
+        element.face == CardFace.dragon ||
+        element.face == CardFace.dog ||
+        // The Mah Jong only goes in straights (a Phoenix cannot pair it).
+        element.face == CardFace.mahJong,
   );
   if (cards.length < 5) return [];
 

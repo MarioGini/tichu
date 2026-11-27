@@ -211,5 +211,16 @@ void main() {
         isTrue,
       );
     });
+
+    test('the Phoenix cannot pair the Mah Jong', () {
+      final turns = getFullHouses([
+        Card(CardFace.mahJong, CardColor.special),
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.king, CardColor.green),
+        Card(CardFace.king, CardColor.blue),
+        Card(CardFace.king, CardColor.red),
+      ]);
+      expect(turns, isEmpty);
+    });
   });
 }

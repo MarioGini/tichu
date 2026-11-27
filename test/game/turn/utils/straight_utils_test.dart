@@ -126,11 +126,43 @@ void main() {
       const desiredLength = 5;
       final turns = getStraights(phoenixStraight, desiredLength);
 
-      expect(turns.length, 2);
+      // T-J-Q-K with the Phoenix as an ace or as a nine, and 3-7.
+      expect(turns.length, 3);
       expect(turns.every((turn) => isStraight(turn.cards)), true);
       expect(turns.every((turn) => turn.cards.length == desiredLength), true);
-      expect(turns[0].value, Card.getValue(CardFace.ace));
-      expect(turns[1].value, Card.getValue(CardFace.seven));
+      expect(turns.map((t) => t.value).toSet(), {
+        Card.getValue(CardFace.ace),
+        Card.getValue(CardFace.king),
+        Card.getValue(CardFace.seven),
+      });
+    });
+    test('the Phoenix extends a straight downwards', () {
+      // Following a 5-high straight with 3-4-5-6 + Phoenix: as a 2 it keeps
+      // the seven.
+      final turns = getStraights([
+        Card(CardFace.phoenix, CardColor.special),
+        Card(CardFace.three, CardColor.blue),
+        Card(CardFace.four, CardColor.green),
+        Card(CardFace.five, CardColor.black),
+        Card(CardFace.six, CardColor.blue),
+        Card(CardFace.seven, CardColor.black),
+      ], 5);
+      expect(
+        turns.any(
+          (t) =>
+              t.value == Card.getValue(CardFace.six) &&
+              t.cards.any((c) => c.face == CardFace.phoenix),
+        ),
+        isTrue,
+      );
+      expect(
+        turns.any(
+          (t) =>
+              t.value == Card.getValue(CardFace.seven) &&
+              t.cards.every((c) => c.face != CardFace.phoenix),
+        ),
+        isTrue,
+      );
     });
     test('phoenixAsLowerGapTest', () {
       final phoenixStraight = [

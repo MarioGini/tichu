@@ -76,6 +76,34 @@ class EndgameSearch {
     this.expectedValue = false,
   });
 
+  EndgameSearch copyWith({
+    int? worlds,
+    int? maxCards,
+    double? margin,
+    int? maxActions,
+    bool? solveOneOnOne,
+    int? solveBudget,
+    int? solveMaxCards,
+    bool? beliefWorlds,
+    int? minBetterWorlds,
+    bool? bombStrata,
+    int? bombProbes,
+    bool? expectedValue,
+  }) => EndgameSearch(
+    worlds: worlds ?? this.worlds,
+    maxCards: maxCards ?? this.maxCards,
+    margin: margin ?? this.margin,
+    maxActions: maxActions ?? this.maxActions,
+    solveOneOnOne: solveOneOnOne ?? this.solveOneOnOne,
+    solveBudget: solveBudget ?? this.solveBudget,
+    solveMaxCards: solveMaxCards ?? this.solveMaxCards,
+    beliefWorlds: beliefWorlds ?? this.beliefWorlds,
+    minBetterWorlds: minBetterWorlds ?? this.minBetterWorlds,
+    bombStrata: bombStrata ?? this.bombStrata,
+    bombProbes: bombProbes ?? this.bombProbes,
+    expectedValue: expectedValue ?? this.expectedValue,
+  );
+
   @override
   String toString() =>
       'EndgameSearch(worlds: $worlds, maxCards: $maxCards, '

@@ -15,7 +15,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:tichu/game/record/round_log.dart';
-import 'package:tichu/services/records/file_game_record_store.dart';
+
+import 'src/record_source.dart';
 
 Future<void> main(List<String> args) async {
   if (args.isEmpty || args.contains('-h') || args.contains('--help')) {
@@ -30,10 +31,8 @@ Future<void> main(List<String> args) async {
     return i >= 0 && i + 1 < args.length ? int.parse(args[i + 1]) : null;
   }
 
-  final supabaseUrl = Platform.environment['SUPABASE_URL'] ?? '';
   if (args.first == '--latest') {
-    final rows = await _supabaseGet(
-      supabaseUrl,
+    final rows = await supabaseGet(
       'select=id,summary&order=updated_at.desc&limit=15',
     );
     for (final row in rows) {
@@ -42,65 +41,14 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  final target = args.first;
-  final Map<String, Object?> record;
-  int? roundFromId;
-  if (File(target).existsSync()) {
-    record = Map<String, Object?>.from(
-      jsonDecode(File(target).readAsStringSync()) as Map,
-    );
-  } else if (supabaseUrl.isNotEmpty) {
-    var rows = await _supabaseGet(
-      supabaseUrl,
-      'select=record&id=eq.${Uri.encodeQueryComponent(target)}',
-    );
-    if (rows.isEmpty && target.length >= 8) {
-      // A round id (or its first characters).
-      final rounds = [
-        for (final r in await _supabaseGet(
-          supabaseUrl,
-          'select=id,game_id,round'
-          '&short_id=eq.${Uri.encodeQueryComponent(target.substring(0, 8))}',
-          table: 'tichu_round_records',
-        ))
-          if ((r['id']! as String).startsWith(target.toLowerCase())) r,
-      ];
-      if (rounds.length > 1) {
-        stderr.writeln('Round id $target is ambiguous; give more characters');
-        exitCode = 1;
-        return;
-      }
-      if (rounds.length == 1) {
-        final gameId = rounds.single['game_id']! as String;
-        roundFromId = rounds.single['round']! as int;
-        stdout.writeln(
-          'Round ${rounds.single['id']}: game $gameId, '
-          'round $roundFromId',
-        );
-        rows = await _supabaseGet(
-          supabaseUrl,
-          'select=record&id=eq.${Uri.encodeQueryComponent(gameId)}',
-        );
-      }
-    }
-    if (rows.isEmpty) {
-      stderr.writeln('No game or round $target in Supabase');
-      exitCode = 1;
-      return;
-    }
-    record = Map<String, Object?>.from(rows.single['record']! as Map);
-  } else {
-    final store = FileGameRecordStore.defaultLocation();
-    final loaded = await store.load(target);
-    if (loaded == null) {
-      stderr.writeln('No record at ${store.describeLocation(target)}');
-      exitCode = 1;
-      return;
-    }
-    record = loaded;
+  final loaded = await loadRecord(args.first);
+  if (loaded == null) {
+    exitCode = 1;
+    return;
   }
+  final record = loaded.record;
 
-  final round = intArg('--round') ?? roundFromId;
+  final round = intArg('--round') ?? loaded.round;
   final from = intArg('--from') ?? 0;
   final to = intArg('--to') ?? 1 << 30;
   final showHands = args.contains('--hands');
@@ -174,36 +122,5 @@ Future<void> main(List<String> args) async {
         );
       }
     }
-  }
-}
-
-/// GET on the `tichu_game_records` REST endpoint of the Supabase project.
-Future<List<Map<String, Object?>>> _supabaseGet(
-  String supabaseUrl,
-  String query, {
-  String table = 'tichu_game_records',
-}) async {
-  if (supabaseUrl.isEmpty) throw StateError('SUPABASE_URL is not set.');
-  // A network proxy may inject the real key; any placeholder works then.
-  final key =
-      Platform.environment['SUPABASE_SERVICE_ROLE_KEY'] ?? 'injected-by-proxy';
-  final client = HttpClient()..findProxy = HttpClient.findProxyFromEnvironment;
-  try {
-    final base = supabaseUrl.endsWith('/') ? supabaseUrl : '$supabaseUrl/';
-    final request = await client.getUrl(
-      Uri.parse('${base}rest/v1/$table?$query'),
-    );
-    request.headers.set('apikey', key);
-    if (Platform.environment.containsKey('SUPABASE_SERVICE_ROLE_KEY')) {
-      request.headers.set('Authorization', 'Bearer $key');
-    }
-    final response = await request.close();
-    final body = await response.transform(utf8.decoder).join();
-    if (response.statusCode != 200) {
-      throw StateError('Supabase answered ${response.statusCode}: $body');
-    }
-    return (jsonDecode(body) as List).cast<Map<String, Object?>>();
-  } finally {
-    client.close();
   }
 }

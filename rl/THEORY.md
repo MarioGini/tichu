@@ -272,10 +272,10 @@ What they show:
 - **The value-net leaf is not accurate enough.** Its error (RMSE 125)
   is independent for each candidate, so pairing does not cancel it.
   Swings of that size swamp the few-point differences between moves.
-  Before searching with leaves again: measure leaf vs full-rollout
-  agreement on the same decisions (step 1's gate), and train the value
-  net toward the rollout result *of the same world* rather than the
-  game's one outcome.
+  Before searching with leaves again, measure leaf vs full-rollout
+  agreement on the same decisions (step 1's gate). Then train on more
+  data played by the rollout bots themselves: the record data mixes v10
+  with older nets.
 
 ## 5. Plan, with the gate for each step
 

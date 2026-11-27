@@ -429,7 +429,11 @@ class Shadow {
           );
           _apply(
             seat,
-            PlayTurnAction(playerId: id, cards: turn.cards, inputWish: wish),
+            PlayTurnAction(
+              playerId: id,
+              cards: List.of(turn.cards),
+              inputWish: wish,
+            ),
             played,
           );
       }

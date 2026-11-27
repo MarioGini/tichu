@@ -15,3 +15,4 @@
 {"table":"35533925-1dea-4e82-a0f0-57ab86fe7470","ns":1030,"ew":770,"hands":12,"strength":"Grandmaster","won":true,"at":"2026-11-27T14:45:00.017644Z"}
 {"table":"3f370961-9d24-4e93-832e-6b2112084357","ns":5,"ew":895,"hands":8,"vs_bots":-655,"strength":"Grandmaster","mode":"duplicate","our_seats":[0,2],"won":false,"at":"2026-11-27T17:14:29.102854Z"}
 {"table":"453ecd64-6510-4570-a875-afd1e1d3c958","ns":300,"ew":800,"hands":8,"vs_bots":-55,"strength":"Grandmaster","mode":"duplicate","our_seats":[0,2],"won":false,"at":"2026-11-27T17:22:28.643928Z"}
+{"table":"eca0e2bf-c187-471a-8883-c240fa3d5100","ns":-65,"ew":965,"hands":8,"vs_bots":-1201,"strength":"Grandmaster","mode":"duplicate","our_seats":[0,2],"won":false,"at":"2026-11-27T17:30:37.167452Z"}

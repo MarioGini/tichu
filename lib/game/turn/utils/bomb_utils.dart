@@ -118,3 +118,15 @@ List<TichuTurn> _getStraightBombs(List<Card> cards) {
 
   return bombs;
 }
+
+/// The shorter straight-flush bombs inside each longest run of one suit
+/// (8-K holds 8-Q and 9-K). Legal, but [getBombs] leaves them out: the whole
+/// run beats them and sheds more cards, so our bots never split it. Offered
+/// to other engines' bots, which list every legal play.
+List<TichuTurn> shorterStraightFlushBombs(List<Card> cards) => [
+  for (final run in _getStraightBombs(cards))
+    for (var from = 0; from + 5 <= run.cards.length; from++)
+      for (var to = from + 5; to <= run.cards.length; to++)
+        if (to - from < run.cards.length)
+          TichuTurn(TurnType.bomb, run.cards.sublist(from, to)),
+];

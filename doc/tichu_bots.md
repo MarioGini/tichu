@@ -146,10 +146,11 @@ Steam) have closed rule bots that reviewers call weak.
 - **Out-of-turn bombs.** Our bots bomb on their own turn only. People in
   the app can bomb at any time. ainze measured out-of-turn bombs at about
   2 % of human rounds.
-- **Shorter bombs inside a straight flush.** From 8-K in one suit,
-  dave-orr's engine also offers 8-Q and 9-K. Ours offers only the whole
-  run: it beats the shorter ones and sheds more cards, so splitting is
-  practically never better.
+- **Shorter bombs inside a straight flush.** From 8-K in one suit, 8-Q
+  and 9-K are legal bombs too. A person may play them, and the bridge
+  offers them to other bots. Our bots consider only the whole run
+  (`getBombs`): it beats the shorter ones and sheds more cards, so
+  splitting is practically never better.
 - **Tichu after someone is out.** Our engine allows the call, as the rules
   do: it may be called until your first card. It always fails. Dave-orr's
   engine refuses it.

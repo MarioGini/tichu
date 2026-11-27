@@ -85,7 +85,10 @@ Decisions:
 | `dragon` | `targets`: opponent seats | `{"to": seat}` |
 
 A `play` request is a turn in play order. `options` lists every legal
-play, bombs included, with the wish already enforced. During play a `tichu`
+play, bombs included (also the shorter straight flushes inside a longer
+one, which our own bots never play), with the wish already enforced.
+Straights and pairs come in one suit variant: an adapter maps another
+variant to the listed one of the same type, length and rank. During play a `tichu`
 request comes just before each `play` request while the seat could still
 call Tichu.
 

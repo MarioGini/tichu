@@ -9,6 +9,8 @@ import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/turn/find_turn.dart';
 import 'package:tichu/game/turn/move_generator.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/turn_handler.dart';
+import 'package:tichu/game/turn/utils/bomb_utils.dart';
 
 /// Sends one request of the bot bridge protocol and returns the reply.
 abstract interface class BotChannel {
@@ -206,7 +208,12 @@ class ExternalBotAgent extends PlayerAgent implements GameObserver {
     final options = LegalPlayGuard.filterMoveGeneratorTurns(
       deck: snapshot.deck,
       hand: hand,
-      moveGeneratorTurns: generateLegalTurns(snapshot.deck, List.of(hand)),
+      moveGeneratorTurns: [
+        ...generateLegalTurns(snapshot.deck, List.of(hand)),
+        // Our bots never split a straight flush; other bots may.
+        for (final bomb in shorterStraightFlushBombs(hand))
+          if (validTurn(snapshot.deck.turn, bomb)) bomb,
+      ],
     );
     final canPass = LegalPlayGuard.canPass(deck: snapshot.deck, hand: hand);
     final reply = await _ask('play', snapshot, {

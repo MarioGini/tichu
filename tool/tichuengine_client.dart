@@ -710,7 +710,7 @@ Future<bool> decide(
 
 Future<Map<String, Object?>> playGame(
   Map<int, Api> seats,
-  Bot bot,
+  Map<int, Bot> bots,
   String strength,
   Random random, {
   required bool duplicate,
@@ -723,7 +723,7 @@ Future<Map<String, Object?>> playGame(
           as String;
   if (resume == null) await _setUp(seats, table, strength, duplicate);
   stderr.writeln('table $table');
-  return _play(seats, table, bot, random);
+  return _play(seats, table, bots, random);
 }
 
 Future<void> _setUp(
@@ -783,7 +783,7 @@ int? _versusBots(Map<dynamic, dynamic> game, int hands, int ns) {
 Future<Map<String, Object?>> _play(
   Map<int, Api> seats,
   String table,
-  Bot bot,
+  Map<int, Bot> bots,
   Random random,
 ) async {
   final owner = seats[0]!;
@@ -834,7 +834,7 @@ Future<Map<String, Object?>> _play(
           api,
           table,
           SeatView(seat, hand),
-          bot,
+          bots[seat]!,
           random,
           wishes[seat]!,
           (w) => wishes[seat] = w,
@@ -873,13 +873,14 @@ Future<void> main(List<String> args) async {
       2: Api(File(f).readAsStringSync().trim()),
   };
   final out = File(flags['out'] ?? 'arena/results/tichuengine.jsonl');
-  final bot = await loadBot(flags);
+  // One bot per seat, sharing nothing (no search cache across partners).
+  final bots = {for (final s in seats.keys) s: await loadBot(flags)};
   final random = Random(int.parse(flags['seed'] ?? '1'));
   try {
     for (var g = 0; g < games; g++) {
       final result = await playGame(
         seats,
-        bot,
+        bots,
         strength,
         random,
         duplicate: duplicate,

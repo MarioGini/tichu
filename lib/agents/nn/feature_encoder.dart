@@ -39,9 +39,8 @@ part 'feature_encoder_state.dart';
 ///
 /// Action suffix (one per legal action): type, strength, which cards it
 /// uses, whether it can be beaten by unseen cards, and the shape of the hand
-/// that remains after playing it (the first [legacyActionFeatureCount]
-/// features, the layout up to v6), then the claim analysis of that hand
-/// (v7).
+/// that remains after playing it, then the claim analysis of that hand
+/// (v7) and the graded beatability features (v9).
 ///
 /// Everything here is public information from the acting player's point of
 /// view. "Played" and "unseen" are derived as the complement of all hands in
@@ -63,10 +62,6 @@ const int receivedRankFeatureCount = 51;
 const int passedRankFeatureCount = 51;
 const int actionFeatureCount = 58;
 
-/// Action features of the layouts up to v6; v7 appends the claim analysis
-/// of the hand after the action, so these are a prefix of the action part.
-const int legacyActionFeatureCount = 51;
-
 const int handOffset = 0;
 const int playedOffset = handOffset + handFeatureCount; // 56
 const int unseenOffset = playedOffset + playedFeatureCount; // 112
@@ -83,74 +78,14 @@ const int passedOffset = receivedOffset + receivedRankFeatureCount; // 322
 const int actionOffset = passedOffset + passedRankFeatureCount; // 373
 
 /// Offset of the after-action claim features within the action part.
-const int actionClaimOffset = legacyActionFeatureCount; // 51
+const int actionClaimOffset = 51;
 
 /// Offset of the graded beatability features (v9) within the action part.
 const int actionBeatOffset = actionClaimOffset + 3; // 54
 
-/// Action features of the layouts v7-v8 (before the beatability group).
-const int v8ActionFeatureCount = actionBeatOffset; // 54
-
 /// Length of the per-decision state prefix (all groups before `action`).
 const int stateFeatureCount = actionOffset;
 const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 427
-
-/// Layout before the `passed` group (schema v7, the v8 play policy): the
-/// state prefix before it and all action features.
-const int v7StateFeatureCount = passedOffset; // 322
-const int v7TotalFeatureCount =
-    v7StateFeatureCount + v8ActionFeatureCount; // 376
-
-/// Layout before the graded beatability features (schema v8, 427 inputs).
-const int v8TotalFeatureCount = stateFeatureCount + v8ActionFeatureCount;
-
-/// Layout before the `claim` and `received` groups (schema v6): state prefix
-/// up to `turn`, the first [legacyActionFeatureCount] action features.
-const int v6StateFeatureCount = claimOffset; // 268
-const int v6TotalFeatureCount =
-    v6StateFeatureCount + legacyActionFeatureCount; // 319
-
-/// Layout before the `turn` group (schema v5, e.g. the v5-v7 play
-/// policies): they read the first [v5StateFeatureCount] state features and
-/// cannot tell an out-of-turn decision from a normal one.
-const int v5StateFeatureCount = turnOffset; // 267
-const int v5TotalFeatureCount =
-    v5StateFeatureCount + legacyActionFeatureCount; // 318
-
-/// Layout before the `history` group (schema v4, e.g. the v3 / v4 play
-/// policies): the state prefix stopped at [historyOffset]. Such nets still
-/// work; they read the first [legacyStateFeatureCount] state features.
-const int legacyStateFeatureCount = historyOffset; // 201
-const int legacyTotalFeatureCount =
-    legacyStateFeatureCount + legacyActionFeatureCount; // 252
-
-/// The input layout of a play net by its input size: how many state
-/// features (a prefix of the current state part) and action features (a
-/// prefix of the current action part) it reads; null for an unknown size.
-({int state, int action})? playNetLayout(int inputSize) => switch (inputSize) {
-  totalFeatureCount => (state: stateFeatureCount, action: actionFeatureCount),
-  v8TotalFeatureCount => (
-    state: stateFeatureCount,
-    action: v8ActionFeatureCount,
-  ),
-  v7TotalFeatureCount => (
-    state: v7StateFeatureCount,
-    action: v8ActionFeatureCount,
-  ),
-  v6TotalFeatureCount => (
-    state: v6StateFeatureCount,
-    action: legacyActionFeatureCount,
-  ),
-  v5TotalFeatureCount => (
-    state: v5StateFeatureCount,
-    action: legacyActionFeatureCount,
-  ),
-  legacyTotalFeatureCount => (
-    state: legacyStateFeatureCount,
-    action: legacyActionFeatureCount,
-  ),
-  _ => null,
-};
 
 /// Encode the state prefix for [playerId].
 List<double> encodeStateFeatures({
@@ -175,11 +110,6 @@ class FeatureEncoder {
 
   late final HandShape _handShape = HandShape.fromSlots(_handSlots);
 
-  /// Whether to compute the claim features (state `claim` group and the
-  /// after-action claim features). Nets of older layouts do not read them;
-  /// then they stay zero and cost nothing.
-  final bool claims;
-
   late final ClaimSolver _claimSolver = ClaimSolver.of(_k);
 
   /// Claim analysis of my current hand (its score is also the after-pass
@@ -187,14 +117,11 @@ class FeatureEncoder {
   late final ClaimHand _claimHand = _claimSolver.hand(_handSlots);
   int get _handClaim => _claimHand.score;
 
-  FeatureEncoder({
-    required this.snapshot,
-    required this.playerId,
-    this.claims = true,
-  }) : _mySeat = _seatOf(snapshot, playerId),
-       _hand = snapshot.hands[playerId] ?? const <Card>[],
-       _handSlots = _slotsOf(snapshot.hands[playerId] ?? const <Card>[]),
-       _k = CardKnowledge.of(snapshot, playerId);
+  FeatureEncoder({required this.snapshot, required this.playerId})
+    : _mySeat = _seatOf(snapshot, playerId),
+      _hand = snapshot.hands[playerId] ?? const <Card>[],
+      _handSlots = _slotsOf(snapshot.hands[playerId] ?? const <Card>[]),
+      _k = CardKnowledge.of(snapshot, playerId);
 
   // ── State ────────────────────────────────────────────────────────────────
 
@@ -225,9 +152,7 @@ class FeatureEncoder {
       out[offset + 0] = 1.0;
       out[offset + 40] = _hand.length / 14.0;
       _handShape.writeTo(out, offset + 41);
-      if (claims) {
-        ClaimResult.writeScore(_handClaim, out, offset + actionClaimOffset);
-      }
+      ClaimResult.writeScore(_handClaim, out, offset + actionClaimOffset);
       return;
     }
 
@@ -342,13 +267,11 @@ class FeatureEncoder {
     }
     out[offset + 40] = remaining.length / 14.0;
     after.writeTo(out, offset + 41);
-    if (claims) {
-      ClaimResult.writeScore(
-        _claimSolver.after(_claimHand, play.cards, remaining),
-        out,
-        offset + actionClaimOffset,
-      );
-    }
+    ClaimResult.writeScore(
+      _claimSolver.after(_claimHand, play.cards, remaining),
+      out,
+      offset + actionClaimOffset,
+    );
 
     // Graded beatability (v9): how many plays of the unseen cards beat
     // this one; for a single the share of unseen cards that beat it (the

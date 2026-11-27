@@ -8,9 +8,9 @@ overtaking the partner, spending control cards early, cheapest-beat rate,
 breaking pairs / triples, lead shapes, blocking a one-card opponent, bombs,
 plus round outcomes (going out first, double wins, calls, trick points).
 
-  # v8 against the heuristic (the policy team is team 0)
+  # v10 against the heuristic (the policy team is team 0)
   rl/.venv/bin/python rl/style_report.py --matches=400 \\
-      --a="--nn-policy=assets/bots/tichu_q_v8.safetensors" --b=""
+      --a="--nn-policy=assets/bots/tichu_q_v10.safetensors" --b=""
   # self-play: --self (all four seats play side A)
 
 Output: one JSON object of metrics (``--json``) or a readable table.

@@ -28,26 +28,13 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// the first layer once, each action only adds its own features. This is
   /// the hot path of headless self-play and of the bots in the app.
   late final PrefixScorer _scorer =
-      scorerFactory?.call(network, _layout.state) ??
+      scorerFactory?.call(network, stateFeatureCount) ??
       (simd
-          ? network.simdPrefixScorer(_layout.state)
-          : network.prefixScorer(_layout.state));
+          ? network.simdPrefixScorer(stateFeatureCount)
+          : network.prefixScorer(stateFeatureCount));
 
   /// Builds the scorer instead of [simd] (the web: the wasm kernel).
   final PrefixScorerFactory? scorerFactory;
-
-  /// Input layout the net was trained on: how many state features (a
-  /// prefix of the current state part) and action features (a prefix of the
-  /// current action part) it reads. Nets from before the `history` group
-  /// (v3, v4) read the first [legacyStateFeatureCount] state features, nets
-  /// from before the `turn` group (v5-v7 policies) the first
-  /// [v5StateFeatureCount], schema-v6 nets the first [v6StateFeatureCount];
-  /// all of them the first [legacyActionFeatureCount] action features.
-  final ({int state, int action}) _layout;
-
-  /// Whether the net reads the claim features (schema v7); otherwise the
-  /// encoder skips them.
-  bool get _readsClaims => _layout.state > claimOffset;
 
   /// Use float32 SIMD inference (headless runs; see [Mlp.simdPrefixScorer]).
   final bool simd;
@@ -67,15 +54,17 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     this.scorerFactory,
     this.style = StyleBias.none,
     this.outputScale = 100,
-  }) : _layout =
-           playNetLayout(network.inputSize) ??
-           (throw ArgumentError.value(
-             network.inputSize,
-             'network.inputSize',
-             'Policy was trained for a different feature schema; expected '
-                 '$totalFeatureCount inputs (rl/schema/feature_spec.json). '
-                 'Retrain the policy.',
-           ));
+  }) {
+    if (network.inputSize != totalFeatureCount) {
+      throw ArgumentError.value(
+        network.inputSize,
+        'network.inputSize',
+        'Policy was trained for a different feature schema; expected '
+            '$totalFeatureCount inputs (rl/schema/feature_spec.json). '
+            'Retrain the policy.',
+      );
+    }
+  }
 
   @override
   TichuTurn selectPlay(
@@ -133,11 +122,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
 
   /// Q(s, a) of each of [plays] (same order), for ranking candidates.
   List<double> qValues(GameSnapshot snapshot, List<TichuTurn> plays) {
-    final encoder = FeatureEncoder(
-      snapshot: snapshot,
-      playerId: playerId,
-      claims: _readsClaims,
-    );
+    final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
     final scorer = _scorer..setPrefix(encoder.stateFeatures);
     final values = <double>[];
     for (final play in plays) {
@@ -154,11 +139,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     List<TichuTurn> plays, {
     required bool canPass,
   }) {
-    final encoder = FeatureEncoder(
-      snapshot: snapshot,
-      playerId: playerId,
-      claims: _readsClaims,
-    );
+    final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
     final scorer = _scorer..setPrefix(encoder.stateFeatures);
     final buffer = _actionBuffer;
 

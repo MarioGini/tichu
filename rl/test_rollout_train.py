@@ -22,7 +22,6 @@ from qnet import QNetwork, export_safetensors, load_qnetwork_from_safetensors
 from rollout_train import evaluate, load, save_npz
 from schema import (
     ACTION_FEATURE_COUNT,
-    ACTION_OFFSET,
     LEGACY_ACTION_FEATURE_COUNT,
     LEGACY_STATE_PREFIX,
     STATE_FEATURE_COUNT,
@@ -105,8 +104,8 @@ def check_synthetic() -> None:
 
 
 def check_legacy_layouts() -> None:
-    """Data and nets of the layouts before v7 (state 201 / 267 / 268 wide,
-    51 action features) pad / widen with zeros and keep their outputs."""
+    """Data of older layouts (state 201 / 267 / 268 / 322 / 373 wide, 51 or
+    54 action features) pads with zeros; nets of the current layout only."""
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         for size, prefix in sorted(LEGACY_STATE_PREFIX.items()):
@@ -147,23 +146,15 @@ def check_legacy_layouts() -> None:
                 back = load([cache])
                 assert torch.equal(back.s, data.s) and torch.equal(back.a, data.a)
 
-            # A net of this layout, widened on load, computes the same values.
-            torch.manual_seed(size)
-            old = QNetwork(size, [16, 8])
+            # A net of an older layout no longer loads.
             net_path = td / f"net{size}.safetensors"
-            export_safetensors(old, net_path, target_mean=0.0, target_std=1.0, metadata={})
-            new = load_qnetwork_from_safetensors(net_path, torch.device("cpu"))
-            xs = torch.rand(5, size)
-            padded = torch.zeros(5, TOTAL_FEATURE_COUNT)
-            padded[:, :prefix] = xs[:, :prefix]
-            padded[:, ACTION_OFFSET : ACTION_OFFSET + na] = xs[:, prefix:]
-            # New inputs must not matter: fill them with noise.
-            noisy = padded.clone()
-            noisy[:, prefix:ACTION_OFFSET] = torch.rand(5, ACTION_OFFSET - prefix)
-            noisy[:, ACTION_OFFSET + na :] = 1.0
-            with torch.no_grad():
-                assert torch.allclose(old(xs), new(padded), atol=1e-6)
-                assert torch.allclose(old(xs), new(noisy), atol=1e-6)
+            export_safetensors(QNetwork(size, [8]), net_path, target_mean=0.0, target_std=1.0, metadata={})
+            try:
+                load_qnetwork_from_safetensors(net_path, torch.device("cpu"))
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"a {size}-input net loaded")
     print("legacy layout checks: ok")
 
 

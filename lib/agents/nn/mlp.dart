@@ -72,25 +72,6 @@ class Mlp {
   int get inputSize => layerSizes.first;
   int get numLayers => _weights.length;
 
-  /// The same net for a wider input: input `i` moves to column
-  /// `column(i)`, the other [inputSize] columns get zero weights, so the
-  /// output is unchanged (the Dart side of `rl/widen_net.py`).
-  Mlp widenInputs(int inputSize, int Function(int) column) {
-    final oldIn = layerSizes.first;
-    final out = layerSizes[1];
-    final w = Float64List(out * inputSize);
-    for (var j = 0; j < out; j++) {
-      for (var i = 0; i < oldIn; i++) {
-        w[j * inputSize + column(i)] = _weights[0][j * oldIn + i];
-      }
-    }
-    return Mlp._(
-      weights: [w, ..._weights.skip(1)],
-      biases: _biases,
-      layerSizes: [inputSize, ...layerSizes.skip(1)],
-    );
-  }
-
   // ── Inference ───────────────────────────────────────────────────────────
 
   /// Forward pass into pre-allocated [_buffers].  Returns the output buffer.

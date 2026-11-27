@@ -26,7 +26,6 @@ example when it shares the 4 cores with game generation.
 | | Play net | Schupf | Search |
 |---|---|---|---|
 | shipped (app) | `tichu_q_v10` (431 inputs, schema v9) | `tichu_schupf_v5`, extended candidates | search ≤ 12 cards with belief worlds (`tichu_belief_v1`), 1-on-1 solver |
-| previous | `tichu_q_v8` (376 inputs) | `tichu_schupf_v4` | search ≤ 8 cards, 1-on-1 solver |
 
 `lib/agents/bot_config.dart` (`BotConfig`) builds every bot, in both the
 app and the headless runner. The play net scores every legal play plus pass
@@ -62,16 +61,15 @@ Action features cover:
   that beat it as a single, and whether the left or right opponent can
   answer.
 
-Older nets still load as a prefix of the current layout (Dart
-`playNetLayout`: 427 / 376 / 319 / 318 / 252 inputs). For example, v8
-plays exactly the same games as before.
+Only nets of the current layout load; a feature change means retraining
+(older training data is upgraded, see below).
 
 ## Training: rollout policy iteration
 
 ```bash
 rl/.venv/bin/python rl/rollout_loop.py --out-dir=rl/outputs/v10 --iterations=6 \
-  --init-policy=<net> --schupf-net=assets/bots/tichu_schupf_v4.safetensors \
-  --opponent-nets="assets/bots/tichu_q_v8.safetensors;<older net>" \
+  --init-policy=<net> --schupf-net=assets/bots/tichu_schupf_v5.safetensors \
+  --opponent-nets="assets/bots/tichu_q_v10.safetensors;<older net>" \
   --mixed-episodes=1700 --self-episodes=500 --shards=2 \
   --gate=panel --duel-deals=600 --epochs=3 --upload-run=v10
 ```
@@ -106,7 +104,6 @@ Other trainers:
 - `call_train.py`: call-value nets; `call_labels.sh` generates their labels.
 - `belief_data.py` / `belief_train.py`: the belief net, which maps the state
   to a holder probability for each card.
-- `widen_net.py`: Net2Net widening.
 
 ## Data: always the latest layout
 
@@ -143,7 +140,7 @@ network secret for the project host (header `apikey`).
 
 ```bash
 rl/.venv/bin/python rl/duel.py --a="--nn-policy=A.safetensors --endgame-search" \
-    --b="--opponent-policy=assets/bots/tichu_q_v8.safetensors --opponent-endgame-search" --deals=600
+    --b="--opponent-policy=assets/bots/tichu_q_v10.safetensors --opponent-schupf-net=assets/bots/tichu_schupf_v5.safetensors --opponent-schupf-extended --opponent-endgame-search" --deals=600
 ```
 
 Duels are duplicate: every deal sequence is played once with each seating

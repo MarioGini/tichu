@@ -16,7 +16,7 @@ greedy policy w.r.t. the rollout values = one policy-improvement step; the
 exported net plugs straight into ``NnPlaySelectionStrategy``.
 
   rl/.venv/bin/python rl/rollout_train.py --jsonl=a.jsonl,b.jsonl \
-      --init-from=assets/bots/tichu_q_v8.safetensors \
+      --init-from=assets/bots/tichu_q_v10.safetensors \
       --output=rl/outputs/rollout_policy.safetensors
 """
 

@@ -83,11 +83,12 @@ TOTAL_FEATURE_COUNT = SPEC.total
 # the hand after the action, so they are a prefix of the current action part.
 LEGACY_ACTION_FEATURE_COUNT = 51
 
-# Older input layouts, by net input size -> length of their state prefix.
-# Each layout is the current one with later groups missing at the end of the
-# state prefix: v4 (252: before `history`), v5 (318: before `turn`), v6 (319:
-# before `claim` / `received`) with the first LEGACY_ACTION_FEATURE_COUNT
-# action features; v7 (376: before `passed`) with all of them.
+# Older data layouts (training caches; nets of older layouts are not
+# supported), by row width -> length of their state prefix. Each layout is
+# the current one with later groups missing at the end of the state prefix:
+# v4 (252: before `history`), v5 (318: before `turn`), v6 (319: before
+# `claim` / `received`) with the first LEGACY_ACTION_FEATURE_COUNT action
+# features; v7 (376: before `passed`) and v8 with 54 of them.
 LEGACY_STATE_PREFIX = {
     SPEC.group(g).offset + LEGACY_ACTION_FEATURE_COUNT: SPEC.group(g).offset
     for g in ("history", "turn", "claim")
@@ -96,26 +97,6 @@ LEGACY_STATE_PREFIX = {
 V8_ACTION_FEATURE_COUNT = 54
 LEGACY_STATE_PREFIX[SPEC.group("passed").offset + V8_ACTION_FEATURE_COUNT] = SPEC.group("passed").offset
 LEGACY_STATE_PREFIX[STATE_FEATURE_COUNT + V8_ACTION_FEATURE_COUNT] = STATE_FEATURE_COUNT
-
-
-def legacy_action_count(input_size: int) -> int:
-    """Action features an older layout of ``input_size`` inputs reads."""
-    return input_size - LEGACY_STATE_PREFIX[input_size]
-
-
-def widen_first_layer(w, input_size: int):
-    """First-layer weights ``w`` (out, input_size) of an older layout as
-    weights of the current layout: zero columns for every new input (state
-    groups and action features), so the net computes exactly what it did.
-    Works for torch tensors."""
-    import torch
-
-    prefix = LEGACY_STATE_PREFIX[input_size]
-    n_action = legacy_action_count(input_size)
-    new = torch.zeros(w.shape[0], TOTAL_FEATURE_COUNT, dtype=w.dtype)
-    new[:, :prefix] = w[:, :prefix]
-    new[:, ACTION_OFFSET : ACTION_OFFSET + n_action] = w[:, prefix:]
-    return new
 
 
 def pad_state(s):

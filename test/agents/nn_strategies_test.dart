@@ -10,63 +10,17 @@ import 'package:tichu/game/turn/tichu_data.dart';
 import 'ai_test_fixtures.dart';
 
 void main() {
-  group('older play-net layouts', () {
-    // Old layouts: a state prefix and the first 51 action features.
-    for (final (size, state) in [
-      (427, 373),
-      (376, 322),
-      (319, 268),
-      (318, 267),
-      (252, 201),
-    ]) {
-      test('$size inputs play exactly like the zero-widened net', () {
-        final old = Mlp(layerSizes: [size, 16, 8, 1], seed: size);
-        final wide = old.widenInputs(
-          totalFeatureCount,
-          (i) => i < state ? i : actionOffset + i - state,
-        );
-        expect(playNetLayout(size), (state: state, action: size - state));
-        for (final simd in [false, true]) {
-          final a = NnPlaySelectionStrategy(
-            playerId: aiTestSelfId,
-            network: old,
-            simd: simd,
-          );
-          final b = NnPlaySelectionStrategy(
-            playerId: aiTestSelfId,
-            network: wide,
-            simd: simd,
-          );
-          for (var k = 0; k < 20; k++) {
-            final h = [
-              for (var r = 0; r < 6; r++)
-                Card(
-                  CardFace.values[2 + (k * 5 + r * 3) % 13],
-                  CardColor.values[(k + r) % 4],
-                ),
-            ];
-            final ps = [
-              for (final c in h) TichuTurn(TurnType.single, [c]),
-            ];
-            final snapshot = aiSnapshot(myHand: h);
-            expect(
-              a.selectTurnOrPass(snapshot, ps, snapshot.deck, h, canPass: true),
-              b.selectTurnOrPass(snapshot, ps, snapshot.deck, h, canPass: true),
-            );
-          }
-        }
-      });
-    }
-
-    test('unknown input sizes are rejected', () {
+  test('nets of other input sizes are rejected', () {
+    // 376: the v8 layout, no longer supported.
+    for (final size in [376, 320]) {
       expect(
         () => NnPlaySelectionStrategy(
           playerId: aiTestSelfId,
-          network: Mlp(layerSizes: [320, 1], seed: 1),
+          network: Mlp(layerSizes: [size, 1], seed: 1),
         ),
         throwsArgumentError,
       );
-    });
+    }
   });
 
   final hand = [

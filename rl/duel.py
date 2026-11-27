@@ -32,8 +32,8 @@ from headless_runner import run_headless_sharded
 # The reference opponent for comparisons: the shipped bot (play net + learned
 # schupf; calls heuristic). The heuristic is too weak to tell strong bots apart.
 BASELINE = (
-    "--opponent-policy=assets/bots/tichu_q_v8.safetensors "
-    "--opponent-schupf-net=assets/bots/tichu_schupf_v4.safetensors"
+    "--opponent-policy=assets/bots/tichu_q_v10.safetensors "
+    "--opponent-schupf-net=assets/bots/tichu_schupf_v5.safetensors --opponent-schupf-extended"
 )
 
 

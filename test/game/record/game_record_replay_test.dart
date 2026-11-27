@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/record/game_record_replay.dart';
 import 'package:tichu/game/record/game_record_store.dart';
 import 'package:tichu/game/record/round_log.dart';
@@ -59,6 +60,28 @@ void main() {
           );
         }
       }
+      // Before the first schupf, the Grand Tichu decisions are answered;
+      // past the last action is an error.
+      final schupf =
+          offset + steps.indexWhere((s) => s.kind == RoundLogKind.schupf) + 1;
+      final atSchupf = replayGameRecord(
+        engine: simulationEngine,
+        players: players,
+        rounds: logs,
+        targetScore: 100000,
+        before: schupf,
+      );
+      expect(atSchupf.phase, GamePhase.schupf);
+      expect(
+        () => replayGameRecord(
+          engine: simulationEngine,
+          players: players,
+          rounds: logs,
+          targetScore: 100000,
+          before: offset + steps.length + 1,
+        ),
+        throwsRangeError,
+      );
       controller.dispose();
     }
   }, timeout: const Timeout(Duration(minutes: 5)));

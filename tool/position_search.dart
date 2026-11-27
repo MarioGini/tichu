@@ -44,9 +44,17 @@ Future<void> main(List<String> args) async {
   }
 
   final step = intArg('--step');
-  if (args.isEmpty || args.contains('-h') || step == null) {
+  if (args.isEmpty ||
+      args.contains('-h') ||
+      args.contains('--help') ||
+      step == null) {
     stdout.writeln(_usage);
-    if (step == null && args.isNotEmpty) exitCode = 64;
+    if (step == null &&
+        args.isNotEmpty &&
+        !args.contains('--help') &&
+        !args.contains('-h')) {
+      exitCode = 64;
+    }
     return;
   }
   final worlds = intArg('--worlds') ?? 64;
@@ -76,6 +84,23 @@ Future<void> main(List<String> args) async {
         type: PlayerType.automated,
       ),
   ];
+  // The action #step must be an on-turn play or pass.
+  final names = [
+    for (var seat = 0; seat < 4; seat++)
+      players.firstWhere((p) => p.seat == seat).name,
+  ];
+  final allSteps = [for (final r in rounds) ...replayRoundLog(r, names)];
+  if (step < 1 || step > allSteps.length) {
+    stderr.writeln('No action #$step: the record has ${allSteps.length}');
+    exitCode = 1;
+    return;
+  }
+  final target = allSteps[step - 1];
+  if (target.kind != RoundLogKind.play && target.kind != RoundLogKind.pass) {
+    stderr.writeln('#$step is not a play or pass: ${target.text}');
+    exitCode = 1;
+    return;
+  }
   final state = replayGameRecord(
     engine: simulationEngine,
     players: players,
@@ -84,8 +109,10 @@ Future<void> main(List<String> args) async {
     targetScore: (record['targetScore'] as int?) ?? 1000,
     before: step,
   );
-  if (state.phase != GamePhase.play || state.pendingDragonGiveBy != null) {
-    stderr.writeln('#$step is not a play decision');
+  if (state.phase != GamePhase.play ||
+      state.pendingDragonGiveBy != null ||
+      state.players[state.currentPlayerIndex].seat != target.seat) {
+    stderr.writeln('#$step is not an on-turn decision: ${target.text}');
     exitCode = 1;
     return;
   }
@@ -127,7 +154,7 @@ Future<void> main(List<String> args) async {
     if (options.canPass) options.turns.length: PassAction(playerId: me.id),
   };
   final chosen = actions.entries
-      .firstWhere((e) => _label(e.value) == _label(policy))
+      .firstWhere((e) => _sameMove(e.value, policy))
       .key;
   final team = me.seat % 2;
 
@@ -220,9 +247,11 @@ Future<void> main(List<String> args) async {
       agent: searchAgent,
       chosen: move,
     );
+    final ran = searcher.searches + searcher.solves > 0;
     stdout.writeln(
       'Search as shipped${expectedValue ? ' + expectedValue' : ''}: '
-      '${_label(refined)}',
+      '${_label(refined)}'
+      '${ran ? '' : ' (the search does not apply here)'}',
     );
   }
 }
@@ -242,8 +271,27 @@ Future<void> main(List<String> args) async {
   );
 }
 
-String _cards(List<Card> cards) =>
-    cards.map((c) => cardIndexLabel(cardIndex(c))).join(' ');
+/// Card labels; a Phoenix in a combination with the rank it stands for.
+String _cards(List<Card> cards) => cards
+    .map(
+      (c) => c.face == CardFace.phoenix && c.value >= 2
+          ? 'Phoenix(${c.value.toStringAsFixed(0)})'
+          : cardIndexLabel(cardIndex(c)),
+    )
+    .join(' ');
+
+bool _sameMove(GameAction a, GameAction b) => switch ((a, b)) {
+  (PassAction(), PassAction()) => true,
+  (final PlayTurnAction x, final PlayTurnAction y) =>
+    EndgameSearcher.slotKey(x.cards) == EndgameSearcher.slotKey(y.cards) &&
+        _phoenixValue(x) == _phoenixValue(y),
+  _ => false,
+};
+
+double? _phoenixValue(PlayTurnAction play) => [
+  for (final c in play.cards)
+    if (c.face == CardFace.phoenix) c.value,
+].firstOrNull;
 
 String _label(GameAction action) =>
     action is PlayTurnAction ? _cards(action.cards) : 'pass';

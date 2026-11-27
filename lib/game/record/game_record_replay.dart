@@ -18,7 +18,7 @@ final Map<int, Card> _cardsByIndex = {
 /// With [before], the replay stops just before that action, numbered from
 /// 1 over all rounds as `tool/game_record.dart` prints them (`#208`): the
 /// state is the decision the player of that action faced. Without it the
-/// whole record is replayed.
+/// whole record is replayed; a [before] past its end throws [RangeError].
 ///
 /// Grand Tichu decisions of players that did not call, and schupf
 /// receipts, are not in the log; they are answered here. Throws
@@ -56,11 +56,19 @@ GameEngineState replayGameRecord({
     };
     for (final step in steps) {
       seq++;
-      if (seq == before) return state;
-      if (step.kind == RoundLogKind.grandTichu) continue;
+      if (step.kind == RoundLogKind.grandTichu) {
+        // Answered with the other Grand Tichu decisions.
+        if (seq == before) return state;
+        continue;
+      }
       _answerUnlogged(engine, state, grand);
+      if (seq == before) return state;
       engine.applyAction(state, _action(step, bySeat));
     }
+    _answerUnlogged(engine, state, grand);
+  }
+  if (before != null) {
+    throw RangeError.range(before, 1, seq, 'before', 'no such action');
   }
   return state;
 }
@@ -83,10 +91,7 @@ void _answerUnlogged(
           ),
         );
       case SchupfReceiptRequest(:final playerId):
-        engine.applyAction(
-          state,
-          AcknowledgeSchupfAction(playerId: playerId),
-        );
+        engine.applyAction(state, AcknowledgeSchupfAction(playerId: playerId));
       default:
         return;
     }

@@ -1,3 +1,4 @@
+import 'package:tichu/game/record/uuid.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 /// Minimal log of one round: the initial cards and the move order, nothing
@@ -24,9 +25,19 @@ import 'package:tichu/game/turn/tichu_data.dart';
 ///
 /// Round points are not stored: they follow from the replay.
 class RoundLog {
-  RoundLog({required this.round});
+  RoundLog({required this.round, String? id}) : id = id ?? generateUuidV4();
 
   final int round;
+
+  /// Id of this round (`tichu_round_records.id`); the first 8 characters
+  /// (`short_id`) are enough to look it up.
+  final String id;
+
+  /// Round points of each team, set when the round is over.
+  int? teamOnePoints;
+  int? teamTwoPoints;
+
+  bool get complete => teamOnePoints != null;
 
   /// Cards each seat saw before the Grand Tichu decision.
   final List<List<Card>> firstCards = List.generate(4, (_) => <Card>[]);

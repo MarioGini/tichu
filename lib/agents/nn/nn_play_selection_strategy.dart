@@ -27,9 +27,14 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   /// Scores every legal action of a decision: the state prefix goes through
   /// the first layer once, each action only adds its own features. This is
   /// the hot path of headless self-play and of the bots in the app.
-  late final PrefixScorer _scorer = simd
-      ? network.simdPrefixScorer(_layout.state)
-      : network.prefixScorer(_layout.state);
+  late final PrefixScorer _scorer =
+      scorerFactory?.call(network, _layout.state) ??
+      (simd
+          ? network.simdPrefixScorer(_layout.state)
+          : network.prefixScorer(_layout.state));
+
+  /// Builds the scorer instead of [simd] (the web: the wasm kernel).
+  final PrefixScorerFactory? scorerFactory;
 
   /// Input layout the net was trained on: how many state features (a
   /// prefix of the current state part) and action features (a prefix of the
@@ -59,6 +64,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     required this.network,
     this.fallback = const DefaultPlaySelectionStrategy(),
     this.simd = false,
+    this.scorerFactory,
     this.style = StyleBias.none,
     this.outputScale = 100,
   }) : _layout =

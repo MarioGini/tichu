@@ -408,6 +408,11 @@ class RecordingGameEngine implements GameEngine {
       record
         ..teamOneTotal = score.teamOneTotal
         ..teamTwoTotal = score.teamTwoTotal;
+      if (record.roundLogs.isNotEmpty) {
+        record.roundLogs.last
+          ..teamOnePoints = score.teamOneRound
+          ..teamTwoPoints = score.teamTwoRound;
+      }
       final last = score.rounds.isNotEmpty ? score.rounds.last : null;
       final calls = <String, String>{
         for (final e in score.tichuCalls.entries)

@@ -135,6 +135,9 @@ class _SeatPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Phones: a narrow label column leaves the width to the cards (the
+    // team shows in the name's colour).
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     final hand = [...?snapshot.hands[player.id]]..sort(compareCardsForDisplay);
     final pending =
         snapshot.opponentAwaitingConfirmation &&
@@ -159,29 +162,35 @@ class _SeatPanel extends StatelessWidget {
         border: Border.all(color: borderColor, width: pending ? 2 : 1),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+        padding: EdgeInsets.fromLTRB(narrow ? 6 : 10, 4, narrow ? 6 : 10, 4),
         child: Row(
           children: [
             SizedBox(
-              width: 112,
+              width: narrow ? 58 : 112,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     player.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: _teamColor(player.seat),
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   Text(
-                    '${_teamName(player.seat)} · ${hand.length} cards',
+                    narrow
+                        ? '${hand.length} cards'
+                        : '${_teamName(player.seat)} · ${hand.length} cards',
                     style: theme.textTheme.labelSmall,
                   ),
                   if (call != TichuCall.none)
                     Text(
-                      call == TichuCall.grandTichu ? 'GRAND TICHU' : 'TICHU',
+                      call == TichuCall.grandTichu
+                          ? (narrow ? 'GRAND' : 'GRAND TICHU')
+                          : 'TICHU',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: Colors.redAccent,
                         fontWeight: FontWeight.w900,
@@ -197,6 +206,7 @@ class _SeatPanel extends StatelessWidget {
                 ],
               ),
             ),
+            SizedBox(width: narrow ? 4 : 0),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {

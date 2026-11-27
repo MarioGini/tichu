@@ -11,6 +11,7 @@ import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
 import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+import 'package:tichu/game/turn/utils/bomb_utils.dart';
 
 /// Settings of the decision-time endgame search (see [EndgameSearcher]).
 class EndgameSearch {
@@ -39,6 +40,27 @@ class EndgameSearch {
   /// ([EndgameSearcher.belief]) instead of uniformly.
   final bool beliefWorlds;
 
+  /// A deviation must be strictly better than the policy's move in at
+  /// least this many worlds. With 1 (the shipped rule) a single world with
+  /// a large swing (90 points in 1 of 8 worlds is a mean of 11) can
+  /// override the policy while every other world is a tie (game 13cb);
+  /// 2 is not yet validated in a duel.
+  final int minBetterWorlds;
+
+  /// Sample the worlds in two strata, with and without a bomb in another
+  /// player's hand, and weight them by the bomb's probability (estimated
+  /// from [bombProbes] cheap re-deals). Without it a rare bomb shows up in
+  /// 0, 1 or 2 of the [worlds] by chance and decides on that noise.
+  final bool bombStrata;
+  final int bombProbes;
+
+  /// Decide by the expected advantage alone (the weighted mean over the
+  /// worlds, see [bombStrata]): deviate to the action whose mean beats the
+  /// policy's move by more than [margin], even if it is worse in some
+  /// worlds. Otherwise the deviation must also be no worse in every world
+  /// and strictly better in [minBetterWorlds].
+  final bool expectedValue;
+
   const EndgameSearch({
     this.worlds = 8,
     this.maxCards = 5,
@@ -48,43 +70,62 @@ class EndgameSearch {
     this.solveBudget = 20000,
     this.solveMaxCards = 10,
     this.beliefWorlds = false,
+    this.minBetterWorlds = 1,
+    this.bombStrata = false,
+    this.bombProbes = 256,
+    this.expectedValue = false,
   });
 
   @override
   String toString() =>
       'EndgameSearch(worlds: $worlds, maxCards: $maxCards, '
       'margin: $margin, maxActions: $maxActions, '
-      'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget)';
+      'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget, '
+      'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata, '
+      'expectedValue: $expectedValue)';
 }
 
 /// The decision rule: index of the action to play given rollout values
 /// `values[world][action]` and the policy's choice [chosen].
 ///
 /// Deviates only to an action that is no worse than [chosen] in every
-/// world and better on average by more than [margin]; among those the one
-/// with the highest mean advantage. Null values (not rolled out, stuck)
-/// make an action ineligible; a world where [chosen] is null keeps
-/// [chosen].
-int pickEndgameAction(List<List<double?>> values, int chosen, double margin) {
+/// world, strictly better in at least [minBetterWorlds] of them (capped at
+/// the number of worlds) and better on average by more than [margin];
+/// among those the one with the highest mean advantage. Null values (not
+/// rolled out, stuck) make an action ineligible; a world where [chosen] is
+/// null keeps [chosen]. [weights] (summing to 1, one per world) weight the
+/// mean; equal weights by default. With [expectedValue] only the weighted
+/// mean counts (no per-world conditions).
+int pickEndgameAction(
+  List<List<double?>> values,
+  int chosen,
+  double margin, {
+  int minBetterWorlds = 1,
+  List<double>? weights,
+  bool expectedValue = false,
+}) {
   if (values.isEmpty) return chosen;
+  final needBetter = min(minBetterWorlds, values.length);
   final count = values.first.length;
   var best = chosen;
   var bestAdvantage = margin;
   for (var a = 0; a < count; a++) {
     if (a == chosen) continue;
     var sum = 0.0;
+    var better = 0;
     var ok = true;
-    for (final world in values) {
-      final va = world[a];
-      final vc = world[chosen];
-      if (va == null || vc == null || va < vc) {
+    for (var w = 0; w < values.length; w++) {
+      final va = values[w][a];
+      final vc = values[w][chosen];
+      if (va == null || vc == null || (va < vc && !expectedValue)) {
         ok = false;
         break;
       }
-      sum += va - vc;
+      if (va > vc) better++;
+      sum += (va - vc) * (weights?[w] ?? 1 / values.length);
     }
-    if (!ok) continue;
-    final advantage = sum / values.length;
+    if (!ok || (!expectedValue && better < needBetter)) continue;
+    final advantage = sum;
     if (advantage > bestAdvantage) {
       bestAdvantage = advantage;
       best = a;
@@ -114,10 +155,33 @@ GameEngineState redealWorld(
   List<List<double>>? holders,
 }) {
   final world = state.copy();
-  final actor = world.players.firstWhere((p) => p.id == actorId);
+  dealUnseen(
+    state,
+    actorId,
+    random,
+    canonicalPool: canonicalPool,
+    holders: holders,
+  ).forEach((id, hand) => world.hands[id] = hand);
+  return world;
+}
+
+/// The other players' hands in one re-deal of the unseen cards (a world
+/// is the state with these hands).
+typedef Deal = Map<String, List<Card>>;
+
+/// The hands of the other players in a re-deal of [state] as
+/// [redealWorld] makes it, without copying the state.
+Deal dealUnseen(
+  GameEngineState state,
+  String actorId,
+  Random random, {
+  bool canonicalPool = true,
+  List<List<double>>? holders,
+}) {
+  final actor = state.players.firstWhere((p) => p.id == actorId);
   String idAt(int offset) =>
-      world.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
-  final pass = world.completedSchupfSelections[actorId];
+      state.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
+  final pass = state.completedSchupfSelections[actorId];
   final pinned = <String, List<Card>>{};
   if (pass != null) {
     for (final (offset, card) in [
@@ -126,7 +190,7 @@ GameEngineState redealWorld(
       (3, pass.toRight),
     ]) {
       final id = idAt(offset);
-      final hand = world.hands[id] ?? const <Card>[];
+      final hand = state.hands[id] ?? const <Card>[];
       final i = hand.indexWhere(
         (c) => c.face == card.face && c.color == card.color,
       );
@@ -134,13 +198,13 @@ GameEngineState redealWorld(
     }
   }
   final others = [
-    for (final p in world.players)
-      if (p.id != actorId && (world.hands[p.id]?.isNotEmpty ?? false)) p.id,
+    for (final p in state.players)
+      if (p.id != actorId && (state.hands[p.id]?.isNotEmpty ?? false)) p.id,
   ];
   final pool = <Card>[];
   for (final id in others) {
     final keep = pinned[id] ?? const <Card>[];
-    for (final c in world.hands[id]!) {
+    for (final c in state.hands[id]!) {
       if (!keep.any((k) => identical(k, c))) pool.add(c);
     }
   }
@@ -151,7 +215,7 @@ GameEngineState redealWorld(
   if (holders != null) {
     final room = <String, int>{
       for (final id in others)
-        id: world.hands[id]!.length - (pinned[id]?.length ?? 0),
+        id: state.hands[id]!.length - (pinned[id]?.length ?? 0),
     };
     final rel = <String, int>{idAt(1): 0, idAt(2): 1, idAt(3): 2};
     final dealt = <String, List<Card>>{
@@ -181,22 +245,37 @@ GameEngineState redealWorld(
       dealt[pick]!.add(card);
       room[pick] = room[pick]! - 1;
     }
-    for (final id in others) {
-      world.hands[id] = dealt[id]!;
-    }
-    return world;
+    return dealt;
   }
   var next = 0;
+  final result = <String, List<Card>>{};
   for (final id in others) {
-    final size = world.hands[id]!.length;
+    final size = state.hands[id]!.length;
     final keep = pinned[id] ?? const <Card>[];
     final hand = [...keep];
     while (hand.length < size) {
       hand.add(pool[next++]);
     }
-    world.hands[id] = hand;
+    result[id] = hand;
   }
-  return world;
+  return result;
+}
+
+/// Plays worlds out somewhere else (the app: worker isolates that hold the
+/// rollout bots). [rollOut] returns what [EndgameSearcher.rollOutWorlds]
+/// returns for the same arguments.
+abstract interface class RolloutWorkers {
+  /// Number of workers: a search splits its deals in up to this many
+  /// batches; the pool hands each to its least busy worker.
+  int get size;
+
+  Future<List<List<double?>>> rollOut(
+    GameEngineState base,
+    List<Deal> deals,
+    Map<int, GameAction> actions,
+    int count,
+    int team,
+  );
 }
 
 /// Decision-time endgame search, run by a driver that owns the game state
@@ -239,10 +318,16 @@ class EndgameSearcher {
   /// Card-location model for [EndgameSearch.beliefWorlds].
   final BeliefModel? belief;
 
+  /// Rolls the worlds out in batches on these workers (the app: worker
+  /// isolates); null = one after another here. The worlds are dealt
+  /// before, so the result does not depend on it.
+  final RolloutWorkers? workers;
+
   EndgameSearcher({
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
     this.belief,
+    this.workers,
   });
 
   /// The action to play instead of [chosen] (which [agent] picked in
@@ -329,34 +414,141 @@ class EndgameSearcher {
       };
       final team = current.seat % 2;
       final random = Random(searchSeed(state, playerId));
-      final values = <List<double?>>[];
       final holders = config.beliefWorlds && belief != null
           ? belief!.holderProbabilities(snapshot, playerId)
           : null;
-      for (var w = 0; w < config.worlds; w++) {
-        final world = redealWorld(state, playerId, random, holders: holders);
-        final row = List<double?>.filled(count, null);
-        for (final i in indices) {
-          final fork = world.copy();
-          final agents = {
-            for (final p in fork.players) p.id: rolloutAgent(p.id, p.seat),
-          };
-          final action = actions[i]!;
-          simulationEngine.applyAction(fork, _copyAction(action));
-          rollouts++;
-          final diff = await playOutRound(fork, agents);
-          if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();
-          if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
-        }
-        values.add(row);
-      }
-      final pick = pickEndgameAction(values, chosenIndex, config.margin);
+      final (deals, weights) = config.bombStrata
+          ? _bombStrataDeals(state, playerId, random, holders, config)
+          : (
+              [
+                for (var w = 0; w < config.worlds; w++)
+                  dealUnseen(state, playerId, random, holders: holders),
+              ],
+              null,
+            );
+      final values = await _rollOutWorlds(state, deals, actions, count, team);
+      rollouts += deals.length * actions.length;
+      final pick = pickEndgameAction(
+        values,
+        chosenIndex,
+        config.margin,
+        minBetterWorlds: config.minBetterWorlds,
+        weights: weights,
+        expectedValue: config.expectedValue,
+      );
       if (pick == chosenIndex) return chosen;
       switches++;
       return actions[pick]!;
     } finally {
       stopwatch.stop();
     }
+  }
+
+  /// `values[world][action]`: the round result for [team] after each of
+  /// [actions] (by action index; others null) in [base] with each of
+  /// [deals].
+  Future<List<List<double?>>> _rollOutWorlds(
+    GameEngineState base,
+    List<Deal> deals,
+    Map<int, GameAction> actions,
+    int count,
+    int team,
+  ) async {
+    final pool = workers;
+    if (pool == null || pool.size < 2 || deals.length < 2) {
+      return rollOutWorlds(
+        base,
+        deals,
+        actions,
+        count,
+        team,
+        rolloutAgent,
+        yieldBetweenRollouts: yieldBetweenRollouts,
+      );
+    }
+    // One batch per worker (one request per deal was slower: the state
+    // is encoded per request on the web).
+    final batches = min(pool.size, deals.length);
+    final results = await Future.wait([
+      for (var b = 0; b < batches; b++)
+        pool.rollOut(
+          base,
+          [for (var w = b; w < deals.length; w += batches) deals[w]],
+          actions,
+          count,
+          team,
+        ),
+    ]);
+    return [
+      for (var w = 0; w < deals.length; w++) results[w % batches][w ~/ batches],
+    ];
+  }
+
+  /// Plays each of [actions] out in [base] with each of [deals] (the
+  /// other players' hands) with fresh bots from [agentFor]:
+  /// `values[world][action]`, the round result for [team] (null where not
+  /// rolled out or stuck).
+  static Future<List<List<double?>>> rollOutWorlds(
+    GameEngineState base,
+    List<Deal> deals,
+    Map<int, GameAction> actions,
+    int count,
+    int team,
+    PlayerAgent Function(String playerId, int seat) agentFor, {
+    bool yieldBetweenRollouts = false,
+  }) async {
+    final values = <List<double?>>[];
+    for (final deal in deals) {
+      final world = base.copy();
+      deal.forEach((id, hand) => world.hands[id] = hand);
+      final row = List<double?>.filled(count, null);
+      for (final MapEntry(key: i, value: action) in actions.entries) {
+        final fork = world.copy();
+        final agents = {
+          for (final p in fork.players) p.id: agentFor(p.id, p.seat),
+        };
+        simulationEngine.applyAction(fork, _copyAction(action));
+        final diff = await playOutRound(fork, agents);
+        if (diff != null) row[i] = (team == 0 ? diff : -diff).toDouble();
+        if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
+      }
+      values.add(row);
+    }
+    return values;
+  }
+
+  /// Deals in two strata, with and without a bomb in another player's
+  /// hand, about half each, and their weights: the bomb probability
+  /// (share of [EndgameSearch.bombProbes] re-deals with a bomb) spread
+  /// over the bomb deals, the rest over the others. Plain deals with
+  /// equal weights when the probes show no bomb or only bombs.
+  static (List<Deal>, List<double>?) _bombStrataDeals(
+    GameEngineState state,
+    String playerId,
+    Random random,
+    List<List<double>>? holders,
+    EndgameSearch config,
+  ) {
+    final bomb = <Deal>[];
+    final plain = <Deal>[];
+    for (var i = 0; i < config.bombProbes; i++) {
+      final hands = dealUnseen(state, playerId, random, holders: holders);
+      (hands.values.any(hasBombInHand) ? bomb : plain).add(hands);
+    }
+    if (bomb.isEmpty || plain.isEmpty) {
+      final all = bomb.isEmpty ? plain : bomb;
+      return (all.take(config.worlds).toList(), null);
+    }
+    final p = bomb.length / config.bombProbes;
+    final nBomb = min(bomb.length, max(1, config.worlds ~/ 2));
+    final nPlain = min(plain.length, config.worlds - nBomb);
+    return (
+      [...bomb.take(nBomb), ...plain.take(nPlain)],
+      [
+        for (var i = 0; i < nBomb; i++) p / nBomb,
+        for (var i = 0; i < nPlain; i++) (1 - p) / nPlain,
+      ],
+    );
   }
 
   /// Indices of the actions to roll out: all of them, or (above

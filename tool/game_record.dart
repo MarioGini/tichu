@@ -3,7 +3,9 @@
 //   dart run tool/game_record.dart <game-id | path/to/record.json>
 //       [--round N] [--from SEQ] [--to SEQ] [--hands]
 //
-// A bare game id is fetched from Supabase when SUPABASE_URL is set
+// A bare game id, or a round id (`tichu_round_records`, the first 8
+// characters are enough; shows that round), is fetched from Supabase when
+// SUPABASE_URL is set
 // (key from SUPABASE_SERVICE_ROLE_KEY, sent as the `apikey` header),
 // otherwise looked up in the default record directory
 // (see FileGameRecordStore.defaultLocation).
@@ -42,17 +44,47 @@ Future<void> main(List<String> args) async {
 
   final target = args.first;
   final Map<String, Object?> record;
+  int? roundFromId;
   if (File(target).existsSync()) {
     record = Map<String, Object?>.from(
       jsonDecode(File(target).readAsStringSync()) as Map,
     );
   } else if (supabaseUrl.isNotEmpty) {
-    final rows = await _supabaseGet(
+    var rows = await _supabaseGet(
       supabaseUrl,
       'select=record&id=eq.${Uri.encodeQueryComponent(target)}',
     );
+    if (rows.isEmpty && target.length >= 8) {
+      // A round id (or its first characters).
+      final rounds = [
+        for (final r in await _supabaseGet(
+          supabaseUrl,
+          'select=id,game_id,round'
+          '&short_id=eq.${Uri.encodeQueryComponent(target.substring(0, 8))}',
+          table: 'tichu_round_records',
+        ))
+          if ((r['id']! as String).startsWith(target.toLowerCase())) r,
+      ];
+      if (rounds.length > 1) {
+        stderr.writeln('Round id $target is ambiguous; give more characters');
+        exitCode = 1;
+        return;
+      }
+      if (rounds.length == 1) {
+        final gameId = rounds.single['game_id']! as String;
+        roundFromId = rounds.single['round']! as int;
+        stdout.writeln(
+          'Round ${rounds.single['id']}: game $gameId, '
+          'round $roundFromId',
+        );
+        rows = await _supabaseGet(
+          supabaseUrl,
+          'select=record&id=eq.${Uri.encodeQueryComponent(gameId)}',
+        );
+      }
+    }
     if (rows.isEmpty) {
-      stderr.writeln('No record $target in Supabase');
+      stderr.writeln('No game or round $target in Supabase');
       exitCode = 1;
       return;
     }
@@ -68,7 +100,7 @@ Future<void> main(List<String> args) async {
     record = loaded;
   }
 
-  final round = intArg('--round');
+  final round = intArg('--round') ?? roundFromId;
   final from = intArg('--from') ?? 0;
   final to = intArg('--to') ?? 1 << 30;
   final showHands = args.contains('--hands');
@@ -90,12 +122,16 @@ Future<void> main(List<String> args) async {
         players.firstWhere((p) => p['seat'] == seat)['name']! as String,
     ];
     var seq = 0;
+    final roundIds = (record['roundIds'] as List?)?.cast<String>();
     for (var i = 0; i < log.length; i++) {
       final n = i + 1;
       final steps = replayRoundLog(log[i]! as String, seatNames);
       final show = round == null || round == n;
       if (show) {
-        stdout.writeln('── Round $n');
+        final roundId = roundIds != null && i < roundIds.length
+            ? ' (${roundIds[i].substring(0, 8)})'
+            : '';
+        stdout.writeln('── Round $n$roundId');
         if (showHands) {
           final hands = dealtHands(log[i]! as String);
           for (var seat = 0; seat < 4; seat++) {
@@ -144,8 +180,9 @@ Future<void> main(List<String> args) async {
 /// GET on the `tichu_game_records` REST endpoint of the Supabase project.
 Future<List<Map<String, Object?>>> _supabaseGet(
   String supabaseUrl,
-  String query,
-) async {
+  String query, {
+  String table = 'tichu_game_records',
+}) async {
   if (supabaseUrl.isEmpty) throw StateError('SUPABASE_URL is not set.');
   // A network proxy may inject the real key; any placeholder works then.
   final key =
@@ -154,7 +191,7 @@ Future<List<Map<String, Object?>>> _supabaseGet(
   try {
     final base = supabaseUrl.endsWith('/') ? supabaseUrl : '$supabaseUrl/';
     final request = await client.getUrl(
-      Uri.parse('${base}rest/v1/tichu_game_records?$query'),
+      Uri.parse('${base}rest/v1/$table?$query'),
     );
     request.headers.set('apikey', key);
     if (Platform.environment.containsKey('SUPABASE_SERVICE_ROLE_KEY')) {

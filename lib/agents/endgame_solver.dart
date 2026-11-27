@@ -97,7 +97,7 @@ class OneOnOneSolver {
           : _options(state, playerId);
       if (options.isEmpty) return null;
       GameAction? best;
-      var bestValue = -1 << 30;
+      var bestValue = _minusInfinity;
       for (final action in options) {
         final child = state.copy();
         simulationEngine.applyAction(child, _copy(action));
@@ -177,7 +177,7 @@ class OneOnOneSolver {
     if (options.isEmpty) throw _BudgetExceeded();
     final mover = state.players.firstWhere((p) => p.id == request.playerId);
     final maximise = mover.seat % 2 == _team;
-    var best = maximise ? -1 << 30 : 1 << 30;
+    var best = maximise ? _minusInfinity : _plusInfinity;
     for (final action in options) {
       final child = state.copy();
       simulationEngine.applyAction(child, _copy(action));
@@ -259,3 +259,9 @@ class OneOnOneSolver {
 }
 
 class _BudgetExceeded implements Exception {}
+
+/// Bounds of the minimax values. Literals, not `-1 << 30`: dart2js makes
+/// shift results unsigned 32-bit, so `-1 << 30` was +3221225472 on the web
+/// and the maximiser never found a move (the solver returned nothing).
+const int _minusInfinity = -1073741824;
+const int _plusInfinity = 1073741824;

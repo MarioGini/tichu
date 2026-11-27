@@ -1,25 +1,13 @@
-import 'dart:math';
-
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/record/round_log.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
+
+export 'package:tichu/game/record/uuid.dart';
 
 /// Version of the JSON layout written by [GameRecord.toJson]: 3 stores one
 /// [RoundLog] string per round (initial cards and move order); 1 stored
 /// the full event list.
 const int gameRecordFormatVersion = 3;
-
-/// Random (version 4) UUID, used as game id and record id.
-String generateUuidV4([Random? random]) {
-  final rng = random ?? Random.secure();
-  final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  final hex = [for (final b in bytes) b.toRadixString(16).padLeft(2, '0')]
-      .join();
-  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
-      '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
-}
 
 /// Short, readable card label: rank plus colour letter (g/b/k/r for
 /// green/blue/black/red), or the name of a special card.
@@ -237,5 +225,6 @@ class GameRecord {
         {'id': p.id, 'name': p.name, 'seat': p.seat, 'type': p.type.name},
     ],
     'log': [for (final r in roundLogs) r.encode()],
+    'roundIds': [for (final r in roundLogs) r.id],
   };
 }

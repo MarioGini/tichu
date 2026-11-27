@@ -37,11 +37,16 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
       grandThreshold;
 
   /// Call Grand Tichu at this [grandStrength]: Dragon + Phoenix, either of
-  /// them with two Aces, or with an Ace and three Kings / Queens.
+  /// them with two Aces (or a bomb), or with an Ace and three Kings /
+  /// Queens. A bomb alone never reaches it.
   static const double grandThreshold = 5;
 
   /// Grand Tichu strength of the first eight cards: Dragon and Phoenix 3,
-  /// Ace 1, King and Queen 1/3, four of a kind 4, the Dog -1.
+  /// Ace 1, King and Queen 1/3, four of a kind 2, the Dog -1.
+  ///
+  /// A bomb wins only one lead, so it is worth about two Aces, not a
+  /// Dragon plus an Ace (Aaron Fuegi's Tichu strategy article: "Consider a
+  /// bomb to be worth about 1.5-2 of the 8 cards above").
   static double grandStrength(List<Card> hand) {
     final counts = <CardFace, int>{};
     for (final c in hand) {
@@ -55,7 +60,7 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
         3.0 * n(CardFace.phoenix) +
         n(CardFace.ace) +
         (n(CardFace.king) + n(CardFace.queen)) / 3 +
-        4.0 * quads -
+        2.0 * quads -
         n(CardFace.dog);
   }
 

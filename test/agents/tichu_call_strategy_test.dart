@@ -50,6 +50,19 @@ void main() {
       ]),
       closeTo(5, 1e-9),
     );
+    // A bomb counts 2: bomb + Ace stays below, bomb + Dragon calls.
+    final bomb = [
+      for (final c in CardColor.values.where((c) => c != CardColor.special))
+        card(CardFace.eight, c),
+    ];
+    expect(
+      DefaultTichuCallStrategy.grandStrength([...bomb, card(CardFace.ace)]),
+      closeTo(3, 1e-9),
+    );
+    expect(
+      await call([...bomb, card(CardFace.dragon, CardColor.special)]),
+      isTrue,
+    );
   });
 
   test('tichu follows paper index threshold (It >= 7)', () async {

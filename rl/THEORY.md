@@ -8,29 +8,114 @@ against the shipped one.
 
 ## 1. What tichuengine.com runs
 
-The site publishes no write-up. Its web client does contain the
-"Advisor Bot" and the bot-assessment panel, though, and those name every
-quantity the server returns. The picture below comes from those field names
-and labels (client bundle of 2026-11-27, changelog "11/10: Small bot
-strength improvements"). It shows what they compute, not how well.
+Sources: the site's About page ("How the bots work under the hood", "How
+the bots' neural nets are trained", "Partner-Passing Conventions") and the
+fields its assessment panel shows. Strength levels: *Adept* plays the
+policy net alone, *Expert* thinks for about 0.04 s, *Master* about 0.2 s,
+and *Grandmaster* about 1 s per move. In its default mode, bombs and Tichu
+calls out of turn are off. Out-of-turn play is an option with its own nets.
 
-| Component | Evidence in the client | Reading |
-|---|---|---|
-| **Determinized tree search** | `possible_states`, `search_trees` (one tree per state, with `nodes`, `child_state_values`), "Top Tree Search Visits", "Top Tree Search Value Estimates", `tree_search_value_stdevs` | Sampled deals ("universes"), each with its own search tree. It is PIMC with a tree per world, not our depth-1 rollouts. |
-| **Policy prior + completed Q** | "Pick = best CQ (ln prior + σ·mean)", `p_best_prior`, `completed_q`, a "Policy" column | The Gumbel AlphaZero / MuZero selection rule: a policy net's log-prior plus a monotone transform of the mean value. |
-| **Value-of-information budget** | "VOI Search", `iterations_used / effective_budget`, `trimmed_candidates`, "KG = expected decision gain (pts) of one more sample" | Samples go to the candidates where one more sample is most likely to change the decision (knowledge gradient), and hopeless candidates are trimmed. |
-| **Paired comparison** | "Δ = paired per-universe diff vs incumbent (pts, world luck cancelled) ± σ" | Every candidate is played in the same universes, and the decision uses the per-universe difference to the incumbent (common random numbers). |
-| **Value net on the true state** | "Outcome Prediction (value net, true state)": `point_probs` (point-split bins), `call_probs` (joint Tichu outcomes per seat), `exit_order_probs` (finishing orders), "Exit 1st" | A perfect-information value net with *distributional* heads, used as a leaf evaluator. The bins also allow non-linear utilities. |
-| **Rich belief net** | `belief_prediction`: `high_card_probs`, `combo_probs`, `rank_expected_counts`, `straight_length`, `stair_length`, `rough_singles_count`, `race_level` ("P beats # opponents"), `joint_lho_lacks_partner_has` | Besides card locations, it predicts hand **structure**: bombs, straight and stair lengths, singles, how many opponents a player can beat, and joint events across seats. |
-| **Match utility** | `use_match_utility`, `match_win_prob`, `match_point_slope` ("pp/pt, EV-equiv 0.5"), match scores as inputs | Values are the acting team's match-win probability, converted back to points at the current slope. |
-| **Staged call decisions** | "Interrupt Windows", gate priors (`prior_source`, ε, δ points), `probe_evs`, `probe_verdict`, `last_chance`, stages 1–3 ("declined at gate", "ambiguous → stage-3 search") | Tichu calls and bombs out of turn ("interrupts") go through a ladder: a policy gate first, then a cheap probe EV, and a full search only when the probe is ambiguous. |
-| **Slate-level schupf** | "Assess Trade", `top_slates_by_position` with a rating per 3-card slate | A policy over complete slates, not over each card on its own. |
-| **Wish politeness** | "Base = z-scored completed-Q; Polite = Base − λ·Proxy" | A wish is scored by its search value minus a penalty for self-harm. |
-| **Conventions and duplicate** | partner/opponent trade conventions ("with 0 high cards, pass high"), par games A–D | Passing conventions are a table setting, and humans are scored against four bot par games of the same deal. |
+**Five components on every turn:**
 
-The advisor also labels a move "conservative" or "greedy" (best when the
-cards lie badly or well for us) and shows "~X % chance an opponent can beat
-this" (the share of worlds with an answer).
+1. **Belief net (recurrent).**
+   - It folds the public action sequence into a *spectator belief state*:
+     an init step from the grand calls and who holds the 1, then one step
+     per action.
+   - A prediction head combines that state with one player's private
+     information.
+   - It predicts per player: rank counts, high-card counts, special cards,
+     which combination types they hold, the number of "singles" (cards in
+     no pair or straight), and how many opponents each player goes out
+     before ("race level").
+2. **Policy net.**
+   - Input: one player's view plus the belief predictions.
+   - Output: action probabilities.
+3. **Value net.**
+   - Input: the full state plus the belief predictions *from each player's
+     perspective*.
+   - Output: the round point difference under the policy. The panel also
+     shows point-split, call-outcome and exit-order distributions.
+4. **Sampler (handwritten).**
+   - It draws about 80 values for each predicted variable and combines them
+     at random.
+   - It swaps incompatible outcomes between samples until they are
+     consistent.
+   - It then greedily picks about 20 layouts that best match all predicted
+     probabilities.
+5. **Tree search.**
+   - Each sampled layout is the root of its own tree.
+   - At the root, the iterations follow **sequential halving**: every pass
+     visits each remaining action equally, then the worst half is dropped.
+   - The root statistics are **averaged across all layouts** (multi-root);
+     below the root, each tree is independent.
+   - A new node runs the belief step, the policy net (prior) and the value
+     net (leaf value), and backs the value up.
+   - The final move is the best average across roots. The panel shows the
+     selection as "ln prior + σ·mean" (Gumbel AlphaZero), paired per-world
+     Δ ± σ against the incumbent, and a knowledge-gradient VOI budget.
+
+**Training.**
+- About 9 M self-play games, inspired by AlphaGo, AlphaZero and Gumbel
+  AlphaZero.
+- The policy, value and belief nets are trained together:
+  - belief: to predict the real layouts;
+  - value: toward a mix of later value-net estimates and the final result
+    (TD-λ style);
+  - policy: toward the actions the search prefers.
+- **Stage 1 (fast):**
+  - the value net learns from plain policy playouts, which give volume;
+  - the policy net learns from search on the *true* state, which is
+    omniscient but cheap. The net does not see the hidden cards, so it
+    does not learn to cheat.
+- **Stage 2:** the same, with search over sampled worlds as in play.
+- Earlier versions had a single policy+value net trained on face-up games.
+  They were good in endgames but "always overconfident that they knew the
+  full hand layout".
+
+**Grand Tichu net.**
+- Deal the 8-card hands and let the earlier players decide.
+- Deal 15 layouts of the rest that are consistent with those earlier
+  decisions.
+- Play each with and without the call; the label is the mean difference.
+- Result: calls with PD, AAP or better; AAD 60–90 %; AP 48–70 %;
+  AD 10–23 %.
+
+**Schupf (trade) net.**
+- Candidates: one card to the partner plus two non-high cards to the
+  opponents (suits handled by a rule).
+- Each candidate is scored by the value net right after the trade,
+  averaged over 9 deals consistent with the view.
+- The other players pass with a recent trade net.
+
+**Conventions.**
+- Partner conventions are an *overlay* on the trade net's scores. A
+  conforming pass gets so much extra weight that the bots break the
+  convention only about 1 % of the time. The trade net itself is trained
+  without a convention, so the main nets adapt to any convention of this
+  kind.
+- The partner **makes inferences** from the card: its belief net and
+  sampler impute the promised high-card count.
+- **2+HC Odd** (the author's own): with 2+ high cards (A, Phoenix,
+  Dragon) pass odd (3, 5, 7, 9, J, K, the 1, the Dog); with 0 pass even;
+  with exactly 1 pass that card. It was designed to stay as close as
+  possible to the trade net's favourite pass within the three buckets
+  0 / 1 / 2+.
+- Variants: 2+HC Even, 2+HC Low, Give 1 HC, and "Free choice" (no
+  convention).
+- Exceptions:
+  - when one's own team called Grand, the convention is off and the
+    caller gets a high card;
+  - after a right-hand opponent's Grand, one high card may already count
+    as "odd";
+  - a Tichu called right after the trade *reverses* the promise (and the
+    bots use that).
+- An **opponent** convention (Odd Left / Even Left) orders the two
+  opponent cards so that partners do not both pass the same rank to the
+  same opponent.
+
+**Duplicate.** Humans play sets of 8 hands that the bots played four times
+(par games A–D with different opponent conventions) and are scored against
+the par average.
 
 ## 2. Where we stand against that
 
@@ -38,13 +123,13 @@ this" (the share of worlds with an answer).
 |---|---|---|
 | Policy | net (prior) | play net Q, strong and coherent over several moves (REVIEW) |
 | Search scope | every decision | ≤ 12 cards in hand, plus the 1-on-1 solver |
-| Search shape | tree per world, prior + completed Q | depth 1: 8 worlds × ≤ 7 actions, full rollouts with the net |
+| Search shape | ~20 sampled roots, a tree per root, sequential halving at the shared root, value-net leaves | depth 1: 8 worlds × ≤ 7 actions, full rollouts with the net |
 | Budget | VOI / knowledge gradient, paired Δ ± σ | fixed grid, unanimity + margin 10 |
 | Leaf | value net on the true state | full rollout to the end of the round |
-| Belief | marginals **and** hand structure | per-card marginals (`tichu_belief_v1`), sampled card by card |
+| Belief | recurrent, marginals **and** hand structure, consistent sampler matching all of them | per-card marginals (`tichu_belief_v1`), sampled card by card |
 | Objective | match-win probability | round points |
 | Calls | gate → probe → search | heuristic (`DefaultTichuCallStrategy`) |
-| Schupf | slate policy | schupf net v5 over candidates (similar) |
+| Schupf | value-net-scored slates + partner/opponent conventions with inference | schupf net v5 over candidates, no convention |
 
 Our strengths are the play net and the exact one-on-one solver. The gaps
 are all on the search side:
@@ -105,6 +190,8 @@ runner.
 | Sequential halving | `lib/agents/halving_search.dart` | Paired worlds, a fixed budget, the incumbent always kept, a prior (the net's Q in points) weighted by `priorWeight`. Deviation needs `margin` and `minZ`·σ of the paired Δ. |
 | Match utility | `lib/agents/match_utility.dart` | Random-walk model fitted on v10 self-play (σ = 189 per round, leader +76 per round). `pointsEquivalent` turns a round result into points at the current slope. |
 | Wiring | `EndgameSearch.halvingBudget / priorWeight / minZ / leafAfter / matchUtility`, `EndgameSearcher.value` | The halving path re-deals with the belief net, scores in points or match utility, and runs locally (not on the app's worker isolates yet). |
+| Value data from records | `lib/headless/value_rows_from_records.dart`, `value_data.py --records=` | Replays the stored `*.games.jsonl.xz` games (no net runs; matches with moves rejected since #45 are cut). 448 v10-loop files → 2.5 M positions in minutes. `value_v1` (Supabase `value/value_v1.safetensors`): held-out RMSE 124.6 of 182 points, 77 % first-out accuracy. |
+| Partner convention | `lib/agents/partner_convention.dart`, `NnSchupfStrategy.convention`, `EndgameSearch.partnerConvention`, `conventionAccept` | 2+HC Odd as tichuengine's overlay: the schupf net passes its best *conforming* candidate (off when the team called Grand). The partner's search re-deals by rejection until the partner's high cards after the schupf (in hand + played − the one we gave) keep the promise. `--partner-convention=2hc-odd`, `--opponent-partner-convention=`. |
 | Headless flags | `--endgame-halving=N`, `--endgame-prior-weight`, `--endgame-min-z`, `--value-net=`, `--endgame-leaf-after=N`, `--endgame-match-utility`, opponent twins `--opponent-endgame-{halving,leaf-after,match-utility,max-actions}` (off by default, so side B stays the shipped bot) and `--opponent-endgame-margin` (defaults to the shared margin) | |
 
 Example duel (A = halving with value-net leaves at every hand size, B =
@@ -148,11 +235,23 @@ unless noted). Keep the step only if it gains.
    has. Fix the sampler: weight each dealt world by Π p / q (the belief
    over the proposal), or deal by rejection against the structure heads.
    Gate: the duel at step 3's settings.
-6. **Calls by search.** Gate the decision with the heuristic, probe the
+6. **Partner convention.** Measured alone first (duel C: shipped +
+   `--partner-convention=2hc-odd` vs shipped). The inference now acts only
+   through the search worlds. Next:
+   - give the play and belief nets the promise as inputs (a `received`
+     group bit "partner promised 0 / 2+") and retrain with the convention
+     in the data, so the nets read it as tichuengine's do;
+   - add the opponent convention (Odd/Even Left), which avoids
+     double-passing the same rank;
+   - the Tichu-after-trade reversal.
+
+   A convention needs both partners to be our bots (in the app, a human
+   partner would have to agree to it).
+7. **Calls by search.** Gate the decision with the heuristic, probe the
    call's EV with the value net, and run a halving search only when the
    probe is ambiguous (tichuengine's ladder). REVIEW: call success rose at
    an unchanged call rate, so the thresholds are likely too tight.
-7. **Expert iteration.** Once the search wins clearly, label positions with
+8. **Expert iteration.** Once the search wins clearly, label positions with
    the halving values (search as teacher) and train the play net on them.
    The search then starts from a stronger prior. Repeat with the
    `rollout_loop.py` gate.

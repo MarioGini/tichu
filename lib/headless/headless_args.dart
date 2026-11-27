@@ -29,6 +29,10 @@ class _HeadlessConfig {
   final StyleBias style;
   final StyleBias opponentStyle;
   final bool schupfExtended;
+
+  /// Partner-passing conventions of the two teams (`--partner-convention`).
+  final PartnerConvention partnerConvention;
+  final PartnerConvention opponentPartnerConvention;
   final bool opponentSchupfExtended;
   final bool schupfLabelExtended;
   final String? beliefNetPath;
@@ -89,6 +93,8 @@ class _HeadlessConfig {
     required this.style,
     required this.opponentStyle,
     required this.schupfExtended,
+    required this.partnerConvention,
+    required this.opponentPartnerConvention,
     required this.opponentSchupfExtended,
     required this.schupfLabelExtended,
     required this.beliefNetPath,
@@ -149,6 +155,8 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var style = StyleBias.none;
   var opponentStyle = StyleBias.none;
   var schupfExtended = false;
+  var partnerConvention = PartnerConvention.none;
+  var opponentPartnerConvention = PartnerConvention.none;
   var opponentSchupfExtended = false;
   var schupfLabelExtended = false;
   var schupfEpsilon = 0.0;
@@ -529,6 +537,18 @@ _HeadlessConfig _parseArgs(List<String> args) {
       heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
     }
+    if (arg.startsWith('--partner-convention=') ||
+        arg.startsWith('--opponent-partner-convention=')) {
+      final convention = PartnerConvention.tryParse(arg.split('=').last);
+      if (convention != null) {
+        if (arg.startsWith('--opponent-')) {
+          opponentPartnerConvention = convention;
+        } else {
+          partnerConvention = convention;
+        }
+        continue;
+      }
+    }
     if (arg == '--schupf-extended') {
       schupfExtended = true;
       continue;
@@ -614,6 +634,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
     matchUtility: opponent
         ? opponentEndgameMatchUtility ?? false
         : endgameMatchUtility,
+    partnerConvention: opponent ? opponentPartnerConvention : partnerConvention,
     minBetterWorlds: minBetter ?? endgameMinBetter,
     bombStrata: bombStrata ?? endgameBombStrata,
     expectedValue: expectedValue ?? endgameExpectedValue,
@@ -672,6 +693,8 @@ _HeadlessConfig _parseArgs(List<String> args) {
     style: style,
     opponentStyle: opponentStyle,
     schupfExtended: schupfExtended,
+    partnerConvention: partnerConvention,
+    opponentPartnerConvention: opponentPartnerConvention,
     opponentSchupfExtended: opponentSchupfExtended,
     schupfLabelExtended: schupfLabelExtended,
     beliefNetPath: beliefNetPath,
@@ -778,6 +801,11 @@ void _printUsage() {
     '       [--endgame-match-utility] '
     '[--opponent-endgame-match-utility=false]  '
     '(halving: score in match-win probability)',
+  );
+  stdout.writeln(
+    '       [--partner-convention=none|2hc-odd] '
+    '[--opponent-partner-convention=..]  '
+    '(the partner pass promises high cards; the search keeps the promise)',
   );
   stdout.writeln('       [--epsilon=0.1]');
 }

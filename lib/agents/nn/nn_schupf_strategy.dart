@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/nn/mlp.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -137,7 +138,15 @@ class NnSchupfStrategy implements SchupfStrategy {
   /// have been trained on such labels, `headless --schupf-extended`).
   final bool extended;
 
-  NnSchupfStrategy({required this.network, this.extended = false}) {
+  /// Partner-passing convention: the best candidate that keeps it is
+  /// passed (any candidate when none does or it is off).
+  final PartnerConvention convention;
+
+  NnSchupfStrategy({
+    required this.network,
+    this.extended = false,
+    this.convention = PartnerConvention.none,
+  }) {
     if (network.inputSize != SchupfFeatures.size) {
       throw ArgumentError.value(
         network.inputSize,
@@ -170,10 +179,17 @@ class NnSchupfStrategy implements SchupfStrategy {
     final slots = [for (final c in hand) cardSlot(c)];
     final work = Float64List(pre.length);
 
+    final table = TableRelationships(snapshot, playerId);
+    final calls = snapshot.scoreState.tichuCalls;
+    final useConvention = convention.appliesTo(
+      calls[playerId] ?? TichuCall.none,
+      calls[table.partnerId] ?? TichuCall.none,
+    );
     var best = double.negativeInfinity;
     var bestL = 0;
     var bestP = 1;
     var bestR = 2;
+    var bestConforming = false;
     for (final (l, p, r) in SchupfFeatures.candidates(
       hand,
       extended: extended,
@@ -184,7 +200,11 @@ class NnSchupfStrategy implements SchupfStrategy {
         ..addFirstLayerColumn(work, SchupfFeatures.partnerOffset + slots[p])
         ..addFirstLayerColumn(work, SchupfFeatures.rightOffset + slots[r]);
       final q = network.predictFromFirstLayer(work);
-      if (q > best) {
+      final conforming = useConvention && convention.conforms(hand, hand[p]);
+      // A conforming pass beats every other one.
+      if (bestConforming && !conforming) continue;
+      if (q > best || (conforming && !bestConforming)) {
+        bestConforming = conforming;
         best = q;
         bestL = l;
         bestP = p;

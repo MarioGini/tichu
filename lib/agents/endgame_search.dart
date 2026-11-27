@@ -7,11 +7,13 @@ import 'package:tichu/agents/match_utility.dart';
 import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/value_model.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/bomb_utils.dart';
@@ -88,7 +90,12 @@ class EndgameSearch {
   /// search only.
   final bool matchUtility;
 
+  /// The searching team's partner-passing convention: worlds must keep the
+  /// partner's high-card promise ([conventionAccept]).
+  final PartnerConvention partnerConvention;
+
   const EndgameSearch({
+    this.partnerConvention = PartnerConvention.none,
     this.halvingBudget = 0,
     this.priorWeight = 0,
     this.minZ = 0,
@@ -126,7 +133,9 @@ class EndgameSearch {
     double? minZ,
     int? leafAfter,
     bool? matchUtility,
+    PartnerConvention? partnerConvention,
   }) => EndgameSearch(
+    partnerConvention: partnerConvention ?? this.partnerConvention,
     halvingBudget: halvingBudget ?? this.halvingBudget,
     priorWeight: priorWeight ?? this.priorWeight,
     minZ: minZ ?? this.minZ,
@@ -154,7 +163,7 @@ class EndgameSearch {
       'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata, '
       'expectedValue: $expectedValue, halvingBudget: $halvingBudget, '
       'priorWeight: $priorWeight, minZ: $minZ, leafAfter: $leafAfter, '
-      'matchUtility: $matchUtility)';
+      'matchUtility: $matchUtility, partnerConvention: $partnerConvention)';
 }
 
 /// The decision rule: index of the action to play given rollout values
@@ -249,7 +258,26 @@ Deal dealUnseen(
   Random random, {
   bool canonicalPool = true,
   List<List<double>>? holders,
+  bool Function(Deal deal)? accept,
+  int tries = 64,
 }) {
+  if (accept != null) {
+    // Rejection sampling; the last deal when none is accepted (a promise
+    // the deal cannot keep, e.g. an opponent passed the partner a high
+    // card).
+    late Deal deal;
+    for (var t = 0; t < tries; t++) {
+      deal = dealUnseen(
+        state,
+        actorId,
+        random,
+        canonicalPool: canonicalPool,
+        holders: holders,
+      );
+      if (accept(deal)) return deal;
+    }
+    return deal;
+  }
   final actor = state.players.firstWhere((p) => p.id == actorId);
   String idAt(int offset) =>
       state.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
@@ -331,6 +359,46 @@ Deal dealUnseen(
     result[id] = hand;
   }
   return result;
+}
+
+/// The deals that keep the partner's high-card promise under [convention]
+/// (null when there is none to keep): the partner's high cards after the
+/// schupf, i.e. those in their hand in the deal and those they played this
+/// round, minus the ones [actorId] passed them, must match what the card
+/// they passed [actorId] promised. Cards the opponents passed the partner
+/// are unknown and not counted.
+bool Function(Deal deal)? conventionAccept(
+  GameEngineState state,
+  String actorId,
+  PartnerConvention convention,
+) {
+  if (convention == PartnerConvention.none) return null;
+  final actor = state.players.firstWhere((p) => p.id == actorId);
+  final partner = state.players.firstWhere(
+    (p) => p.seat == (actor.seat + 2) % 4,
+  );
+  final calls = state.scoreTracker.state.tichuCalls;
+  if (!convention.appliesTo(
+    calls[partner.id] ?? TichuCall.none,
+    calls[actorId] ?? TichuCall.none,
+  )) {
+    return null;
+  }
+  final received = state.completedSchupfSelections[partner.id]?.toPartner;
+  if (received == null) return null;
+  final promise = convention.promise(received);
+  final played = PartnerConvention.highCards([
+    for (final e in state.roundLog)
+      if (e.playerId == partner.id) ...e.cards,
+  ]);
+  final given = state.completedSchupfSelections[actorId]?.toPartner;
+  final gift = given != null && PartnerConvention.isHighCard(given) ? 1 : 0;
+  return (deal) => PartnerConvention.keeps(
+    promise,
+    PartnerConvention.highCards(deal[partner.id] ?? const <Card>[]) +
+        played -
+        gift,
+  );
 }
 
 /// Plays worlds out somewhere else (the app: worker isolates that hold the
@@ -511,12 +579,23 @@ class EndgameSearcher {
       final holders = config.beliefWorlds && belief != null
           ? belief!.holderProbabilities(snapshot, playerId)
           : null;
+      final accept = conventionAccept(
+        state,
+        playerId,
+        config.partnerConvention,
+      );
       final (deals, weights) = config.bombStrata
-          ? _bombStrataDeals(state, playerId, random, holders, config)
+          ? _bombStrataDeals(state, playerId, random, holders, config, accept)
           : (
               [
                 for (var w = 0; w < config.worlds; w++)
-                  dealUnseen(state, playerId, random, holders: holders),
+                  dealUnseen(
+                    state,
+                    playerId,
+                    random,
+                    holders: holders,
+                    accept: accept,
+                  ),
               ],
               null,
             );
@@ -573,6 +652,7 @@ class EndgameSearcher {
         ? belief!.holderProbabilities(snapshot, playerId)
         : null;
     final deals = <Deal>[];
+    final accept = conventionAccept(state, playerId, config.partnerConvention);
     final value = this.value;
     final leafAfter = config.leafAfter;
     if (leafAfter != null && value == null) {
@@ -593,7 +673,9 @@ class EndgameSearcher {
 
     Future<List<double?>> evaluate(int w, List<int> which) async {
       while (deals.length <= w) {
-        deals.add(dealUnseen(state, playerId, random, holders: holders));
+        deals.add(
+          dealUnseen(state, playerId, random, holders: holders, accept: accept),
+        );
       }
       final world = state.copy();
       deals[w].forEach((id, hand) => world.hands[id] = hand);
@@ -731,11 +813,18 @@ class EndgameSearcher {
     Random random,
     List<List<double>>? holders,
     EndgameSearch config,
+    bool Function(Deal deal)? accept,
   ) {
     final bomb = <Deal>[];
     final plain = <Deal>[];
     for (var i = 0; i < config.bombProbes; i++) {
-      final hands = dealUnseen(state, playerId, random, holders: holders);
+      final hands = dealUnseen(
+        state,
+        playerId,
+        random,
+        holders: holders,
+        accept: accept,
+      );
       (hands.values.any(hasBombInHand) ? bomb : plain).add(hands);
     }
     if (bomb.isEmpty || plain.isEmpty) {

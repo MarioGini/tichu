@@ -7,6 +7,7 @@ import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/player_agent.dart';
 
@@ -53,6 +54,11 @@ class BotConfig {
   /// [SchupfFeatures.candidates]).
   final bool schupfExtended;
 
+  /// Partner-passing convention of the learned schupf (needs [schupf]);
+  /// the team's search reads its partner's promise via
+  /// [EndgameSearch.partnerConvention].
+  final PartnerConvention partnerConvention;
+
   /// Heuristic rules used for everything not covered by a learned net.
   final HeuristicOptions heuristicOptions;
 
@@ -81,6 +87,7 @@ class BotConfig {
     this.preSchupfTichu,
     this.schupf,
     this.schupfExtended = false,
+    this.partnerConvention = PartnerConvention.none,
     this.callMargin = 0,
     this.simdInference = false,
     this.style = StyleBias.none,
@@ -97,6 +104,7 @@ class BotConfig {
     preSchupfTichu: preSchupfTichu,
     schupf: schupf,
     schupfExtended: schupfExtended,
+    partnerConvention: partnerConvention,
     callMargin: callMargin,
     simdInference: simdInference,
     style: style,
@@ -141,7 +149,11 @@ class BotConfig {
             ),
       schupfStrategy: schupf == null
           ? null
-          : NnSchupfStrategy(network: schupf.network, extended: schupfExtended),
+          : NnSchupfStrategy(
+              network: schupf.network,
+              extended: schupfExtended,
+              convention: partnerConvention,
+            ),
     );
   }
 }

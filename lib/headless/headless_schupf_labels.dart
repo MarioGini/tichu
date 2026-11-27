@@ -50,11 +50,38 @@ extension _SchupfLabels on _HeadlessSimulator {
             toRight: hand[r],
           ),
     ]..shuffle(random);
-    final half = (schupfCandidates - 1) ~/ 2;
+    // A third each: the sensible set, neighbours of the bot's own pass (one
+    // card replaced or two slots swapped: each label then prices a single
+    // choice, e.g. keeping the Dog), and any pass at all.
+    final own = [
+      for (final c in [chosen.toLeft, chosen.toPartner, chosen.toRight])
+        hand.indexWhere((h) => _sameCard(h, c)),
+    ];
+    final near = <SchupfAction>[];
+    void addNear(int l, int p, int r) => near.add(
+      SchupfAction(
+        playerId: playerId,
+        toLeft: hand[l],
+        toPartner: hand[p],
+        toRight: hand[r],
+      ),
+    );
+    for (var i = 0; i < hand.length; i++) {
+      if (own.contains(i)) continue;
+      addNear(i, own[1], own[2]);
+      addNear(own[0], i, own[2]);
+      addNear(own[0], own[1], i);
+    }
+    addNear(own[1], own[0], own[2]);
+    addNear(own[0], own[2], own[1]);
+    addNear(own[2], own[1], own[0]);
+    near.shuffle(random);
+    final third = (schupfCandidates - 1) ~/ 3;
     return [
       chosen,
-      ...all.take(half),
-      ...any.take(schupfCandidates - 1 - half),
+      ...all.take(third),
+      ...near.take(third),
+      ...any.take(schupfCandidates - 1 - 2 * third),
     ];
   }
 

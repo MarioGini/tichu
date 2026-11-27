@@ -74,7 +74,9 @@ abstract final class SchupfFeatures {
   static List<(int, int, int)> candidates(
     List<Card> hand, {
     bool extended = false,
+    bool all = false,
   }) {
+    if (all) return allPasses(hand.length);
     final order = List<int>.generate(hand.length, (i) => i)
       ..sort((a, b) => passStrength(hand[a]).compareTo(passStrength(hand[b])));
     final partner = <int>{
@@ -92,6 +94,17 @@ abstract final class SchupfFeatures {
               if (r != p && r != l) (l, p, r),
     ];
   }
+
+  /// Every pass of a hand of [n] cards: three distinct cards to (left,
+  /// partner, right), 14 * 13 * 12 = 2184 for a full hand. Nothing is ruled
+  /// out by a rule; the net learns which passes are good.
+  static List<(int, int, int)> allPasses(int n) => [
+    for (var l = 0; l < n; l++)
+      for (var p = 0; p < n; p++)
+        if (p != l)
+          for (var r = 0; r < n; r++)
+            if (r != l && r != p) (l, p, r),
+  ];
 
   static bool _isNormal(Card c) =>
       c.face != CardFace.dragon &&
@@ -137,7 +150,15 @@ class NnSchupfStrategy implements SchupfStrategy {
   /// have been trained on such labels, `headless --schupf-extended`).
   final bool extended;
 
-  NnSchupfStrategy({required this.network, this.extended = false}) {
+  /// Score every pass ([SchupfFeatures.allPasses]; the net must have been
+  /// trained on labels over all passes, `headless --schupf-label-all`).
+  final bool all;
+
+  NnSchupfStrategy({
+    required this.network,
+    this.extended = false,
+    this.all = false,
+  }) {
     if (network.inputSize != SchupfFeatures.size) {
       throw ArgumentError.value(
         network.inputSize,
@@ -177,6 +198,7 @@ class NnSchupfStrategy implements SchupfStrategy {
     for (final (l, p, r) in SchupfFeatures.candidates(
       hand,
       extended: extended,
+      all: all,
     )) {
       work.setAll(0, pre);
       network

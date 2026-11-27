@@ -53,6 +53,9 @@ class BotConfig {
   /// [SchupfFeatures.candidates]).
   final bool schupfExtended;
 
+  /// The schupf net scores every pass ([SchupfFeatures.allPasses]).
+  final bool schupfAll;
+
   /// Heuristic rules used for everything not covered by a learned net.
   final HeuristicOptions heuristicOptions;
 
@@ -81,6 +84,7 @@ class BotConfig {
     this.preSchupfTichu,
     this.schupf,
     this.schupfExtended = false,
+    this.schupfAll = false,
     this.callMargin = 0,
     this.simdInference = false,
     this.style = StyleBias.none,
@@ -97,6 +101,7 @@ class BotConfig {
     preSchupfTichu: preSchupfTichu,
     schupf: schupf,
     schupfExtended: schupfExtended,
+    schupfAll: schupfAll,
     callMargin: callMargin,
     simdInference: simdInference,
     style: style,
@@ -141,7 +146,11 @@ class BotConfig {
             ),
       schupfStrategy: schupf == null
           ? null
-          : NnSchupfStrategy(network: schupf.network, extended: schupfExtended),
+          : NnSchupfStrategy(
+              network: schupf.network,
+              extended: schupfExtended,
+              all: schupfAll,
+            ),
     );
   }
 }

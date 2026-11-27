@@ -37,7 +37,25 @@ extension _SchupfLabels on _HeadlessSimulator {
             toRight: hand[r],
           ),
     ]..shuffle(random);
-    return [chosen, ...all.take(schupfCandidates - 1)];
+    if (!schupfLabelAll) return [chosen, ...all.take(schupfCandidates - 1)];
+    // Half the alternatives from every pass: the sensible set only guides
+    // the sampling, it does not limit what the net can learn.
+    final any = [
+      for (final (l, p, r) in SchupfFeatures.allPasses(hand.length))
+        if (!isChosen(l, p, r))
+          SchupfAction(
+            playerId: playerId,
+            toLeft: hand[l],
+            toPartner: hand[p],
+            toRight: hand[r],
+          ),
+    ]..shuffle(random);
+    final half = (schupfCandidates - 1) ~/ 2;
+    return [
+      chosen,
+      ...all.take(half),
+      ...any.take(schupfCandidates - 1 - half),
+    ];
   }
 
   /// Outcome per candidate: [round diff for my team, my team went out

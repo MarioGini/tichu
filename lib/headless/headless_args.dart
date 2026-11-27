@@ -32,6 +32,9 @@ class _HeadlessConfig {
   final bool schupfExtended;
   final bool opponentSchupfExtended;
   final bool schupfLabelExtended;
+  final bool schupfAll;
+  final bool opponentSchupfAll;
+  final bool schupfLabelAll;
   final String? beliefNetPath;
   final bool recordGames;
   final double schupfEpsilon;
@@ -89,6 +92,9 @@ class _HeadlessConfig {
     required this.schupfExtended,
     required this.opponentSchupfExtended,
     required this.schupfLabelExtended,
+    required this.schupfAll,
+    required this.opponentSchupfAll,
+    required this.schupfLabelAll,
     required this.beliefNetPath,
     required this.recordGames,
     required this.schupfEpsilon,
@@ -149,6 +155,9 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var schupfExtended = false;
   var opponentSchupfExtended = false;
   var schupfLabelExtended = false;
+  var schupfAll = false;
+  var opponentSchupfAll = false;
+  var schupfLabelAll = false;
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
   var skipPlayRows = false;
@@ -480,6 +489,18 @@ _HeadlessConfig _parseArgs(List<String> args) {
       opponentSchupfExtended = true;
       continue;
     }
+    if (arg == '--schupf-all') {
+      schupfAll = true;
+      continue;
+    }
+    if (arg == '--opponent-schupf-all') {
+      opponentSchupfAll = true;
+      continue;
+    }
+    if (arg == '--schupf-label-all') {
+      schupfLabelAll = true;
+      continue;
+    }
     if (arg.startsWith('--style=')) {
       style = StyleBias.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
@@ -592,6 +613,9 @@ _HeadlessConfig _parseArgs(List<String> args) {
     schupfExtended: schupfExtended,
     opponentSchupfExtended: opponentSchupfExtended,
     schupfLabelExtended: schupfLabelExtended,
+    schupfAll: schupfAll,
+    opponentSchupfAll: opponentSchupfAll,
+    schupfLabelAll: schupfLabelAll,
     beliefNetPath: beliefNetPath,
     recordGames: recordGames,
     schupfEpsilon: schupfEpsilon,
@@ -650,6 +674,12 @@ void _printUsage() {
   stdout.writeln(
     '       [--schupf-extended] [--opponent-schupf-extended]  '
     '(schupf candidates: partner may get a weak card)',
+  );
+  stdout.writeln(
+    '       [--schupf-all] [--opponent-schupf-all]  (the schupf net scores every pass)',
+  );
+  stdout.writeln(
+    '       [--schupf-label-all]  (schupf labels sample every pass)',
   );
   stdout.writeln(
     '       [--schupf-label-extended]  (only the schupf labels use them)',

@@ -79,6 +79,7 @@ Future<void> main(List<String> args) async {
     simdInference: config.simd,
     style: config.style,
     schupfExtended: config.schupfExtended,
+    schupfAll: config.schupfAll,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig
@@ -94,6 +95,7 @@ Future<void> main(List<String> args) async {
     simdInference: config.simd,
     style: config.opponentStyle,
     schupfExtended: config.opponentSchupfExtended,
+    schupfAll: config.opponentSchupfAll,
   );
   final opponentFactory = opponentConfig
       .withEndgameSearch(config.opponentEndgameSearch)
@@ -168,6 +170,7 @@ Future<void> main(List<String> args) async {
     schupfCandidates: config.schupfCandidates,
     recordGames: config.recordGames,
     schupfExtended: config.schupfExtended || config.schupfLabelExtended,
+    schupfLabelAll: config.schupfLabelAll,
     pimcWorlds: config.pimcWorlds,
     endgameSearcher:
         config.endgameSearch != null || config.opponentEndgameSearch != null

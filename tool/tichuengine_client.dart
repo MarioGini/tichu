@@ -726,6 +726,10 @@ Future<void> _setUp(Api api, String table, String strength) async {
     'team': 'ns',
     'conventions': {'opp_trade_convention': 0, 'partner_trade_convention': 3},
   });
+  // No out-of-turn bombs on our tables, so no bomb window to wait out.
+  await api.call('POST', '/api/table/$table/update_settings', {
+    'bomb_window': 'None',
+  });
   await api.call('POST', '/api/table/$table/start', {});
 }
 
@@ -778,8 +782,8 @@ Future<Map<String, Object?>> _play(
       idle = 0;
     } else {
       idle++;
-      if (idle > 600) throw StateError('Table $table stalled');
-      await Future<void>.delayed(const Duration(milliseconds: 700));
+      if (idle > 2400) throw StateError('Table $table stalled');
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
   }
 }

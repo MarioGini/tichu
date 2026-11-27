@@ -50,6 +50,35 @@ How to read these:
 - **Access**: none. There is no code, and the website is not reachable
   from our sandbox.
 
+#### His schupf, reverse-engineered
+
+From 861 passes of his Grandmaster bots: 477 at our tables, and 384 from
+all-bot reference games of the duplicate sets we played. The hand
+histories show each seat's 14 cards and the 3 it passed.
+
+- **Opponents get low cards only.** Mostly 2s and 3s, nothing above a
+  Jack. The Mah Jong, Phoenix and Dragon never go to an opponent, the Dog
+  7 times in 861 passes (ours: 25 times in 159).
+- **A parity convention for the opponents.** With "odd left", seat+1 gets
+  an odd rank (59 %) and seat+3 an even one (88 %); "even left" is the
+  mirror. Within the parity it is the lowest card 58 % of the time, so
+  hand shape also counts.
+- **The partner card is a signal.** Under the "2+HC odd" convention, HC
+  is Aces, Dragon and Phoenix.
+  - With 2 or more HC, the partner gets an **odd** card (160 odd,
+    16 even).
+  - With fewer, it gets an **even** card, usually the passer's highest
+    even card (106 of 140).
+  - A hand with a single HC often gives that card itself: Phoenix 40,
+    Dragon 12.
+
+  The partner learns how strong the passer is, for calls and for who
+  takes control. Our bot sends no such signal, and our play net was never
+  trained to read one.
+- **Conventions are table settings** ("free choice", "2+HC odd/even/low",
+  "give 1 HC", "ternary"). His bots play to whichever is declared, so they
+  are trained with the convention as an input.
+
 ### 2. ainze/tichu (code public, weights not)
 
 - **How it works**:

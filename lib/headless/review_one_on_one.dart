@@ -1,8 +1,8 @@
 // Reviews every one-on-one endgame decision of a bot against exact values.
 //
 //   dart compile exe lib/headless/review_one_on_one.dart -o build/bin/review_1v1
-//   build/bin/review_1v1 --nn-policy=assets/bots/tichu_q_v8.safetensors \
-//       --schupf-net=assets/bots/tichu_schupf_v4.safetensors \
+//   build/bin/review_1v1 --nn-policy=assets/bots/tichu_q_v10.safetensors \
+//       --schupf-net=assets/bots/tichu_schupf_v5.safetensors --schupf-extended \
 //       --episodes=50 --seed=1 [--search] [--max-cards=10] --output=1v1.jsonl
 //
 // Self-play of the configured bot (the app's bot with --search). At every

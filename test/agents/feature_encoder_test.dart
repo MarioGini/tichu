@@ -494,30 +494,5 @@ void main() {
       isPass: true,
     );
     expect(pass.sublist(o, o + 3), [0.25, 1 / 7, 1.0]);
-
-    // Nets of older layouts: the claim features stay zero.
-    final legacy = FeatureEncoder(
-      snapshot: snap,
-      playerId: aiTestSelfId,
-      claims: false,
-    );
-    expect(legacy.stateFeatures[slot('claim', 2)], 0.0);
-    expect(
-      legacy
-          .actionFeatures(TichuTurn(TurnType.single, [five]))
-          .sublist(o, o + 3),
-      [0.0, 0.0, 0.0],
-    );
-    // Everything else is identical.
-    expect(
-      legacy.stateFeatures.sublist(0, claimOffset),
-      f.sublist(0, claimOffset),
-    );
-    expect(
-      legacy
-          .actionFeatures(TichuTurn(TurnType.single, [five]))
-          .sublist(0, legacyActionFeatureCount),
-      afterFive.sublist(0, legacyActionFeatureCount),
-    );
   });
 }

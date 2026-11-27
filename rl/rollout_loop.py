@@ -50,9 +50,9 @@ scores the extended candidate set, in play, duels and labels.
 Everything is written to ``--out-dir`` and every step is skipped when its
 output already exists, so the loop can simply be restarted after a crash.
 
-  rl/.venv/bin/python rl/rollout_loop.py --out-dir=rl/outputs/v8 --iterations=3 \
-      --init-policy=assets/bots/tichu_q_v8.safetensors \
-      --opponent-nets=rl/outputs/bench/v6.safetensors --upload-run=v8
+  rl/.venv/bin/python rl/rollout_loop.py --out-dir=rl/outputs/v11 --iterations=3 \
+      --init-policy=assets/bots/tichu_q_v10.safetensors \
+      --opponent-nets=assets/bots/tichu_q_v10.safetensors --upload-run=v11
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ def duel(a: list[str], b: list[str], *, deals: int, seed: int, shards: int) -> d
 from headless_runner import run_headless_sharded
 
 RL = Path(__file__).resolve().parent
-SCHUPF = "assets/bots/tichu_schupf_v4.safetensors"
+SCHUPF = "assets/bots/tichu_schupf_v5.safetensors"
 
 
 # The file the latest generate() call wrote (None if it already existed).
@@ -353,7 +353,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Rollout policy iteration for the play net")
     p.add_argument("--iterations", type=int, default=3)
     p.add_argument("--out-dir", default=str(RL / "outputs" / "rollout_loop"))
-    p.add_argument("--init-policy", default="assets/bots/tichu_q_v8.safetensors")
+    p.add_argument("--init-policy", default="assets/bots/tichu_q_v10.safetensors")
     p.add_argument(
         "--mixed-episodes",
         type=int,
@@ -406,8 +406,11 @@ def main() -> None:
     p.add_argument("--gate", choices=["best", "panel"], default="best")
     p.add_argument("--schupf-episodes", type=int, default=0, help="schupf retrain after a promotion (0 = off)")
     p.add_argument("--schupf-chunk", type=int, default=250)
-    p.add_argument("--schupf-extended", action="store_true",
-                   help="the learner's schupf net scores the extended candidate set (labels too)")
+    p.add_argument("--schupf-extended", action=argparse.BooleanOptionalAction, default=True,
+                   help="the learner's schupf net scores the extended candidate set (labels too); "
+                        "the shipped schupf net needs it")
+    p.add_argument("--opponent-schupf-extended", action=argparse.BooleanOptionalAction, default=True,
+                   help="the --opponent-schupf-net scores the extended candidate set")
     p.add_argument("--schupf-label-run", default="",
                    help="store run with worker schupf labels (data_worker.py --mode=schupf): the schupf "
                         "net is retrained from them after every iteration instead of after promotions")
@@ -472,6 +475,8 @@ def main() -> None:
     if args.schupf_net and args.schupf_extended:
         own_schupf.append("--schupf-extended")
     opp_schupf = [f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else []
+    if args.opponent_schupf_net and args.opponent_schupf_extended:
+        opp_schupf.append("--opponent-schupf-extended")
     # The candidate and the best net play the duel with the same schupf.
     best_schupf = [f"--opponent-schupf-net={args.schupf_net}"] if args.schupf_net else []
     if args.schupf_net and args.schupf_extended:

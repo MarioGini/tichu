@@ -20,8 +20,8 @@ solver), duplicate duels on fresh deals, matches to 1000:
 | v10 + schupf v5 | both sides, as in the app | **63.7 % ± 1.4**, +176 per match (480 deals x 2) |
 | v10 net only | none, both sides | 60–62 % (600 deals x 2, loop gate) |
 
-The previous nets (`tichu_q_v8`, `tichu_schupf_v4`) stay in `assets/bots/`
-as baselines for duels and the training loop; they are no longer bundled.
+Only nets of the current feature layout run, so `assets/bots/` holds just
+the shipped nets; duels and the training loop use them as the baseline.
 All training data and earlier nets are in Supabase Storage
 (`rl/training_data_store.py list`, `download --run=<run>`). Removed nets
 remain available in git history.

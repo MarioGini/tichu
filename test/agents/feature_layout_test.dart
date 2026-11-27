@@ -76,39 +76,26 @@ void main() {
       expect(totalFeatureCount, offset);
     });
 
-    test('older layouts are prefixes of the current one', () {
+    test('action part: base, claim and beatability features', () {
       final names = {
         for (final g in groups)
           g['name'] as String: (g['features'] as List).cast<String>(),
       };
       final action = names['action']!;
-      // v7 appends the after-action claim features to the old 51.
-      expect(
-        action.sublist(0, legacyActionFeatureCount).last,
-        'after_low_singles',
-      );
+      // The base features end with the hand shape after the action.
+      expect(action[actionClaimOffset - 1], 'after_low_singles');
       expect(action.sublist(actionClaimOffset, actionBeatOffset), [
         'after_claim_min_beatable',
         'after_claim_unbeatable',
         'after_claimable',
       ]);
-      // v9 appends the graded beatability features.
+      // Then the graded beatability features.
       expect(action.sublist(actionBeatOffset), [
         'beaters',
         'single_beat_share',
         'left_can_answer',
         'right_can_answer',
       ]);
-      expect(playNetLayout(totalFeatureCount), (
-        state: stateFeatureCount,
-        action: actionFeatureCount,
-      ));
-      expect(playNetLayout(427), (state: 373, action: 54));
-      expect(playNetLayout(376), (state: 322, action: 54));
-      expect(playNetLayout(319), (state: 268, action: 51));
-      expect(playNetLayout(318), (state: 267, action: 51));
-      expect(playNetLayout(252), (state: 201, action: 51));
-      expect(playNetLayout(320), isNull);
     });
   });
 }

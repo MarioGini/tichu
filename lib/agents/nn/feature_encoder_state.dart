@@ -51,7 +51,7 @@ extension _StateEncoding on FeatureEncoder {
         snapshot.currentPlayerId != playerId) {
       f[turnOffset] = 1.0;
     }
-    if (claims && _k.isTracking) {
+    if (_k.isTracking) {
       ClaimResult.writeScore(_handClaim, f, claimOffset);
     }
     _encodeReceived(f);

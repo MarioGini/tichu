@@ -5,35 +5,13 @@ import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/wasm_mlp_kernel.dart';
+import 'package:tichu/agents/shipped_bots.dart';
 import 'package:tichu/services/local/search_workers.dart';
 
-/// The bots the app plays with. [load] is called once at startup; until
-/// then (and in tests, or if loading fails) bots use the heuristic.
+/// The bots the app plays with ([ShippedBots]). [load] is called once at
+/// startup; until then (and in tests, or if loading fails) bots use the
+/// heuristic.
 abstract final class AppBots {
-  /// Trained play policy (rl/models/README.md): v10, schema v9 inputs.
-  /// With [schupfAsset] and the belief search it beats the previous bot
-  /// (v8 + schupf v4 + search <= 8) 63.7 %. Calls stay heuristic.
-  static const playPolicyAsset = 'assets/bots/tichu_q_v10.safetensors';
-
-  /// Learned schupf v5 (rl/schupf_cf_train.py) on the extended candidate
-  /// set.
-  static const schupfAsset = 'assets/bots/tichu_schupf_v5.safetensors';
-  static const schupfExtended = true;
-
-  /// Card-location model (rl/belief_train.py): the endgame search re-deals
-  /// its worlds with it instead of uniformly.
-  static const beliefAsset = 'assets/bots/tichu_belief_v1.safetensors';
-
-  /// Decision-time endgame search and one-on-one solver for the app bots
-  /// (rl/README.md, "Search at decision time"). Flip to switch it off.
-  /// ~70 ms per searched decision natively (more on phones and the web).
-  static const useEndgameSearch = true;
-  static const endgameSearch = EndgameSearch(
-    maxCards: 12,
-    solveOneOnOne: true,
-    beliefWorlds: true,
-  );
-
   static BotConfig current = BotConfig.heuristic;
 
   /// The searcher's card-location model; null until [load] (uniform worlds).
@@ -45,16 +23,16 @@ abstract final class AppBots {
 
   /// Short description of the current bots, stored in game records.
   static String describe() => current.play != null
-      ? 'play: $playPolicyAsset; schupf: $schupfAsset; '
+      ? 'play: ${ShippedBots.playPolicyAsset}; schupf: ${ShippedBots.schupfAsset}; '
             '${current.endgameSearch != null ? 'endgame search; ' : ''}'
             'calls, dragon: heuristic'
       : 'heuristic';
 
   static Future<void> load() async {
     try {
-      final play = await rootBundle.load(playPolicyAsset);
-      final schupf = await rootBundle.load(schupfAsset);
-      final beliefBytes = await rootBundle.load(beliefAsset);
+      final play = await rootBundle.load(ShippedBots.playPolicyAsset);
+      final schupf = await rootBundle.load(ShippedBots.schupfAsset);
+      final beliefBytes = await rootBundle.load(ShippedBots.beliefAsset);
       // The web: the play net's wasm SIMD kernel (`web_kernel/`).
       final kernelBytes = kIsWeb ? await fetchWasmKernel() : null;
       final playScorer = kernelBytes == null
@@ -66,7 +44,7 @@ abstract final class AppBots {
       current = BotConfig(
         play: LoadedNet.fromBytes(play.buffer.asUint8List()),
         schupf: LoadedNet.fromBytes(schupf.buffer.asUint8List()),
-        schupfExtended: schupfExtended,
+        schupfExtended: ShippedBots.schupfExtended,
         // Float32 SIMD (NEON on phones, SSE on desktop): ~3x faster, as
         // in the headless duels that evaluated these bots. On the web
         // Float32x4 is emulated and slower, so the web keeps float64.
@@ -74,9 +52,11 @@ abstract final class AppBots {
         // The web: float32 x4 in the wasm kernel (dart2js emulates
         // Float32x4); float64 in Dart where the browser lacks wasm SIMD.
         playScorer: playScorer,
-        endgameSearch: useEndgameSearch ? endgameSearch : null,
+        endgameSearch: ShippedBots.useEndgameSearch
+            ? ShippedBots.endgameSearch
+            : null,
       );
-      searchWorkers = useEndgameSearch
+      searchWorkers = ShippedBots.useEndgameSearch
           ? await startSearchWorkers(
               current,
               SearchWorkerAssets(

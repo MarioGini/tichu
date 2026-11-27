@@ -236,18 +236,39 @@ List<List<int>> dealtHands(String log) {
   ];
 }
 
-/// One replayed action: its [seat], readable [text] and every seat's hand
-/// (card indices) right after it.
+/// What a [RoundLogStep] does.
+enum RoundLogKind { grandTichu, tichu, schupf, play, pass, dragonGift }
+
+/// One replayed action: its [seat], [kind], readable [text] and every
+/// seat's hand (card indices) right after it.
 class RoundLogStep {
   const RoundLogStep({
     required this.seat,
+    required this.kind,
     required this.text,
     required this.hands,
+    this.cards = const [],
+    this.wish = CardFace.none,
+    this.target,
+    this.phoenixAs,
   });
 
   final int seat;
+  final RoundLogKind kind;
   final String text;
   final List<List<int>> hands;
+
+  /// The cards played, or passed in the schupf (left, partner, right).
+  final List<int> cards;
+
+  /// The rank wished with the MahJong.
+  final CardFace wish;
+
+  /// The seat that receives the Dragon trick.
+  final int? target;
+
+  /// The rank the Phoenix stands for in a played combination.
+  final CardFace? phoenixAs;
 }
 
 /// Replays a stored round ([RoundLog.encode]); [names] are the players by
@@ -262,11 +283,24 @@ List<RoundLogStep> replayRoundLog(String log, List<String> names) {
     }
   }
   final steps = <RoundLogStep>[];
-  void step(int seat, String text) => steps.add(
+  void step(
+    int seat,
+    RoundLogKind kind,
+    String text, {
+    List<int> cards = const [],
+    CardFace wish = CardFace.none,
+    int? target,
+    CardFace? phoenixAs,
+  }) => steps.add(
     RoundLogStep(
       seat: seat,
+      kind: kind,
       text: text,
       hands: [for (final h in hands) List<int>.unmodifiable(h)],
+      cards: List<int>.unmodifiable(cards),
+      wish: wish,
+      target: target,
+      phoenixAs: phoenixAs,
     ),
   );
   String labels(Iterable<int> cards) => cards.map(cardIndexLabel).join(' ');
@@ -284,7 +318,11 @@ List<RoundLogStep> replayRoundLog(String log, List<String> names) {
   while (!r.done && (r.peek == '^' || r.peek == '*')) {
     final grand = r.next() == '^';
     final seat = r.seat();
-    step(seat, '${names[seat]} calls ${grand ? 'GRAND TICHU' : 'TICHU'}');
+    step(
+      seat,
+      grand ? RoundLogKind.grandTichu : RoundLogKind.tichu,
+      '${names[seat]} calls ${grand ? 'GRAND TICHU' : 'TICHU'}',
+    );
   }
   if (r.done) return steps;
 
@@ -303,7 +341,9 @@ List<RoundLogStep> replayRoundLog(String log, List<String> names) {
   for (var seat = 0; seat < 4; seat++) {
     step(
       seat,
+      RoundLogKind.schupf,
       '${names[seat]} passes ${labels(passed[seat])} (left, partner, right)',
+      cards: passed[seat],
     );
   }
 
@@ -327,7 +367,7 @@ List<RoundLogStep> replayRoundLog(String log, List<String> names) {
     if (c == '.') {
       r.next();
       final seat = current;
-      step(seat, '${names[seat]} passes');
+      step(seat, RoundLogKind.pass, '${names[seat]} passes');
       current = nextActive(current);
       final winner = lastPlayedBy;
       if (winner != null && trickOpen) {
@@ -338,11 +378,16 @@ List<RoundLogStep> replayRoundLog(String log, List<String> names) {
       r.next();
       final giver = lastPlayedBy ?? current;
       final to = (giver + (c == '<' ? 1 : 3)) % 4;
-      step(giver, '${names[giver]} gives the Dragon trick to ${names[to]}');
+      step(
+        giver,
+        RoundLogKind.dragonGift,
+        '${names[giver]} gives the Dragon trick to ${names[to]}',
+        target: to,
+      );
     } else if (c == '*') {
       r.next();
       final seat = r.seat();
-      step(seat, '${names[seat]} calls TICHU');
+      step(seat, RoundLogKind.tichu, '${names[seat]} calls TICHU');
     } else if (c == ',') {
       r.next();
     } else {
@@ -352,19 +397,35 @@ List<RoundLogStep> replayRoundLog(String log, List<String> names) {
       }
       final seat = current;
       final cards = <int>[];
+      r.phoenixAs = null;
       while (!r.done && r.isCardStart) {
         cards.add(r.card());
       }
       if (cards.isEmpty) throw FormatException('unexpected "${r.peek}"');
-      var wish = '';
+      var wish = CardFace.none;
+      var wishText = '';
       if (!r.done && r.peek == '=') {
         r.next();
-        wish = ', wishes ${r.next()}';
+        final rank = r.next();
+        wish = _rankChars.entries
+            .firstWhere(
+              (e) => e.value == rank,
+              orElse: () => throw FormatException('bad wish "$rank"'),
+            )
+            .key;
+        wishText = ', wishes $rank';
       }
       take(seat, cards);
       if (hands[seat].isEmpty) out.add(seat);
       final wentOut = hands[seat].isEmpty ? ' and is out' : '';
-      step(seat, '${names[seat]} plays ${labels(cards)}$wish$wentOut');
+      step(
+        seat,
+        RoundLogKind.play,
+        '${names[seat]} plays ${labels(cards)}$wishText$wentOut',
+        cards: cards,
+        wish: wish,
+        phoenixAs: r.phoenixAs,
+      );
       if (cards.length == 1 && cards.single == _dog) {
         trickOpen = false;
         lastPlayedBy = null;
@@ -402,13 +463,19 @@ class _Reader {
     return v;
   }
 
+  /// The rank of the last Phoenix read inside a combination (`~r`).
+  CardFace? phoenixAs;
+
   int card() {
     final c = next();
     if (c == '~') {
       final rank = next();
-      if (!_rankChars.containsValue(rank)) {
-        throw FormatException('bad Phoenix rank "$rank"');
-      }
+      phoenixAs = _rankChars.entries
+          .firstWhere(
+            (e) => e.value == rank,
+            orElse: () => throw FormatException('bad Phoenix rank "$rank"'),
+          )
+          .key;
       return _phoenix;
     }
     final index = _cardAlphabet.indexOf(c);

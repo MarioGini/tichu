@@ -219,3 +219,10 @@ SUPABASE_SERVICE_ROLE_KEY=... \
 dart run tool/game_record.dart <game-id> --hands
 dart run tool/game_record.dart --latest
 ```
+
+Analyse one decision of a record (`#N` from the timeline) with the endgame
+search's rollouts and decision rules:
+
+```
+dart run tool/position_search.dart <game-id | round-id> --step 208
+```

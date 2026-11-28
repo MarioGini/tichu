@@ -92,6 +92,7 @@ def main(paths: list[str]) -> None:
                 if m.sum() < 20:
                     continue
                 print(f"    [{lo:5.2f}, {hi:5.2f}): {m.sum():6d}  {cf[m].mean():+7.1f}  {100 * (cf[m] > 0).mean():5.1f} %")
+    promise_report(rows)
     # Pre-schupf vs waiting: for players whose rule calls at the first card.
     pre = {(r["_f"], r["episode"], r["round"], r["seat"]): r for r in rows["pre"]}
     tich = {(r["_f"], r["episode"], r["round"], r["seat"]): r for r in rows["tichu"]}
@@ -101,6 +102,50 @@ def main(paths: list[str]) -> None:
         cfp = np.array([p["cf"] for p, _ in callers])
         print(f"\n=== timing: {len(callers)} hands the rule calls at the first card ===")
         print(f"  calling already before the schupf instead of waiting: mean {cfp.mean():+.1f} ± {cfp.std(ddof=1) / len(cfp) ** 0.5:.1f} pts, better in {100 * (cfp > 0).mean():.1f} %")
+
+
+def promise_bucket(slot: int) -> str:
+    """What a partner card says under 2+ HC Odd (lib/agents/partner_convention.dart)."""
+    if slot in (PH, DR) or (0 <= slot < 52 and slot % 13 == 12):
+        return "1 HC (passed)"
+    if slot in (MJ, DOG) or (0 <= slot < 52 and (slot % 13 + 2) % 2 == 1):
+        return "2+ HC (odd)"
+    return "0 HC (even)"
+
+
+def promise_report(rows: dict[str, list[dict]]) -> None:
+    """Tichu decisions (no call at the table yet) by the partner card's promise.
+
+    Only meaningful for labels from bots with ``--convention=twoHcOdd``. A
+    Grand call by me or the partner turns the convention off, so those rounds
+    are left out (joined from the grand rows of the same round).
+    """
+    grand = {(r["_f"], r["episode"], r["round"], r["seat"]): r["called"] for r in rows["grand"]}
+    by = collections.defaultdict(list)
+    for r in rows["tichu"]:
+        if r["opp_called"] or r["received"][1] < 0:
+            continue
+        key = (r["_f"], r["episode"], r["round"])
+        if grand.get((*key, r["seat"])) or grand.get((*key, (r["seat"] + 2) % 4)):
+            continue
+        by[promise_bucket(r["received"][1])].append(r)
+    if not by:
+        return
+    print("\n=== tichu by the partner card's promise (2+ HC Odd; no call at the table) ===")
+    for name in sorted(by):
+        sub = by[name]
+        cf = np.array([r["cf"] for r in sub], dtype=float)
+        sc = np.array([r["score"] for r in sub], dtype=float)
+        called = np.array([r["called"] for r in sub], dtype=bool)
+        n = len(sub)
+        ths = np.unique(np.quantile(sc, np.linspace(0.3, 0.999, 80)))
+        best = max(ths, key=lambda t: (cf * (sc >= t)).mean())
+        print(f"  {name}: {n} decisions, rule calls {100 * called.mean():.1f} %, "
+              f"value {(cf * called).mean():+.2f} ± {(cf * called).std(ddof=1) / n ** 0.5:.2f}; "
+              f"best threshold {best:.2f} -> {(cf * (sc >= best)).mean():+.2f}, calls {100 * (sc >= best).mean():.1f} %")
+        for t in (-0.6, -0.4, -0.2, -0.1, 0.0, 0.2, 0.4):
+            v = cf * (sc >= t)
+            print(f"    threshold {t:+.1f}: {v.mean():+.2f} ± {v.std(ddof=1) / n ** 0.5:.2f}, calls {100 * (sc >= t).mean():.1f} %")
 
 
 if __name__ == "__main__":

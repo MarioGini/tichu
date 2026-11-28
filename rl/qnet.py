@@ -45,8 +45,11 @@ def select_device() -> torch.device:
     return torch.device("cpu")
 
 
-def load_qnetwork_from_safetensors(path: Path, device: torch.device) -> QNetwork:
-    """Reconstruct a QNetwork and load weights from a previous policy file."""
+def load_qnetwork_from_safetensors(path: Path, device: torch.device, *, belief_inputs: int = 0) -> QNetwork:
+    """Reconstruct a QNetwork and load weights from a previous policy file.
+
+    ``belief_inputs``: also accept a net with that many belief inputs after
+    the state (``rollout_train.py --belief-net``)."""
     from safetensors import safe_open
     from safetensors.torch import load_file as st_load
 
@@ -55,7 +58,7 @@ def load_qnetwork_from_safetensors(path: Path, device: torch.device) -> QNetwork
     layer_sizes = json.loads(meta.get("layer_sizes", "[]"))
     if len(layer_sizes) < 2:
         raise ValueError(f"{path}: invalid layer_sizes={layer_sizes}")
-    if layer_sizes[0] != TOTAL_FEATURE_COUNT:
+    if layer_sizes[0] not in (TOTAL_FEATURE_COUNT, TOTAL_FEATURE_COUNT + belief_inputs):
         raise ValueError(
             f"{path}: input_dim={layer_sizes[0]} != current TOTAL_FEATURE_COUNT={TOTAL_FEATURE_COUNT}"
         )
@@ -63,7 +66,7 @@ def load_qnetwork_from_safetensors(path: Path, device: torch.device) -> QNetwork
         raise ValueError(f"{path}: output_dim={layer_sizes[-1]} != 1")
 
     hidden = list(layer_sizes[1:-1])
-    model = QNetwork(TOTAL_FEATURE_COUNT, hidden)
+    model = QNetwork(layer_sizes[0], hidden)
 
     incoming = st_load(str(path))
     # Map model.net's Linear modules in order to safetensors layer.{i}.* keys.

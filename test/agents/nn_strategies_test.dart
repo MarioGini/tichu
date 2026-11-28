@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
@@ -10,6 +11,56 @@ import 'package:tichu/game/turn/tichu_data.dart';
 import 'ai_test_fixtures.dart';
 
 void main() {
+  group('belief inputs', () {
+    final belief = BeliefModel(
+      Mlp(layerSizes: [stateFeatureCount, 8, 56 * 3], seed: 9),
+    );
+    const withBelief =
+        totalFeatureCount + NnPlaySelectionStrategy.beliefInputCount;
+    test('a belief-input net needs the belief model, and vice versa', () {
+      expect(
+        () => NnPlaySelectionStrategy(
+          playerId: aiTestSelfId,
+          network: Mlp(layerSizes: [withBelief, 1], seed: 1),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => NnPlaySelectionStrategy(
+          playerId: aiTestSelfId,
+          network: Mlp(layerSizes: [totalFeatureCount, 1], seed: 1),
+          belief: belief,
+        ),
+        throwsArgumentError,
+      );
+    });
+    test('the belief follows the state in the scored input', () {
+      // A 599-input net scores through the state + belief prefix (the
+      // zero-weight warm start's equivalence is tested in Python).
+      final snap = aiSnapshot(
+        myHand: [
+          Card(CardFace.two, CardColor.red),
+          Card(CardFace.king, CardColor.green),
+        ],
+        otherHands: const {},
+      );
+      final plays = [
+        for (final c in snap.hands[aiTestSelfId]!)
+          TichuTurn(TurnType.single, [c]),
+      ];
+      final strategy = NnPlaySelectionStrategy(
+        playerId: aiTestSelfId,
+        network: Mlp(layerSizes: [withBelief, 1], seed: 2),
+        belief: belief,
+      );
+      final q = strategy.qValues(snap, plays);
+      expect(q, hasLength(2));
+      expect(q.every((v) => v.isFinite), isTrue);
+      final p = belief.holderProbabilities(snap, aiTestSelfId);
+      expect(p, hasLength(56));
+    });
+  });
+
   test('nets of other input sizes are rejected', () {
     // 376: the v8 layout, no longer supported.
     for (final size in [376, 320]) {

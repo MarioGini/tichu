@@ -2,13 +2,18 @@ import 'dart:math';
 
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/endgame_solver.dart';
+import 'package:tichu/agents/halving_search.dart';
+import 'package:tichu/agents/match_utility.dart';
 import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
+import 'package:tichu/agents/nn/value_model.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/bomb_utils.dart';
@@ -61,7 +66,41 @@ class EndgameSearch {
   /// and strictly better in [minBetterWorlds].
   final bool expectedValue;
 
+  /// Rollouts per searched decision for [sequentialHalving] (0 = off: the
+  /// fixed [worlds] x [maxActions] grid). The budget flows to the moves
+  /// still in contention, so a search can afford more candidates
+  /// ([maxActions]) and larger hands ([maxCards]).
+  final int halvingBudget;
+
+  /// Weight of the net's Q (round points) in the halving score: pulls
+  /// few-sample means toward the net (0 = samples only).
+  final double priorWeight;
+
+  /// A halving challenger must beat the policy's move by this many standard
+  /// errors of the paired difference, besides [margin] (0 = margin only).
+  final double minZ;
+
+  /// Truncated rollouts: stop each playout at the first turn after this
+  /// many actions and let the value net ([EndgameSearcher.value]) estimate
+  /// the rest of the round (null = play to the end). Halving search only.
+  final int? leafAfter;
+
+  /// Score rollouts in match-win probability ([MatchUtility], in points of
+  /// equal value at the current score) instead of round points. Halving
+  /// search only.
+  final bool matchUtility;
+
+  /// The searching team's partner-passing convention: worlds must keep the
+  /// partner's high-card promise ([conventionAccept]).
+  final PartnerConvention partnerConvention;
+
   const EndgameSearch({
+    this.partnerConvention = PartnerConvention.none,
+    this.halvingBudget = 0,
+    this.priorWeight = 0,
+    this.minZ = 0,
+    this.leafAfter,
+    this.matchUtility = false,
     this.worlds = 8,
     this.maxCards = 5,
     this.margin = 10,
@@ -89,7 +128,19 @@ class EndgameSearch {
     bool? bombStrata,
     int? bombProbes,
     bool? expectedValue,
+    int? halvingBudget,
+    double? priorWeight,
+    double? minZ,
+    int? leafAfter,
+    bool? matchUtility,
+    PartnerConvention? partnerConvention,
   }) => EndgameSearch(
+    partnerConvention: partnerConvention ?? this.partnerConvention,
+    halvingBudget: halvingBudget ?? this.halvingBudget,
+    priorWeight: priorWeight ?? this.priorWeight,
+    minZ: minZ ?? this.minZ,
+    leafAfter: leafAfter ?? this.leafAfter,
+    matchUtility: matchUtility ?? this.matchUtility,
     worlds: worlds ?? this.worlds,
     maxCards: maxCards ?? this.maxCards,
     margin: margin ?? this.margin,
@@ -110,7 +161,9 @@ class EndgameSearch {
       'margin: $margin, maxActions: $maxActions, '
       'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget, '
       'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata, '
-      'expectedValue: $expectedValue)';
+      'expectedValue: $expectedValue, halvingBudget: $halvingBudget, '
+      'priorWeight: $priorWeight, minZ: $minZ, leafAfter: $leafAfter, '
+      'matchUtility: $matchUtility, partnerConvention: $partnerConvention)';
 }
 
 /// The decision rule: index of the action to play given rollout values
@@ -205,7 +258,27 @@ Deal dealUnseen(
   Random random, {
   bool canonicalPool = true,
   List<List<double>>? holders,
+  bool Function(Deal deal)? accept,
+  int tries = 64,
 }) {
+  if (accept != null) {
+    // Rejection sampling; the last deal when none is accepted (a promise
+    // the deal cannot keep, e.g. an opponent passed the partner a high
+    // card).
+    if (tries < 1) throw ArgumentError.value(tries, 'tries', 'at least 1');
+    late Deal deal;
+    for (var t = 0; t < tries; t++) {
+      deal = dealUnseen(
+        state,
+        actorId,
+        random,
+        canonicalPool: canonicalPool,
+        holders: holders,
+      );
+      if (accept(deal)) return deal;
+    }
+    return deal;
+  }
   final actor = state.players.firstWhere((p) => p.id == actorId);
   String idAt(int offset) =>
       state.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
@@ -289,6 +362,51 @@ Deal dealUnseen(
   return result;
 }
 
+/// The deals that keep the partner's high-card promise under [convention]
+/// (null when there is none to keep): the partner's high cards after the
+/// schupf, i.e. those in their hand in the deal and those they played this
+/// round, minus the ones [actorId] passed them, must match what the card
+/// they passed [actorId] promised.
+///
+/// High cards the opponents passed the partner are unknown and counted as
+/// the partner's own. When the cards the partner already played break an
+/// upper bound (an opponent must have passed them a high card), the promise
+/// cannot be read any more and there is no filter.
+bool Function(Deal deal)? conventionAccept(
+  GameEngineState state,
+  String actorId,
+  PartnerConvention convention,
+) {
+  if (convention == PartnerConvention.none) return null;
+  final actor = state.players.firstWhere((p) => p.id == actorId);
+  final partner = state.players.firstWhere(
+    (p) => p.seat == (actor.seat + 2) % 4,
+  );
+  final calls = state.scoreTracker.state.tichuCalls;
+  if (!convention.appliesTo(
+    calls[partner.id] ?? TichuCall.none,
+    calls[actorId] ?? TichuCall.none,
+  )) {
+    return null;
+  }
+  final received = state.completedSchupfSelections[partner.id]?.toPartner;
+  if (received == null) return null;
+  final promise = convention.promise(received);
+  final played = PartnerConvention.highCards([
+    for (final e in state.roundLog)
+      if (e.playerId == partner.id) ...e.cards,
+  ]);
+  final given = state.completedSchupfSelections[actorId]?.toPartner;
+  final gift = given != null && PartnerConvention.isHighCard(given) ? 1 : 0;
+  if (!PartnerConvention.keepsSoFar(promise, played - gift)) return null;
+  return (deal) => PartnerConvention.keeps(
+    promise,
+    PartnerConvention.highCards(deal[partner.id] ?? const <Card>[]) +
+        played -
+        gift,
+  );
+}
+
 /// Plays worlds out somewhere else (the app: worker isolates that hold the
 /// rollout bots). [rollOut] returns what [EndgameSearcher.rollOutWorlds]
 /// returns for the same arguments.
@@ -351,11 +469,20 @@ class EndgameSearcher {
   /// before, so the result does not depend on it.
   final RolloutWorkers? workers;
 
+  /// Perfect-information value net for truncated rollouts
+  /// ([EndgameSearch.leafAfter]).
+  final ValueModel? value;
+
+  /// Match-win model for [EndgameSearch.matchUtility].
+  final MatchUtility matchModel;
+
   EndgameSearcher({
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
     this.belief,
     this.workers,
+    this.value,
+    this.matchModel = const MatchUtility(),
   });
 
   /// The action to play instead of [chosen] (which [agent] picked in
@@ -432,6 +559,19 @@ class EndgameSearcher {
         chosenIndex: chosenIndex,
         maxActions: config.maxActions,
       );
+      if (config.halvingBudget > 0) {
+        return await _halving(
+          state: state,
+          snapshot: snapshot,
+          agent: agent,
+          config: config,
+          turns: turns,
+          canPass: options.canPass,
+          indices: indices,
+          chosenIndex: chosenIndex,
+          chosen: chosen,
+        );
+      }
       final actions = <int, GameAction>{
         for (final i in indices)
           i: i == chosenIndex
@@ -445,12 +585,23 @@ class EndgameSearcher {
       final holders = config.beliefWorlds && belief != null
           ? belief!.holderProbabilities(snapshot, playerId)
           : null;
+      final accept = conventionAccept(
+        state,
+        playerId,
+        config.partnerConvention,
+      );
       final (deals, weights) = config.bombStrata
-          ? _bombStrataDeals(state, playerId, random, holders, config)
+          ? _bombStrataDeals(state, playerId, random, holders, config, accept)
           : (
               [
                 for (var w = 0; w < config.worlds; w++)
-                  dealUnseen(state, playerId, random, holders: holders),
+                  dealUnseen(
+                    state,
+                    playerId,
+                    random,
+                    holders: holders,
+                    accept: accept,
+                  ),
               ],
               null,
             );
@@ -470,6 +621,138 @@ class EndgameSearcher {
     } finally {
       stopwatch.stop();
     }
+  }
+
+  /// The [EndgameSearch.halvingBudget] search: [sequentialHalving] over
+  /// the candidate [indices] (into [turns], then pass), each evaluated by a
+  /// playout in belief-weighted re-deals, optionally truncated by the value
+  /// net and scored in match utility.
+  Future<GameAction> _halving({
+    required GameEngineState state,
+    required GameSnapshot snapshot,
+    required SmartAiAgent agent,
+    required EndgameSearch config,
+    required List<TichuTurn> turns,
+    required bool canPass,
+    required List<int> indices,
+    required int chosenIndex,
+    required GameAction chosen,
+  }) async {
+    final playerId = agent.playerId;
+    final team = state.players[state.currentPlayerIndex].seat % 2;
+    final actions = [
+      for (final i in indices)
+        if (i == chosenIndex)
+          chosen
+        else if (i >= turns.length)
+          PassAction(playerId: playerId)
+        else
+          agent.playActionFor(snapshot, turns[i]),
+    ];
+    final strategy = agent.playSelectionStrategy;
+    final q = strategy is NnPlaySelectionStrategy
+        ? strategy.pointValues(snapshot, turns, canPass: canPass)
+        : null;
+    final random = Random(searchSeed(state, playerId));
+    final holders = config.beliefWorlds && belief != null
+        ? belief!.holderProbabilities(snapshot, playerId)
+        : null;
+    final deals = <Deal>[];
+    final accept = conventionAccept(state, playerId, config.partnerConvention);
+    final value = this.value;
+    final leafAfter = config.leafAfter;
+    if (leafAfter != null && value == null) {
+      throw StateError('leafAfter needs a value net');
+    }
+    final score = state.scoreTracker.state;
+    final usTotal = (team == 0 ? score.teamOneTotal : score.teamTwoTotal)
+        .toDouble();
+    final themTotal = (team == 0 ? score.teamTwoTotal : score.teamOneTotal)
+        .toDouble();
+    (double, double) leaf(GameEngineState s, String id) {
+      final estimate = value!.estimate(simulationEngine.buildSnapshot(s), id);
+      final seat = s.players.firstWhere((p) => p.id == id).seat;
+      return seat.isEven
+          ? (estimate.us, estimate.them)
+          : (estimate.them, estimate.us);
+    }
+
+    // Full rollouts scored in points: the same as the grid search, so they
+    // go to the workers (the app's isolates / web workers) when there are
+    // any. Truncated or match-utility rollouts run here.
+    final plain = leafAfter == null && !config.matchUtility;
+
+    Future<double?> playOne(GameEngineState world, int k) async {
+      final fork = world.copy();
+      final agents = {
+        for (final p in fork.players) p.id: rolloutAgent(p.id, p.seat),
+      };
+      simulationEngine.applyAction(fork, _copyAction(actions[k]));
+      final points = await playOutRoundPoints(
+        fork,
+        agents,
+        leafAfter: leafAfter ?? 0,
+        leaf: leafAfter == null ? null : leaf,
+      );
+      if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
+      if (points == null) return null;
+      final (us, them) = team == 0 ? points : (points.$2, points.$1);
+      return config.matchUtility
+          ? matchModel.pointsEquivalent(
+              us: usTotal,
+              them: themTotal,
+              usRound: us,
+              themRound: them,
+              target: score.targetScore,
+            )
+          : us - them;
+    }
+
+    Future<List<List<double?>>> evaluate(
+      List<int> worlds,
+      List<int> which,
+    ) async {
+      final last = worlds.isEmpty ? -1 : worlds.reduce(max);
+      while (deals.length <= last) {
+        deals.add(
+          dealUnseen(state, playerId, random, holders: holders, accept: accept),
+        );
+      }
+      rollouts += worlds.length * which.length;
+      if (plain) {
+        final values = await _rollOutWorlds(
+          state,
+          [for (final w in worlds) deals[w]],
+          {for (final k in which) k: actions[k]},
+          actions.length,
+          team,
+        );
+        return [
+          for (final row in values) [for (final k in which) row[k]],
+        ];
+      }
+      final rows = <List<double?>>[];
+      for (final w in worlds) {
+        final world = state.copy();
+        deals[w].forEach((id, hand) => world.hands[id] = hand);
+        rows.add([for (final k in which) await playOne(world, k)]);
+      }
+      return rows;
+    }
+
+    final result = await sequentialHalving(
+      count: indices.length,
+      incumbent: indices.indexOf(chosenIndex),
+      budget: config.halvingBudget,
+      evaluate: evaluate,
+      prior: q == null ? null : [for (final i in indices) q[i]],
+      priorWeight: config.priorWeight,
+      margin: config.margin,
+      minZ: config.minZ,
+    );
+    if (result.pick == indices.indexOf(chosenIndex)) return chosen;
+    switches++;
+    return actions[result.pick];
   }
 
   /// `values[world][action]`: the round result for [team] after each of
@@ -556,11 +839,18 @@ class EndgameSearcher {
     Random random,
     List<List<double>>? holders,
     EndgameSearch config,
+    bool Function(Deal deal)? accept,
   ) {
     final bomb = <Deal>[];
     final plain = <Deal>[];
     for (var i = 0; i < config.bombProbes; i++) {
-      final hands = dealUnseen(state, playerId, random, holders: holders);
+      final hands = dealUnseen(
+        state,
+        playerId,
+        random,
+        holders: holders,
+        accept: accept,
+      );
       (hands.values.any(hasBombInHand) ? bomb : plain).add(hands);
     }
     if (bomb.isEmpty || plain.isEmpty) {

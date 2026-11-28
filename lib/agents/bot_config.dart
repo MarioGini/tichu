@@ -2,12 +2,17 @@ import 'dart:typed_data';
 
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/heuristic_options.dart';
+import 'package:tichu/agents/nn/belief_model.dart';
+import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
+import 'package:tichu/agents/partner_convention.dart';
+import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/player_agent.dart';
 
 /// A loaded network plus the denormalisation from its safetensors metadata.
@@ -53,6 +58,19 @@ class BotConfig {
   /// [SchupfFeatures.candidates]).
   final bool schupfExtended;
 
+  /// Heuristic call thresholds (used when no call net is given).
+  final DefaultTichuCallStrategy calls;
+
+  /// Card-location net (`rl/belief_train.py`) for a play net trained with
+  /// belief inputs (`rollout_train.py --belief-net`); ignored by a play net
+  /// without them.
+  final LoadedNet? belief;
+
+  /// Partner-passing convention of the learned schupf (needs [schupf]);
+  /// the team's search reads its partner's promise via
+  /// [EndgameSearch.partnerConvention].
+  final PartnerConvention partnerConvention;
+
   /// Heuristic rules used for everything not covered by a learned net.
   final HeuristicOptions heuristicOptions;
 
@@ -81,6 +99,9 @@ class BotConfig {
     this.preSchupfTichu,
     this.schupf,
     this.schupfExtended = false,
+    this.partnerConvention = PartnerConvention.none,
+    this.belief,
+    this.calls = const DefaultTichuCallStrategy(),
     this.callMargin = 0,
     this.simdInference = false,
     this.style = StyleBias.none,
@@ -97,6 +118,9 @@ class BotConfig {
     preSchupfTichu: preSchupfTichu,
     schupf: schupf,
     schupfExtended: schupfExtended,
+    partnerConvention: partnerConvention,
+    belief: belief,
+    calls: calls,
     callMargin: callMargin,
     simdInference: simdInference,
     style: style,
@@ -104,6 +128,19 @@ class BotConfig {
     endgameSearch: search,
     playScorer: playScorer,
   );
+
+  /// The belief model the play net reads, if it was trained with one.
+  BeliefModel? _playBelief(LoadedNet play) {
+    if (play.network.inputSize == totalFeatureCount) return null;
+    final belief = this.belief;
+    if (belief == null) {
+      throw ArgumentError(
+        'The play net takes belief inputs; pass the belief net it was '
+        'trained with.',
+      );
+    }
+    return BeliefModel(belief.network);
+  }
 
   /// The pure heuristic bot.
   static const heuristic = BotConfig();
@@ -126,10 +163,11 @@ class BotConfig {
               scorerFactory: playScorer,
               style: style,
               outputScale: play.targetStd,
+              belief: _playBelief(play),
             )),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null
-          ? null
+          ? calls
           : NnTichuCallStrategy(
               tichuNetwork: tichu?.network,
               grandTichuNetwork: grandTichu?.network,
@@ -137,11 +175,16 @@ class BotConfig {
               grandTichuScale: grandTichu?.targetStd ?? 100,
               preSchupfTichuNetwork: preSchupfTichu?.network,
               preSchupfTichuScale: preSchupfTichu?.targetStd ?? 100,
+              fallback: calls,
               margin: callMargin,
             ),
       schupfStrategy: schupf == null
-          ? null
-          : NnSchupfStrategy(network: schupf.network, extended: schupfExtended),
+          ? DefaultSchupfStrategy(calls: calls)
+          : NnSchupfStrategy(
+              network: schupf.network,
+              extended: schupfExtended,
+              convention: partnerConvention,
+            ),
     );
   }
 }

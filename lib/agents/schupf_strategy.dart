@@ -13,7 +13,11 @@ abstract class SchupfStrategy {
 }
 
 class DefaultSchupfStrategy implements SchupfStrategy {
-  const DefaultSchupfStrategy();
+  /// The call thresholds that decide whether to keep strong cards (a hand
+  /// the bot will call Tichu with).
+  final DefaultTichuCallStrategy calls;
+
+  const DefaultSchupfStrategy({this.calls = const DefaultTichuCallStrategy()});
 
   @override
   Future<SchupfAction> selectSchupfCards(
@@ -53,8 +57,7 @@ class DefaultSchupfStrategy implements SchupfStrategy {
         id != null && (tichuCalls[id] ?? TichuCall.none) != TichuCall.none;
     // "Going out first" intent: an actual (Grand) Tichu call, or — for me —
     // a hand the heuristic would call Tichu with after the exchange.
-    final selfGoing =
-        called(playerId) || const DefaultTichuCallStrategy().isTichuHand(hand);
+    final selfGoing = called(playerId) || calls.isTichuHand(hand);
     final partnerGrand = called(partnerId);
     final leftGrand = called(leftId);
     final rightGrand = called(rightId);

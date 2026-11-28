@@ -3,7 +3,9 @@
 Python (`uv` + CPU PyTorch, Linux only) trains the nets; Dart encodes every
 feature and plays every game (`lib/headless/`). Artifacts are
 `.safetensors`. Run everything from the repo root. Past results and
-findings are in `rl/REVIEW.md`.
+findings are in `rl/REVIEW.md`. `rl/THEORY.md` reviews the tichuengine.com
+bot and lays out the plan beyond v10 (value net, halving search, match
+utility), with every duel of that work.
 
 ## Setup
 
@@ -24,7 +26,7 @@ example when it shares the 4 cores with game generation.
 
 | | Play net | Schupf | Search |
 |---|---|---|---|
-| shipped (app) | `tichu_q_v10` (431 inputs, schema v9) | `tichu_schupf_v5`, extended candidates | search ≤ 12 cards with belief worlds (`tichu_belief_v1`), 1-on-1 solver |
+| shipped (app) | `tichu_q_v10` (431 inputs, schema v9) | `tichu_schupf_v5`, extended candidates | halving search ≤ 12 cards (56 rollouts, net prior, `minZ` 1) with belief worlds (`tichu_belief_v1`), 1-on-1 solver |
 
 `lib/agents/bot_config.dart` (`BotConfig`) builds every bot, in both the
 app and the headless runner. The play net scores every legal play plus pass
@@ -38,6 +40,12 @@ net 232 inputs, belief net 373-512-256-168 (who holds each unseen card).
 Only nets of the current feature layout run, so that folder holds just the
 shipped nets; duels and the training loop use them as the baseline. Earlier
 nets are in Supabase Storage (see "Data") and in git history.
+
+The app's search is sequential halving with the play net's prior (56
+rollouts per decision; a challenger must beat the net's move by a standard
+error). Against the same nets with the former 8 worlds x 7 actions grid it
+wins **56.3 % ± 1.6** (+106 per match, 300 deals x 2) and, on new deals,
+55.7 % ± 1.5 (+67): together about 56.0 % ± 1.1.
 
 ## Feature schema
 
@@ -109,6 +117,9 @@ Other trainers:
 - `call_train.py`: call-value nets; `call_labels.sh` generates their labels.
 - `belief_data.py` / `belief_train.py`: the belief net, which maps the state
   to a holder probability for each card.
+- `value_data.py` / `value_train.py`: the perfect-information value net
+  (state + true holders → round points of both teams, first out, double
+  victory), the leaf of truncated search rollouts.
 
 ## Data: always the latest layout
 
@@ -146,6 +157,10 @@ network secret for the project host (header `apikey`).
 ```bash
 rl/.venv/bin/python rl/duel.py --a="--nn-policy=A.safetensors --endgame-search" \
     --b="--opponent-policy=assets/bots/tichu_q_v10.safetensors --opponent-schupf-net=assets/bots/tichu_schupf_v5.safetensors --opponent-schupf-extended --opponent-endgame-search" --deals=600
+
+# side B as the app plays (halving search with the net prior):
+#   --opponent-endgame-solve --opponent-endgame-belief --opponent-endgame-max-cards=12 \
+#   --opponent-endgame-halving=56 --opponent-endgame-prior-weight=1 --opponent-endgame-min-z=1
 ```
 
 Duels are duplicate: every deal sequence is played once with each seating
@@ -170,9 +185,22 @@ The drivers run the search (headless `_selectAction`, the app's
 after the bot has chosen its move.
 
 - **Worlds.** Re-deal the unseen cards consistently with what is known.
-  With `beliefWorlds` the deal is weighted by the belief net. Play every
-  candidate move out in 8 worlds, and deviate from the net's move only if
-  another move is no worse in every world and better by a margin.
+  With `beliefWorlds` the deal is weighted by the belief net.
+- **Halving (shipped).** Sequential halving over the candidate moves
+  (`lib/agents/halving_search.dart`), 56 rollouts per decision:
+  - every round plays each surviving move in the same new worlds, then
+    keeps the better half by the sampled mean plus the net's Q
+    (`priorWeight` 1);
+  - the net's own move always survives, and the last pair gets the rest
+    of the budget;
+  - another move is played only if it beats the net's move by more than
+    the margin and by one standard error of the paired difference
+    (`minZ` 1).
+
+  Each round goes to the workers, so the app keeps its parallelism.
+- **Grid (former).** Play every candidate move out in 8 worlds, and
+  deviate from the net's move only if another move is no worse in every
+  world and better by a margin (`halvingBudget` 0).
 - **Solver.** `OneOnOneSolver` (`lib/agents/endgame_solver.dart`) plays
   one-on-one endgames exactly by minimax, up to 10 cards and a position
   budget, and also decides the Dragon gift.
@@ -183,7 +211,13 @@ Headless flags for search:
   `--endgame-margin`;
 - `--endgame-solve`, `--solve-budget`, `--solve-max-cards`;
 - `--belief-net`, `--endgame-belief`;
-- every flag has an `--opponent-*` twin for the other team.
+- halving search (`rl/THEORY.md`): `--endgame-halving=N` (rollouts per
+  decision), `--endgame-prior-weight`, `--endgame-min-z`, `--value-net`,
+  `--endgame-leaf-after=N` (truncated rollouts), `--endgame-match-utility`;
+- the per-team flags have an `--opponent-*` twin for the other team. The
+  halving twins (`--opponent-endgame-{halving,prior-weight,min-z,leaf-after,match-utility}`)
+  are off unless given; `--opponent-endgame-margin` and
+  `--opponent-endgame-max-actions` override the shared values.
 
 Other headless flags:
 

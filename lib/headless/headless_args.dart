@@ -29,9 +29,21 @@ class _HeadlessConfig {
   final StyleBias style;
   final StyleBias opponentStyle;
   final bool schupfExtended;
+
+  /// The policy team's heuristic call thresholds (`--tichu-threshold`,
+  /// `--tichu-threshold-vs-call`, `--grand-threshold`).
+  final DefaultTichuCallStrategy calls;
+
+  /// Partner-passing conventions of the two teams (`--partner-convention`).
+  final PartnerConvention partnerConvention;
+  final PartnerConvention opponentPartnerConvention;
   final bool opponentSchupfExtended;
   final bool schupfLabelExtended;
   final String? beliefNetPath;
+
+  /// Perfect-information value net for truncated search rollouts
+  /// (`--value-net`, `rl/value_train.py`).
+  final String? valueNetPath;
   final bool recordGames;
   final double schupfEpsilon;
   final bool shadowHeuristic;
@@ -85,9 +97,13 @@ class _HeadlessConfig {
     required this.style,
     required this.opponentStyle,
     required this.schupfExtended,
+    required this.partnerConvention,
+    required this.calls,
+    required this.opponentPartnerConvention,
     required this.opponentSchupfExtended,
     required this.schupfLabelExtended,
     required this.beliefNetPath,
+    required this.valueNetPath,
     required this.recordGames,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
@@ -144,6 +160,11 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var style = StyleBias.none;
   var opponentStyle = StyleBias.none;
   var schupfExtended = false;
+  var partnerConvention = PartnerConvention.none;
+  var tichuThreshold = DefaultTichuCallStrategy.strengthThreshold;
+  var tichuThresholdVsCall = DefaultTichuCallStrategy.strengthThresholdVsCall;
+  var grandThreshold = DefaultTichuCallStrategy.grandThreshold;
+  var opponentPartnerConvention = PartnerConvention.none;
   var opponentSchupfExtended = false;
   var schupfLabelExtended = false;
   var schupfEpsilon = 0.0;
@@ -171,6 +192,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var solveBudget = 20000;
   var solveMaxCards = 10;
   String? beliefNetPath;
+  String? valueNetPath;
   var recordGames = false;
   var endgameBelief = false;
   var opponentEndgameBelief = false;
@@ -186,6 +208,18 @@ _HeadlessConfig _parseArgs(List<String> args) {
   bool? opponentEndgameBombStrata;
   var endgameExpectedValue = false;
   bool? opponentEndgameExpectedValue;
+  int? opponentEndgameMaxActions;
+  double? opponentEndgameMargin;
+  var endgameHalving = 0;
+  int? opponentEndgameHalving;
+  var endgamePriorWeight = 0.0;
+  var endgameMinZ = 0.0;
+  double? opponentEndgamePriorWeight;
+  double? opponentEndgameMinZ;
+  int? endgameLeafAfter;
+  int? opponentEndgameLeafAfter;
+  var endgameMatchUtility = false;
+  bool? opponentEndgameMatchUtility;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
@@ -356,6 +390,68 @@ _HeadlessConfig _parseArgs(List<String> args) {
       opponentEndgameSolve = true;
       continue;
     }
+    if (arg.startsWith('--value-net=')) {
+      valueNetPath = arg.substring('--value-net='.length);
+      continue;
+    }
+    if (arg.startsWith('--endgame-halving=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) endgameHalving = k;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-halving=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) opponentEndgameHalving = k;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-prior-weight=')) {
+      final w = double.tryParse(arg.split('=').last);
+      if (w != null && w >= 0) opponentEndgamePriorWeight = w;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-min-z=')) {
+      final z = double.tryParse(arg.split('=').last);
+      if (z != null && z >= 0) opponentEndgameMinZ = z;
+      continue;
+    }
+    if (arg.startsWith('--endgame-prior-weight=')) {
+      final w = double.tryParse(arg.split('=').last);
+      if (w != null && w >= 0) endgamePriorWeight = w;
+      continue;
+    }
+    if (arg.startsWith('--endgame-min-z=')) {
+      final z = double.tryParse(arg.split('=').last);
+      if (z != null && z >= 0) endgameMinZ = z;
+      continue;
+    }
+    if (arg.startsWith('--endgame-leaf-after=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) endgameLeafAfter = k;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-leaf-after=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 0) opponentEndgameLeafAfter = k;
+      continue;
+    }
+    if (arg == '--endgame-match-utility') {
+      endgameMatchUtility = true;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-match-utility=')) {
+      opponentEndgameMatchUtility = arg.split('=').last == 'true';
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-margin=')) {
+      final m = double.tryParse(arg.split('=').last);
+      if (m != null && m >= 0) opponentEndgameMargin = m;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-max-actions=')) {
+      final k = int.tryParse(arg.split('=').last);
+      if (k != null && k >= 2) opponentEndgameMaxActions = k;
+      continue;
+    }
     if (arg.startsWith('--belief-net=')) {
       beliefNetPath = arg.substring('--belief-net='.length);
       continue;
@@ -461,6 +557,33 @@ _HeadlessConfig _parseArgs(List<String> args) {
       heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
     }
+    if (arg.startsWith('--tichu-threshold=') ||
+        arg.startsWith('--tichu-threshold-vs-call=') ||
+        arg.startsWith('--grand-threshold=')) {
+      final v = double.tryParse(arg.split('=').last);
+      if (v != null) {
+        if (arg.startsWith('--tichu-threshold-vs-call=')) {
+          tichuThresholdVsCall = v;
+        } else if (arg.startsWith('--tichu-threshold=')) {
+          tichuThreshold = v;
+        } else {
+          grandThreshold = v;
+        }
+        continue;
+      }
+    }
+    if (arg.startsWith('--partner-convention=') ||
+        arg.startsWith('--opponent-partner-convention=')) {
+      final convention = PartnerConvention.tryParse(arg.split('=').last);
+      if (convention != null) {
+        if (arg.startsWith('--opponent-')) {
+          opponentPartnerConvention = convention;
+        } else {
+          partnerConvention = convention;
+        }
+        continue;
+      }
+    }
     if (arg == '--schupf-extended') {
       schupfExtended = true;
       continue;
@@ -527,12 +650,28 @@ _HeadlessConfig _parseArgs(List<String> args) {
     int? minBetter,
     bool? bombStrata,
     bool? expectedValue,
+    bool opponent = false,
   }) => EndgameSearch(
     beliefWorlds: belief,
     worlds: endgameWorlds,
     maxCards: maxCards ?? endgameMaxCards,
-    margin: endgameMargin,
-    maxActions: endgameMaxActions,
+    margin: opponent ? opponentEndgameMargin ?? endgameMargin : endgameMargin,
+    // The action cap is shared unless --opponent-endgame-max-actions is
+    // given. The halving flags have independent twins, off by default for
+    // the opponent: a duel sets them per side.
+    maxActions: opponent
+        ? opponentEndgameMaxActions ?? endgameMaxActions
+        : endgameMaxActions,
+    halvingBudget: opponent ? opponentEndgameHalving ?? 0 : endgameHalving,
+    priorWeight: opponent
+        ? opponentEndgamePriorWeight ?? 0
+        : endgamePriorWeight,
+    minZ: opponent ? opponentEndgameMinZ ?? 0 : endgameMinZ,
+    leafAfter: opponent ? opponentEndgameLeafAfter : endgameLeafAfter,
+    matchUtility: opponent
+        ? opponentEndgameMatchUtility ?? false
+        : endgameMatchUtility,
+    partnerConvention: opponent ? opponentPartnerConvention : partnerConvention,
     minBetterWorlds: minBetter ?? endgameMinBetter,
     bombStrata: bombStrata ?? endgameBombStrata,
     expectedValue: expectedValue ?? endgameExpectedValue,
@@ -540,20 +679,50 @@ _HeadlessConfig _parseArgs(List<String> args) {
     solveBudget: solveBudget,
     solveMaxCards: solveMaxCards,
   );
+  final policySearch = endgameSearch
+      ? search(solve: endgameSolve, belief: endgameBelief)
+      : null;
+  final opponentSearch = opponentEndgameSearch
+      ? search(
+          solve: opponentEndgameSolve,
+          belief: opponentEndgameBelief,
+          maxCards: opponentEndgameMaxCards,
+          minBetter: opponentEndgameMinBetter,
+          bombStrata: opponentEndgameBombStrata,
+          expectedValue: opponentEndgameExpectedValue,
+          opponent: true,
+        )
+      : null;
+  void reject(String message) {
+    stderr.writeln(message);
+    exitCode = 64;
+    showHelp = true;
+  }
+
+  if (valueNetPath == null &&
+      (policySearch?.leafAfter != null || opponentSearch?.leafAfter != null)) {
+    reject('--endgame-leaf-after needs --value-net');
+  }
+  for (final s in [?policySearch, ?opponentSearch]) {
+    if (s.halvingBudget == 0 && (s.leafAfter != null || s.matchUtility)) {
+      reject(
+        '--endgame-leaf-after and --endgame-match-utility need '
+        '--endgame-halving (or the --opponent- twins)',
+      );
+    }
+  }
+  // The convention is followed by the learned schupf only; without it the
+  // partner's pass promises nothing.
+  if (partnerConvention != PartnerConvention.none && schupfNetPath == null) {
+    reject('--partner-convention needs --schupf-net');
+  }
+  if (opponentPartnerConvention != PartnerConvention.none &&
+      opponentSchupfNetPath == null) {
+    reject('--opponent-partner-convention needs --opponent-schupf-net');
+  }
   return _HeadlessConfig(
-    endgameSearch: endgameSearch
-        ? search(solve: endgameSolve, belief: endgameBelief)
-        : null,
-    opponentEndgameSearch: opponentEndgameSearch
-        ? search(
-            solve: opponentEndgameSolve,
-            belief: opponentEndgameBelief,
-            maxCards: opponentEndgameMaxCards,
-            minBetter: opponentEndgameMinBetter,
-            bombStrata: opponentEndgameBombStrata,
-            expectedValue: opponentEndgameExpectedValue,
-          )
-        : null,
+    endgameSearch: policySearch,
+    opponentEndgameSearch: opponentSearch,
     seed: seed,
     targetScore: targetScore,
     rounds: rounds,
@@ -582,9 +751,17 @@ _HeadlessConfig _parseArgs(List<String> args) {
     style: style,
     opponentStyle: opponentStyle,
     schupfExtended: schupfExtended,
+    partnerConvention: partnerConvention,
+    calls: DefaultTichuCallStrategy(
+      tichuThreshold: tichuThreshold,
+      tichuThresholdVsCall: tichuThresholdVsCall,
+      grandTichuThreshold: grandThreshold,
+    ),
+    opponentPartnerConvention: opponentPartnerConvention,
     opponentSchupfExtended: opponentSchupfExtended,
     schupfLabelExtended: schupfLabelExtended,
     beliefNetPath: beliefNetPath,
+    valueNetPath: valueNetPath,
     recordGames: recordGames,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,
@@ -668,6 +845,35 @@ void _printUsage() {
     '       [--endgame-expected-value] '
     '[--opponent-endgame-expected-value=false]  '
     '(decide by the weighted mean advantage alone)',
+  );
+  stdout.writeln(
+    '       [--endgame-halving=N] [--opponent-endgame-halving=N]  '
+    '(sequential halving with N rollouts per decision)',
+  );
+  stdout.writeln(
+    '       [--opponent-endgame-margin=x] '
+    '[--opponent-endgame-max-actions=N] [--endgame-prior-weight=w] '
+    '[--endgame-min-z=z] [--opponent-endgame-prior-weight=w] '
+    '[--opponent-endgame-min-z=z]',
+  );
+  stdout.writeln(
+    '       [--value-net=..] [--endgame-leaf-after=N] '
+    '[--opponent-endgame-leaf-after=N]  '
+    '(halving: truncated rollouts scored by the value net)',
+  );
+  stdout.writeln(
+    '       [--endgame-match-utility] '
+    '[--opponent-endgame-match-utility=false]  '
+    '(halving: score in match-win probability)',
+  );
+  stdout.writeln(
+    '       [--partner-convention=none|2hc-odd|parity] '
+    '[--opponent-partner-convention=..]  '
+    '(the partner pass promises high cards; the search keeps the promise)',
+  );
+  stdout.writeln(
+    '       [--tichu-threshold=-0.1] [--tichu-threshold-vs-call=0.5] '
+    '[--grand-threshold=5]  (heuristic calls of the policy team)',
   );
   stdout.writeln('       [--epsilon=0.1]');
 }

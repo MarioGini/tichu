@@ -159,6 +159,12 @@ Future<void> main(List<String> args) async {
     recordGames: config.recordGames,
     schupfExtended: config.schupfExtended || config.schupfLabelExtended,
     schupfConvention: config.convention,
+    conventionOf:
+        opponentPolicy != null || opponentSchupf != null || config.mixed
+        ? (seat) => seat.isEven != config.swapTeams
+              ? config.convention
+              : config.opponentConvention
+        : (_) => config.convention,
     pimcWorlds: config.pimcWorlds,
     endgameSearcher:
         config.endgameSearch != null || config.opponentEndgameSearch != null

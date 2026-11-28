@@ -32,7 +32,18 @@ class _BcTransitionWriter {
   /// (`--record-games`); written on play rows as `step`.
   int? step;
 
-  _BcTransitionWriter({required this.output, required this.episode});
+  /// The partner convention of the player at a seat (the `convention`
+  /// features of their rows).
+  final PartnerConvention Function(int seat) conventionOf;
+
+  _BcTransitionWriter({
+    required this.output,
+    required this.episode,
+    required this.conventionOf,
+  });
+
+  PartnerConvention _conventionOf(GameSnapshot snapshot, String playerId) =>
+      conventionOf(snapshot.players.firstWhere((p) => p.id == playerId).seat);
 
   /// One row per explored/logged Tichu or Grand Tichu decision:
   ///   {"episode", "round", "team", "call": "tichu"|"grand",
@@ -78,6 +89,7 @@ class _BcTransitionWriter {
         'state_features': encodeStateFeatures(
           snapshot: snapshot,
           playerId: playerId,
+          convention: _conventionOf(snapshot, playerId),
         ),
         // Received schupf cards [from left, partner, right] (-1 = none yet).
         'received': [
@@ -204,6 +216,7 @@ class _BcTransitionWriter {
         'state_features': encodeStateFeatures(
           snapshot: snapshot,
           playerId: playerId,
+          convention: _conventionOf(snapshot, playerId),
         ),
       }),
     );
@@ -304,6 +317,7 @@ class _BcTransitionWriter {
     final stateFeatures = encodeStateFeatures(
       snapshot: before,
       playerId: action.playerId,
+      convention: _conventionOf(before, action.playerId),
     );
 
     final record = <String, Object?>{

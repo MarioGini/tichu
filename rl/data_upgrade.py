@@ -115,6 +115,8 @@ def groups(starts: np.ndarray) -> np.ndarray:
 def infer_version(s_width: int, a_width: int) -> int:
     """Schema version of an untagged cache from its widths."""
     if a_width >= ACTION_FEATURE_COUNT and s_width >= STATE_FEATURE_COUNT:
+        return 10
+    if a_width >= ACTION_FEATURE_COUNT and s_width >= SPEC.group("convention").offset:
         return 9
     if s_width >= SPEC.group("passed").offset + 51:
         return 8
@@ -135,6 +137,8 @@ UPGRADES = [(9, _beat)]
 
 # (version, group): features older data cannot provide.
 UNRECOVERABLE = [(8, "passed: which card I passed to whom (not in the old features)")]
+# v10 `convention`: older data needs no upgrade. Its games had no partner
+# convention, so the group's 0 ("nothing known") is the true value.
 
 
 def upgrade(d: dict) -> tuple[dict, list[str]]:

@@ -1,6 +1,12 @@
 import 'dart:math';
 
+import 'package:meta/meta.dart';
+
 import 'package:tichu/agents/card_knowledge.dart';
+import 'package:tichu/game/game_actions.dart';
+import 'package:tichu/game/game_types.dart';
+import 'package:tichu/game/round_log.dart';
+import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 
 /// What the card passed to the partner in the schupf says about the rest of
@@ -111,15 +117,126 @@ extension PartnerConventionRules on PartnerConvention {
   }
 }
 
-/// Moves high cards between the partner's dealt hand and the opponents'
-/// so that [partnerKept] — high cards the partner held before the schupf
-/// besides the one they passed — lies in [range]. Pinned cards (known
-/// positions) are never moved. A promise no swap can meet is left as far
-/// as it got: the partner did not keep the convention.
+/// Where the unseen high cards are, by the partner's promise: how many the
+/// partner holds now and how many the two opponents hold together (each
+/// as min..max, inclusive).
+@immutable
+class HighCardRead {
+  final int partnerMin;
+  final int partnerMax;
+  final int opponentsMin;
+  final int opponentsMax;
+
+  const HighCardRead({
+    required this.partnerMin,
+    required this.partnerMax,
+    required this.opponentsMin,
+    required this.opponentsMax,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      other is HighCardRead &&
+      other.partnerMin == partnerMin &&
+      other.partnerMax == partnerMax &&
+      other.opponentsMin == opponentsMin &&
+      other.opponentsMax == opponentsMax;
+
+  @override
+  int get hashCode =>
+      Object.hash(partnerMin, partnerMax, opponentsMin, opponentsMax);
+
+  @override
+  String toString() =>
+      'HighCardRead(partner $partnerMin..$partnerMax, '
+      'opponents $opponentsMin..$opponentsMax)';
+}
+
+/// What [convention] tells me about the high cards I cannot see; null =
+/// nothing (free, no pass yet, the convention was off, or the partner
+/// passed a high card while their right opponent had called Grand).
 ///
-/// `partnerKept` = high cards in the partner's dealt hand + those the
-/// partner already played - those I passed the partner (the opponents'
-/// passes to the partner are unknown and taken to hold none).
+/// - [received]: the card the partner passed me; [passedToPartner]: mine.
+/// - [partnerPlayed]: every card the partner played this round.
+/// - [grandCalled]: my partner or I called Grand Tichu (the convention was
+///   off). A plain Tichu call is taken to come after the schupf: no bot
+///   calls before it (`shouldCallTichuBeforeSchupf`).
+/// - [partnersRightGrand]: my left opponent called Grand Tichu.
+/// - [unseenHighCards]: high cards in the other three hands.
+/// - [partnerHandSize]: cards the partner still holds.
+///
+/// The opponents' passes to the partner are taken to hold no high card.
+HighCardRead? readPartnerPromise({
+  required PartnerConvention convention,
+  required Card? received,
+  required Card? passedToPartner,
+  required List<Card> partnerPlayed,
+  required bool grandCalled,
+  required bool partnersRightGrand,
+  required int unseenHighCards,
+  required int partnerHandSize,
+}) {
+  if (received == null || grandCalled) return null;
+  final range = convention.promisedOtherHighCards(
+    received,
+    partnersRightGrand: partnersRightGrand,
+  );
+  if (range == null) return null;
+  bool same(Card a, Card b) => a.face == b.face && a.color == b.color;
+  final mine = passedToPartner != null && isHighCard(passedToPartner)
+      ? passedToPartner
+      : null;
+  final minePlayed = mine != null && partnerPlayed.any((c) => same(c, mine));
+  final ownPlayed =
+      partnerPlayed.where(isHighCard).length - (minePlayed ? 1 : 0);
+  final mineHeld = mine != null && !minePlayed ? 1 : 0;
+  final cap = min(unseenHighCards, partnerHandSize);
+  final lo = min(max(0, range.$1 - ownPlayed) + mineHeld, cap);
+  final hi = max(lo, min(max(0, range.$2 - ownPlayed) + mineHeld, cap));
+  return HighCardRead(
+    partnerMin: lo,
+    partnerMax: hi,
+    opponentsMin: unseenHighCards - hi,
+    opponentsMax: unseenHighCards - lo,
+  );
+}
+
+/// [holders] (`holders[slot][k]`, k = 0 left opponent, 1 partner, 2 right
+/// opponent, see `BeliefModel`) with a [read] that rules a side out: no
+/// high card with the partner, or none with the opponents. The other
+/// side's probabilities are renormalised; slots that are not high cards
+/// stay as they are.
+List<List<double>> applyHighCardRead(
+  List<List<double>> holders,
+  HighCardRead? read,
+) {
+  if (read == null || (read.partnerMax > 0 && read.opponentsMax > 0)) {
+    return holders;
+  }
+  final noPartner = read.partnerMax == 0;
+  return [
+    for (var slot = 0; slot < holders.length; slot++)
+      if (!_highCardSlots.contains(slot))
+        holders[slot]
+      else
+        _rule(holders[slot], noPartner),
+  ];
+}
+
+const Set<int> _highCardSlots = {12, 25, 38, 51, 54, 55};
+
+List<double> _rule(List<double> p, bool noPartner) {
+  final q = noPartner ? [p[0], 0.0, p[2]] : [0.0, p[1], 0.0];
+  final z = q[0] + q[1] + q[2];
+  if (z <= 0) return noPartner ? const [0.5, 0, 0.5] : const [0, 1, 0];
+  return [q[0] / z, q[1] / z, q[2] / z];
+}
+
+/// Moves high cards between the partner's dealt hand and the opponents'
+/// so that the partner's high cards ([partnerKept] now) lie in [range]
+/// (see [HighCardRead]). Pinned cards (known positions) are never moved. A
+/// range no swap can reach is left as far as it got: the partner did not
+/// keep the convention.
 void enforceHighCardPromise(
   Map<String, List<Card>> deal, {
   required String partnerId,
@@ -170,4 +287,42 @@ void enforceHighCardPromise(
     );
     kept++;
   }
+}
+
+/// [readPartnerPromise] for [playerId] at a table: its [players], their
+/// [hands] (full information: only hand sizes and the high cards outside
+/// my hand are used), this round's [roundLog], the completed schupf
+/// [selections] and the round's [calls].
+HighCardRead? readPartnerPromiseAt({
+  required PartnerConvention convention,
+  required String playerId,
+  required List<GamePlayer> players,
+  required Map<String, List<Card>> hands,
+  required List<RoundLogEntry> roundLog,
+  required Map<String, SchupfAction> selections,
+  required Map<String, TichuCall> calls,
+}) {
+  if (convention == PartnerConvention.free) return null;
+  final me = players.firstWhere((p) => p.id == playerId);
+  String idAt(int offset) =>
+      players.firstWhere((p) => p.seat == (me.seat + offset) % 4).id;
+  final partnerId = idAt(2);
+  return readPartnerPromise(
+    convention: convention,
+    received: selections[partnerId]?.toPartner,
+    passedToPartner: selections[playerId]?.toPartner,
+    partnerPlayed: [
+      for (final e in roundLog)
+        if (e.playerId == partnerId) ...e.cards,
+    ],
+    grandCalled:
+        calls[playerId] == TichuCall.grandTichu ||
+        calls[partnerId] == TichuCall.grandTichu,
+    partnersRightGrand: calls[idAt(1)] == TichuCall.grandTichu,
+    unseenHighCards: [
+      for (final e in hands.entries)
+        if (e.key != playerId) ...e.value.where(isHighCard),
+    ].length,
+    partnerHandSize: hands[partnerId]?.length ?? 0,
+  );
 }

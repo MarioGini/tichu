@@ -24,7 +24,7 @@ example when it shares the 4 cores with game generation.
 
 | | Play net | Schupf | Search |
 |---|---|---|---|
-| shipped (app) | `tichu_q_v10` (431 inputs, schema v9) | `tichu_schupf_v5`, extended candidates | search ≤ 12 cards with belief worlds (`tichu_belief_v1`), 1-on-1 solver |
+| shipped (app) | `tichu_q_v10` (436 inputs, schema v10, widened from v9) | `tichu_schupf_v5`, extended candidates | search ≤ 12 cards with belief worlds (`tichu_belief_v1`), 1-on-1 solver |
 
 `lib/agents/bot_config.dart` (`BotConfig`) builds every bot, in both the
 app and the headless runner. The play net scores every legal play plus pass
@@ -33,16 +33,16 @@ you can, and honour the wish. The Tichu and Grand Tichu calls and the
 choice of wish are heuristic (`DefaultTichuCallStrategy`). Dragon gifts go
 to the solver when it applies; otherwise the heuristic picks.
 
-The shipped nets live in `assets/bots/`: play net 431-256-128-64-1, schupf
-net 232 inputs, belief net 373-512-256-168 (who holds each unseen card).
+The shipped nets live in `assets/bots/`: play net 436-256-128-64-1, schupf
+net 232 inputs, belief net 378-512-256-168 (who holds each unseen card).
 Only nets of the current feature layout run, so that folder holds just the
 shipped nets; duels and the training loop use them as the baseline. Earlier
 nets are in Supabase Storage (see "Data") and in git history.
 
 ## Feature schema
 
-`rl/schema/feature_spec.json` (v9) is the single source of truth. It
-defines 431 inputs, 373 for the state and 58 for each action. Dart
+`rl/schema/feature_spec.json` (v10) is the single source of truth. It
+defines 436 inputs, 378 for the state and 58 for each action. Dart
 (`lib/agents/nn/feature_encoder*.dart`) is the only encoder, and
 `test/agents/feature_layout_test.dart` asserts that Dart matches the spec.
 To change the schema: **edit the JSON, then the Dart encoder, then run the
@@ -55,7 +55,15 @@ State groups:
 - off_turn;
 - claim: the safe-finish analysis;
 - received: the schupf cards received;
-- passed: the cards I passed that the receiver still holds.
+- passed: the cards I passed that the receiver still holds;
+- convention (v10): what the partner's schupf card promises under the bots'
+  partner convention (`lib/agents/partner_convention.dart`): known, then the
+  high cards the partner and the opponents hold now (min, max). All 0 in
+  games without it, so older data needs no upgrade.
+
+A new input group makes older nets unloadable. `rl/widen_inputs.py` inserts
+zero-weight columns for it: the net computes the same values in the new
+layout (the shipped v10 and belief v1 were widened this way for v10).
 
 Action features cover:
 

@@ -21,6 +21,7 @@ extension _BcActionEncoding on _BcTransitionWriter {
     final encoder = FeatureEncoder(
       snapshot: snapshot,
       playerId: chosen.playerId,
+      convention: _conventionOf(snapshot, chosen.playerId),
     );
 
     final features = <List<double>>[];

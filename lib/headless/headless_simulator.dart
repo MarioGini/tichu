@@ -104,6 +104,10 @@ class _HeadlessSimulator {
   /// Schupf labels keep only partner cards this convention allows (the
   /// labelled team's convention).
   final PartnerConvention schupfConvention;
+
+  /// The partner convention of the bot at a seat (for the features the
+  /// data rows record).
+  final PartnerConvention Function(int seat) conventionOf;
   late final List<Map<String, SmartAiAgent>> _variantAgents = [
     for (final _ in shadowVariants) <String, SmartAiAgent>{},
   ];
@@ -156,6 +160,7 @@ class _HeadlessSimulator {
     this.recordGames = false,
     this.schupfExtended = false,
     this.schupfConvention = PartnerConvention.free,
+    this.conventionOf = _noConvention,
     this.pimcWorlds = 0,
     this.endgameSearcher,
   });
@@ -237,7 +242,11 @@ class _HeadlessSimulator {
     );
     engine.startGame(state);
     _recorder = recordGames && outputFormat == _HeadlessOutputFormat.bcJsonl
-        ? (_GameRecorder()..startRound(state))
+        ? (_GameRecorder(
+            conventions: [
+              for (var seat = 0; seat < 4; seat++) conventionOf(seat),
+            ],
+          )..startRound(state))
         : null;
 
     final csvWriter =
@@ -246,7 +255,11 @@ class _HeadlessSimulator {
         : null;
     final bcWriter =
         outputFormat == _HeadlessOutputFormat.bcJsonl && output != null
-        ? _BcTransitionWriter(output: output!, episode: episodeNumber)
+        ? _BcTransitionWriter(
+            output: output!,
+            episode: episodeNumber,
+            conventionOf: conventionOf,
+          )
         : null;
     _bcWriter = bcWriter;
     _tichuDecided.clear();
@@ -397,3 +410,5 @@ class _HeadlessSimulator {
     return z ^ (z >> 16);
   }
 }
+
+PartnerConvention _noConvention(int seat) => PartnerConvention.free;

@@ -96,7 +96,11 @@ LEGACY_STATE_PREFIX = {
 # Action features of the v7-v8 layouts (before the v9 beatability group).
 V8_ACTION_FEATURE_COUNT = 54
 LEGACY_STATE_PREFIX[SPEC.group("passed").offset + V8_ACTION_FEATURE_COUNT] = SPEC.group("passed").offset
-LEGACY_STATE_PREFIX[STATE_FEATURE_COUNT + V8_ACTION_FEATURE_COUNT] = STATE_FEATURE_COUNT
+# v8 (all state groups up to `passed`) and v9 (+ beatability actions): no
+# `convention` group yet (v10).
+V9_STATE_FEATURE_COUNT = SPEC.group("convention").offset
+LEGACY_STATE_PREFIX[V9_STATE_FEATURE_COUNT + V8_ACTION_FEATURE_COUNT] = V9_STATE_FEATURE_COUNT
+LEGACY_STATE_PREFIX[V9_STATE_FEATURE_COUNT + ACTION_FEATURE_COUNT] = V9_STATE_FEATURE_COUNT
 
 
 def pad_state(s):

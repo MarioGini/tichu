@@ -13,6 +13,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:tichu/agents/nn/feature_encoder.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/card_identifiers.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -103,9 +104,18 @@ Future<void> main(List<String> args) async {
         if (row != null) {
           rows++;
           final action = _decode(actions[k] as List<dynamic>);
+          final conventions = rec['conventions'] as List<dynamic>?;
           final got = encodeStateFeatures(
             snapshot: engine.buildSnapshot(state),
             playerId: action.playerId,
+            convention: conventions == null
+                ? PartnerConvention.free
+                : PartnerConvention.values.byName(
+                    conventions[_players
+                            .firstWhere((p) => p.id == action.playerId)
+                            .seat]
+                        as String,
+                  ),
           );
           final want = (row['state_features'] as List<dynamic>).cast<num>();
           var same = got.length == want.length;

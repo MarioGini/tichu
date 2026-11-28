@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/claim_analysis.dart';
 import 'package:tichu/agents/hand_shape.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/game_types.dart';
 import 'package:tichu/game/scoring/score_data.dart';
@@ -36,6 +37,7 @@ part 'feature_encoder_state.dart';
 /// | claim          |   3  | safe-finish analysis of my hand (v7)           |
 /// | received       |  51  | schupf card received per sender, by rank (v7)  |
 /// | passed         |  51  | my pass to each player while still held (v8)   |
+/// | convention     |   5  | high cards by the partner's promise (v10)      |
 ///
 /// Action suffix (one per legal action): type, strength, which cards it
 /// uses, whether it can be beaten by unseen cards, and the shape of the hand
@@ -60,6 +62,7 @@ const int turnFeatureCount = 1;
 const int claimFeatureCount = 3;
 const int receivedRankFeatureCount = 51;
 const int passedRankFeatureCount = 51;
+const int conventionFeatureCount = 5;
 const int actionFeatureCount = 58;
 
 const int handOffset = 0;
@@ -75,7 +78,8 @@ const int turnOffset = historyOffset + historyFeatureCount; // 267
 const int claimOffset = turnOffset + turnFeatureCount; // 268
 const int receivedOffset = claimOffset + claimFeatureCount; // 271
 const int passedOffset = receivedOffset + receivedRankFeatureCount; // 322
-const int actionOffset = passedOffset + passedRankFeatureCount; // 373
+const int conventionOffset = passedOffset + passedRankFeatureCount; // 373
+const int actionOffset = conventionOffset + conventionFeatureCount; // 378
 
 /// Offset of the after-action claim features within the action part.
 const int actionClaimOffset = 51;
@@ -85,19 +89,27 @@ const int actionBeatOffset = actionClaimOffset + 3; // 54
 
 /// Length of the per-decision state prefix (all groups before `action`).
 const int stateFeatureCount = actionOffset;
-const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 427
+const int totalFeatureCount = stateFeatureCount + actionFeatureCount; // 436
 
 /// Encode the state prefix for [playerId].
 List<double> encodeStateFeatures({
   required GameSnapshot snapshot,
   required String playerId,
-}) => FeatureEncoder(snapshot: snapshot, playerId: playerId).stateFeatures;
+  PartnerConvention convention = PartnerConvention.free,
+}) => FeatureEncoder(
+  snapshot: snapshot,
+  playerId: playerId,
+  convention: convention,
+).stateFeatures;
 
 /// Per-decision feature encoder. Analyses the snapshot once; state features
 /// are computed lazily and cached, action features are computed per call.
 class FeatureEncoder {
   final GameSnapshot snapshot;
   final String playerId;
+
+  /// The partner passes by this convention (the `convention` group).
+  final PartnerConvention convention;
 
   final int _mySeat;
   final List<Card> _hand;
@@ -117,11 +129,14 @@ class FeatureEncoder {
   late final ClaimHand _claimHand = _claimSolver.hand(_handSlots);
   int get _handClaim => _claimHand.score;
 
-  FeatureEncoder({required this.snapshot, required this.playerId})
-    : _mySeat = _seatOf(snapshot, playerId),
-      _hand = snapshot.hands[playerId] ?? const <Card>[],
-      _handSlots = _slotsOf(snapshot.hands[playerId] ?? const <Card>[]),
-      _k = CardKnowledge.of(snapshot, playerId);
+  FeatureEncoder({
+    required this.snapshot,
+    required this.playerId,
+    this.convention = PartnerConvention.free,
+  }) : _mySeat = _seatOf(snapshot, playerId),
+       _hand = snapshot.hands[playerId] ?? const <Card>[],
+       _handSlots = _slotsOf(snapshot.hands[playerId] ?? const <Card>[]),
+       _k = CardKnowledge.of(snapshot, playerId);
 
   // ── State ────────────────────────────────────────────────────────────────
 

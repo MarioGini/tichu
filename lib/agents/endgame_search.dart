@@ -10,7 +10,6 @@ import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
-import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/bomb_utils.dart';
@@ -239,23 +238,22 @@ void _keepPartnerPromise(
   Random random,
   PartnerConvention convention,
 ) {
-  if (convention == PartnerConvention.free) return;
+  final read = readPartnerPromiseAt(
+    convention: convention,
+    playerId: actorId,
+    players: state.players,
+    hands: state.hands,
+    roundLog: state.roundLog,
+    selections: state.completedSchupfSelections,
+    calls: state.scoreTracker.state.tichuCalls,
+  );
+  if (read == null) return;
   final actor = state.players.firstWhere((p) => p.id == actorId);
   String idAt(int offset) =>
       state.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
   final partnerId = idAt(2);
-  final received = state.completedSchupfSelections[partnerId]?.toPartner;
-  if (received == null || deal[partnerId] == null) return;
-  // A call by either of us may have come before the schupf (the
-  // convention was off then); the state does not record when.
-  final calls = state.scoreTracker.state.tichuCalls;
-  bool called(String id) => (calls[id] ?? TichuCall.none) != TichuCall.none;
-  if (called(actorId) || called(partnerId)) return;
-  final range = convention.promisedOtherHighCards(
-    received,
-    partnersRightGrand: calls[idAt(1)] == TichuCall.grandTichu,
-  );
-  if (range == null) return;
+  final partnerHand = deal[partnerId];
+  if (partnerHand == null) return;
   // The cards I passed stay where they went (dealUnseen pins them).
   final myPass = state.completedSchupfSelections[actorId];
   final mine = myPass == null
@@ -263,20 +261,12 @@ void _keepPartnerPromise(
       : [myPass.toLeft, myPass.toPartner, myPass.toRight];
   bool isMine(Card c) =>
       mine.any((m) => m.face == c.face && m.color == c.color);
-  final toPartner = myPass?.toPartner;
-  final kept =
-      deal[partnerId]!.where(isHighCard).length +
-      [
-        for (final e in state.roundLog)
-          if (e.playerId == partnerId) ...e.cards.where(isHighCard),
-      ].length -
-      (toPartner != null && isHighCard(toPartner) ? 1 : 0);
   enforceHighCardPromise(
     deal,
     partnerId: partnerId,
     opponentIds: [idAt(1), idAt(3)],
-    partnerKept: kept,
-    range: range,
+    partnerKept: partnerHand.where(isHighCard).length,
+    range: (read.partnerMin, read.partnerMax),
     isPinned: isMine,
     random: random,
   );
@@ -526,7 +516,11 @@ class EndgameSearcher {
       final team = current.seat % 2;
       final random = Random(searchSeed(state, playerId));
       final holders = config.beliefWorlds && belief != null
-          ? belief!.holderProbabilities(snapshot, playerId)
+          ? belief!.holderProbabilities(
+              snapshot,
+              playerId,
+              convention: config.convention,
+            )
           : null;
       final (deals, weights) = config.bombStrata
           ? _bombStrataDeals(state, playerId, random, holders, config)

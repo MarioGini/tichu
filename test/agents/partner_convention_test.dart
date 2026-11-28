@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/endgame_search.dart';
+import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/shipped_bots.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
@@ -401,5 +402,142 @@ void main() {
     }
     expect(even, greaterThanOrEqualTo(3));
     expect(other, greaterThanOrEqualTo(3));
+  });
+
+  group('readPartnerPromise', () {
+    HighCardRead? read(
+      CardFace received, {
+      Card? passed,
+      List<Card> played = const [],
+      int unseen = 4,
+      bool grand = false,
+    }) => readPartnerPromise(
+      convention: _rule,
+      received: _c(received),
+      passedToPartner: passed,
+      partnerPlayed: played,
+      grandCalled: grand,
+      partnersRightGrand: false,
+      unseenHighCards: unseen,
+      partnerHandSize: 14,
+    );
+    test('even: every unseen high card is with the opponents', () {
+      expect(
+        read(CardFace.four),
+        const HighCardRead(
+          partnerMin: 0,
+          partnerMax: 0,
+          opponentsMin: 4,
+          opponentsMax: 4,
+        ),
+      );
+    });
+    test('odd: 2+, less what the partner already played', () {
+      expect(
+        read(CardFace.nine, played: [_c(CardFace.ace)], unseen: 3),
+        const HighCardRead(
+          partnerMin: 1,
+          partnerMax: 3,
+          opponentsMin: 0,
+          opponentsMax: 2,
+        ),
+      );
+    });
+    test('the high card I passed the partner counts while they hold it', () {
+      final dragon = _c(CardFace.dragon);
+      expect(read(CardFace.two, passed: dragon)!.partnerMin, 1);
+      expect(
+        read(CardFace.two, passed: dragon, played: [dragon], unseen: 3),
+        const HighCardRead(
+          partnerMin: 0,
+          partnerMax: 0,
+          opponentsMin: 3,
+          opponentsMax: 3,
+        ),
+      );
+    });
+    test('a Grand call turned the convention off', () {
+      expect(read(CardFace.four, grand: true), isNull);
+    });
+  });
+
+  test('applyHighCardRead rules the partner out for high cards', () {
+    final holders = [
+      for (var slot = 0; slot < 56; slot++) [0.2, 0.6, 0.2],
+    ];
+    final ruled = applyHighCardRead(
+      holders,
+      const HighCardRead(
+        partnerMin: 0,
+        partnerMax: 0,
+        opponentsMin: 2,
+        opponentsMax: 2,
+      ),
+    );
+    for (final slot in [12, 25, 38, 51, 54, 55]) {
+      expect(ruled[slot], [0.5, 0.0, 0.5]);
+    }
+    expect(ruled[11], [0.2, 0.6, 0.2]);
+  });
+
+  test('the convention features carry the read during play', () async {
+    final engine = GameEngineImpl();
+    final state = engine.createGame(
+      gameId: 'convention_features',
+      players: _players,
+      targetScore: 100000,
+    );
+    engine.startGame(state);
+    final config = BotConfig.heuristic.withPartnerConvention(_rule);
+    final agents = {for (final p in _players) p.id: config.build(p.id)};
+    var known = 0;
+    for (var steps = 0; steps < 3000; steps++) {
+      if (state.scoreTracker.state.roundComplete) {
+        engine.startNewRound(state);
+        continue;
+      }
+      final request = AgentDecisions.next(engine, state);
+      if (request == null) fail('no pending decision');
+      final snap = engine.buildSnapshot(state);
+      if (request is TurnRequest) {
+        final me = request.playerId;
+        final f = encodeStateFeatures(
+          snapshot: snap,
+          playerId: me,
+          convention: _rule,
+        );
+        final free = encodeStateFeatures(snapshot: snap, playerId: me);
+        expect(free.sublist(conventionOffset, actionOffset), everyElement(0.0));
+        final read = readPartnerPromiseAt(
+          convention: _rule,
+          playerId: me,
+          players: snap.players,
+          hands: snap.hands,
+          roundLog: snap.roundLog,
+          selections: snap.schupfSelections,
+          calls: snap.scoreState.tichuCalls,
+        );
+        if (read == null) {
+          expect(f[conventionOffset], 0.0);
+        } else {
+          known++;
+          expect(f.sublist(conventionOffset, actionOffset), [
+            1.0,
+            read.partnerMin / 6,
+            read.partnerMax / 6,
+            read.opponentsMin / 6,
+            read.opponentsMax / 6,
+          ]);
+        }
+      }
+      final action = await AgentDecisions.resolve(
+        request,
+        agents[request.playerId]!,
+        snap,
+        state,
+      );
+      if (action != null) engine.applyAction(state, action);
+    }
+    expect(known, greaterThan(100));
   });
 }

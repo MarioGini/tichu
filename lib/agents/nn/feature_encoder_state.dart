@@ -56,7 +56,31 @@ extension _StateEncoding on FeatureEncoder {
     }
     _encodeReceived(f);
     _encodePassed(f);
+    _encodeConvention(f);
     return f;
+  }
+
+  /// High cards by the partner's promise ([readPartnerPromiseAt]): known
+  /// (1/0), then the partner's and the opponents' high cards now, min and
+  /// max each, / 6. Zero when nothing is known (also every game without
+  /// the convention, i.e. all data before v10).
+  void _encodeConvention(Float64List f) {
+    if (snapshot.phase != GamePhase.play) return;
+    final read = readPartnerPromiseAt(
+      convention: convention,
+      playerId: playerId,
+      players: snapshot.players,
+      hands: snapshot.hands,
+      roundLog: snapshot.roundLog,
+      selections: snapshot.schupfSelections,
+      calls: snapshot.scoreState.tichuCalls,
+    );
+    if (read == null) return;
+    f[conventionOffset] = 1.0;
+    f[conventionOffset + 1] = read.partnerMin / highCardsInDeck;
+    f[conventionOffset + 2] = read.partnerMax / highCardsInDeck;
+    f[conventionOffset + 3] = read.opponentsMin / highCardsInDeck;
+    f[conventionOffset + 4] = read.opponentsMax / highCardsInDeck;
   }
 
   /// The card I received in this round's schupf from the left opponent, the

@@ -4,6 +4,7 @@ import 'package:tichu/agents/legal_play_guard.dart';
 import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/mlp.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/play_selection_strategy.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -46,6 +47,9 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
   final double outputScale;
   final Float64List _actionBuffer = Float64List(actionFeatureCount);
 
+  /// The partner passes by this convention (the `convention` inputs).
+  final PartnerConvention convention;
+
   NnPlaySelectionStrategy({
     required this.playerId,
     required this.network,
@@ -54,6 +58,7 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     this.scorerFactory,
     this.style = StyleBias.none,
     this.outputScale = 100,
+    this.convention = PartnerConvention.free,
   }) {
     if (network.inputSize != totalFeatureCount) {
       throw ArgumentError.value(
@@ -122,7 +127,11 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
 
   /// Q(s, a) of each of [plays] (same order), for ranking candidates.
   List<double> qValues(GameSnapshot snapshot, List<TichuTurn> plays) {
-    final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
+    final encoder = FeatureEncoder(
+      snapshot: snapshot,
+      playerId: playerId,
+      convention: convention,
+    );
     final scorer = _scorer..setPrefix(encoder.stateFeatures);
     final values = <double>[];
     for (final play in plays) {
@@ -139,7 +148,11 @@ class NnPlaySelectionStrategy implements PlaySelectionStrategy, FullTurnPolicy {
     List<TichuTurn> plays, {
     required bool canPass,
   }) {
-    final encoder = FeatureEncoder(snapshot: snapshot, playerId: playerId);
+    final encoder = FeatureEncoder(
+      snapshot: snapshot,
+      playerId: playerId,
+      convention: convention,
+    );
     final scorer = _scorer..setPrefix(encoder.stateFeatures);
     final buffer = _actionBuffer;
 

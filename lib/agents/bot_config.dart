@@ -154,6 +154,7 @@ class BotConfig {
               scorerFactory: playScorer,
               style: style,
               outputScale: play.targetStd,
+              convention: partnerConvention,
             )),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null

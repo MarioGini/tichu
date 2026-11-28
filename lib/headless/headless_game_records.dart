@@ -13,6 +13,11 @@ part of 'headless.dart';
 /// `[seat, "x"]` pass, `[seat, "d", targetSeat]` Dragon gift, `[seat, "c"]`
 /// confirm.
 class _GameRecorder {
+  /// Partner convention per seat (replay needs it for the features).
+  final List<PartnerConvention> conventions;
+
+  _GameRecorder({required this.conventions});
+
   List<List<int>>? _deal;
   final List<List<Object>> actions = [];
 
@@ -69,6 +74,8 @@ class _GameRecorder {
     'round': end.scoreState.roundNumber,
     'game_record': true,
     'deal': _deal,
+    if (conventions.any((c) => c != PartnerConvention.free))
+      'conventions': [for (final c in conventions) c.name],
     'actions': actions,
     'result': [end.scoreState.teamOneRound, end.scoreState.teamTwoRound],
   };

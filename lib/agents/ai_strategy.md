@@ -136,12 +136,17 @@ counted in the 14-card hand before passing:
   on its values, no retraining, as Tichu Engine does); the heuristic picks
   one. No conforming card: unconstrained.
 - Reading: the endgame search re-deals its worlds so that the partner
-  kept the promised HC count (`dealUnseen`, `enforceHighCardPromise`).
-  A call by either of us skips this (the state does not record whether it
-  came before the schupf). Opponents' passes to the partner are taken to
+  holds the high-card count the read allows (`dealUnseen`,
+  `enforceHighCardPromise`). Opponents' passes to the partner are taken to
   hold no HC.
 - Calling: the Tichu call reads it (R7). Grand and pre-schupf calls come
   before the partner's card.
+- The read (`readPartnerPromiseAt`): from the partner's card, what they
+  played and my pass to them, how many high cards the partner and the
+  opponents hold now (min..max). It feeds the search worlds, the belief
+  net's holders (a side the read rules out gets probability 0) and the
+  `convention` input group (schema v10) of the play and belief nets. Only
+  a Grand call turns it off: no bot calls Tichu before the schupf.
 - The shipped bots use it (`ShippedBots.partnerConvention`); headless
   `--convention=twoHcOdd` / `--opponent-convention=`.
 - Code: [partner_convention.dart](partner_convention.dart)

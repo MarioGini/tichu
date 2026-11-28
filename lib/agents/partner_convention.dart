@@ -12,6 +12,9 @@ enum HighCardPromise {
 
   /// At least two high cards in the passer's hand after the schupf.
   twoOrMore,
+
+  /// At most one high card in the passer's hand after the schupf.
+  atMostOne,
 }
 
 /// A partner-passing convention: the card passed to the partner signals the
@@ -29,14 +32,21 @@ enum HighCardPromise {
 /// It is off while someone of the passer's team has called Grand Tichu
 /// (the Grand caller is given a high card if possible instead).
 /// [conforms] judges a candidate pass; [promise] reads one.
+///
+/// [parity] is a lighter variant that never forces a high card to the
+/// partner: an odd card promises 2 or more high cards, an even card at
+/// most one (2+HC Odd lost 43.5 % without retrained nets, largely by
+/// handing over a lone Ace or Dragon).
 enum PartnerConvention {
   none,
-  twoHighCardsOdd;
+  twoHighCardsOdd,
+  parity;
 
   /// The convention named [name] (`none`, `2hc-odd`), or null.
   static PartnerConvention? tryParse(String name) => switch (name) {
     'none' => none,
     '2hc-odd' => twoHighCardsOdd,
+    'parity' => parity,
     _ => null,
   };
 
@@ -81,6 +91,9 @@ enum PartnerConvention {
   bool conforms(List<Card> hand, Card toPartner) {
     if (this == none) return true;
     final high = highCards(hand);
+    if (this == parity) {
+      return !isHighCard(toPartner) && isOdd(toPartner) == (high >= 2);
+    }
     if (high == 0) return !isHighCard(toPartner) && !isOdd(toPartner);
     if (high == 1) return isHighCard(toPartner);
     return !isHighCard(toPartner) && isOdd(toPartner);
@@ -90,6 +103,12 @@ enum PartnerConvention {
   /// after the schupf.
   HighCardPromise promise(Card fromPartner) {
     if (this == none) return HighCardPromise.none;
+    if (this == parity) {
+      if (isHighCard(fromPartner)) return HighCardPromise.none;
+      return isOdd(fromPartner)
+          ? HighCardPromise.twoOrMore
+          : HighCardPromise.atMostOne;
+    }
     if (isHighCard(fromPartner)) return HighCardPromise.zero;
     return isOdd(fromPartner)
         ? HighCardPromise.twoOrMore
@@ -103,5 +122,6 @@ enum PartnerConvention {
         HighCardPromise.none => true,
         HighCardPromise.zero => highCardsKept == 0,
         HighCardPromise.twoOrMore => highCardsKept >= 2,
+        HighCardPromise.atMostOne => highCardsKept <= 1,
       };
 }

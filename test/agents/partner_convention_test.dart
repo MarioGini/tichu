@@ -68,6 +68,22 @@ void main() {
     });
   });
 
+  test('parity: never a forced high card', () {
+    const p = PartnerConvention.parity;
+    final two = [_c(CardFace.ace), _c(CardFace.dragon), _c(CardFace.two)];
+    final one = [_c(CardFace.ace), _c(CardFace.two), _c(CardFace.three)];
+    expect(p.conforms(two, _c(CardFace.three)), isTrue);
+    expect(p.conforms(two, _c(CardFace.two)), isFalse);
+    expect(p.conforms(one, _c(CardFace.two)), isTrue);
+    expect(p.conforms(one, _c(CardFace.ace)), isFalse);
+    expect(p.conforms(one, _c(CardFace.three)), isFalse);
+    expect(p.promise(_c(CardFace.nine)), HighCardPromise.twoOrMore);
+    expect(p.promise(_c(CardFace.eight)), HighCardPromise.atMostOne);
+    expect(PartnerConvention.keeps(HighCardPromise.atMostOne, 1), isTrue);
+    expect(PartnerConvention.keeps(HighCardPromise.atMostOne, 2), isFalse);
+    expect(PartnerConvention.tryParse('parity'), p);
+  });
+
   test('the schupf net passes a conforming card to the partner', () async {
     final hand = [
       _c(CardFace.two),

@@ -831,7 +831,7 @@ void _printUsage() {
     '(halving: score in match-win probability)',
   );
   stdout.writeln(
-    '       [--partner-convention=none|2hc-odd] '
+    '       [--partner-convention=none|2hc-odd|parity] '
     '[--opponent-partner-convention=..]  '
     '(the partner pass promises high cards; the search keeps the promise)',
   );

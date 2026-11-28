@@ -10,6 +10,7 @@ import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/partner_convention.dart';
+import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/player_agent.dart';
@@ -174,10 +175,11 @@ class BotConfig {
               grandTichuScale: grandTichu?.targetStd ?? 100,
               preSchupfTichuNetwork: preSchupfTichu?.network,
               preSchupfTichuScale: preSchupfTichu?.targetStd ?? 100,
+              fallback: calls,
               margin: callMargin,
             ),
       schupfStrategy: schupf == null
-          ? null
+          ? DefaultSchupfStrategy(calls: calls)
           : NnSchupfStrategy(
               network: schupf.network,
               extended: schupfExtended,

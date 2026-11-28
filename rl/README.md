@@ -148,7 +148,7 @@ rl/.venv/bin/python rl/duel.py --a="--nn-policy=A.safetensors --endgame-search" 
 
 # side B as the app plays (halving search with the net prior):
 #   --opponent-endgame-solve --opponent-endgame-belief --opponent-endgame-max-cards=12 \
-#   --opponent-endgame-halving=56 --endgame-prior-weight=1 --endgame-min-z=1
+#   --opponent-endgame-halving=56 --opponent-endgame-prior-weight=1 --opponent-endgame-min-z=1
 ```
 
 Duels are duplicate: every deal sequence is played once with each seating
@@ -203,9 +203,9 @@ Headless flags for search:
   decision), `--endgame-prior-weight`, `--endgame-min-z`, `--value-net`,
   `--endgame-leaf-after=N` (truncated rollouts), `--endgame-match-utility`;
 - the per-team flags have an `--opponent-*` twin for the other team. The
-  halving twins and `--opponent-endgame-max-actions` keep their defaults
-  unless given, so side B of a duel stays the shipped bot;
-  `--opponent-endgame-margin` overrides the shared margin.
+  halving twins (`--opponent-endgame-{halving,prior-weight,min-z,leaf-after,match-utility}`)
+  are off unless given; `--opponent-endgame-margin` and
+  `--opponent-endgame-max-actions` override the shared values.
 
 Other headless flags:
 

@@ -200,7 +200,9 @@ class NnSchupfStrategy implements SchupfStrategy {
         ..addFirstLayerColumn(work, SchupfFeatures.partnerOffset + slots[p])
         ..addFirstLayerColumn(work, SchupfFeatures.rightOffset + slots[r]);
       final q = network.predictFromFirstLayer(work);
-      final conforming = useConvention && convention.conforms(hand, hand[p]);
+      final conforming =
+          useConvention &&
+          convention.conforms(hand, hand[p], toOpponents: [hand[l], hand[r]]);
       // A conforming pass beats every other one.
       if (bestConforming && !conforming) continue;
       if (q > best || (conforming && !bestConforming)) {

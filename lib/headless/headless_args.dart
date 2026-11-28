@@ -214,6 +214,8 @@ _HeadlessConfig _parseArgs(List<String> args) {
   int? opponentEndgameHalving;
   var endgamePriorWeight = 0.0;
   var endgameMinZ = 0.0;
+  double? opponentEndgamePriorWeight;
+  double? opponentEndgameMinZ;
   int? endgameLeafAfter;
   int? opponentEndgameLeafAfter;
   var endgameMatchUtility = false;
@@ -400,6 +402,16 @@ _HeadlessConfig _parseArgs(List<String> args) {
     if (arg.startsWith('--opponent-endgame-halving=')) {
       final k = int.tryParse(arg.split('=').last);
       if (k != null && k >= 0) opponentEndgameHalving = k;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-prior-weight=')) {
+      final w = double.tryParse(arg.split('=').last);
+      if (w != null && w >= 0) opponentEndgamePriorWeight = w;
+      continue;
+    }
+    if (arg.startsWith('--opponent-endgame-min-z=')) {
+      final z = double.tryParse(arg.split('=').last);
+      if (z != null && z >= 0) opponentEndgameMinZ = z;
       continue;
     }
     if (arg.startsWith('--endgame-prior-weight=')) {
@@ -644,15 +656,17 @@ _HeadlessConfig _parseArgs(List<String> args) {
     worlds: endgameWorlds,
     maxCards: maxCards ?? endgameMaxCards,
     margin: opponent ? opponentEndgameMargin ?? endgameMargin : endgameMargin,
-    // The halving flags and the action cap have independent twins, off by
-    // default for the opponent: a duel against the shipped bot sets them
-    // on side A only.
+    // The action cap is shared unless --opponent-endgame-max-actions is
+    // given. The halving flags have independent twins, off by default for
+    // the opponent: a duel sets them per side.
     maxActions: opponent
-        ? opponentEndgameMaxActions ?? defaults.maxActions
+        ? opponentEndgameMaxActions ?? endgameMaxActions
         : endgameMaxActions,
     halvingBudget: opponent ? opponentEndgameHalving ?? 0 : endgameHalving,
-    priorWeight: endgamePriorWeight,
-    minZ: endgameMinZ,
+    priorWeight: opponent
+        ? opponentEndgamePriorWeight ?? 0
+        : endgamePriorWeight,
+    minZ: opponent ? opponentEndgameMinZ ?? 0 : endgameMinZ,
     leafAfter: opponent ? opponentEndgameLeafAfter : endgameLeafAfter,
     matchUtility: opponent
         ? opponentEndgameMatchUtility ?? false
@@ -679,11 +693,32 @@ _HeadlessConfig _parseArgs(List<String> args) {
           opponent: true,
         )
       : null;
-  if (valueNetPath == null &&
-      (policySearch?.leafAfter != null || opponentSearch?.leafAfter != null)) {
-    stderr.writeln('--endgame-leaf-after needs --value-net');
+  void reject(String message) {
+    stderr.writeln(message);
     exitCode = 64;
     showHelp = true;
+  }
+
+  if (valueNetPath == null &&
+      (policySearch?.leafAfter != null || opponentSearch?.leafAfter != null)) {
+    reject('--endgame-leaf-after needs --value-net');
+  }
+  for (final s in [?policySearch, ?opponentSearch]) {
+    if (s.halvingBudget == 0 && (s.leafAfter != null || s.matchUtility)) {
+      reject(
+        '--endgame-leaf-after and --endgame-match-utility need '
+        '--endgame-halving (or the --opponent- twins)',
+      );
+    }
+  }
+  // The convention is followed by the learned schupf only; without it the
+  // partner's pass promises nothing.
+  if (partnerConvention != PartnerConvention.none && schupfNetPath == null) {
+    reject('--partner-convention needs --schupf-net');
+  }
+  if (opponentPartnerConvention != PartnerConvention.none &&
+      opponentSchupfNetPath == null) {
+    reject('--opponent-partner-convention needs --opponent-schupf-net');
   }
   return _HeadlessConfig(
     endgameSearch: policySearch,
@@ -818,7 +853,8 @@ void _printUsage() {
   stdout.writeln(
     '       [--opponent-endgame-margin=x] '
     '[--opponent-endgame-max-actions=N] [--endgame-prior-weight=w] '
-    '[--endgame-min-z=z]',
+    '[--endgame-min-z=z] [--opponent-endgame-prior-weight=w] '
+    '[--opponent-endgame-min-z=z]',
   );
   stdout.writeln(
     '       [--value-net=..] [--endgame-leaf-after=N] '

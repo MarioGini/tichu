@@ -86,11 +86,17 @@ enum PartnerConvention {
       ownCall != TichuCall.grandTichu &&
       partnerCall != TichuCall.grandTichu;
 
-  /// Whether passing [toPartner] from the 14-card [hand] keeps the
-  /// convention (always true without one).
-  bool conforms(List<Card> hand, Card toPartner) {
+  /// Whether passing [toPartner] (and [toOpponents]) from the 14-card
+  /// [hand] keeps the convention (always true without one). The promise is
+  /// about the high cards the passer keeps, so high cards passed to the
+  /// opponents do not count.
+  bool conforms(
+    List<Card> hand,
+    Card toPartner, {
+    List<Card> toOpponents = const [],
+  }) {
     if (this == none) return true;
-    final high = highCards(hand);
+    final high = highCards(hand) - highCards(toOpponents);
     if (this == parity) {
       return !isHighCard(toPartner) && isOdd(toPartner) == (high >= 2);
     }
@@ -114,6 +120,15 @@ enum PartnerConvention {
         ? HighCardPromise.twoOrMore
         : HighCardPromise.zero;
   }
+
+  /// Whether [highCardsSeen] high cards (a lower bound of those kept) can
+  /// still keep [promise].
+  static bool keepsSoFar(HighCardPromise promise, int highCardsSeen) =>
+      switch (promise) {
+        HighCardPromise.none || HighCardPromise.twoOrMore => true,
+        HighCardPromise.zero => highCardsSeen == 0,
+        HighCardPromise.atMostOne => highCardsSeen <= 1,
+      };
 
   /// Whether a partner who kept [highCardsKept] high cards in the schupf
   /// keeps [promise].

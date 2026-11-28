@@ -9,6 +9,7 @@ import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_types.dart';
+import 'package:tichu/game/round_log.dart';
 import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/turn/engine/engine_impl.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -66,6 +67,33 @@ void main() {
       expect(PartnerConvention.tryParse('2hc-odd'), _convention);
       expect(PartnerConvention.tryParse('bogus'), isNull);
     });
+  });
+
+  test('high cards passed to the opponents do not count as kept', () {
+    // Ace + Dragon, the Ace to an opponent: one high card kept, so the
+    // partner must get the Dragon, not an odd card.
+    final hand = [
+      _c(CardFace.ace),
+      _c(CardFace.dragon),
+      _c(CardFace.seven),
+      _c(CardFace.two),
+    ];
+    final opponents = [_c(CardFace.ace), _c(CardFace.two)];
+    expect(
+      _convention.conforms(hand, _c(CardFace.seven), toOpponents: opponents),
+      isFalse,
+    );
+    expect(
+      _convention.conforms(hand, _c(CardFace.dragon), toOpponents: opponents),
+      isTrue,
+    );
+    expect(_convention.conforms(hand, _c(CardFace.seven)), isTrue);
+  });
+
+  test('a promise broken by played cards cannot be read', () {
+    expect(PartnerConvention.keepsSoFar(HighCardPromise.zero, 1), isFalse);
+    expect(PartnerConvention.keepsSoFar(HighCardPromise.atMostOne, 1), isTrue);
+    expect(PartnerConvention.keepsSoFar(HighCardPromise.twoOrMore, 0), isTrue);
   });
 
   test('parity: never a forced high card', () {
@@ -167,6 +195,30 @@ void main() {
     }
     // Rejection sampling almost always finds such a deal.
     expect(kept, greaterThan(36));
+    expect(
+      () => dealUnseen(state, actor.id, random, accept: accept, tries: 0),
+      throwsArgumentError,
+    );
+    // Partner promised 0 high cards but already played one (an opponent
+    // passed it): the promise cannot be read, so no filter.
+    state.completedSchupfSelections[partner] = SchupfAction(
+      playerId: partner,
+      toLeft: real.toLeft,
+      toPartner: _c(CardFace.two, CardColor.green),
+      toRight: real.toRight,
+    );
+    final roundLog = state.roundLog;
+    roundLog.add(
+      RoundLogEntry(
+        playerId: partner,
+        cards: [_c(CardFace.ace, CardColor.blue)],
+        trickType: TurnType.empty,
+        trickValue: 0,
+        trickWinner: '',
+      ),
+    );
+    expect(conventionAccept(state, actor.id, _convention), isNull);
+    roundLog.removeLast();
     // A Grand Tichu call in the team switches the convention off.
     calls[partner] = TichuCall.grandTichu;
     expect(conventionAccept(state, actor.id, _convention), isNull);

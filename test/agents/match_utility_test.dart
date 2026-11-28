@@ -47,6 +47,28 @@ void main() {
     expect(v(30), lessThan(v(60)));
   });
 
+  test('near a decided match the tails stay accurate (no noise)', () {
+    // 990 : 40 is z ~ 5: P(loss) ~ 3e-7, below the absolute error of a
+    // plain normal approximation. Each further point lost must still cost a
+    // little more, smoothly.
+    double v(double them) => model.pointsEquivalent(
+      us: 990,
+      them: 40,
+      usRound: 0,
+      themRound: them,
+      target: 1000,
+    );
+    final points = [
+      for (final t in [5.0, 10.0, 20.0, 40.0]) v(t),
+    ];
+    for (var i = 1; i < points.length; i++) {
+      expect(points[i], lessThan(points[i - 1]));
+    }
+    // Losing 10 points costs a bit more than 10 (the slope steepens as the
+    // lead shrinks), not hundreds.
+    expect(points[1], inInclusiveRange(-15, -10));
+  });
+
   test('the slope is positive everywhere', () {
     for (final (us, them) in [(0, 0), (900, 100), (100, 900), (990, 990)]) {
       expect(model.slope(us.toDouble(), them.toDouble(), 1000), greaterThan(0));

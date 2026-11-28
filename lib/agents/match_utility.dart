@@ -31,10 +31,18 @@ class MatchUtility {
   /// The probability that the team with [us] points beats the team with
   /// [them] in a match to [target]. A tie at or above the target is played
   /// on (`ScoreTracker.gameComplete`).
-  double winProbability(double us, double them, int target) {
+  double winProbability(double us, double them, int target) =>
+      _odds(us, them, target).$1;
+
+  /// (P(win), P(loss)) at [us] : [them], each computed so that the smaller
+  /// one is accurate *relative* to its size (a tail of the normal), which
+  /// [pointsEquivalent] needs: near a decided match it divides tiny
+  /// differences of tails by a tiny slope.
+  (double, double) _odds(double us, double them, int target) {
     final leader = max(us, them);
-    if (leader >= target && us != them) return us > them ? 1 : 0;
-    return _phi((us - them) / (roundStd * sqrt(_rounds(leader, target))));
+    if (leader >= target && us != them) return us > them ? (1, 0) : (0, 1);
+    final z = (us - them) / (roundStd * sqrt(_rounds(leader, target)));
+    return z >= 0 ? (1 - _upper(z), _upper(z)) : (_upper(-z), 1 - _upper(-z));
   }
 
   /// d P(win) / d lead at [us] : [them], per point (always > 0).
@@ -58,9 +66,13 @@ class MatchUtility {
     required double themRound,
     required int target,
   }) {
-    final before = winProbability(us, them, target);
-    final after = winProbability(us + usRound, them + themRound, target);
-    return (after - before) / slope(us, them, target);
+    final (winBefore, lossBefore) = _odds(us, them, target);
+    final (winAfter, lossAfter) = _odds(us + usRound, them + themRound, target);
+    // The same change of P(win), taken on the side of the small tail.
+    final change = winBefore >= lossBefore
+        ? lossBefore - lossAfter
+        : winAfter - winBefore;
+    return change / slope(us, them, target);
   }
 
   /// Rounds left until the leader at [leader] reaches [target] (at least
@@ -70,18 +82,35 @@ class MatchUtility {
     return r < 1 ? 1 : r;
   }
 
-  /// Standard normal CDF (Abramowitz-Stegun 7.1.26, error < 1.5e-7).
-  static double _phi(double z) {
-    final x = z.abs() / sqrt2;
-    final t = 1 / (1 + 0.3275911 * x);
-    final y =
-        1 -
-        (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t -
-                        0.284496736) *
-                    t +
-                0.254829592) *
-            t *
-            exp(-x * x);
-    return z >= 0 ? (1 + y) / 2 : (1 - y) / 2;
+  /// P(Z > z) for z >= 0, with relative error below 1.2e-7 at every z
+  /// (Numerical Recipes' Chebyshev erfc): the tails stay accurate where an
+  /// absolute-error approximation would be all noise.
+  static double _upper(double z) {
+    final x = z / sqrt2;
+    final t = 1 / (1 + 0.5 * x);
+    final erfc =
+        t *
+        exp(
+          -x * x -
+              1.26551223 +
+              t *
+                  (1.00002368 +
+                      t *
+                          (0.37409196 +
+                              t *
+                                  (0.09678418 +
+                                      t *
+                                          (-0.18628806 +
+                                              t *
+                                                  (0.27886807 +
+                                                      t *
+                                                          (-1.13520398 +
+                                                              t *
+                                                                  (1.48851587 +
+                                                                      t *
+                                                                          (-0.82215223 +
+                                                                              t * 0.17087277)))))))),
+        );
+    return erfc / 2;
   }
 }

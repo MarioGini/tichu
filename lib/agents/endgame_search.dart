@@ -265,6 +265,7 @@ Deal dealUnseen(
     // Rejection sampling; the last deal when none is accepted (a promise
     // the deal cannot keep, e.g. an opponent passed the partner a high
     // card).
+    if (tries < 1) throw ArgumentError.value(tries, 'tries', 'at least 1');
     late Deal deal;
     for (var t = 0; t < tries; t++) {
       deal = dealUnseen(
@@ -365,8 +366,12 @@ Deal dealUnseen(
 /// (null when there is none to keep): the partner's high cards after the
 /// schupf, i.e. those in their hand in the deal and those they played this
 /// round, minus the ones [actorId] passed them, must match what the card
-/// they passed [actorId] promised. Cards the opponents passed the partner
-/// are unknown and not counted.
+/// they passed [actorId] promised.
+///
+/// High cards the opponents passed the partner are unknown and counted as
+/// the partner's own. When the cards the partner already played break an
+/// upper bound (an opponent must have passed them a high card), the promise
+/// cannot be read any more and there is no filter.
 bool Function(Deal deal)? conventionAccept(
   GameEngineState state,
   String actorId,
@@ -393,6 +398,7 @@ bool Function(Deal deal)? conventionAccept(
   ]);
   final given = state.completedSchupfSelections[actorId]?.toPartner;
   final gift = given != null && PartnerConvention.isHighCard(given) ? 1 : 0;
+  if (!PartnerConvention.keepsSoFar(promise, played - gift)) return null;
   return (deal) => PartnerConvention.keeps(
     promise,
     PartnerConvention.highCards(deal[partner.id] ?? const <Card>[]) +

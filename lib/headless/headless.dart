@@ -12,6 +12,7 @@ import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/partner_convention.dart';
+import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
@@ -157,6 +158,7 @@ Future<void> main(List<String> args) async {
     schupfCandidates: config.schupfCandidates,
     recordGames: config.recordGames,
     schupfExtended: config.schupfExtended || config.schupfLabelExtended,
+    schupfConvention: config.convention,
     pimcWorlds: config.pimcWorlds,
     endgameSearcher:
         config.endgameSearch != null || config.opponentEndgameSearch != null

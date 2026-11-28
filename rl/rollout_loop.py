@@ -274,12 +274,20 @@ def panel_gate(args, entry, cand, best, vs_best, opponent_nets, own_schupf, opp_
     return mean > args.promote_z * se and vs_best["win_rate"] >= 50
 
 
+def convention_args(args) -> list[str]:
+    """Headless flags for the partner convention of both teams (none for free)."""
+    if args.convention == "free":
+        return []
+    return [f"--convention={args.convention}", f"--opponent-convention={args.convention}"]
+
+
 def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Path) -> dict | None:
     """Exact schupf labels from the new best's self-play (or the workers'
     labels in ``--schupf-label-run``), new schupf net, keep it if it wins."""
     sdir = data_dir.parent / "schupf"
     sdir.mkdir(exist_ok=True)
     ext = ["--schupf-extended"] if args.schupf_extended else []
+    conv = convention_args(args)
     if args.schupf_label_run:
         ldir = sdir / "labels"
         try:
@@ -304,7 +312,7 @@ def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Pa
         files = sorted(train)
         print(f"   schupf retrain on {rows} label rows ({len(files)} files)", flush=True)
     else:
-        files = _schupf_labels(args, it, play_net, cur_schupf, sdir, ext)
+        files = _schupf_labels(args, it, play_net, cur_schupf, sdir, [*ext, *conv])
     new = sdir / f"it{it:02d}_schupf.safetensors"
     if not new.exists():
         res = subprocess.run([sys.executable, str(RL / "schupf_cf_train.py"),
@@ -312,7 +320,7 @@ def retrain_schupf(args, it: int, play_net: Path, cur_schupf: Path, data_dir: Pa
                              cwd=RL.parent, capture_output=True, text=True)
         if res.returncode != 0:
             raise RuntimeError(res.stdout + res.stderr)
-    r = duel([f"--nn-policy={play_net}", f"--schupf-net={new}", *ext],
+    r = duel([f"--nn-policy={play_net}", f"--schupf-net={new}", *ext, *conv],
              [f"--opponent-policy={play_net}", f"--opponent-schupf-net={cur_schupf}",
               *(["--opponent-schupf-extended"] if ext else [])],
              deals=args.duel_deals, seed=5151 + it, shards=args.shards)
@@ -336,7 +344,8 @@ def _schupf_labels(args, it: int, play_net: Path, cur_schupf: Path, sdir: Path, 
             base_args=["--format=bc-jsonl", "--skip-play-rows", "--schupf-rollout-rate=1",
                        f"--target-score={args.target_score}", "--epsilon=0",
                        f"--nn-policy={play_net}", f"--schupf-net={cur_schupf}", *ext,
-                       *(["--schupf-label-extended", "--schupf-candidates=20"] if ext else [])],
+                       *(["--schupf-label-extended", "--schupf-candidates=20"]
+                         if "--schupf-extended" in ext else [])],
             seed=args.seed + 10_000 * it + 7000 + 10 * k,
             episodes=args.schupf_chunk,
             output_path=tmp,
@@ -446,6 +455,8 @@ def main() -> None:
         help="train on the newest files up to this many decisions; older ones are deleted "
         "locally and from --upload-run (0 = keep everything)",
     )
+    p.add_argument("--convention", default="free", choices=["free", "twoHcOdd"],
+                   help="partner-passing convention of every bot in the loop's games")
     p.add_argument("--shards", type=int, default=4)
     p.add_argument("--seed", type=int, default=100_000)
     args = p.parse_args()
@@ -474,6 +485,9 @@ def main() -> None:
     own_schupf = [f"--schupf-net={args.schupf_net}"] if args.schupf_net else []
     if args.schupf_net and args.schupf_extended:
         own_schupf.append("--schupf-extended")
+    # Both teams keep the partner convention in every game of the loop
+    # (own_schupf goes into the data runs and both sides of every duel).
+    own_schupf += convention_args(args)
     opp_schupf = [f"--opponent-schupf-net={args.opponent_schupf_net}"] if args.opponent_schupf_net else []
     if args.opponent_schupf_net and args.opponent_schupf_extended:
         opp_schupf.append("--opponent-schupf-extended")

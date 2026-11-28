@@ -100,6 +100,10 @@ class _HeadlessSimulator {
 
   /// Schupf labels draw candidates from the extended set.
   final bool schupfExtended;
+
+  /// Schupf labels keep only partner cards this convention allows (the
+  /// labelled team's convention).
+  final PartnerConvention schupfConvention;
   late final List<Map<String, SmartAiAgent>> _variantAgents = [
     for (final _ in shadowVariants) <String, SmartAiAgent>{},
   ];
@@ -151,6 +155,7 @@ class _HeadlessSimulator {
     this.schupfCandidates = 16,
     this.recordGames = false,
     this.schupfExtended = false,
+    this.schupfConvention = PartnerConvention.free,
     this.pimcWorlds = 0,
     this.endgameSearcher,
   });

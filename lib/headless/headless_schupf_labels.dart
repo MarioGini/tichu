@@ -16,6 +16,7 @@ extension _SchupfLabels on _HeadlessSimulator {
   /// The bot's own pass first, then up to [schupfCandidates] - 1 random
   /// others from [SchupfFeatures.candidates].
   List<SchupfAction> _schupfCandidates(
+    GameSnapshot snapshot,
     String playerId,
     List<Card> hand,
     SchupfAction chosen,
@@ -28,6 +29,12 @@ extension _SchupfLabels on _HeadlessSimulator {
       for (final (l, p, r) in SchupfFeatures.candidates(
         hand,
         extended: schupfExtended,
+        partnerCards: conventionPartnerCards(
+          schupfConvention,
+          snapshot,
+          playerId,
+          hand,
+        ),
       ))
         if (!isChosen(l, p, r))
           SchupfAction(
@@ -52,7 +59,7 @@ extension _SchupfLabels on _HeadlessSimulator {
   }) async {
     final hand = List<Card>.from(snapshot.hands[playerId] ?? const <Card>[]);
     if (hand.length < 3) return;
-    final candidates = _schupfCandidates(playerId, hand, chosen);
+    final candidates = _schupfCandidates(snapshot, playerId, hand, chosen);
     final me = state.players.firstWhere((p) => p.id == playerId);
     final team = me.seat % 2;
     final partnerId = state.players

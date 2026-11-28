@@ -1,6 +1,8 @@
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
+import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/bomb_utils.dart';
@@ -12,8 +14,33 @@ abstract class SchupfStrategy {
   );
 }
 
+/// Indices of [hand] that [convention] lets [playerId] pass to the
+/// partner in [snapshot] (schupf phase); null = unconstrained. Calls in
+/// the snapshot at schupf time came before the schupf.
+Set<int>? conventionPartnerCards(
+  PartnerConvention convention,
+  GameSnapshot snapshot,
+  String playerId,
+  List<Card> hand,
+) {
+  final me = snapshot.players.firstWhere((p) => p.id == playerId);
+  String idAt(int offset) =>
+      snapshot.players.firstWhere((p) => p.seat == (me.seat + offset) % 4).id;
+  final calls = snapshot.scoreState.tichuCalls;
+  bool called(String id) => (calls[id] ?? TichuCall.none) != TichuCall.none;
+  return convention.allowedPartnerCards(
+    hand,
+    selfCalled: called(playerId),
+    partnerCalled: called(idAt(2)),
+    rightGrand: calls[idAt(3)] == TichuCall.grandTichu,
+  );
+}
+
 class DefaultSchupfStrategy implements SchupfStrategy {
-  const DefaultSchupfStrategy();
+  /// The partner card follows this convention.
+  final PartnerConvention convention;
+
+  const DefaultSchupfStrategy({this.convention = PartnerConvention.free});
 
   @override
   Future<SchupfAction> selectSchupfCards(
@@ -62,6 +89,31 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     Card? toLeft;
     Card? toRight;
 
+    // Partner card fixed by the convention: picked first, so the opponent
+    // picks below cannot take it.
+    final bombCards = <Card>{
+      for (final bomb in getBombs(List<Card>.from(hand))) ...bomb.cards,
+    };
+    bool inBomb(Card c) =>
+        bombCards.any((b) => b.face == c.face && b.color == c.color);
+    Card? conventionCard;
+    final allowed = conventionPartnerCards(
+      convention,
+      snapshot,
+      playerId,
+      hand,
+    );
+    if (allowed != null) {
+      final pool = [for (final i in allowed) hand[i]];
+      final outsideBombs = pool.where((c) => !inBomb(c)).toList();
+      final picks = (outsideBombs.isEmpty ? pool : outsideBombs)
+        ..sort((a, b) => cardStrength(a).compareTo(cardStrength(b)));
+      // Strongest fitting card, but a low one when I go out first myself.
+      final pick = selfGoing && !partnerGrand ? picks.first : picks.last;
+      conventionCard = pick;
+      remaining.remove(pick);
+    }
+
     // If an opponent called (Grand) Tichu, prefer giving them the Dog.
     // If partner called, keep Dog for support plays.
     if (!partnerGrand &&
@@ -83,13 +135,10 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     // opponent never gets two cards of the same rank from us (no bomb gift).
     // Never break up a bomb (four of a kind / straight flush) when any other
     // card can be passed instead.
-    final bombCards = <Card>{
-      for (final bomb in getBombs(List<Card>.from(hand))) ...bomb.cards,
-    };
     List<Card> safe(List<Card> pool) {
       final kept = [
         for (final c in pool)
-          if (!bombCards.any((b) => b.face == c.face && b.color == c.color)) c,
+          if (!inBomb(c)) c,
       ];
       return kept.isEmpty ? pool : kept;
     }
@@ -116,7 +165,9 @@ class DefaultSchupfStrategy implements SchupfStrategy {
     // - I called, or my hand is a Tichu hand: keep strength, give a low card.
     // - Otherwise: give strongest regular card (support the partner).
     Card toPartner;
-    if (partnerGrand) {
+    if (conventionCard != null) {
+      toPartner = conventionCard;
+    } else if (partnerGrand) {
       final nonDog = safe(remaining)
           .where((c) => c.face != CardFace.dog)
           .toList();

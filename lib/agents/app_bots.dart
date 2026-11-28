@@ -45,6 +45,7 @@ abstract final class AppBots {
         play: LoadedNet.fromBytes(play.buffer.asUint8List()),
         schupf: LoadedNet.fromBytes(schupf.buffer.asUint8List()),
         schupfExtended: ShippedBots.schupfExtended,
+        partnerConvention: ShippedBots.partnerConvention,
         // Float32 SIMD (NEON on phones, SSE on desktop): ~3x faster, as
         // in the headless duels that evaluated these bots. On the web
         // Float32x4 is emulated and slower, so the web keeps float64.

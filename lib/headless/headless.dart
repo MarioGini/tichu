@@ -11,6 +11,7 @@ import 'package:tichu/agents/nn/feature_encoder.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/agents/tichu_call_strategy.dart';
@@ -75,6 +76,7 @@ Future<void> main(List<String> args) async {
     simdInference: config.simd,
     style: config.style,
     schupfExtended: config.schupfExtended,
+    partnerConvention: config.convention,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig
@@ -90,6 +92,7 @@ Future<void> main(List<String> args) async {
     simdInference: config.simd,
     style: config.opponentStyle,
     schupfExtended: config.opponentSchupfExtended,
+    partnerConvention: config.opponentConvention,
   );
   final opponentFactory = opponentConfig
       .withEndgameSearch(config.opponentEndgameSearch)

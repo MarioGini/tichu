@@ -30,6 +30,10 @@ class _HeadlessConfig {
   final StyleBias opponentStyle;
   final bool schupfExtended;
   final bool opponentSchupfExtended;
+
+  /// Partner-passing convention of the policy / opponent team.
+  final PartnerConvention convention;
+  final PartnerConvention opponentConvention;
   final bool schupfLabelExtended;
   final String? beliefNetPath;
   final bool recordGames;
@@ -86,6 +90,8 @@ class _HeadlessConfig {
     required this.opponentStyle,
     required this.schupfExtended,
     required this.opponentSchupfExtended,
+    this.convention = PartnerConvention.free,
+    this.opponentConvention = PartnerConvention.free,
     required this.schupfLabelExtended,
     required this.beliefNetPath,
     required this.recordGames,
@@ -145,6 +151,8 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var opponentStyle = StyleBias.none;
   var schupfExtended = false;
   var opponentSchupfExtended = false;
+  var convention = PartnerConvention.free;
+  var opponentConvention = PartnerConvention.free;
   var schupfLabelExtended = false;
   var schupfEpsilon = 0.0;
   var shadowHeuristic = false;
@@ -473,6 +481,18 @@ _HeadlessConfig _parseArgs(List<String> args) {
       opponentSchupfExtended = true;
       continue;
     }
+    if (arg.startsWith('--convention=')) {
+      convention = PartnerConvention.values.byName(
+        arg.substring('--convention='.length),
+      );
+      continue;
+    }
+    if (arg.startsWith('--opponent-convention=')) {
+      opponentConvention = PartnerConvention.values.byName(
+        arg.substring('--opponent-convention='.length),
+      );
+      continue;
+    }
     if (arg.startsWith('--style=')) {
       style = StyleBias.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
@@ -583,6 +603,8 @@ _HeadlessConfig _parseArgs(List<String> args) {
     opponentStyle: opponentStyle,
     schupfExtended: schupfExtended,
     opponentSchupfExtended: opponentSchupfExtended,
+    convention: convention,
+    opponentConvention: opponentConvention,
     schupfLabelExtended: schupfLabelExtended,
     beliefNetPath: beliefNetPath,
     recordGames: recordGames,
@@ -621,6 +643,10 @@ void _printUsage() {
   stdout.writeln('       [--tichu-net=..] [--grand-net=..] [--call-epsilon=p]');
   stdout.writeln('       [--schupf-net=..] [--schupf-epsilon=p]');
   stdout.writeln('       [--pre-tichu-net=..]  (Tichu before the schupf)');
+  stdout.writeln(
+    '       [--convention=free|twoHcOdd] [--opponent-convention=..]  '
+    '(partner-passing convention)',
+  );
   stdout.writeln('       [--heuristic=latest,weight:value,...]');
   stdout.writeln('       [--opponent-heuristic=...]  (TurnScorer weights)');
   stdout.writeln(

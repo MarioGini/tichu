@@ -4,11 +4,13 @@ import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/endgame_solver.dart';
 import 'package:tichu/agents/nn/belief_model.dart';
 import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/engine.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/player_agent.dart';
+import 'package:tichu/game/scoring/score_state.dart';
 import 'package:tichu/game/simulation.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
 import 'package:tichu/game/turn/utils/bomb_utils.dart';
@@ -61,6 +63,10 @@ class EndgameSearch {
   /// and strictly better in [minBetterWorlds].
   final bool expectedValue;
 
+  /// The partner passes by this convention: the worlds keep the high-card
+  /// count their schupf card promised ([dealUnseen]).
+  final PartnerConvention convention;
+
   const EndgameSearch({
     this.worlds = 8,
     this.maxCards = 5,
@@ -74,6 +80,7 @@ class EndgameSearch {
     this.bombStrata = false,
     this.bombProbes = 256,
     this.expectedValue = false,
+    this.convention = PartnerConvention.free,
   });
 
   EndgameSearch copyWith({
@@ -89,6 +96,7 @@ class EndgameSearch {
     bool? bombStrata,
     int? bombProbes,
     bool? expectedValue,
+    PartnerConvention? convention,
   }) => EndgameSearch(
     worlds: worlds ?? this.worlds,
     maxCards: maxCards ?? this.maxCards,
@@ -102,6 +110,7 @@ class EndgameSearch {
     bombStrata: bombStrata ?? this.bombStrata,
     bombProbes: bombProbes ?? this.bombProbes,
     expectedValue: expectedValue ?? this.expectedValue,
+    convention: convention ?? this.convention,
   );
 
   @override
@@ -110,7 +119,7 @@ class EndgameSearch {
       'margin: $margin, maxActions: $maxActions, '
       'solveOneOnOne: $solveOneOnOne, solveBudget: $solveBudget, '
       'minBetterWorlds: $minBetterWorlds, bombStrata: $bombStrata, '
-      'expectedValue: $expectedValue)';
+      'expectedValue: $expectedValue, convention: ${convention.name})';
 }
 
 /// The decision rule: index of the action to play given rollout values
@@ -181,6 +190,7 @@ GameEngineState redealWorld(
   Random random, {
   bool canonicalPool = true,
   List<List<double>>? holders,
+  PartnerConvention convention = PartnerConvention.free,
 }) {
   final world = state.copy();
   dealUnseen(
@@ -189,6 +199,7 @@ GameEngineState redealWorld(
     random,
     canonicalPool: canonicalPool,
     holders: holders,
+    convention: convention,
   ).forEach((id, hand) => world.hands[id] = hand);
   return world;
 }
@@ -199,7 +210,79 @@ typedef Deal = Map<String, List<Card>>;
 
 /// The hands of the other players in a re-deal of [state] as
 /// [redealWorld] makes it, without copying the state.
+///
+/// With [convention] the partner's hand also keeps the high-card count the
+/// card they passed me promised ([enforceHighCardPromise]).
 Deal dealUnseen(
+  GameEngineState state,
+  String actorId,
+  Random random, {
+  bool canonicalPool = true,
+  List<List<double>>? holders,
+  PartnerConvention convention = PartnerConvention.free,
+}) {
+  final deal = _dealUnseen(
+    state,
+    actorId,
+    random,
+    canonicalPool: canonicalPool,
+    holders: holders,
+  );
+  _keepPartnerPromise(state, actorId, deal, random, convention);
+  return deal;
+}
+
+void _keepPartnerPromise(
+  GameEngineState state,
+  String actorId,
+  Deal deal,
+  Random random,
+  PartnerConvention convention,
+) {
+  if (convention == PartnerConvention.free) return;
+  final actor = state.players.firstWhere((p) => p.id == actorId);
+  String idAt(int offset) =>
+      state.players.firstWhere((p) => p.seat == (actor.seat + offset) % 4).id;
+  final partnerId = idAt(2);
+  final received = state.completedSchupfSelections[partnerId]?.toPartner;
+  if (received == null || deal[partnerId] == null) return;
+  // A call by either of us may have come before the schupf (the
+  // convention was off then); the state does not record when.
+  final calls = state.scoreTracker.state.tichuCalls;
+  bool called(String id) => (calls[id] ?? TichuCall.none) != TichuCall.none;
+  if (called(actorId) || called(partnerId)) return;
+  final range = convention.promisedOtherHighCards(
+    received,
+    partnersRightGrand: calls[idAt(1)] == TichuCall.grandTichu,
+  );
+  if (range == null) return;
+  // The cards I passed stay where they went (dealUnseen pins them).
+  final myPass = state.completedSchupfSelections[actorId];
+  final mine = myPass == null
+      ? const <Card>[]
+      : [myPass.toLeft, myPass.toPartner, myPass.toRight];
+  bool isMine(Card c) =>
+      mine.any((m) => m.face == c.face && m.color == c.color);
+  final toPartner = myPass?.toPartner;
+  final kept =
+      deal[partnerId]!.where(isHighCard).length +
+      [
+        for (final e in state.roundLog)
+          if (e.playerId == partnerId) ...e.cards.where(isHighCard),
+      ].length -
+      (toPartner != null && isHighCard(toPartner) ? 1 : 0);
+  enforceHighCardPromise(
+    deal,
+    partnerId: partnerId,
+    opponentIds: [idAt(1), idAt(3)],
+    partnerKept: kept,
+    range: range,
+    isPinned: isMine,
+    random: random,
+  );
+}
+
+Deal _dealUnseen(
   GameEngineState state,
   String actorId,
   Random random, {
@@ -450,7 +533,13 @@ class EndgameSearcher {
           : (
               [
                 for (var w = 0; w < config.worlds; w++)
-                  dealUnseen(state, playerId, random, holders: holders),
+                  dealUnseen(
+                    state,
+                    playerId,
+                    random,
+                    holders: holders,
+                    convention: config.convention,
+                  ),
               ],
               null,
             );
@@ -560,7 +649,13 @@ class EndgameSearcher {
     final bomb = <Deal>[];
     final plain = <Deal>[];
     for (var i = 0; i < config.bombProbes; i++) {
-      final hands = dealUnseen(state, playerId, random, holders: holders);
+      final hands = dealUnseen(
+        state,
+        playerId,
+        random,
+        holders: holders,
+        convention: config.convention,
+      );
       (hands.values.any(hasBombInHand) ? bomb : plain).add(hands);
     }
     if (bomb.isEmpty || plain.isEmpty) {

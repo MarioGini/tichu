@@ -1,4 +1,5 @@
 import 'package:tichu/agents/endgame_search.dart';
+import 'package:tichu/agents/partner_convention.dart';
 
 /// The shipped bots: the assets and settings the app plays with
 /// (`AppBots`). Plain Dart, so tools can build the same bots.
@@ -12,6 +13,11 @@ abstract final class ShippedBots {
   /// set.
   static const schupfAsset = 'assets/bots/tichu_schupf_v5.safetensors';
   static const schupfExtended = true;
+
+  /// Partner-passing convention "2+ HC Odd" (tichuengine.com/about): the
+  /// card to the partner tells how many high cards the passer kept, and
+  /// the search reads it. See [PartnerConvention].
+  static const PartnerConvention partnerConvention = PartnerConvention.twoHcOdd;
 
   /// Card-location model (rl/belief_train.py): the endgame search re-deals
   /// its worlds with it instead of uniformly.

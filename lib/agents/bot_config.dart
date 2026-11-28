@@ -7,6 +7,8 @@ import 'package:tichu/agents/nn/nn_play_selection_strategy.dart';
 import 'package:tichu/agents/nn/nn_schupf_strategy.dart';
 import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
+import 'package:tichu/agents/partner_convention.dart';
+import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
 import 'package:tichu/game/player_agent.dart';
 
@@ -74,6 +76,10 @@ class BotConfig {
   /// SIMD kernel, `WasmMlpKernel`); null = [simdInference] decides.
   final PrefixScorerFactory? playScorer;
 
+  /// Partner-passing convention: the schupf follows it and the endgame
+  /// search reads the partner's pass by it.
+  final PartnerConvention partnerConvention;
+
   const BotConfig({
     this.play,
     this.tichu,
@@ -87,6 +93,7 @@ class BotConfig {
     this.heuristicOptions = HeuristicOptions.latest,
     this.endgameSearch,
     this.playScorer,
+    this.partnerConvention = PartnerConvention.free,
   });
 
   /// This config with [search] as its endgame search (null = off).
@@ -103,6 +110,24 @@ class BotConfig {
     heuristicOptions: heuristicOptions,
     endgameSearch: search,
     playScorer: playScorer,
+    partnerConvention: partnerConvention,
+  );
+
+  /// This config with [convention] as its partner convention.
+  BotConfig withPartnerConvention(PartnerConvention convention) => BotConfig(
+    play: play,
+    tichu: tichu,
+    grandTichu: grandTichu,
+    preSchupfTichu: preSchupfTichu,
+    schupf: schupf,
+    schupfExtended: schupfExtended,
+    callMargin: callMargin,
+    simdInference: simdInference,
+    style: style,
+    heuristicOptions: heuristicOptions,
+    endgameSearch: endgameSearch,
+    playScorer: playScorer,
+    partnerConvention: convention,
   );
 
   /// The pure heuristic bot.
@@ -116,7 +141,9 @@ class BotConfig {
       playerId,
       options: heuristicOptions,
       // The search needs the play net's moves to improve on.
-      endgameSearch: play == null ? null : endgameSearch,
+      endgameSearch: play == null
+          ? null
+          : endgameSearch?.copyWith(convention: partnerConvention),
       playSelectionStrategy: (play == null
           ? null
           : NnPlaySelectionStrategy(
@@ -140,8 +167,12 @@ class BotConfig {
               margin: callMargin,
             ),
       schupfStrategy: schupf == null
-          ? null
-          : NnSchupfStrategy(network: schupf.network, extended: schupfExtended),
+          ? DefaultSchupfStrategy(convention: partnerConvention)
+          : NnSchupfStrategy(
+              network: schupf.network,
+              extended: schupfExtended,
+              convention: partnerConvention,
+            ),
     );
   }
 }

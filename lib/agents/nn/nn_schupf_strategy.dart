@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:tichu/agents/card_knowledge.dart';
 import 'package:tichu/agents/nn/mlp.dart';
+import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_actions.dart';
@@ -55,13 +56,7 @@ abstract final class SchupfFeatures {
 
   /// Strength order for passing: Dog 0, Mahjong 1, 2..A, Phoenix 15,
   /// Dragon 16.
-  static int passStrength(Card c) => switch (c.face) {
-    CardFace.dog => 0,
-    CardFace.mahJong => 1,
-    CardFace.phoenix => 15,
-    CardFace.dragon => 16,
-    _ => faceRank(c.face),
-  };
+  static int passStrength(Card c) => cardStrength(c);
 
   /// The sensible passes of [hand] as (left, partner, right) hand indices:
   /// one of the five strongest cards or the Dog to the partner, one of the
@@ -71,17 +66,23 @@ abstract final class SchupfFeatures {
   ///
   /// [extended] also lets the partner receive one of the two weakest normal
   /// cards (a hand going for Tichu keeps its strength).
+  ///
+  /// [partnerCards] (hand indices, e.g. from a [PartnerConvention])
+  /// replaces the partner's set.
   static List<(int, int, int)> candidates(
     List<Card> hand, {
     bool extended = false,
+    Set<int>? partnerCards,
   }) {
     final order = List<int>.generate(hand.length, (i) => i)
       ..sort((a, b) => passStrength(hand[a]).compareTo(passStrength(hand[b])));
-    final partner = <int>{
-      ...order.reversed.take(5),
-      ...order.where((i) => hand[i].face == CardFace.dog),
-      if (extended) ...order.where((i) => _isNormal(hand[i])).take(2),
-    };
+    final partner =
+        partnerCards ??
+        <int>{
+          ...order.reversed.take(5),
+          ...order.where((i) => hand[i].face == CardFace.dog),
+          if (extended) ...order.where((i) => _isNormal(hand[i])).take(2),
+        };
     final left = order.where((i) => allowedLeft(hand[i])).take(5);
     final right = order.where((i) => allowedRight(hand[i])).take(5);
     return [
@@ -137,7 +138,15 @@ class NnSchupfStrategy implements SchupfStrategy {
   /// have been trained on such labels, `headless --schupf-extended`).
   final bool extended;
 
-  NnSchupfStrategy({required this.network, this.extended = false}) {
+  /// The partner card follows this convention (an overlay on the net's
+  /// scores: only conforming passes are scored, as on tichuengine.com).
+  final PartnerConvention convention;
+
+  NnSchupfStrategy({
+    required this.network,
+    this.extended = false,
+    this.convention = PartnerConvention.free,
+  }) {
     if (network.inputSize != SchupfFeatures.size) {
       throw ArgumentError.value(
         network.inputSize,
@@ -177,6 +186,12 @@ class NnSchupfStrategy implements SchupfStrategy {
     for (final (l, p, r) in SchupfFeatures.candidates(
       hand,
       extended: extended,
+      partnerCards: conventionPartnerCards(
+        convention,
+        snapshot,
+        playerId,
+        hand,
+      ),
     )) {
       work.setAll(0, pre);
       network

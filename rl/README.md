@@ -26,7 +26,7 @@ example when it shares the 4 cores with game generation.
 
 | | Play net | Schupf | Search |
 |---|---|---|---|
-| shipped (app) | `tichu_q_v10` (431 inputs, schema v9) | `tichu_schupf_v5`, extended candidates | search ≤ 12 cards with belief worlds (`tichu_belief_v1`), 1-on-1 solver |
+| shipped (app) | `tichu_q_v10` (431 inputs, schema v9) | `tichu_schupf_v5`, extended candidates | halving search ≤ 12 cards (56 rollouts, net prior, `minZ` 1) with belief worlds (`tichu_belief_v1`), 1-on-1 solver |
 
 `lib/agents/bot_config.dart` (`BotConfig`) builds every bot, in both the
 app and the headless runner. The play net scores every legal play plus pass
@@ -145,6 +145,10 @@ network secret for the project host (header `apikey`).
 ```bash
 rl/.venv/bin/python rl/duel.py --a="--nn-policy=A.safetensors --endgame-search" \
     --b="--opponent-policy=assets/bots/tichu_q_v10.safetensors --opponent-schupf-net=assets/bots/tichu_schupf_v5.safetensors --opponent-schupf-extended --opponent-endgame-search" --deals=600
+
+# side B as the app plays (halving search with the net prior):
+#   --opponent-endgame-solve --opponent-endgame-belief --opponent-endgame-max-cards=12 \
+#   --opponent-endgame-halving=56 --endgame-prior-weight=1 --endgame-min-z=1
 ```
 
 Duels are duplicate: every deal sequence is played once with each seating
@@ -169,9 +173,22 @@ The drivers run the search (headless `_selectAction`, the app's
 after the bot has chosen its move.
 
 - **Worlds.** Re-deal the unseen cards consistently with what is known.
-  With `beliefWorlds` the deal is weighted by the belief net. Play every
-  candidate move out in 8 worlds, and deviate from the net's move only if
-  another move is no worse in every world and better by a margin.
+  With `beliefWorlds` the deal is weighted by the belief net.
+- **Halving (shipped).** Sequential halving over the candidate moves
+  (`lib/agents/halving_search.dart`), 56 rollouts per decision:
+  - every round plays each surviving move in the same new worlds, then
+    keeps the better half by the sampled mean plus the net's Q
+    (`priorWeight` 1);
+  - the net's own move always survives, and the last pair gets the rest
+    of the budget;
+  - another move is played only if it beats the net's move by more than
+    the margin and by one standard error of the paired difference
+    (`minZ` 1).
+
+  Each round goes to the workers, so the app keeps its parallelism.
+- **Grid (former).** Play every candidate move out in 8 worlds, and
+  deviate from the net's move only if another move is no worse in every
+  world and better by a margin (`halvingBudget` 0).
 - **Solver.** `OneOnOneSolver` (`lib/agents/endgame_solver.dart`) plays
   one-on-one endgames exactly by minimax, up to 10 cards and a position
   budget, and also decides the Dragon gift.

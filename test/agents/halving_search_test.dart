@@ -17,14 +17,16 @@ import 'package:tichu/game/turn/engine/engine_impl.dart';
 /// shared by all actions (the luck of the deal) and a little own noise.
 WorldEvaluator _noisy(List<double> truth, {int seed = 1, double luck = 50}) {
   final worlds = <int, double>{};
-  return (w, actions) async {
-    final shared = worlds[w] ??=
-        (Random(seed * 1000 + w).nextDouble() - 0.5) * luck;
-    return [
-      for (final a in actions)
-        truth[a] + shared + (Random(w * 97 + a).nextDouble() - 0.5) * 4,
-    ];
-  };
+  return (ws, actions) async => [
+    for (final w in ws)
+      [
+        for (final a in actions)
+          truth[a] +
+              (worlds[w] ??=
+                  (Random(seed * 1000 + w).nextDouble() - 0.5) * luck) +
+              (Random(w * 97 + a).nextDouble() - 0.5) * 4,
+      ],
+  ];
 }
 
 const _players = [
@@ -143,9 +145,12 @@ void main() {
         count: 3,
         incumbent: 0,
         budget: 30,
-        evaluate: (w, actions) async => [
-          for (final a in actions)
-            if (a == 2) null else a * 20.0,
+        evaluate: (ws, actions) async => [
+          for (final _ in ws)
+            [
+              for (final a in actions)
+                if (a == 2) null else a * 20.0,
+            ],
         ],
         margin: 5,
       );

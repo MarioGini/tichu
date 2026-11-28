@@ -17,6 +17,7 @@ points (the shipped bot is v10 + schupf v5 + belief search ≤ 12 + solver).
 | Belief-weighted worlds, search up to 12 cards | 52.5 % vs the app bot |
 | More data from worker sessions (~6.5M-decision window) + gate needing ≥ 50 % vs the best | v10 iterations 9–10 promoted again after a plateau; it10 vs v8 60–62 % without search |
 | Shipped v10 + schupf v5 + belief search ≤ 12 + solver | **63.7 % ± 1.4** vs v8 + schupf v4 + search ≤ 8 + solver |
+| Sequential halving with the net's prior instead of the 8 × 7 grid (same 56 rollouts, `minZ` 1), same nets | **56.0 % ± 1.1**, +86 per match (2 × 300 deals x 2) vs the grid; halving alone 54.4 % |
 
 The pattern behind these gains: the play net sits at the fixed point of its
 training signal. New gains came from new information (inputs or data),

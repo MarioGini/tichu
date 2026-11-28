@@ -671,47 +671,67 @@ class EndgameSearcher {
           : (estimate.them, estimate.us);
     }
 
-    Future<List<double?>> evaluate(int w, List<int> which) async {
-      while (deals.length <= w) {
+    // Full rollouts scored in points: the same as the grid search, so they
+    // go to the workers (the app's isolates / web workers) when there are
+    // any. Truncated or match-utility rollouts run here.
+    final plain = leafAfter == null && !config.matchUtility;
+
+    Future<double?> playOne(GameEngineState world, int k) async {
+      final fork = world.copy();
+      final agents = {
+        for (final p in fork.players) p.id: rolloutAgent(p.id, p.seat),
+      };
+      simulationEngine.applyAction(fork, _copyAction(actions[k]));
+      final points = await playOutRoundPoints(
+        fork,
+        agents,
+        leafAfter: leafAfter ?? 0,
+        leaf: leafAfter == null ? null : leaf,
+      );
+      if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
+      if (points == null) return null;
+      final (us, them) = team == 0 ? points : (points.$2, points.$1);
+      return config.matchUtility
+          ? matchModel.pointsEquivalent(
+              us: usTotal,
+              them: themTotal,
+              usRound: us,
+              themRound: them,
+              target: score.targetScore,
+            )
+          : us - them;
+    }
+
+    Future<List<List<double?>>> evaluate(
+      List<int> worlds,
+      List<int> which,
+    ) async {
+      final last = worlds.isEmpty ? -1 : worlds.reduce(max);
+      while (deals.length <= last) {
         deals.add(
           dealUnseen(state, playerId, random, holders: holders, accept: accept),
         );
       }
-      final world = state.copy();
-      deals[w].forEach((id, hand) => world.hands[id] = hand);
-      final row = <double?>[];
-      for (final k in which) {
-        final fork = world.copy();
-        final agents = {
-          for (final p in fork.players) p.id: rolloutAgent(p.id, p.seat),
-        };
-        simulationEngine.applyAction(fork, _copyAction(actions[k]));
-        final points = await playOutRoundPoints(
-          fork,
-          agents,
-          leafAfter: leafAfter ?? 0,
-          leaf: leafAfter == null ? null : leaf,
+      rollouts += worlds.length * which.length;
+      if (plain) {
+        final values = await _rollOutWorlds(
+          state,
+          [for (final w in worlds) deals[w]],
+          {for (final k in which) k: actions[k]},
+          actions.length,
+          team,
         );
-        rollouts++;
-        if (yieldBetweenRollouts) await Future<void>.delayed(Duration.zero);
-        if (points == null) {
-          row.add(null);
-          continue;
-        }
-        final (us, them) = team == 0 ? points : (points.$2, points.$1);
-        row.add(
-          config.matchUtility
-              ? matchModel.pointsEquivalent(
-                  us: usTotal,
-                  them: themTotal,
-                  usRound: us,
-                  themRound: them,
-                  target: score.targetScore,
-                )
-              : us - them,
-        );
+        return [
+          for (final row in values) [for (final k in which) row[k]],
+        ];
       }
-      return row;
+      final rows = <List<double?>>[];
+      for (final w in worlds) {
+        final world = state.copy();
+        deals[w].forEach((id, hand) => world.hands[id] = hand);
+        rows.add([for (final k in which) await playOne(world, k)]);
+      }
+      return rows;
     }
 
     final result = await sequentialHalving(

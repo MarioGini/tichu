@@ -19,11 +19,20 @@ abstract final class ShippedBots {
 
   /// Decision-time endgame search and one-on-one solver for the app bots
   /// (rl/README.md, "Search at decision time"). Flip to switch it off.
-  /// ~70 ms per searched decision natively (more on phones and the web).
+  ///
+  /// Sequential halving with the net's prior (rl/THEORY.md): the same 56
+  /// rollouts as the former 8 worlds x 7 actions, spent on the moves still
+  /// in contention, a challenger only when it beats the net's move by a
+  /// standard error. Beats the former search (same nets) 56.0 % ± 1.1,
+  /// +86 per match (600 deals x 2). ~95 ms per searched decision on one
+  /// native core; the app spreads each halving round over its workers.
   static const useEndgameSearch = true;
   static const endgameSearch = EndgameSearch(
     maxCards: 12,
     solveOneOnOne: true,
     beliefWorlds: true,
+    halvingBudget: 56,
+    priorWeight: 1,
+    minZ: 1,
   );
 }

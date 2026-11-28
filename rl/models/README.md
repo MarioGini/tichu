@@ -8,9 +8,16 @@ The app (`lib/agents/app_bots.dart`) loads:
 | `assets/bots/tichu_schupf_v5.safetensors` | schupf net (j2), `schupf_cf_train.py` on exact labels with the extended candidate set | 232 |
 | `assets/bots/tichu_belief_v1.safetensors` | card-location (belief) net, `belief_train.py`: who holds each unseen card | 373 state inputs, 373-512-256-168 |
 
-The app also runs endgame search up to 12 cards in hand, with worlds
-re-dealt by the belief net, and the one-on-one solver (budget 20,000).
+The app also runs endgame search up to 12 cards in hand (sequential
+halving with the net's prior), with worlds re-dealt by the belief net, and
+the one-on-one solver (budget 20,000).
 Calls, the wish and Dragon gifts outside the solver are heuristic.
+
+The search is sequential halving with the play net's prior (56 rollouts
+per decision, a challenger must beat the net's move by a standard error;
+`rl/THEORY.md`). Against the same nets with the former 8 worlds x 7
+actions grid: **56.3 % ± 1.6** (+106 per match, 300 deals x 2) and, on
+new deals, 55.7 % ± 1.5 (+67), together about 56.0 % ± 1.1.
 
 Results against the previous shipped bot (v8 + schupf v4 + search ≤ 8 +
 solver), duplicate duels on fresh deals, matches to 1000:

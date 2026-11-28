@@ -312,6 +312,43 @@ void main() {
       expect(parallel.rollouts, serial.rollouts);
     });
 
+    test('halving with the net prior: workers give the same moves', () async {
+      final config = BotConfig(
+        play: LoadedNet.fromBytes(
+          File('assets/bots/tichu_q_v10.safetensors').readAsBytesSync(),
+        ),
+        simdInference: true,
+      );
+      final searching = config.withEndgameSearch(
+        _search.copyWith(halvingBudget: 24, priorWeight: 1, minZ: 1),
+      );
+      final serial = EndgameSearcher(rolloutAgent: _rolloutFactory(config));
+      final workers = IsolateRolloutWorkers(_rolloutFactory(config), 3);
+      addTearDown(workers.close);
+      final parallel = EndgameSearcher(
+        rolloutAgent: _rolloutFactory(config),
+        workers: workers,
+      );
+      for (final state in states.take(4)) {
+        final id = state.players[state.currentPlayerIndex].id;
+        final agent = searching.build(id);
+        final chosen = await agent.selectTurn(engine.buildSnapshot(state));
+        final a = await serial.refine(
+          state: state.copy(),
+          agent: agent,
+          chosen: chosen,
+        );
+        final b = await parallel.refine(
+          state: state.copy(),
+          agent: agent,
+          chosen: chosen,
+        );
+        expect(_key(b), _key(a));
+      }
+      expect(parallel.rollouts, serial.rollouts);
+      expect(serial.rollouts, lessThanOrEqualTo(4 * 24));
+    });
+
     test('the seed depends only on what the decider knows', () {
       final state = states.first;
       final id = state.players[state.currentPlayerIndex].id;

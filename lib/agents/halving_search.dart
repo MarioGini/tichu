@@ -30,12 +30,13 @@ class HalvingResult {
   });
 }
 
-/// Values of [actions] in world [world] (same order; null = stuck). Every
-/// action asked about in one call sees the same world, so their difference
-/// is free of the luck of the deal (paired, as tichuengine.com's "paired
-/// per-universe diff vs incumbent").
-typedef WorldEvaluator = Future<List<double?>> Function(
-  int world,
+/// `values[i][j]`: the value of `actions[j]` in world `worlds[i]` (null =
+/// stuck). Every action sees the same worlds, so their difference is free
+/// of the luck of the deal (paired, as tichuengine.com's "paired
+/// per-universe diff vs incumbent"). One call per halving round, so a
+/// driver can spread the worlds over workers.
+typedef WorldEvaluator = Future<List<List<double?>>> Function(
+  List<int> worlds,
   List<int> actions,
 );
 
@@ -78,16 +79,21 @@ Future<HalvingResult> sequentialHalving({
   // Plays [worlds] new worlds for every survivor; drops actions that got
   // stuck (the incumbent never is, or the comparison is off).
   Future<void> sample(int worlds) async {
-    for (var w = 0; w < worlds; w++) {
-      final row = await evaluate(world, List.of(alive));
-      spent += alive.length;
+    final asked = List.of(alive);
+    final rows = await evaluate([
+      for (var w = 0; w < worlds; w++) world + w,
+    ], asked);
+    spent += worlds * asked.length;
+    for (final row in rows) {
       final stuck = <int>[];
-      for (var i = 0; i < alive.length; i++) {
+      for (var i = 0; i < asked.length; i++) {
+        // Dropped earlier in this batch.
+        if (!alive.contains(asked[i])) continue;
         final v = row[i];
         if (v == null) {
-          stuck.add(alive[i]);
+          stuck.add(asked[i]);
         } else {
-          values[alive[i]].add(v);
+          values[asked[i]].add(v);
         }
       }
       world++;

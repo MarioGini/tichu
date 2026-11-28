@@ -6,6 +6,7 @@ import 'package:tichu/agents/bot_config.dart';
 import 'package:tichu/agents/endgame_search.dart';
 import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/shipped_bots.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/agent_decisions.dart';
 import 'package:tichu/game/game_actions.dart';
 import 'package:tichu/game/game_types.dart';
@@ -341,5 +342,64 @@ void main() {
       if (action != null) engine.applyAction(state, action);
     }
     expect(checked, 30);
+  });
+
+  test('Tichu call needs more strength when the partner passed even', () async {
+    final engine = GameEngineImpl();
+    final state = engine.createGame(
+      gameId: 'convention_calls',
+      players: _players,
+      targetScore: 100000,
+    );
+    engine.startGame(state);
+    final config = BotConfig.heuristic.withPartnerConvention(_rule);
+    final agents = {for (final p in _players) p.id: config.build(p.id)};
+    const withRule = DefaultTichuCallStrategy(convention: _rule);
+    const free = DefaultTichuCallStrategy();
+    var even = 0;
+    var other = 0;
+    for (var steps = 0; steps < 100000 && (even < 3 || other < 3); steps++) {
+      if (state.scoreTracker.state.roundComplete) {
+        engine.startNewRound(state);
+        continue;
+      }
+      final request = AgentDecisions.next(engine, state);
+      if (request == null) fail('no pending decision');
+      final snap = engine.buildSnapshot(state);
+      if (request is TurnRequest && state.roundLog.isEmpty) {
+        final me = request.playerId;
+        final seat = _players.firstWhere((p) => p.id == me).seat;
+        final partner = _players[(seat + 2) % 4].id;
+        final calls = state.scoreTracker.state.tichuCalls;
+        final strength = DefaultTichuCallStrategy.tichuStrength(
+          state.hands[me]!,
+        );
+        if (calls.values.every((c) => c == TichuCall.none) &&
+            strength >= DefaultTichuCallStrategy.strengthThreshold &&
+            strength <
+                DefaultTichuCallStrategy.strengthThresholdPartnerNoHighCards) {
+          final passed = state.completedSchupfSelections[partner]!.toPartner;
+          expect(await free.shouldCallTichu(snap, me), isTrue);
+          expect(
+            await withRule.shouldCallTichu(snap, me),
+            !isEvenSignal(passed),
+          );
+          if (isEvenSignal(passed)) {
+            even++;
+          } else {
+            other++;
+          }
+        }
+      }
+      final action = await AgentDecisions.resolve(
+        request,
+        agents[request.playerId]!,
+        snap,
+        state,
+      );
+      if (action != null) engine.applyAction(state, action);
+    }
+    expect(even, greaterThanOrEqualTo(3));
+    expect(other, greaterThanOrEqualTo(3));
   });
 }

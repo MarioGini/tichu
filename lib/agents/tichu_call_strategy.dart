@@ -1,4 +1,6 @@
 import 'package:tichu/agents/hand_shape.dart';
+import 'package:tichu/agents/partner_convention.dart';
+import 'package:tichu/agents/table_relationships.dart';
 import 'package:tichu/game/game_snapshot.dart';
 import 'package:tichu/game/scoring/score_tracker.dart';
 import 'package:tichu/game/turn/tichu_data.dart';
@@ -19,8 +21,14 @@ abstract class TichuCallStrategy {
 /// [grandThreshold], never before the schupf, and Tichu when [tichuStrength]
 /// reaches a threshold. Both thresholds are calibrated on exact
 /// counterfactual call values.
+///
+/// With a [convention] the Tichu call also reads the partner's schupf
+/// card: a partner without high cards leaves them all to the opponents, so
+/// the call needs [strengthThresholdPartnerNoHighCards].
 class DefaultTichuCallStrategy implements TichuCallStrategy {
-  const DefaultTichuCallStrategy();
+  final PartnerConvention convention;
+
+  const DefaultTichuCallStrategy({this.convention = PartnerConvention.free});
 
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
@@ -77,9 +85,40 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
           (snapshot.scoreState.tichuCalls[p.id] ?? TichuCall.none) !=
               TichuCall.none,
     );
+    if (opponentCalled) return tichuStrength(hand) >= strengthThresholdVsCall;
     return tichuStrength(hand) >=
-        (opponentCalled ? strengthThresholdVsCall : strengthThreshold);
+        (partnerHasNoHighCards(snapshot, playerId)
+            ? strengthThresholdPartnerNoHighCards
+            : strengthThreshold);
   }
+
+  /// The partner's schupf card promised no high card under [convention]
+  /// (an even card; neither of us called, so the convention was on).
+  bool partnerHasNoHighCards(GameSnapshot snapshot, String playerId) {
+    if (convention == PartnerConvention.free) return false;
+    final partnerId = TableRelationships(snapshot, playerId).partnerId;
+    if (partnerId == null) return false;
+    final calls = snapshot.scoreState.tichuCalls;
+    if ((calls[playerId] ?? TichuCall.none) != TichuCall.none ||
+        (calls[partnerId] ?? TichuCall.none) != TichuCall.none) {
+      return false;
+    }
+    final received = snapshot.schupfSelections[partnerId]?.toPartner;
+    return received != null &&
+        !isHighCard(received) &&
+        convention.promisedOtherHighCards(
+              received,
+              partnersRightGrand: false,
+            ) ==
+            (0, 0);
+  }
+
+  /// Threshold when the partner promised no high card (2+ HC Odd, an even
+  /// card): calls at [strengthThreshold] lost 4.2 ± 2.3 pts per decision,
+  /// +0.2 .. +0.4 is best (+0.6; 1,305 decisions, rl/call_audit.py on
+  /// labels of bots that keep the convention). A passed high card or an
+  /// odd card (2+ HC) is best left at [strengthThreshold].
+  static const double strengthThresholdPartnerNoHighCards = 0.3;
 
   /// Calibrated on exact counterfactual call values (3,475 first-Tichu
   /// decisions, heuristic self-play): -0.1 maximises the value of calls

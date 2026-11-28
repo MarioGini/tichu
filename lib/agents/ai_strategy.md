@@ -101,6 +101,10 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart),
   - 0.35 * plays-to-go-out - 0.7 if holding the Dog` reaches -0.1
   (0.5 when an opponent already called), calibrated on exact
   counterfactual call values.
+- With the partner convention (R8b), a partner who passed an even card (no
+  high card) needs strength 0.3: those calls lost 4.2 ± 2.3 pts per
+  decision at -0.1. A passed high card or an odd card keeps -0.1 (no
+  better threshold within noise).
 - Never call when the partner already called.
 - Code: [tichu_call_strategy.dart](tichu_call_strategy.dart),
   [smart_ai_agent.dart](smart_ai_agent.dart)
@@ -136,6 +140,8 @@ counted in the 14-card hand before passing:
   A call by either of us skips this (the state does not record whether it
   came before the schupf). Opponents' passes to the partner are taken to
   hold no HC.
+- Calling: the Tichu call reads it (R7). Grand and pre-schupf calls come
+  before the partner's card.
 - The shipped bots use it (`ShippedBots.partnerConvention`); headless
   `--convention=twoHcOdd` / `--opponent-convention=`.
 - Code: [partner_convention.dart](partner_convention.dart)

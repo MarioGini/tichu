@@ -10,6 +10,7 @@ import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/schupf_strategy.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/player_agent.dart';
 
 /// A loaded network plus the denormalisation from its safetensors metadata.
@@ -156,7 +157,7 @@ class BotConfig {
             )),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null
-          ? null
+          ? DefaultTichuCallStrategy(convention: partnerConvention)
           : NnTichuCallStrategy(
               tichuNetwork: tichu?.network,
               grandTichuNetwork: grandTichu?.network,
@@ -165,6 +166,7 @@ class BotConfig {
               preSchupfTichuNetwork: preSchupfTichu?.network,
               preSchupfTichuScale: preSchupfTichu?.targetStd ?? 100,
               margin: callMargin,
+              fallback: DefaultTichuCallStrategy(convention: partnerConvention),
             ),
       schupfStrategy: schupf == null
           ? DefaultSchupfStrategy(convention: partnerConvention)

@@ -11,7 +11,7 @@ The app's bots ([shipped_bots.dart](shipped_bots.dart),
 | Decision | Shipped bot | Heuristic |
 |---|---|---|
 | Play (lead / follow / bomb) | trained play net + endgame search / one-on-one solver | R1-R4, R10, R12 |
-| Schupf | trained schupf net over candidate passes | R8 |
+| Schupf | trained schupf net over candidate passes, partner card by "2+ HC Odd" (R8b) | R8, R8b |
 | Tichu / Grand Tichu calls | heuristic (R7) | R7 |
 | Mahjong wish | heuristic (R6) | R6 |
 | Dragon give | heuristic (R9) | R9 |
@@ -115,7 +115,30 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart),
 - Partner card: partner called, so pass the strongest non-Dog card. I
   called or hold a Tichu hand (R7), so pass a low card. Otherwise pass the
   strongest normal card.
+- With a partner convention (below) the partner card is the strongest
+  card it allows (a low one for a Tichu hand), picked before the
+  opponents' cards.
 - Code: [schupf_strategy.dart](schupf_strategy.dart)
+
+### R8b — Partner Convention "2+ HC Odd"
+From tichuengine.com/about. High cards (HC) are Aces, Phoenix and Dragon,
+counted in the 14-card hand before passing:
+- 1 HC: pass that card. 2+ HC: pass odd (3 5 7 9 J K), the Mahjong or the
+  Dog. 0 HC: pass even (2 4 6 8 10 Q).
+- A (Grand) Tichu call by me or my partner before the schupf turns it off;
+  a calling partner gets a high card if I have one.
+- My right opponent called Grand: with 1+ HC an odd card or a high card.
+- Passing: the schupf net scores only conforming partner cards (an overlay
+  on its values, no retraining, as Tichu Engine does); the heuristic picks
+  one. No conforming card: unconstrained.
+- Reading: the endgame search re-deals its worlds so that the partner
+  kept the promised HC count (`dealUnseen`, `enforceHighCardPromise`).
+  A call by either of us skips this (the state does not record whether it
+  came before the schupf). Opponents' passes to the partner are taken to
+  hold no HC.
+- The shipped bots use it (`ShippedBots.partnerConvention`); headless
+  `--convention=twoHcOdd` / `--opponent-convention=`.
+- Code: [partner_convention.dart](partner_convention.dart)
 
 ### R9 — Dragon Give
 - Prefer giving Dragon to opponent without Tichu call.

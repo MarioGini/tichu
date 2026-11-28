@@ -20,7 +20,17 @@ abstract class TichuCallStrategy {
 /// reaches a threshold. Both thresholds are calibrated on exact
 /// counterfactual call values.
 class DefaultTichuCallStrategy implements TichuCallStrategy {
-  const DefaultTichuCallStrategy();
+  /// The thresholds this strategy calls at (the calibrated constants by
+  /// default; headless `--tichu-threshold` etc. for experiments).
+  final double tichuThreshold;
+  final double tichuThresholdVsCall;
+  final double grandTichuThreshold;
+
+  const DefaultTichuCallStrategy({
+    this.tichuThreshold = strengthThreshold,
+    this.tichuThresholdVsCall = strengthThresholdVsCall,
+    this.grandTichuThreshold = grandThreshold,
+  });
 
   @override
   Future<bool> shouldCallTichuBeforeSchupf(
@@ -34,7 +44,7 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
     String playerId,
   ) async =>
       grandStrength(snapshot.hands[playerId] ?? const <Card>[]) >=
-      grandThreshold;
+      grandTichuThreshold;
 
   /// Call Grand Tichu at this [grandStrength]: Dragon + Phoenix, either of
   /// them with two Aces, or with an Ace and three Kings / Queens.
@@ -73,7 +83,7 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
               TichuCall.none,
     );
     return tichuStrength(hand) >=
-        (opponentCalled ? strengthThresholdVsCall : strengthThreshold);
+        (opponentCalled ? tichuThresholdVsCall : tichuThreshold);
   }
 
   /// Calibrated on exact counterfactual call values (3,475 first-Tichu
@@ -107,5 +117,5 @@ class DefaultTichuCallStrategy implements TichuCallStrategy {
 
   /// Whether [hand] is strong enough to call Tichu (no opponent call). Also
   /// used before the exchange to decide whether to keep strong cards.
-  bool isTichuHand(List<Card> hand) => tichuStrength(hand) >= strengthThreshold;
+  bool isTichuHand(List<Card> hand) => tichuStrength(hand) >= tichuThreshold;
 }

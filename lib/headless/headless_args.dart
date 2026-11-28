@@ -30,6 +30,10 @@ class _HeadlessConfig {
   final StyleBias opponentStyle;
   final bool schupfExtended;
 
+  /// The policy team's heuristic call thresholds (`--tichu-threshold`,
+  /// `--tichu-threshold-vs-call`, `--grand-threshold`).
+  final DefaultTichuCallStrategy calls;
+
   /// Partner-passing conventions of the two teams (`--partner-convention`).
   final PartnerConvention partnerConvention;
   final PartnerConvention opponentPartnerConvention;
@@ -94,6 +98,7 @@ class _HeadlessConfig {
     required this.opponentStyle,
     required this.schupfExtended,
     required this.partnerConvention,
+    required this.calls,
     required this.opponentPartnerConvention,
     required this.opponentSchupfExtended,
     required this.schupfLabelExtended,
@@ -156,6 +161,9 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var opponentStyle = StyleBias.none;
   var schupfExtended = false;
   var partnerConvention = PartnerConvention.none;
+  var tichuThreshold = DefaultTichuCallStrategy.strengthThreshold;
+  var tichuThresholdVsCall = DefaultTichuCallStrategy.strengthThresholdVsCall;
+  var grandThreshold = DefaultTichuCallStrategy.grandThreshold;
   var opponentPartnerConvention = PartnerConvention.none;
   var opponentSchupfExtended = false;
   var schupfLabelExtended = false;
@@ -537,6 +545,21 @@ _HeadlessConfig _parseArgs(List<String> args) {
       heuristic = HeuristicOptions.parse(arg.substring(arg.indexOf('=') + 1));
       continue;
     }
+    if (arg.startsWith('--tichu-threshold=') ||
+        arg.startsWith('--tichu-threshold-vs-call=') ||
+        arg.startsWith('--grand-threshold=')) {
+      final v = double.tryParse(arg.split('=').last);
+      if (v != null) {
+        if (arg.startsWith('--tichu-threshold-vs-call=')) {
+          tichuThresholdVsCall = v;
+        } else if (arg.startsWith('--tichu-threshold=')) {
+          tichuThreshold = v;
+        } else {
+          grandThreshold = v;
+        }
+        continue;
+      }
+    }
     if (arg.startsWith('--partner-convention=') ||
         arg.startsWith('--opponent-partner-convention=')) {
       final convention = PartnerConvention.tryParse(arg.split('=').last);
@@ -694,6 +717,11 @@ _HeadlessConfig _parseArgs(List<String> args) {
     opponentStyle: opponentStyle,
     schupfExtended: schupfExtended,
     partnerConvention: partnerConvention,
+    calls: DefaultTichuCallStrategy(
+      tichuThreshold: tichuThreshold,
+      tichuThresholdVsCall: tichuThresholdVsCall,
+      grandTichuThreshold: grandThreshold,
+    ),
     opponentPartnerConvention: opponentPartnerConvention,
     opponentSchupfExtended: opponentSchupfExtended,
     schupfLabelExtended: schupfLabelExtended,
@@ -806,6 +834,10 @@ void _printUsage() {
     '       [--partner-convention=none|2hc-odd] '
     '[--opponent-partner-convention=..]  '
     '(the partner pass promises high cards; the search keeps the promise)',
+  );
+  stdout.writeln(
+    '       [--tichu-threshold=-0.1] [--tichu-threshold-vs-call=0.5] '
+    '[--grand-threshold=5]  (heuristic calls of the policy team)',
   );
   stdout.writeln('       [--epsilon=0.1]');
 }

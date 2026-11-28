@@ -79,6 +79,7 @@ Future<void> main(List<String> args) async {
     schupfExtended: config.schupfExtended,
     partnerConvention: config.partnerConvention,
     belief: await _loadNet(config.beliefNetPath),
+    calls: config.calls,
   );
   final opponentPolicy = await _loadNet(config.opponentPolicyPath);
   final policyFactory = policyConfig

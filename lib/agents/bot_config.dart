@@ -11,6 +11,7 @@ import 'package:tichu/agents/nn/nn_tichu_call_strategy.dart';
 import 'package:tichu/agents/nn/style_bias.dart';
 import 'package:tichu/agents/partner_convention.dart';
 import 'package:tichu/agents/smart_ai_agent.dart';
+import 'package:tichu/agents/tichu_call_strategy.dart';
 import 'package:tichu/game/player_agent.dart';
 
 /// A loaded network plus the denormalisation from its safetensors metadata.
@@ -56,6 +57,9 @@ class BotConfig {
   /// [SchupfFeatures.candidates]).
   final bool schupfExtended;
 
+  /// Heuristic call thresholds (used when no call net is given).
+  final DefaultTichuCallStrategy calls;
+
   /// Card-location net (`rl/belief_train.py`) for a play net trained with
   /// belief inputs (`rollout_train.py --belief-net`); ignored by a play net
   /// without them.
@@ -96,6 +100,7 @@ class BotConfig {
     this.schupfExtended = false,
     this.partnerConvention = PartnerConvention.none,
     this.belief,
+    this.calls = const DefaultTichuCallStrategy(),
     this.callMargin = 0,
     this.simdInference = false,
     this.style = StyleBias.none,
@@ -114,6 +119,7 @@ class BotConfig {
     schupfExtended: schupfExtended,
     partnerConvention: partnerConvention,
     belief: belief,
+    calls: calls,
     callMargin: callMargin,
     simdInference: simdInference,
     style: style,
@@ -160,7 +166,7 @@ class BotConfig {
             )),
       tichuCallStrategy:
           tichu == null && grandTichu == null && preSchupfTichu == null
-          ? null
+          ? calls
           : NnTichuCallStrategy(
               tichuNetwork: tichu?.network,
               grandTichuNetwork: grandTichu?.network,

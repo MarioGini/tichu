@@ -419,6 +419,9 @@ class EndgameSearcher {
   /// Card-location model for [EndgameSearch.beliefWorlds].
   final BeliefModel? belief;
 
+  /// Per seat instead of [belief] (headless duels: each team its own).
+  final BeliefModel? Function(int seat)? beliefOf;
+
   /// Rolls the worlds out in batches on these workers (the app: worker
   /// isolates); null = one after another here. The worlds are dealt
   /// before, so the result does not depend on it.
@@ -428,6 +431,7 @@ class EndgameSearcher {
     required this.rolloutAgent,
     this.yieldBetweenRollouts = false,
     this.belief,
+    this.beliefOf,
     this.workers,
   });
 
@@ -515,8 +519,9 @@ class EndgameSearcher {
       };
       final team = current.seat % 2;
       final random = Random(searchSeed(state, playerId));
-      final holders = config.beliefWorlds && belief != null
-          ? belief!.holderProbabilities(
+      final model = beliefOf == null ? belief : beliefOf!(current.seat);
+      final holders = config.beliefWorlds && model != null
+          ? model.holderProbabilities(
               snapshot,
               playerId,
               convention: config.convention,

@@ -36,6 +36,7 @@ class _HeadlessConfig {
   final PartnerConvention opponentConvention;
   final bool schupfLabelExtended;
   final String? beliefNetPath;
+  final String? opponentBeliefNetPath;
   final bool recordGames;
   final double schupfEpsilon;
   final bool shadowHeuristic;
@@ -94,6 +95,7 @@ class _HeadlessConfig {
     this.opponentConvention = PartnerConvention.free,
     required this.schupfLabelExtended,
     required this.beliefNetPath,
+    this.opponentBeliefNetPath,
     required this.recordGames,
     required this.schupfEpsilon,
     required this.shadowHeuristic,
@@ -179,6 +181,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
   var solveBudget = 20000;
   var solveMaxCards = 10;
   String? beliefNetPath;
+  String? opponentBeliefNetPath;
   var recordGames = false;
   var endgameBelief = false;
   var opponentEndgameBelief = false;
@@ -366,6 +369,10 @@ _HeadlessConfig _parseArgs(List<String> args) {
     }
     if (arg.startsWith('--belief-net=')) {
       beliefNetPath = arg.substring('--belief-net='.length);
+      continue;
+    }
+    if (arg.startsWith('--opponent-belief-net=')) {
+      opponentBeliefNetPath = arg.substring('--opponent-belief-net='.length);
       continue;
     }
     if (arg == '--record-games') {
@@ -607,6 +614,7 @@ _HeadlessConfig _parseArgs(List<String> args) {
     opponentConvention: opponentConvention,
     schupfLabelExtended: schupfLabelExtended,
     beliefNetPath: beliefNetPath,
+    opponentBeliefNetPath: opponentBeliefNetPath,
     recordGames: recordGames,
     schupfEpsilon: schupfEpsilon,
     shadowHeuristic: shadowHeuristic,

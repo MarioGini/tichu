@@ -20,8 +20,10 @@ abstract final class ShippedBots {
   static const PartnerConvention partnerConvention = PartnerConvention.twoHcOdd;
 
   /// Card-location model (rl/belief_train.py): the endgame search re-deals
-  /// its worlds with it instead of uniformly.
-  static const beliefAsset = 'assets/bots/tichu_belief_v1.safetensors';
+  /// its worlds with it instead of uniformly. v2: trained on self-play that
+  /// keeps [partnerConvention] (schema v10 inputs); on such games 0.63
+  /// nats per unseen high card (v1 0.90, uniform 1.07).
+  static const beliefAsset = 'assets/bots/tichu_belief_v2.safetensors';
 
   /// Decision-time endgame search and one-on-one solver for the app bots
   /// (rl/README.md, "Search at decision time"). Flip to switch it off.

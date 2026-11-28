@@ -118,6 +118,15 @@ Future<void> main(List<String> args) async {
     plainFactory = (playerId, _) => policyConfig.build(playerId);
   }
 
+  final belief = switch (await _loadNet(config.beliefNetPath)) {
+    final LoadedNet net => BeliefModel(net.network),
+    null => null,
+  };
+  // --opponent-belief-net: the opponent team searches with its own.
+  final opponentBelief = switch (await _loadNet(config.opponentBeliefNetPath)) {
+    final LoadedNet net => BeliefModel(net.network),
+    null => null,
+  };
   final simulator = _HeadlessSimulator(
     random: random,
     targetScore: config.targetScore,
@@ -170,10 +179,11 @@ Future<void> main(List<String> args) async {
         config.endgameSearch != null || config.opponentEndgameSearch != null
         ? EndgameSearcher(
             rolloutAgent: plainFactory,
-            belief: switch (await _loadNet(config.beliefNetPath)) {
-              final LoadedNet net => BeliefModel(net.network),
-              null => null,
-            },
+            belief: belief,
+            beliefOf: opponentBelief == null
+                ? null
+                : (seat) =>
+                      seat.isEven != config.swapTeams ? belief : opponentBelief,
           )
         : null,
   );

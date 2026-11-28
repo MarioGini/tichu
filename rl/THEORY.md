@@ -266,7 +266,8 @@ rl/.venv/bin/python rl/duel.py --deals=600 \
 | S1 | `ctrl1` (net retrained on it11–13) + H's search | 53.9 % ± 1.2, +63 ± 13 (600 × 2): the net-only +2 pp does not add on top of search |
 | it14 | one fresh rollout-loop iteration from `ctrl1` (0.9 M new decisions) vs `ctrl1`, net only | 49.2 % ± 1.1, not promoted: the net is at its fixed point |
 | calls | Tichu threshold −0.6 / −0.4 / −0.25 / +0.1 / +0.3, vs-call 0 / 1, Grand 4 / 4.5 / 6 (net only, 1000 × 2 each) | 49.1–50.6 %, none better: the calibrated thresholds stay |
-| **H + prior** | H with `--endgame-prior-weight=1` (the net's Q in the halving score, tichuengine's "ln prior + σ·mean") | **56.3 % ± 1.6, +106 ± 17** (300 × 2), the best so far |
+| **H + prior** | H with `--endgame-prior-weight=1` (the net's Q in the halving score, tichuengine's "ln prior + σ·mean") | **56.3 % ± 1.6, +106 ± 17** (300 × 2); replication on new deals 55.7 % ± 1.5, +67 ± 17; together **≈ 56.0 % ± 1.1, +86** (600 × 2), the best so far |
+| H + prior 2 | the same with weight 2 | 55.8 % ± 1.5, +74 ± 17 (300 × 2, new deals): same as weight 1 |
 | H + parity | H with `--partner-convention=parity` (odd = 2+ high cards, even = ≤ 1, no forced high-card pass) | 54.3 % ± 1.7, +61 ± 20 (300 × 2): no gain over H |
 | net only: belief inputs | v10 + 168 belief inputs (zero-weight warm start), 3 epochs on it11–13 (5.6 M decisions) vs v10, no search | 51.3 % ± 1.1, +41 ± 12 |
 | net only: control | the same training without belief inputs | 52.0 % ± 1.2, +27 ± 12 |

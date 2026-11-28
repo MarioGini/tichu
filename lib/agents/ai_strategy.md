@@ -3,6 +3,25 @@
 This file is the implementation-locked strategy contract for the heuristic
 bot (`SmartAiAgent`). Every rule listed here is present in code today.
 
+## 0) What the app plays with
+
+The app's bots ([shipped_bots.dart](shipped_bots.dart),
+[app_bots.dart](app_bots.dart)) are not the heuristic:
+
+| Decision | Shipped bot | Heuristic |
+|---|---|---|
+| Play (lead / follow / bomb) | trained play net + endgame search / one-on-one solver | R1-R4, R10, R12 |
+| Schupf | trained schupf net over candidate passes | R8 |
+| Tichu / Grand Tichu calls | heuristic (R7) | R7 |
+| Mahjong wish | heuristic (R6) | R6 |
+| Dragon give | heuristic (R9) | R9 |
+| Partner-Tichu guard, wish compliance | both (R2 `guard`, R5) | both |
+
+The heuristic play and schupf rules run only before the nets load, if
+loading fails, in tests, and as the `heuristic` bot in headless duels.
+R6, R7 and R9 decide for every bot. The schupf net's candidates use the
+same odd-left / even-right convention as R8.
+
 The rule set was cut down on 2026-11-17: every rule and `TurnScorer` weight
 was scored on exact rollout values (`headless --shadow-heuristics`, see
 [rl/README.md](../../rl/README.md)) and in duplicate duels, and rules
@@ -73,7 +92,10 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart),
   [wish_strategy.dart](wish_strategy.dart)
 
 ### R7 — Tichu Calls
-- Never Grand Tichu, never before the schupf.
+- Never before the schupf.
+- Grand Tichu when the first eight cards reach strength 5:
+  `3 Dragon + 3 Phoenix + 1/Ace + 1/3 per King or Queen + 2/four of a kind
+  - 1 Dog` (Dragon + Phoenix calls; a bomb alone never does).
 - Tichu at the first opportunity when
   `strength = Dragon + 0.8 Phoenix + 0.7/Ace + 1.2/bomb + 0.2/King
   - 0.35 * plays-to-go-out - 0.7 if holding the Dog` reaches -0.1
@@ -85,10 +107,14 @@ Primary wiring: [smart_ai_agent.dart](smart_ai_agent.dart),
 
 ### R8 — Schupf Conventions
 - Reject schupf when hand has <3 cards.
-- If opponent called Grand Tichu and Dog exists, give Dog to that opponent.
-- Prefer splitting low pairs to opponents.
-- Fill opponent slots with low cards (odd-left / even-right preference).
-- Give strongest partner card when partner called Grand Tichu.
+- An opponent called (Grand) Tichu and the partner did not: give that
+  opponent the Dog.
+- Fill opponent slots with the lowest normal cards, odd ranks left and even
+  ranks right, so an opponent never gets two cards of one rank from us.
+- Never break up a bomb when another card can be passed.
+- Partner card: partner called, so pass the strongest non-Dog card. I
+  called or hold a Tichu hand (R7), so pass a low card. Otherwise pass the
+  strongest normal card.
 - Code: [schupf_strategy.dart](schupf_strategy.dart)
 
 ### R9 — Dragon Give

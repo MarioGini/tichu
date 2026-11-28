@@ -3,9 +3,9 @@
 Python (`uv` + CPU PyTorch, Linux only) trains the nets; Dart encodes every
 feature and plays every game (`lib/headless/`). Artifacts are
 `.safetensors`. Run everything from the repo root. Past results and
-findings are in `rl/REVIEW.md`, and the shipped nets are listed in
-`rl/models/README.md`. `rl/THEORY.md` reviews the tichuengine.com bot and
-lays out the plan beyond v10 (value net, halving search, match utility).
+findings are in `rl/REVIEW.md`. `rl/THEORY.md` reviews the tichuengine.com
+bot and lays out the plan beyond v10 (value net, halving search, match
+utility), with every duel of that work.
 
 ## Setup
 
@@ -34,6 +34,18 @@ app and the headless runner. The play net scores every legal play plus pass
 you can, and honour the wish. The Tichu and Grand Tichu calls and the
 choice of wish are heuristic (`DefaultTichuCallStrategy`). Dragon gifts go
 to the solver when it applies; otherwise the heuristic picks.
+
+The shipped nets live in `assets/bots/`: play net 431-256-128-64-1, schupf
+net 232 inputs, belief net 373-512-256-168 (who holds each unseen card).
+Only nets of the current feature layout run, so that folder holds just the
+shipped nets; duels and the training loop use them as the baseline. Earlier
+nets are in Supabase Storage (see "Data") and in git history.
+
+The app's search is sequential halving with the play net's prior (56
+rollouts per decision; a challenger must beat the net's move by a standard
+error). Against the same nets with the former 8 worlds x 7 actions grid it
+wins **56.3 % ± 1.6** (+106 per match, 300 deals x 2) and, on new deals,
+55.7 % ± 1.5 (+67): together about 56.0 % ± 1.1.
 
 ## Feature schema
 
